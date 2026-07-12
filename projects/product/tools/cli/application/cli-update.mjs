@@ -49,11 +49,7 @@ export function identifyCliSource(productRoot) {
   const gitRoot = run('git', ['-C', root, 'rev-parse', '--show-toplevel']);
   if (gitRoot.ok) {
     const resolvedGitRoot = fs.realpathSync(path.resolve(gitRoot.stdout));
-    const realRoot = fs.realpathSync(root);
-    const relative = path.relative(resolvedGitRoot, realRoot);
-    if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
-      return { ...base, mode: 'development-checkout', gitRoot: resolvedGitRoot, installPrefix: null, blockingReasons: [] };
-    }
+    return { ...base, mode: 'development-checkout', gitRoot: resolvedGitRoot, installPrefix: null, blockingReasons: [] };
   }
   const installPrefix = registryPrefixForProductRoot(root);
   if (installPrefix) {

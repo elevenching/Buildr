@@ -269,11 +269,11 @@ export function registerDomainsSkills(runtime) {
   }
 
   function normalizeRelativePathForBuildr(input, message) {
-    const normalized = path.normalize(input).replace(/^\.\//, '');
+    const normalized = path.normalize(input).replace(/^\.[\\/]/, '');
     if (!normalized || path.isAbsolute(normalized) || normalized === '..' || normalized.startsWith(`..${path.sep}`)) {
       throw new Error(message);
     }
-    return normalized;
+    return normalized.split(path.sep).join('/');
   }
 
   function parseSkillSourceRef(sourceRef) {

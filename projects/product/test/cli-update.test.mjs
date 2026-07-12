@@ -135,9 +135,12 @@ test('发布模式更新保持 package identity 与安装 prefix', (t) => {
   const bin = path.join(fixture, 'bin');
   const log = path.join(fixture, 'npm.log');
   fs.mkdirSync(bin);
-  const npm = path.join(bin, 'npm');
-  fs.writeFileSync(npm, `#!/bin/sh\nprintf '%s\\n' "$*" > "${log}"\n`);
-  fs.chmodSync(npm, 0o755);
+  const npm = path.join(bin, process.platform === 'win32' ? 'npm.cmd' : 'npm');
+  const fakeNpm = process.platform === 'win32'
+    ? `@echo off\r\necho %* > "${log}"\r\n`
+    : `#!/bin/sh\nprintf '%s\\n' "$*" > "${log}"\n`;
+  fs.writeFileSync(npm, fakeNpm);
+  if (process.platform !== 'win32') fs.chmodSync(npm, 0o755);
   const plan = {
     mode: 'registry-package',
     status: 'update-available',
