@@ -1,0 +1,4 @@
+CLAUDE.md
+node_modules/
+dist/
+*.tgz

@@ -1,0 +1,144 @@
+include:
+  - LICENSE
+  - README.md
+  - docs/cli-reference.md
+  - docs/cli-architecture.md
+  - docs/known-limitations.md
+  - examples/minimal-workspace/README.md
+  - package/
+
+agentSkills:
+  - id: buildr
+    path: package/targets/runtime/skills/buildr
+    runtimes:
+      - claude-code
+      - codex
+
+builtins:
+  rules:
+    - id: buildr-core
+      path: package/targets/workspace/rules/buildr/core.md
+      target: rules/buildr/core.md
+      description: Buildr workspace 基础契约；每次进入 workspace 都必须读取。
+      required: true
+  skills:
+    - id: task-triage
+      path: package/targets/workspace/skills/buildr/task-triage
+      target: skills/buildr/task-triage
+      description: 用户要求修 bug、实现或调整功能、改需求、重构、优化、补文档、补测试、调整 API/契约/权限/状态流/数据语义，或询问某项改动是否需要更新 spec、创建 change、只改代码时使用。
+      required: false
+      runtimes: ["claude-code","codex"]
+    - id: task-worktree
+      path: package/targets/workspace/skills/buildr/task-worktree
+      target: skills/buildr/task-worktree
+      description: 用户要求代码开发、修 bug、实现功能、运行构建或测试、多仓协作、隔离任务分支，或清理已上线、已归档、已收尾任务的 worktree/change-id/任务分支时使用。
+      required: false
+      legacyIntegrities:
+        - sha256-23e68c3174887ebbf6990526f93e7f1c047199e1bef1f2e8e293b0cba2a3cfad
+      runtimes: ["claude-code","codex"]
+    - id: task-finish
+      path: package/targets/workspace/skills/buildr/task-finish
+      target: skills/buildr/task-finish
+      description: 用户在 task worktree 中要求“收尾”、完成任务、自动收尾，或要求自动完成已验证 change 的归档、提交、集成、推送和本地清理时使用。
+      required: false
+      runtimes: ["claude-code","codex"]
+    - id: git-ops
+      path: package/targets/workspace/skills/buildr/git-ops
+      target: skills/buildr/git-ops
+      description: 用户表达提交、commit、推送、push、提交并推送、合并、merge、rebase、发布、release、删除分支、清理远端分支等单项 Git 意图，或 Git 操作存在授权、范围、amend、远端改写、分支删除等歧义时使用。
+      required: false
+      runtimes: ["claude-code","codex"]
+    - id: openspec-explore
+      path: package/targets/workspace/skills/openspec/openspec-explore
+      target: skills/openspec/openspec-explore
+      description: 探索想法、调查问题或澄清需求时使用；只思考和梳理，不实现代码。
+      required: false
+      component: openspec
+      runtimes: ["claude-code","codex"]
+    - id: openspec-propose
+      path: package/targets/workspace/skills/openspec/openspec-propose
+      target: skills/openspec/openspec-propose
+      description: 用户要快速创建完整 OpenSpec change 提案、设计、规格和任务时使用。
+      required: false
+      component: openspec
+      runtimes: ["claude-code","codex"]
+    - id: openspec-apply-change
+      path: package/targets/workspace/skills/openspec/openspec-apply-change
+      target: skills/openspec/openspec-apply-change
+      description: 用户要开始或继续实现某个 OpenSpec change 的任务时使用。
+      required: false
+      component: openspec
+      runtimes: ["claude-code","codex"]
+    - id: openspec-sync-specs
+      path: package/targets/workspace/skills/openspec/openspec-sync-specs
+      target: skills/openspec/openspec-sync-specs
+      description: 用户要把 change 中的 delta specs 同步到主 specs，但不归档 change 时使用。
+      required: false
+      component: openspec
+      runtimes: ["claude-code","codex"]
+    - id: openspec-archive-change
+      path: package/targets/workspace/skills/openspec/openspec-archive-change
+      target: skills/openspec/openspec-archive-change
+      description: 用户明确要归档已完成 OpenSpec change 时使用。
+      required: false
+      component: openspec
+      runtimes: ["claude-code","codex"]
+    - id: openspec-contract-guard
+      path: package/targets/workspace/skills/buildr/openspec-contract-guard
+      target: skills/buildr/openspec-contract-guard
+      description: 创建、同步或归档 OpenSpec change 时建立契约基线，并检测并行冲突、陈旧 delta 和同步结果漂移。
+      required: false
+      component: openspec
+      runtimes: ["claude-code","codex"]
+  commands: []
+
+components:
+  - id: openspec
+    path: package/targets/workspace/components/buildr/openspec/component.yml
+    defaultEnabled: true
+    required: false
+
+workspaceDirectories:
+  - commands
+  - components
+  - projects
+  - rules
+  - skills
+
+workspaceFiles:
+  - package/targets/workspace/AGENTS.md => AGENTS.md render
+  - package/targets/workspace/.buildr/workspace.yml => .buildr/workspace.yml render
+  - package/targets/workspace/projects/manifest.yml => projects/manifest.yml copy
+  - package/targets/workspace/gitignore => .gitignore copy
+  - package/targets/workspace/rules/manifest.yml => rules/manifest.yml copy
+  - package/targets/workspace/rules/buildr/core.md => rules/buildr/core.md copy
+  - package/targets/workspace/commands/manifest.yml => commands/manifest.yml copy
+  - package/targets/workspace/components/manifest.yml => components/manifest.yml copy
+  - package/targets/workspace/skills/manifest.yml => skills/manifest.yml copy
+  - package/targets/workspace/skills/buildr/task-triage/SKILL.md => skills/buildr/task-triage/SKILL.md copy
+  - package/targets/workspace/skills/buildr/task-worktree/SKILL.md => skills/buildr/task-worktree/SKILL.md copy
+  - package/targets/workspace/skills/buildr/task-finish/SKILL.md => skills/buildr/task-finish/SKILL.md copy
+  - package/targets/workspace/skills/buildr/git-ops/SKILL.md => skills/buildr/git-ops/SKILL.md copy
+
+projectDirectories:
+  - openspec/specs
+  - openspec/knowledge
+  - openspec/changes
+  - skills
+  - services
+
+projectFiles:
+  - package/targets/workspace/projects/AGENTS.project.md => AGENTS.md render
+  - package/targets/workspace/projects/services/manifest.yml => services/manifest.yml render
+  - package/targets/workspace/projects/skills/manifest.yml => skills/manifest.yml copy
+
+templateVariables:
+  - name
+  - profile
+  - project
+
+forbiddenPatterns:
+  - /Users/
+  - organizations/
+  - rules/AGENTS.private.md
+  - integrations/openspec.md

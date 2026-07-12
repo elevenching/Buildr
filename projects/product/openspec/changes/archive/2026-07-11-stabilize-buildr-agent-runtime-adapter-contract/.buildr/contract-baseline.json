@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "stabilize-buildr-agent-runtime-adapter-contract",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-30970b24eda2075d35153e797208bd9a3778beeb2243c9f3e696feed253ba019",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "managed-components",
+      "title": "Component 不构成 runtime adapter 扩展机制",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-components",
+      "title": "Component 必须验证自身完整性后参与 runtime 投射",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Supported runtime adapter 使用静态完整契约",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Adapter 只生成声明式运行时计划",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Runtime 命令共享计划与 reconcile 管线",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Adapter 可以组合受约束的内置投射原语",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "现有 supported runtime 迁移保持兼容",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+name: Bug report
+description: Report a reproducible Buildr defect without sensitive workspace data.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include tokens, private repository URLs, customer data, or vulnerability details. Security issues belong in private vulnerability reporting.
+  - type: input
+    id: version
+    attributes:
+      label: Buildr version or commit
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Agent runtime
+      placeholder: codex or claude-code
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Include commands, minimal sanitized assets, and actual output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true

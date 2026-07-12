@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "prepare-github-open-source",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-0975914f9b8c49336267c0da210b814f9d2f86da212b6e4e231c41df0b4b2d34",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "human-agent-onboarding",
+      "title": "开发仓库安装必须形成 Agent 可用闭环",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "npm-cli-package",
+      "title": "npm package 具备公开发布基线 metadata",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "root-organization-workspace",
+      "title": "Buildr root 作为 Organization 上下文实例",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr root 作为 Organization 上下文实例\nBuildr MUST 将默认初始化目录定义为一个 Organization 上下文实例，而不是多 Organization 容器。\n\n#### Scenario: 个人上下文\n- **WHEN** 个人用户在 `~/personal` 初始化 Buildr\n- **THEN** Buildr MUST 将 `~/personal` 作为该用户个人项目的 Organization 上下文根目录\n\n#### Scenario: 公司上下文\n- **WHEN** 用户在 `~/jixian` 初始化 Buildr\n- **THEN** Buildr MUST 将 `~/jixian` 作为 `jixian` 公司或组织项目的 Organization 上下文根目录\n"
+    },
+    {
+      "capability": "root-organization-workspace",
+      "title": "移除 legacy organizations 入口",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 移除 legacy organizations 入口\nBuildr MUST NOT 将 `organizations/<org>/` 作为产品主线、兼容路径或默认 scope 解析入口。\n\n#### Scenario: 拒绝 legacy project ref\n- **WHEN** Agent 调用 `buildr project create jixian/pig`\n- **THEN** Buildr MUST 报告该 ref 不受支持，并提示使用 `buildr project create pig`\n\n#### Scenario: 拒绝 legacy service ref\n- **WHEN** Agent 调用 `buildr service create jixian/pig/freshx <repo-ref>`\n- **THEN** Buildr MUST 报告该 ref 不受支持，并提示使用 `buildr service create pig/freshx <repo-ref>`\n\n#### Scenario: 拒绝 legacy scope\n- **WHEN** Agent 调用 `buildr doctor --scope organizations/jixian/projects/pig --json`\n- **THEN** Buildr MUST 报告该 scope 不受支持，并提示使用 `projects/pig`\n"
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "远端 Skill 解析必须有界完成",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "enhance-p2-release-quality",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-c24f6fdc466c0d8bd9b3345518002ebfa84737192a0f2201449406ceb1130973",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "cli-modular-architecture",
+      "title": "tools 内部实现必须按职责目录组织",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "CI 必须覆盖最低 Node、当前 Node 和目标桌面平台",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "release smoke 必须验证安装后生命周期",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "产品验证必须记录阶段耗时",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "public-json-contracts",
+      "title": "公开 JSON 输出必须声明 schema identity",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "public-json-contracts",
+      "title": "JSON schema major 必须按兼容规则演进",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "public-json-contracts",
+      "title": "JSON schema coverage 必须由自动验证保护",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

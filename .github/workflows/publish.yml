@@ -1,0 +1,61 @@
+name: Publish Buildr
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: npm-production
+    defaults:
+      run:
+        working-directory: projects/product
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22.14.0"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Install supported npm CLI
+        run: npm install --global npm@11.5.1
+      - name: Install product dependencies
+        run: npm ci
+      - name: Install supported OpenSpec CLI
+        run: npm install --global @fission-ai/openspec@1.4.1
+      - name: Resolve release contract
+        id: contract
+        run: node tools/verification/release/release-contract.mjs "${GITHUB_REF_NAME}"
+      - name: Verify final release candidate
+        env:
+          BUILDR_TIMING_OUTPUT: ${{ runner.temp }}/buildr-release-verification-timing.json
+        run: ./tools/verify-buildr-product
+      - name: Check official registry version
+        id: registry
+        run: >-
+          node tools/verification/release/registry-version-state.mjs
+          "${{ steps.contract.outputs.version }}"
+      - name: Publish public npm package
+        if: steps.registry.outputs.published != 'true'
+        run: npm publish --access public --tag "${{ steps.contract.outputs.npm_tag }}"
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${GITHUB_REF_NAME}"
+          --generate-notes
+          ${{ steps.contract.outputs.prerelease == 'true' && '--prerelease' || '' }}
+      - name: Upload release verification timing
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-verification-timing-${{ github.ref_name }}
+          path: ${{ runner.temp }}/buildr-release-verification-timing.json
+          if-no-files-found: warn

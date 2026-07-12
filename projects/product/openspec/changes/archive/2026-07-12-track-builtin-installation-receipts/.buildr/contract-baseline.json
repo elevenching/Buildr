@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "track-builtin-installation-receipts",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-a8bc564c67d28a8fddbf4dbdf2626353ad5fdc05d361e05c2e5790a2a165b761",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-package-assets",
+      "title": "package manifest 声明内置能力",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: package manifest 声明内置能力\nBuildr package manifest MUST 声明可同步到用户 workspace 的产品内置 Rules、Skills 和 Commands。\n\n#### Scenario: 声明内置 Rules\n- **WHEN** Buildr package 包含产品内置 Rules\n- **THEN** `package/manifest.yml` MUST 声明每个内置 Rule 的 id、源路径、目标路径、description 和 required 状态\n- **AND** version 或 hash 元数据 MAY 声明，但不是必填\n\n#### Scenario: 声明内置 Skills\n- **WHEN** Buildr package 包含产品内置 Skills\n- **THEN** `package/manifest.yml` MUST 声明每个内置 Skill 的 id、源路径、目标路径、适用 runtimes 和 required 状态\n- **AND** version 或 hash 元数据 MAY 声明，但不是必填\n\n#### Scenario: 未声明版本的内置能力\n- **WHEN** 某个内置能力未声明 version 或 hash\n- **THEN** Buildr doctor MUST 只检查该内置能力的存在性和结构有效性\n- **AND** Buildr MUST NOT 仅因为无法判断版本输出 warning\n\n#### Scenario: 声明内置 Commands\n- **WHEN** Buildr package 包含产品内置 Commands\n- **THEN** `package/manifest.yml` MUST 声明每个内置 Command 在 `commands/manifest.yml` 中需要写入的 manifest entry\n- **AND** 内置 Commands MUST 保持为声明和安装提示，不得变成自动本机安装\n\n#### Scenario: package check 校验内置能力\n- **WHEN** Agent 运行 `buildr package check`\n- **THEN** Buildr MUST 校验已声明的内置能力源路径\n- **AND** Buildr MUST 校验 forbidden patterns、必需 Skill 文件、manifest entry 结构和目标路径安全性\n\n#### Scenario: Rules 和 Skills manifest-first\n- **WHEN** Buildr package 发布内置 Rules 或 Skills\n- **THEN** update MUST 将它们登记到 `rules/manifest.yml` 或 `skills/manifest.yml`\n- **AND** Buildr MUST NOT 依赖扫描裸文件决定规则或技能是否生效\n\n#### Scenario: Rule manifest metadata\n- **WHEN** Buildr 创建、安装或更新 Rule manifest entry\n- **THEN** entry MUST 声明 `id`、`source`、`path`、`description`、`enabled` 和 `required`\n- **AND** `description` MUST 描述适用场景和用途，供 Agent 判断何时读取该规则\n- **AND** `description` MUST NOT 用来承载规则正文\n\n#### Scenario: package baseline 排除未声明内置能力\n- **WHEN** Buildr 打包或校验产品资产\n- **THEN** builtin package 源目录下的文件 MUST 只有在 package manifest 声明或被 package include 边界覆盖时才能进入发布包\n"
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr 内置能力层",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr 内置能力层\nBuildr MUST 在每个 Buildr workspace 中支持由产品管理的 Rules、Skills 和 Commands 内置能力层。\n\n#### Scenario: 内置能力目录\n- **WHEN** Buildr 初始化或同步 workspace\n- **THEN** Buildr MUST 能够在 `rules/buildr/` 和 `skills/buildr/` 下物化产品管理的内置 Rule 和 Skill\n- **AND** Buildr MUST 将内置 Commands 声明写入 `commands/manifest.yml`\n- **AND** 用户管理的 Rules、Skills 和 Commands MUST 与内置能力共用对应 manifest\n\n#### Scenario: 内置能力分 required 和 optional\n- **WHEN** Buildr 提供内置 Rules、Skills 或 Commands\n- **THEN** Buildr MUST 支持 `required: true` 和 `required: false`\n- **AND** `rules/buildr/core.md` MUST 是 required Rule 且不可卸载\n- **AND** optional 内置能力 MUST 支持显式卸载\n\n#### Scenario: 内置能力状态跟踪\n- **WHEN** Buildr 跟踪内置能力状态\n- **THEN** Buildr MUST 区分 `installed`、`modified`、`uninstalled` 和 `missing`\n- **AND** Buildr MUST 在对应 manifest 中持久化显式卸载状态，确保 sync 和 doctor 不把它误判为意外损坏\n\n#### Scenario: 修改过的内置能力不被静默覆盖\n- **WHEN** 某个内置能力在本地被修改\n- **THEN** Buildr sync MUST NOT 在没有用户明确决策时覆盖 optional 内置能力\n- **AND** doctor MUST 报告该修改状态，并提供足够上下文让用户选择还原或保留\n\n#### Scenario: 已卸载的内置能力默认不还原\n- **WHEN** 某个内置能力被标记为 `uninstalled`\n- **THEN** Buildr sync MUST NOT 默认还原它\n- **AND** doctor SHOULD 将其作为 info 而不是 warning 报告\n"
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr sync 是 Agent 升级主路径",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr sync 是 Agent 升级主路径\nBuildr MUST 提供 `sync <agent>` 命令，让 Agent 使用当前 CLI package 携带的 assets 同步 workspace 产品能力并准备支持的 Agent runtime；首次 `init --agent` MUST 复用同一 sync 管线。\n\n#### Scenario: 同步 Codex\n- **WHEN** Agent 运行 `buildr sync codex --target <dir>`\n- **THEN** Buildr MUST 同步 workspace 产品能力、安装或修复产品入口 Buildr Skill、渲染 Codex runtime，并报告最终 Codex doctor 状态\n- **AND** Buildr MUST NOT 检查或更新 CLI 自身\n\n#### Scenario: 同步 Claude Code\n- **WHEN** Agent 运行 `buildr sync claude-code --target <dir>`\n- **THEN** Buildr MUST 同步 workspace 产品能力、安装或修复产品入口 Buildr Skill、渲染 Claude Code runtime，并报告最终 Claude Code doctor 状态\n- **AND** Buildr MUST NOT 检查或更新 CLI 自身\n\n#### Scenario: 高层初始化复用 sync\n- **WHEN** Agent 运行 `buildr init --agent <agent> --target <dir>`\n- **THEN** Buildr MUST 先完成 workspace 源资产初始化，再通过与 `buildr sync <agent>` 相同的管线执行产品能力同步、Component reconcile、runtime 投射和 doctor\n- **AND** Buildr MUST NOT 为初始化维护第二套 workspace reconcile、render 或 doctor 实现\n\n#### Scenario: sync 遇到用户决策点时停止\n- **WHEN** sync 遇到修改过的 optional 内置能力、manifest 对齐问题，或需要安装外部命令行工具\n- **THEN** sync MUST 在执行破坏性或会修改本机环境的动作前停止\n- **AND** sync MUST 提供清晰下一步，供 Agent 向用户确认\n"
+    },
+    {
+      "capability": "builtin-installation-receipts",
+      "title": "Buildr 必须持久化独立 Builtin 安装回执",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "builtin-installation-receipts",
+      "title": "Builtin 状态必须使用 Old Live New 三方比较",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "builtin-installation-receipts",
+      "title": "无回执 workspace 必须保守迁移",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "builtin-installation-receipts",
+      "title": "Builtin 回执必须可诊断",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "sync 的源资产更新必须使用安全事务",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: sync 的源资产更新必须使用安全事务\nBuildr MUST 让 `sync` 对 builtin、Component 和其他受管源资产的更新使用现有的 workspace mutation 事务。\n\n#### Scenario: sync 更新多个源文件\n- **WHEN** `sync` 需要新增、更新或删除多个受管源文件\n- **THEN** Buildr MUST 在写入前检查完整修改范围\n- **AND** 任一步骤失败时源资产 MUST 保持操作前状态，或者保留可诊断且停止后续写入的 transaction\n\n#### Scenario: 源资产提交后同步运行时\n- **WHEN** `sync` 已经成功提交源资产修改\n- **THEN** Buildr MUST 再根据提交后的源状态同步运行时\n- **AND** 运行时同步失败 MUST NOT 回滚已经提交的源资产\n"
+    }
+  ]
+}

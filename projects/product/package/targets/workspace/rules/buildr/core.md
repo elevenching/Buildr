@@ -1,0 +1,63 @@
+# Buildr Core
+
+Buildr workspace 的基础模型、术语和硬边界。每次进入 workspace 都必须先读取当前 scope 的 `AGENTS.md`，再读取本文件。
+
+## 基本原则
+
+- Rule 控制 Agent 的价值观、边界和约束；Skill 封装可复用的专业动作和操作流程。
+- Rule 和 Skill 不以“是否必须加载”作为本质区分；Rule description 是 Agent 判断规则语义相关性的索引，不是路径、角色或服务路由表。
+- Rule 不承担场景化操作流程；任务触发型流程应优先沉淀为 Skill。
+- Agent runtime adapter 只负责按目录层级发现和投射 Rule 源，不使用预设 role/path 替 Agent 判断规则与当前任务的语义相关性。
+- 当前目录适用的 `AGENTS.md` 按 workspace root 到当前 scope 由宽到窄生效；scope 子树中的 `AGENTS.md` 在 Agent 进入或修改对应目录时生效。
+- Organization/root 的模块化 Rule 由 `rules/manifest.yml` 管理：`enabled: true`、`required: true` 且 `state: installed` 的 Rule 必须读取正文。
+- 对 `enabled: true`、`required: false` 且 `state: installed` 的 Rule，Agent 必须先检查 description，并在用户目标、修改范围、代码语义或 workspace context 表明相关时，于行动前读取正文。
+- `enabled: false` 或 `state: uninstalled` 的 Rule 不参与当前任务；description 只表达语义边界和用途，不承载规则正文。
+- 长期事实写入 Buildr 源资产；Agent runtime 是可重建渲染结果，不作为源资产维护。
+- 在已初始化 workspace 中，Buildr 安装、源资产或 Agent runtime 状态变更后，必须运行当前 Agent 的 doctor；仍有需要立即处理的 error 时不得视为完成。
+- 术语使用必须一致：同一个描述块内，要么统一使用中文术语，要么统一使用英文术语，要么在首次出现时统一使用“中文（English Term）”。
+- 没有更具体的 Project、Service 或仓库约定时，Git 提交信息的主题和正文默认使用中文；代码标识、路径、scope 和专有名词可保留原文。
+- 新建或重写文本文件时，文件末尾必须恰好保留一个换行符；不得在 EOF 前生成额外空白行。内容内部为表达段落所需的空行不受此约束。
+- 面向用户说明问题、方案、进度或结果时，优先使用常用、直接和简练的语言；只在准确表达所必需时使用专业术语，并在需要时解释。
+- 完成当前工作、到达阶段节点或遇到阻塞时，应结合当前状态以及适用的 Rule、Skill 和项目约定，向用户说明明确、可执行的下一步；任务已经完整结束时，应明确说明任务已完成，不机械追加无关建议。
+- `rules/manifest.yml` 是 root/Organization Rule 登记和启停用事实清单；新增 root Rule 先编辑 `rules/<rule-id>.md`，再用 `buildr rules add` 注册；删除 root Rule 用 `buildr rules remove`。
+
+## 基本模型
+
+Buildr 是面向人、Agent 和组织的工作资产治理系统。
+
+它把组织长期复用的规则、技能、命令、规范、产品事实和协作流程沉淀为可共享、可审计、可适配不同 Agent 的工作区（workspace）源资产，支撑多人、多职责、多项目、多服务的稳定协作。
+
+```text
+Organization/Root -> Project -> Service
+```
+
+| 术语 | 含义 |
+|------|------|
+| 组织（Organization/Root） | Buildr workspace 根；保存组织级规则（Rules）、项目登记（Project registry）、组件（Components）、技能（Skills）、命令（Commands）和 Agent runtime 渲染关系。 |
+| 项目（Project） | 业务、产品线、系统或长期工作单元；保存项目级规则（Rules）、OpenSpec、技能（Skills）和服务登记（Service registry）。 |
+| 服务（Service） | Project 管理的代码仓、应用、模块或可执行资产。 |
+| Agent runtime | 当前 Agent 实际运行的资产，是从 Buildr 源资产生成的可重建结果。 |
+
+## 资产边界
+
+| 资产类型 | 默认位置 |
+|----------|----------|
+| 规则（Rules） | `AGENTS.md`、`rules/manifest.yml`、`rules/` |
+| Project registry | `projects/manifest.yml` |
+| 项目资产（Project assets） | `projects/<project>/` |
+| Service registry | `projects/<project>/services/manifest.yml` |
+| 服务资产（Service assets） | `projects/<project>/services/<service>/` |
+| 技能（Skills） | `skills/manifest.yml`、`skills/` |
+| 组件（Components） | `components/manifest.yml`、`components/<source>/<id>/component.yml` |
+| 命令清单（Commands） | `commands/manifest.yml`、`commands/**/manifest.yml` |
+| Agent runtime | `.agents/`、`.claude/`、`CLAUDE.md` 等渲染结果 |
+
+## 硬边界
+
+- Buildr 源资产是组织工作资产的长期事实来源；Agent runtime、本机状态、登录态、token、cookie、临时 prompt 和一次性聊天内容不是组织源资产。
+- Practices 不是独立受管资产；已有 `practices/` 是用户保留数据，Buildr 不自动读取、迁移、覆盖或删除，也不因其存在阻塞正常命令。
+- Component 当前只支持 workspace scope；成员由 definition 唯一声明，只能通过 Component 生命周期统一维护。本机外部 CLI 和 Project 内容不属于 workspace Component。
+- 对象级卸载命中 Component 时，Agent 必须展示完整范围和保留项并取得二次确认，CLI 不负责猜测对象边界。
+- 组织资产、项目资产和服务代码仓的 Git 边界必须按实际仓库判断，不得凭目录名假设。
+- Buildr required block 只负责把 Agent 引导到 Buildr Core；具体任务流程由对应 Skill、项目规则或服务规则承载。
+- Buildr required Rule 不建议手工改写；如被破坏，由 Buildr 产品能力恢复。

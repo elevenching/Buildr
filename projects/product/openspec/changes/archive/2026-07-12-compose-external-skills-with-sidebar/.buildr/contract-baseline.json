@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "compose-external-skills-with-sidebar",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-986221c13352954f2c558702ad203f8b8f0018f32b51f781f2ee1dd321f2244b",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-package-assets",
+      "title": "Package manifest 声明 workspace Components",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Package manifest 声明 workspace Components\nBuildr package manifest MUST 显式声明随包 workspace Components，并将 Component 定义和成员源限制在 `package/targets/workspace/` 交付边界内。\n\n#### Scenario: 声明随包 Component\n- **WHEN** Buildr 产品包提供 workspace Component\n- **THEN** `package/manifest.yml` MUST 声明 Component id、定义源路径、默认启用状态和 required 状态\n- **AND** Component 定义源 MUST 位于 `package/targets/workspace/components/<source>/<id>/component.yml`\n\n#### Scenario: Component 定义引用成员\n- **WHEN** 随包 Component 声明 Rules、Skills 或 Command collections\n- **THEN** 每个成员源和目标路径 MUST 位于允许的 workspace target 边界\n- **AND** Component 定义 MUST 声明成员 integrity\n- **AND** 同一个随包成员 MUST NOT 被多个 Component 声明所有权\n\n#### Scenario: Package check 校验 Component\n- **WHEN** Agent 运行 `buildr package check`\n- **THEN** Buildr MUST 校验 Component manifest schema、定义 schema、稳定 id、版本、来源、成员路径、成员存在性和 integrity\n- **AND** Buildr MUST 校验 Component 与独立 Builtins、workspace baseline 和其他 Components 不存在 id、路径或 ownership 冲突\n\n#### Scenario: OpenSpec Component 上游版本对齐\n- **WHEN** package check 校验随包 OpenSpec Component\n- **THEN** Buildr MUST 校验 OpenSpec Command collection 和全部声明的 workflow Skills 存在\n- **AND** Buildr MUST 校验 Skills 的 `generatedBy` 与 Component 声明的 OpenSpec 上游版本一致\n\n#### Scenario: Component 不重复进入 baseline 映射\n- **WHEN** package manifest 已通过 Component 声明某个 Rule、Skill 或 Command collection\n- **THEN** Buildr MUST NOT 再依赖重复的 workspace baseline 文件清单决定该成员的安装状态\n- **AND** init/update MUST 通过 Component 生命周期物化该成员\n"
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "Package 发布 OpenSpec 契约门禁 sidebar",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Package 发布 OpenSpec 契约门禁 sidebar\nBuildr package MUST 发布 OpenSpec 契约门禁 Skill、CLI 契约和 Component member metadata，并区分上游生成资产与 Buildr 自有 sidebar。\n\n#### Scenario: Package manifest 声明门禁 Skill\n- **WHEN** package check 校验 OpenSpec Component\n- **THEN** package manifest MUST 将 `openspec-contract-guard` 声明为该 Component 的 workspace Skill\n- **AND** Component definition 和 integrity MUST 包含该 Skill 的完整源目录\n\n#### Scenario: 校验不同来源的 Skills\n- **WHEN** package check 遍历 OpenSpec Component Skill members\n- **THEN** 上游 workflow Skills MUST 继续校验 `generatedBy` 与 upstream version 一致\n- **AND** Buildr 契约门禁 Skill MUST 校验 Buildr 自有来源和支持的 upstream version\n- **AND** package check MUST NOT 要求 Buildr sidebar 伪装为 OpenSpec 上游生成资产\n"
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "已有 OpenSpec Builtins 迁移为 Component",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 已有 OpenSpec Builtins 迁移为 Component\nBuildr update MUST 安全识别并迁移旧 workspace 中独立管理的 OpenSpec workflow Skills。\n\n#### Scenario: 原位采用一致 OpenSpec Skills\n- **WHEN** 旧 workspace 中全部预期 OpenSpec Skills 已安装且内容匹配当前 package\n- **THEN** Buildr MUST 创建 OpenSpec Component registry entry 和 installed definition\n- **AND** Buildr MUST 创建 OpenSpec Command collection\n- **AND** Buildr MUST 保留现有 Skills 和 runtime 投射内容\n\n#### Scenario: 旧 OpenSpec Skills 状态不一致\n- **WHEN** 任一预期 OpenSpec Skill 为 modified、missing、uninstalled 或存在来源冲突\n- **THEN** Buildr MUST 停止 OpenSpec Component 迁移\n- **AND** Buildr MUST 保留全部旧状态\n- **AND** Buildr MUST 输出集合级用户决策信息\n"
+    },
+    {
+      "capability": "managed-components",
+      "title": "OpenSpec 作为首个随包 Component",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: OpenSpec 作为首个随包 Component\nBuildr MUST 随包提供 workspace 级 OpenSpec Component，统一管理 OpenSpec Command collection 和 workflow Skills。\n\n#### Scenario: OpenSpec Component 成员\n- **WHEN** Buildr 初始化或更新默认启用 OpenSpec 的 workspace\n- **THEN** OpenSpec Component MUST 包含 `commands/buildr/openspec/manifest.yml`\n- **AND** Component MUST 包含随包提供的全部 `openspec-*` workflow Skills\n- **AND** Component 定义 MUST 记录 OpenSpec 上游版本、来源和成员 integrity\n\n#### Scenario: OpenSpec CLI 仍是外部工具\n- **WHEN** OpenSpec Component 安装或更新\n- **THEN** Buildr MUST 只声明并检查 OpenSpec CLI\n- **AND** Buildr MUST NOT 自动安装、升级或卸载本机 OpenSpec CLI\n\n#### Scenario: OpenSpec Component 不拥有 Project 数据\n- **WHEN** OpenSpec Component 安装、更新或卸载\n- **THEN** Buildr MUST NOT 创建、修改或删除任何 Project 的 `openspec/` 内容\n"
+    },
+    {
+      "capability": "managed-components",
+      "title": "Component 可以声明自然语言 Skill Contribution",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Component 可以声明自然语言 Skill Contribution\nBuildr MUST 允许 workspace Component 声明受 Component 生命周期和 integrity 统一管理的 Markdown Skill Contribution，而不直接修改目标 Skill 源。\n\n#### Scenario: 安装带 Skill Contribution 的 Component\n- **WHEN** Component 声明目标 Skill、稳定 slot 和 contribution fragment\n- **THEN** fragment MUST 作为 Component member 被物化并纳入 integrity\n- **AND** Agent runtime render MUST 只把 enabled installed Component 的 fragment 组合到目标 Skill 已声明的 slot\n\n#### Scenario: 卸载带 Skill Contribution 的 Component\n- **WHEN** Component 被显式卸载并 reconcile 当前 Agent runtime\n- **THEN** Component-owned fragment MUST 随其他 members 一起安全移除\n- **AND** 重新渲染的目标 Skill MUST NOT 保留该 Component 的正文、命令或悬空路由\n\n#### Scenario: Contribution 声明无效\n- **WHEN** contribution 引用未登记 member、不安全路径，或已启用目标 Skill 未声明对应 slot\n- **THEN** Component/package check 或 runtime render MUST fail closed\n- **AND** Buildr MUST NOT 把 fragment 写入目标 Skill 源\n\n#### Scenario: 可选目标 Skill 未安装\n- **WHEN** contribution 的目标 Skill 为 disabled、uninstalled 或当前 scope 未解析到\n- **THEN** runtime render MUST 跳过该 contribution，而不阻止其他 Skills 渲染\n- **AND** 目标 Skill 后续安装并重新渲染时 MUST 自动获得该 contribution\n"
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "Workspace Git 忽略 mutation 临时状态",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "已解析外部 Skill 保持上游源资产身份",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

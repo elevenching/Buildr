@@ -1,0 +1,8 @@
+schemaVersion: buildr.projects/v1
+projects:
+  product:
+    title: "Buildr 产品自举开发"
+    description: "Buildr 自身产品实现、随包 workspace baseline、Agent runtime adapter、OpenSpec 规范和自举开发流程。"
+    path: "projects/product"
+    repo:
+      kind: "workspace"

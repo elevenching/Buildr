@@ -1,0 +1,7 @@
+- [x] 移动 workspace baseline 源资产到 `package/workspace/`
+- [x] 更新 `package/manifest.yml` 的 workspace/project 文件映射
+- [x] 更新 `tools/buildr` 和 `tools/verify-buildr-product-mvp` 中的旧路径引用
+- [x] 更新 README、package 文档和相关 OpenSpec spec 中的旧路径引用
+- [x] 删除 `package/workspace/` 下未映射维护说明，并新增 `package/README.md`
+- [x] 校验 `package/workspace/` 文件必须被 manifest 显式映射
+- [x] 运行 package、MVP 和 OpenSpec 验证

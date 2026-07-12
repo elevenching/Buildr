@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "prepare-minimum-open-source-release",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-e41ec84d08811bda474e5423ddbd03d405c368d7b1854a4ed0536810158ddad4",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-cli-self-update",
+      "title": "发布模式更新 registry package",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 发布模式更新 registry package\n发布模式 update MUST 查询当前 package 配置的 npm registry，并只更新同一 Buildr package identity。\n\n#### Scenario: registry 存在新版本\n- **WHEN** registry 报告兼容的新版本且当前安装位置可安全更新\n- **THEN** Buildr MUST 使用 npm 更新承载当前 executable 的 Buildr package\n- **AND** Buildr MUST NOT 改变 registry、scope、tag 或安装 prefix\n\n#### Scenario: registry 已是最新版本\n- **WHEN** registry 可达且当前版本不低于可用版本\n- **THEN** Buildr MUST 报告 CLI 已是最新版本\n- **AND** Buildr MUST NOT 重装 package 或同步 workspace\n\n#### Scenario: registry 更新受阻\n- **WHEN** registry 不可达、版本不兼容、权限不足或安装位置无法安全解析\n- **THEN** Buildr MUST 停止且不得请求提权或切换 registry\n- **AND** Buildr MUST 返回可供 Agent 解释的阻塞原因和下一步\n"
+    },
+    {
+      "capability": "buildr-development-openspec",
+      "title": "Buildr 产品验证完成报告必须呈现耗时",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-development-openspec",
+      "title": "Buildr 公开文档本地化必须保持单一范围",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "npm-cli-package",
+      "title": "公开 registry package identity 必须稳定",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "npm-cli-package",
+      "title": "npm 版本必须映射明确 dist-tag",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "open-source-release-governance",
+      "title": "公开产品身份必须一致且无占位符",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "open-source-release-governance",
+      "title": "公开 README 必须提供中文入口和英文翻译",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "open-source-release-governance",
+      "title": "开源候选必须通过可重复安全扫描",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "open-source-release-governance",
+      "title": "Release workflow 必须按版本和渠道受控发布",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "产品总验证必须包含开源候选门禁",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "Timing summary 必须支持开发完成报告",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

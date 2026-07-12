@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "remove-practices-asset-model",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-547f02cfb28f0450ebcebde28174e1b10193287d798f7434165cb6fa0d2c1106",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-workspace-management",
+      "title": "Buildr workspace 作为项目管理资产库",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr workspace 作为项目管理资产库\nBuildr MVP MUST 将 Buildr root 定义为长期项目管理资产库和 Organization 上下文实例，用于管理规则、OpenSpec、practices、skills、Project registry、Service registry 和 Agent runtime 渲染关系。\n\n#### Scenario: 初始化 workspace\n- **WHEN** Agent 执行 `buildr init`\n- **THEN** Buildr MUST 创建可作为 Organization 上下文维护的根资产骨架，而不是创建 `organizations/` 容器\n\n#### Scenario: 共享 workspace\n- **WHEN** 组织将 Buildr workspace 作为 Git repo 共享\n- **THEN** root MUST 保存项目管理资产，而不是保存 service repo 的业务代码内容\n"
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "onboarding supports Project registry and Project asset repos",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: onboarding supports Project registry and Project asset repos\nBuildr onboarding MUST 引导 Agent 和用户完成 Project registry maintenance 与 independent Project asset repo creation。\n\n#### Scenario: Agent creates a Project\n- **WHEN** user asks Agent to create a Project in a Buildr workspace\n- **THEN** Agent MUST use `buildr project create <project>`\n- **AND** Agent MUST expect the command to maintain both `projects/<project>/` and `projects/manifest.yml`\n\n#### Scenario: Agent records concise Project identity\n- **WHEN** Agent creates a Project and the user provides a human-readable title or short description\n- **THEN** Agent MUST pass that information through Project creation or registry repair\n- **AND** Agent MUST NOT treat the registry description as a replacement for Project OpenSpec knowledge or specs\n\n#### Scenario: 用户提供 Project 资产 Git repo\n- **WHEN** user provides a Git repo intended to store Project memory, rules, OpenSpec, practices or Skills\n- **THEN** Agent MUST treat it as a Project asset repo rather than a service repo\n- **AND** Agent MUST use `buildr project create <project> --repo <git-url>`\n\n#### Scenario: 用户提供本地 Project 资产目录\n- **WHEN** user provides a local directory intended to become a Project asset repo\n- **THEN** Agent MUST NOT register that directory as an external Project link\n- **AND** Agent MUST guide the user to materialize the Project assets under `projects/<project>/`\n\n#### Scenario: Agent uses doctor after Project changes\n- **WHEN** Agent creates or repairs a Project\n- **THEN** Agent MUST run or rely on `buildr doctor --agent <agent> --json` after runtime identity is known to inspect Project registry, Project baseline and Project repo state\n"
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "Buildr guidance names runtime render assets",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr guidance names runtime render assets\nBuildr onboarding guidance MUST 说明哪些 Buildr assets 参与 Agent runtime render，哪些仍保持为 source assets。\n\n#### Scenario: Runtime render explanation\n- **WHEN** Buildr Skill、bootstrap guide、README、init output 或 doctor unsupported-Agent guidance 描述 runtime render\n- **THEN** guidance MUST 将 rules entry or bridge、product Buildr Skill、workspace/project Skills、Skill install plans 和 runtime check 说明为 adapter render capabilities\n- **AND** guidance MUST 说明 Commands、Project registry、Service registry、OpenSpec、knowledge、practices 和 docs 保持为 Buildr source assets，除非未来 adapter 明确支持 render 它们\n"
+    },
+    {
+      "capability": "organization-model",
+      "title": "Buildr root 承载默认 Organization 资产路径",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr root 承载默认 Organization 资产路径\nBuildr MUST 将 Buildr root 作为默认 Organization 资产路径，并在根目录维护组织级规则、实践、Skills 和项目入口。\n\n#### Scenario: 组织级资产路径\n- **WHEN** Buildr 表示当前 Organization 上下文的规则、实践或 Skills\n- **THEN** 这些资产 MUST 位于 Buildr root 的 `AGENTS.md`、`practices/` 和 `skills/` 下\n\n#### Scenario: 项目级资产路径\n- **WHEN** Buildr 表示当前 Organization 上下文下的项目\n- **THEN** 项目资产 MUST 位于 `projects/<project>/` 下\n\n#### Scenario: 共享服务路径\n- **WHEN** Buildr 表示当前 Organization 上下文下的共享、基础或平台服务\n- **THEN** 这些服务 MUST 归属某个 Project，并位于 `projects/<project>/services/` 下\n"
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "Buildr Skill 前置说明 Skill 类型和安装方式",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr Skill 前置说明 Skill 类型和安装方式\nBuildr 内置 Skill 的 `SKILL.md` MUST 在资产维护细节前说明 workspace/project Skill 的类型、登记方式和 render 方式。\n\n#### Scenario: 前置 Skill 类型\n- **WHEN** Agent 阅读 Buildr Skill\n- **THEN** Buildr Skill MUST 先说明本地作者型 Skill 和远端发布型 Skill 的区别\n- **AND** Buildr Skill MUST 说明本地作者型 Skill 适合项目实践、私有沉淀和未发布 Skill\n- **AND** Buildr Skill MUST 说明远端发布型 Skill 适合已发布或外部维护的 Skill\n\n#### Scenario: 前置三种登记方式\n- **WHEN** Agent 阅读 Buildr Skill\n- **THEN** Buildr Skill MUST 说明本地源目录、远端信息源和已解析安装源三种登记方式\n- **AND** Buildr Skill MUST 引导 Agent 先登记 source，再在能解析时升级为 resolved\n\n#### Scenario: 前置三种 render 方式\n- **WHEN** Agent 阅读 Buildr Skill\n- **THEN** Buildr Skill MUST 说明 Buildr 本地安装、Buildr 远端安装和 Agent 自行安装三种 render 结果\n"
+    },
+    {
+      "capability": "project-registry",
+      "title": "root project registry",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: root project registry\nBuildr MUST 维护 root `projects/manifest.yml` registry，声明由 workspace 管理的 Projects。\n\n#### Scenario: 初始化空 registry\n- **WHEN** Agent executes `buildr init --target <root>`\n- **THEN** Buildr MUST create `<root>/projects/manifest.yml` with schema version and an empty Project registry\n- **AND** Buildr MUST create `<root>/projects/` even when no Project exists\n\n#### Scenario: registry 记录 Project path\n- **WHEN** Buildr records Project `<project>` in `projects/manifest.yml`\n- **THEN** the registry MUST record its materialized path as `projects/<project>`\n- **AND** the registry MUST NOT use an absolute path as the Project path\n\n#### Scenario: registry 记录 Project title\n- **WHEN** Buildr records Project `<project>` in `projects/manifest.yml`\n- **THEN** the registry MUST record a human-readable `title` for the Project\n- **AND** if no title is provided, Buildr MUST use `<project>` as the default title\n\n#### Scenario: registry 记录 Project description\n- **WHEN** Buildr records Project `<project>` in `projects/manifest.yml`\n- **THEN** the registry MUST record a `description` for a concise human-readable Project summary\n- **AND** the description MUST NOT be treated as the authoritative location for Project business facts\n- **AND** if no description is available, Buildr update or sync MAY write a TODO description and doctor MUST report a warning\n\n#### Scenario: registry 使用封闭 schema\n- **WHEN** Buildr records Project metadata in `projects/manifest.yml`\n- **THEN** the registry MUST limit Project data to the schema fields defined by Buildr\n- **AND** Project rules, memory, business facts, practices, Skills and service metadata MUST remain in `projects/<project>/`\n- **AND** Buildr update or sync MUST remove unknown Project registry fields\n"
+    },
+    {
+      "capability": "root-organization-workspace",
+      "title": "遗留 Practices 内容迁移说明",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "root-organization-workspace",
+      "title": "初始化创建可直接工作的根资产",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 初始化创建可直接工作的根资产\n`buildr init` MUST create workspace assets that can receive Buildr product builtins and Components and render supported Agent runtimes.\n\n#### Scenario: 初始化根资产\n- **WHEN** Agent executes `buildr init --target <dir> --name <name>`\n- **THEN** Buildr MUST create root source assets including `.buildr/`, `rules/`, `practices/`, `skills/`, `commands/`, `components/` and `projects/`\n- **AND** Buildr MUST create `rules/manifest.yml`, `skills/manifest.yml`, `commands/manifest.yml`, `components/manifest.yml` and `projects/manifest.yml`\n- **AND** `skills/manifest.yml` MUST declare `schemaVersion: buildr.skills/v1`\n- **AND** `components/manifest.yml` MUST declare `schemaVersion: buildr.components/v1`\n- **AND** `projects/manifest.yml` MUST declare `schemaVersion: buildr.projects/v1`\n- **AND** Buildr MUST create root `AGENTS.md` required block and reference `rules/buildr/core.md`\n- **AND** Buildr MUST be able to render initial Agent runtime for supported adapters\n\n#### Scenario: 初始化 Codex runtime\n- **WHEN** Buildr initializes a new workspace for Codex usage\n- **THEN** Buildr MUST keep `AGENTS.md` as the native Codex rule entry\n- **AND** Buildr MUST be able to project enabled Skills, including enabled Component Skills, to `.agents/skills/`\n\n#### Scenario: 初始化 Claude Code runtime\n- **WHEN** Buildr initializes or syncs workspace for Claude Code usage\n- **THEN** Buildr MUST be able to generate Claude Code runtime projection from the same Buildr source assets, enabled builtins and enabled Components model\n"
+    },
+    {
+      "capability": "root-organization-workspace",
+      "title": "项目资产使用根 projects 目录",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 项目资产使用根 projects 目录\nBuildr MUST 默认使用根 `projects/<project>/` 维护项目级资产，并使用 `projects/manifest.yml` 管理 Project 集合。\n\n#### Scenario: 创建项目\n- **WHEN** Agent executes `buildr project create pig --target <root>`\n- **THEN** Buildr MUST create project-level `AGENTS.md`, `openspec/`, `practices/`, `skills/`, `services/` and `services/manifest.yml` under `<root>/projects/pig/`\n\n#### Scenario: 未指定组织的 service 接入\n- **WHEN** Agent executes `buildr service create pig/freshx <repo-ref> --target <root>`\n- **THEN** Buildr MUST attach that service to `<root>/projects/pig/` service metadata and default service repo directory\n- **AND** service metadata MUST be written to `<root>/projects/pig/services/manifest.yml`\n"
+    },
+    {
+      "capability": "root-organization-workspace",
+      "title": "Service 层级源资产支持作为后续统一方向",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Service 层级源资产支持作为后续统一方向\nBuildr MUST 在产品路线中将 service 层级源资产支持作为统一后续方向记录，而不是在单个 manifest-backed 命令中局部引入不一致的 service scope。\n\n#### Scenario: 记录 service 层级方向\n- **WHEN** Buildr 文档描述 manifest-backed 资产维护命令的 scope 边界\n- **THEN** 文档 MUST 说明本变更不改变现有 scope 模型\n- **AND** 文档 MUST 记录后续统一评估 service scope 下 rules、skills、commands、practices 或后续源资产模块的解析、叠加/覆盖、来源链和权限模型\n"
+    },
+    {
+      "capability": "root-organization-workspace",
+      "title": "已有 workspace 升级兼容",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 已有 workspace 升级兼容\nBuildr MUST 支持已有 Buildr workspace 兼容内置能力和 adapter render 模型。\n\n#### Scenario: 已有 workspace update\n- **WHEN** Agent 在已有初始化 workspace 中运行 Buildr update\n- **THEN** Buildr MUST 保留已有用户资产\n- **AND** Buildr MUST 增加或更新 manifest 中的产品内置能力状态，同时不静默覆盖用户编写的规则正文\n\n#### Scenario: 已有 AGENTS\n- **WHEN** 已有 workspace 中存在 `AGENTS.md`\n- **THEN** Buildr MUST 只检查并修复 Buildr required block\n- **AND** Buildr MUST NOT 覆盖用户正文\n\n#### Scenario: 旧版规则迁入\n- **WHEN** 已有 workspace 使用旧版 package baseline rules\n- **THEN** Buildr MUST 将产品发布规则迁入 `rules/buildr/` 并登记到 `rules/manifest.yml`\n- **AND** Buildr MUST 将旧 `runtime.md` 语义内化进 `rules/buildr/core.md`\n"
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Runtime render asset scope",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Runtime render asset scope\nBuildr runtime render MUST 限定为由 Buildr 源资产派生出的 Agent runtime 入口资产。\n\n#### Scenario: Supported runtime render\n- **WHEN** Buildr render 或 sync 某个 supported Agent runtime\n- **THEN** Buildr MUST 只 render 该 Agent runtime 使用 Buildr workspace rules 和 Skills 所必需的资产\n- **AND** Buildr MUST 将 Commands、Project registry、Service registry、OpenSpec content、practices、knowledge 和 docs 保持为 Buildr 源资产，而不是默认复制到 runtime 目录\n\n#### Scenario: Product Buildr Skill boundary\n- **WHEN** Buildr 为 supported Agent runtime 安装产品入口 Buildr Skill\n- **THEN** Buildr MUST 使用 `buildr skill install <agent>`\n- **AND** Buildr MUST NOT 将产品入口 Buildr Skill 登记到 workspace 或 Project `skills/manifest.yml`\n"
+    }
+  ]
+}

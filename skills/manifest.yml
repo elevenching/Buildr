@@ -1,0 +1,92 @@
+schemaVersion: buildr.skills/v1
+skills:
+  - id: "task-triage"
+    source: "buildr"
+    path: "buildr/task-triage"
+    description: "用户要求修 bug、实现或调整功能、改需求、重构、优化、补文档、补测试、调整 API/契约/权限/状态流/数据语义，或询问某项改动是否需要更新 spec、创建 change、只改代码时使用。"
+    enabled: true
+    required: false
+    state: "installed"
+    runtimes: ["claude-code","codex"]
+    runtimePath: "task-triage"
+  - id: "task-worktree"
+    source: "buildr"
+    path: "buildr/task-worktree"
+    description: "用户要求代码开发、修 bug、实现功能、运行构建或测试、多仓协作、隔离任务分支，或清理已上线、已归档、已收尾任务的 worktree/change-id/任务分支时使用。"
+    enabled: true
+    required: false
+    state: "installed"
+    runtimes: ["claude-code","codex"]
+    runtimePath: "task-worktree"
+  - id: "git-ops"
+    source: "buildr"
+    path: "buildr/git-ops"
+    description: "用户表达提交、commit、推送、push、提交并推送、合并、merge、rebase、发布、release、删除分支、清理远端分支等单项 Git 意图，或 Git 操作存在授权、范围、amend、远端改写、分支删除等歧义时使用。"
+    enabled: true
+    required: false
+    state: "installed"
+    runtimes: ["claude-code","codex"]
+    runtimePath: "git-ops"
+  - id: "task-finish"
+    source: "buildr"
+    path: "buildr/task-finish"
+    description: "用户在 task worktree 中要求“收尾”、完成任务、自动收尾，或要求自动完成已验证 change 的归档、提交、集成、推送和本地清理时使用。"
+    enabled: true
+    required: false
+    state: "installed"
+    runtimes: ["claude-code","codex"]
+    runtimePath: "task-finish"
+  - id: "openspec-contract-guard"
+    source: "buildr"
+    path: "buildr/openspec-contract-guard"
+    description: "创建、同步或归档 OpenSpec change 时建立契约基线，并检测并行冲突、陈旧 delta 和同步结果漂移。"
+    enabled: true
+    required: false
+    state: "installed"
+    runtimes: ["claude-code","codex"]
+    runtimePath: "openspec-contract-guard"
+  - id: "openspec-explore"
+    source: "openspec"
+    path: "openspec/openspec-explore"
+    description: "探索想法、调查问题或澄清需求时使用；只思考和梳理，不实现代码。"
+    enabled: true
+    required: false
+    state: "installed"
+    runtimes: ["claude-code","codex"]
+    runtimePath: "openspec-explore"
+  - id: "openspec-propose"
+    source: "openspec"
+    path: "openspec/openspec-propose"
+    description: "用户要快速创建完整 OpenSpec change 提案、设计、规格和任务时使用。"
+    enabled: true
+    required: false
+    state: "installed"
+    runtimes: ["claude-code","codex"]
+    runtimePath: "openspec-propose"
+  - id: "openspec-apply-change"
+    source: "openspec"
+    path: "openspec/openspec-apply-change"
+    description: "用户要开始或继续实现某个 OpenSpec change 的任务时使用。"
+    enabled: true
+    required: false
+    state: "installed"
+    runtimes: ["claude-code","codex"]
+    runtimePath: "openspec-apply-change"
+  - id: "openspec-sync-specs"
+    source: "openspec"
+    path: "openspec/openspec-sync-specs"
+    description: "用户要把 change 中的 delta specs 同步到主 specs，但不归档 change 时使用。"
+    enabled: true
+    required: false
+    state: "installed"
+    runtimes: ["claude-code","codex"]
+    runtimePath: "openspec-sync-specs"
+  - id: "openspec-archive-change"
+    source: "openspec"
+    path: "openspec/openspec-archive-change"
+    description: "用户明确要归档已完成 OpenSpec change 时使用。"
+    enabled: true
+    required: false
+    state: "installed"
+    runtimes: ["claude-code","codex"]
+    runtimePath: "openspec-archive-change"

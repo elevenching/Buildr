@@ -1,0 +1,8 @@
+schemaVersion: buildr.components/v1
+components:
+  - id: "openspec"
+    source: "buildr"
+    path: "components/buildr/openspec"
+    enabled: true
+    required: false
+    state: "installed"

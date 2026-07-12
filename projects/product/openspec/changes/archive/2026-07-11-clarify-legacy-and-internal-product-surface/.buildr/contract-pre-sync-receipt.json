@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "buildr.openspec-contract-receipt/v1",
+  "change": "clarify-legacy-and-internal-product-surface",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-b718ced234c8f3f2f62a11a31550848abe42d06aaac8b26cd9a9de9e8640b67c",
+  "baselineHash": "sha256-485e57adaa605dcab49ee4d26ecbf5c84665b685a7a26cd58ad8fdbd3aa6d6cb",
+  "capabilities": {
+    "cli-product-surface": {}
+  },
+  "postSyncVerified": true,
+  "postSyncDeltaHash": "sha256-b718ced234c8f3f2f62a11a31550848abe42d06aaac8b26cd9a9de9e8640b67c"
+}

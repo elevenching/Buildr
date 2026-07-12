@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "move-future-only-assets-to-roadmap",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-64683d2e0c1a57688696b53b95b41e6e08c989cf3cefae7c295f4a3a1772a264",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-development-openspec",
+      "title": "Buildr 未来规划资产使用明确 Roadmap 语境",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

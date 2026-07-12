@@ -1,0 +1,226 @@
+export function createRuntimeDiagnostics(deps) {
+  const {
+    RUNTIME_CHECKERS,
+    SUPPORTED_AGENT_IDS,
+    UNSUPPORTED_AGENT_GUIDANCE,
+    addDoctorFinding,
+    componentRegistryPath,
+    existsFile,
+    getRuntimeAdapter,
+    isSupportedAgent,
+    managedRuntimeSkillOrphans,
+    packageComponentsStatus,
+    path,
+    runCommandsCheck,
+    runtimeImplementation,
+    toPosixRelative,
+  } = deps;
+
+  function runtimeFindingsForDoctor(findings, includeInfo) {
+    return includeInfo ? findings : findings.filter((finding) => finding.status !== 'info');
+  }
+
+  function summarizeRuntimeFindings(findings) {
+    const counts = { ok: 0, info: 0, warning: 0, missing: 0, stale: 0, orphan: 0, conflict: 0 };
+    for (const finding of findings) {
+      counts[finding.status] = (counts[finding.status] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  function addUnsupportedAgentFinding(result, agent) {
+    addDoctorFinding(result, 'warning', 'runtime.agent_unsupported', `${UNSUPPORTED_AGENT_GUIDANCE.message}${UNSUPPORTED_AGENT_GUIDANCE.nextStep}`, {
+      path: '.',
+      agent,
+      supportedAgents: SUPPORTED_AGENT_IDS,
+      userActionRequired: true,
+      mustNotUseFallbackAdapter: true,
+      suggestion: UNSUPPORTED_AGENT_GUIDANCE.nextStep,
+    });
+  }
+
+  function diagnoseRuntime(result, targetRoot, scopes, options = {}) {
+    const includeInfo = options.includeInfo === true;
+    const selectedAgent = options.agent || null;
+    const runtimeResultKey = (agent) => agent === 'claude-code' ? 'claudeCode' : agent.replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
+    result.runtime = Object.fromEntries(SUPPORTED_AGENT_IDS.map((agent) => [runtimeResultKey(agent), []]));
+    if (selectedAgent && !isSupportedAgent(selectedAgent)) {
+      addUnsupportedAgentFinding(result, selectedAgent);
+      return;
+    }
+
+    const runtimeScopes = scopes.map((item) => item.scope);
+    const seenFindings = Object.fromEntries(SUPPORTED_AGENT_IDS.map((agent) => [agent, new Set()]));
+    const dedupeFindings = (agent, findings) => findings.filter((finding) => {
+      const key = [finding.code || finding.status, finding.path, finding.expected || '', finding.actual || ''].join('|');
+      if (seenFindings[agent].has(key)) return false;
+      seenFindings[agent].add(key);
+      return true;
+    });
+
+    for (const scope of runtimeScopes) {
+      for (const agent of selectedAgent ? [selectedAgent] : SUPPORTED_AGENT_IDS) {
+        const adapter = getRuntimeAdapter(agent);
+        const checker = runtimeImplementation(adapter, 'checker', RUNTIME_CHECKERS);
+        const resultKey = runtimeResultKey(agent);
+        const codeId = agent.replaceAll('-', '_');
+        try {
+          const check = checker(['--scope', scope, '--target', targetRoot], {
+            repoRoot: targetRoot,
+            command: 'buildr doctor',
+          });
+          const findings = dedupeFindings(agent, runtimeFindingsForDoctor(check.findings, includeInfo));
+          result.runtime[resultKey].push({ agent, scope, counts: summarizeRuntimeFindings(findings), findings });
+          if (findings.some((finding) => ['missing', 'stale', 'orphan'].includes(finding.status))) {
+            addDoctorFinding(result, 'warning', `runtime.${codeId}_stale`, `${adapter.displayName} runtime 缺失或过期：${scope}`, {
+              path: toPosixRelative(targetRoot, check.targetRoot),
+              agent,
+              suggestion: `按 doctor 输出的修复命令同步 ${adapter.displayName} runtime；需要 adapter 细节时再运行 runtime check。`,
+              commands: check.repairCommands,
+            });
+          }
+          if (findings.some((finding) => finding.status === 'warning')) {
+            addDoctorFinding(result, 'warning', `runtime.${codeId}_warning`, `${adapter.displayName} runtime 存在警告：${scope}`, {
+              path: toPosixRelative(targetRoot, check.targetRoot),
+              agent,
+              suggestion: '优先查看 doctor 输出中的 runtime findings；需要 adapter 细节时再运行 runtime check。',
+            });
+          }
+          if (findings.some((finding) => finding.status === 'conflict')) {
+            addDoctorFinding(result, 'error', `runtime.${codeId}_conflict`, `${adapter.displayName} runtime 存在非 Buildr 管理或冲突文件：${scope}`, {
+              path: toPosixRelative(targetRoot, check.targetRoot),
+              agent,
+              suggestion: '将手写内容迁移回 Buildr 资产源，再重新 render。',
+            });
+          }
+          if (includeInfo) {
+            for (const finding of findings.filter((item) => item.status === 'info')) {
+              addDoctorFinding(result, 'info', finding.code ?? 'runtime.info', finding.message, {
+                path: finding.path,
+                agent,
+                impact: finding.impact,
+                userActionRequired: finding.userActionRequired,
+                repair: finding.repair,
+                suggestion: finding.suggestion,
+              });
+            }
+          }
+        } catch (error) {
+          const missingManifest = error.message.startsWith('Manifest not found:');
+          const missingCode = agent === 'claude-code' ? 'runtime.skills_manifest_absent' : `runtime.${codeId}_skills_manifest_absent`;
+          addDoctorFinding(result, missingManifest ? 'ok' : 'error', missingManifest ? missingCode : `runtime.${codeId}_unchecked`, missingManifest ? `未声明 ${adapter.displayName} Skills manifest，跳过 Skills runtime 检查：${scope}` : `无法检查 ${adapter.displayName} runtime：${scope}`, missingManifest ? {} : {
+            agent,
+            suggestion: error.message,
+          });
+        }
+      }
+    }
+  }
+
+  function diagnoseCommands(result, targetRoot) {
+    const commandsResult = runCommandsCheck(targetRoot);
+    result.commandLineTools = commandsResult;
+    for (const finding of commandsResult.findings) {
+      addDoctorFinding(result, finding.status, finding.code, finding.message, {
+        path: finding.path,
+        suggestion: finding.suggestion,
+        installHint: finding.installHint,
+        commandId: finding.commandId,
+        executable: finding.executable,
+        sources: finding.sources,
+        expected: finding.expected,
+        actual: finding.actual,
+      });
+    }
+  }
+
+  function diagnoseComponents(result, targetRoot, includeInfo = false, selectedAgent = null) {
+    if (!existsFile(componentRegistryPath(targetRoot))) {
+      addDoctorFinding(result, 'warning', 'components.registry_missing', 'Component registry 缺失。', {
+        path: 'components/manifest.yml',
+        suggestion: `运行 buildr sync <agent> --target ${targetRoot} 创建 registry、迁移默认 Component 并准备当前 Agent runtime。`,
+        command: `buildr sync <agent> --target ${targetRoot}`,
+      });
+    }
+    let status;
+    try {
+      status = packageComponentsStatus(targetRoot);
+    } catch (error) {
+      result.components = { items: [], ownership: {}, findings: [] };
+      addDoctorFinding(result, 'error', 'components.registry_invalid', error.message, {
+        path: 'components/manifest.yml',
+        suggestion: '修复 Component registry 后重新运行 doctor。',
+      });
+      return;
+    }
+    result.components = {
+      items: status.components,
+      ownership: Object.fromEntries(status.ownership),
+      findings: status.findings,
+    };
+    for (const finding of status.findings) {
+      addDoctorFinding(result, 'error', finding.code || 'components.invalid', finding.message || `Component ownership conflict: ${finding.member || ''}`, {
+        path: finding.member || 'components/manifest.yml',
+        componentId: finding.componentId,
+        owners: finding.owners,
+        suggestion: '修复 Component definition、成员路径或唯一所有权冲突后重试。',
+      });
+    }
+    for (const item of status.components) {
+      if (['invalid', 'modified', 'missing'].includes(item.status)) {
+        addDoctorFinding(result, 'error', `components.${item.status}`, `Component ${item.id} 状态异常：${item.status}`, {
+          path: `components/${item.id}`,
+          componentId: item.id,
+          error: item.error,
+          members: item.members,
+          suggestion: item.status === 'missing'
+            ? `运行 buildr component install ${item.id} --agent <agent> --target ${targetRoot}，或确认是否应保留卸载状态。`
+            : '检查成员差异；不要通过单项资产命令覆盖 Component 成员。',
+        });
+      } else if (item.status === 'update-available') {
+        addDoctorFinding(result, 'warning', 'components.update_available', `Component ${item.id} 有可用更新。`, {
+          componentId: item.id,
+          expected: item.availableVersion,
+          actual: item.installedVersion,
+          suggestion: '运行 buildr update，或通过当前 Agent 执行 buildr sync <agent>。',
+        });
+      } else if (includeInfo) {
+        addDoctorFinding(result, 'info', `components.${item.status}`, `Component ${item.id}：${item.status}`, {
+          componentId: item.id,
+          installedVersion: item.installedVersion,
+          availableVersion: item.availableVersion,
+        });
+      }
+    }
+    const uninstalledOwners = new Map();
+    for (const item of status.components.filter((component) => component.status === 'uninstalled')) {
+      for (const member of item.members.filter((entry) => entry.path.startsWith('skills/'))) uninstalledOwners.set(path.basename(member.path), item.id);
+    }
+    const componentRuntimeAgents = selectedAgent
+      ? isSupportedAgent(selectedAgent) ? [selectedAgent] : []
+      : SUPPORTED_AGENT_IDS;
+    for (const agent of componentRuntimeAgents) {
+      for (const orphan of managedRuntimeSkillOrphans(targetRoot, agent)) {
+        const componentId = uninstalledOwners.get(orphan.runtimePath) || null;
+        addDoctorFinding(result, 'warning', 'components.runtime_orphan', componentId
+          ? `已卸载 Component ${componentId} 仍有 ${agent} runtime Skill 投射：${orphan.runtimePath}`
+          : `Buildr-managed ${agent} runtime Skill 没有有效源资产：${orphan.runtimePath}`, {
+          path: orphan.path,
+          componentId,
+          agent,
+          suggestion: `运行 buildr render ${agent} --scope . --target ${targetRoot} 清理受管 runtime orphan。`,
+          command: `buildr render ${agent} --scope . --target ${targetRoot}`,
+        });
+      }
+    }
+  }
+
+  return {
+    runtimeFindingsForDoctor,
+    summarizeRuntimeFindings,
+    addUnsupportedAgentFinding,
+    diagnoseRuntime,
+    diagnoseCommands,
+    diagnoseComponents,
+  };
+}

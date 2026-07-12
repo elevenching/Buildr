@@ -1,0 +1,71 @@
+## ADDED Requirements
+
+### Requirement: Buildr CLI 自动识别更新来源
+Buildr MUST 从当前 executable 的真实产品根识别 CLI 更新来源，并将其分类为开发 Git checkout、registry package 或 unknown。
+
+#### Scenario: 识别开发 checkout
+- **WHEN** 当前 `buildr` executable 可解析到声明 Buildr package identity 的有效 Git worktree
+- **THEN** Buildr MUST 将更新模式报告为开发者模式
+- **AND** Buildr MUST 报告产品根、当前 branch、HEAD 和 upstream 状态
+
+#### Scenario: 识别 registry package
+- **WHEN** 当前 `buildr` executable 来自可证明的 npm registry package 安装布局且不属于开发 Git worktree
+- **THEN** Buildr MUST 将更新模式报告为发布模式
+- **AND** Buildr MUST 报告 package identity、当前版本和安装位置
+
+#### Scenario: 来源无法证明
+- **WHEN** Buildr 无法无歧义证明当前 executable 属于开发 checkout 或支持的 registry package
+- **THEN** Buildr update MUST NOT 修改 Git checkout 或本机 package
+- **AND** Buildr MUST 返回 Agent-readable 阻塞原因和下一步
+
+### Requirement: Buildr update 只更新 CLI 自身
+`buildr update` MUST 只更新当前 Buildr CLI 来源，不得同步或诊断任何 workspace。
+
+#### Scenario: update 成功后退出
+- **WHEN** Agent 运行 `buildr update` 且当前来源可安全更新
+- **THEN** Buildr MUST 完成当前 CLI 来源更新并退出
+- **AND** Buildr MUST NOT 同步 workspace assets、安装 Buildr Skill、render Agent runtime 或运行 workspace doctor
+
+#### Scenario: update 不接收 workspace target
+- **WHEN** Agent 为 `buildr update` 传入 workspace `--target`
+- **THEN** Buildr MUST 拒绝该参数并说明 workspace 同步应使用 `buildr sync <agent> --target <dir>`
+
+#### Scenario: 检查 CLI 更新
+- **WHEN** Agent 运行 `buildr update check --json`
+- **THEN** Buildr MUST 只读检查当前来源、可用更新和安全阻塞状态
+- **AND** JSON MUST 包含 mode、current、available、status、blockingReasons 和 nextActions
+
+### Requirement: 开发者模式安全更新 Git checkout
+开发者模式 update MUST 只在能够证明不会覆盖工作区修改或改写已发布提交时自动推进。
+
+#### Scenario: 自动 fast-forward
+- **WHEN** checkout clean、branch 有 upstream 且 HEAD 是 upstream 的祖先
+- **THEN** Buildr MUST 自动 fast-forward 当前 branch
+
+#### Scenario: 自动 rebase 本地未发布提交
+- **WHEN** checkout clean、branch 与 upstream 分叉且当前分支提交可证明只存在于本地
+- **THEN** Buildr MAY 自动将本地提交 rebase 到最新 upstream
+- **AND** Buildr MUST NOT push 或 force push
+
+#### Scenario: Git 决策点停止
+- **WHEN** checkout dirty、detached、缺少 upstream、包含无法证明未发布的分叉提交、存在共享风险或 rebase 冲突
+- **THEN** Buildr MUST 停止自动更新
+- **AND** Buildr MUST 保留用户数据并报告 Git 状态与需要用户决定的下一步
+
+### Requirement: 发布模式更新 registry package
+发布模式 update MUST 查询当前 package 配置的 npm registry，并只更新同一 Buildr package identity。
+
+#### Scenario: registry 存在新版本
+- **WHEN** registry 报告兼容的新版本且当前安装位置可安全更新
+- **THEN** Buildr MUST 使用 npm 更新承载当前 executable 的 Buildr package
+- **AND** Buildr MUST NOT 改变 registry、scope、tag 或安装 prefix
+
+#### Scenario: registry 已是最新版本
+- **WHEN** registry 可达且当前版本不低于可用版本
+- **THEN** Buildr MUST 报告 CLI 已是最新版本
+- **AND** Buildr MUST NOT 重装 package 或同步 workspace
+
+#### Scenario: registry 更新受阻
+- **WHEN** registry 不可达、版本不兼容、权限不足或安装位置无法安全解析
+- **THEN** Buildr MUST 停止且不得请求提权或切换 registry
+- **AND** Buildr MUST 返回可供 Agent 解释的阻塞原因和下一步
