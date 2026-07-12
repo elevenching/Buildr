@@ -9,3 +9,4 @@
 /.worktrees/
 # Buildr transaction state
 /.buildr/mutations/
+CLAUDE.md
