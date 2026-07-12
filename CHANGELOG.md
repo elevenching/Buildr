@@ -2,7 +2,7 @@
 
 本项目遵循语义化版本。正式发布前的变更可以在 `0.1.x` 内调整，但会在 release notes 中说明用户可观察差异。
 
-## 0.1.0 - Unreleased
+## 0.1.0-rc.1 - 2026-07-13
 
 - 建立 Organization/Root、Project 和 Service 资产模型。
 - 提供 Rules、Skills、Commands、Components、OpenSpec、doctor 和 source transaction 能力。

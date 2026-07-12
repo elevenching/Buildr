@@ -52,6 +52,7 @@ export function inspectPackageMetadata(metadata) {
   if (metadata.homepage !== 'https://github.com/elevenching/Buildr#readme') findings.push(finding('package.homepage', 'projects/product/package.json', 'canonical homepage is missing'));
   if (metadata.bugs?.url !== 'https://github.com/elevenching/Buildr/issues') findings.push(finding('package.bugs', 'projects/product/package.json', 'canonical issue URL is missing'));
   if (metadata.publishConfig?.access !== 'public') findings.push(finding('package.access', 'projects/product/package.json', 'publishConfig.access must be public'));
+  if (metadata.publishConfig?.registry !== 'https://registry.npmjs.org/') findings.push(finding('package.registry', 'projects/product/package.json', 'publishConfig.registry must be the official npm registry'));
   return findings;
 }
 

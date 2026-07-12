@@ -1,6 +1,6 @@
 {
   "name": "@buildr-ai/buildr",
-  "version": "0.1.0",
+  "version": "0.1.0-rc.1",
   "private": false,
   "description": "Buildr CLI for managing Agent workspace assets.",
   "license": "MIT",
@@ -21,7 +21,8 @@
     "workspace"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "type": "module",
   "bin": {

@@ -18,8 +18,8 @@ jobs:
       run:
         working-directory: projects/product
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
           node-version: "22.14.0"
           registry-url: https://registry.npmjs.org
@@ -37,7 +37,13 @@ jobs:
         env:
           BUILDR_TIMING_OUTPUT: ${{ runner.temp }}/buildr-release-verification-timing.json
         run: ./tools/verify-buildr-product
+      - name: Check official registry version
+        id: registry
+        run: >-
+          node tools/verification/release/registry-version-state.mjs
+          "${{ steps.contract.outputs.version }}"
       - name: Publish public npm package
+        if: steps.registry.outputs.published != 'true'
         run: npm publish --access public --tag "${{ steps.contract.outputs.npm_tag }}"
       - name: Create GitHub release
         env:
@@ -48,7 +54,7 @@ jobs:
           ${{ steps.contract.outputs.prerelease == 'true' && '--prerelease' || '' }}
       - name: Upload release verification timing
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-verification-timing-${{ github.ref_name }}
           path: ${{ runner.temp }}/buildr-release-verification-timing.json

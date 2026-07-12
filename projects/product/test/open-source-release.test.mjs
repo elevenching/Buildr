@@ -10,6 +10,7 @@ import {
   inspectTarballFiles,
 } from '../tools/verification/release/open-source-candidate.mjs';
 import { resolveReleaseContract } from '../tools/verification/release/release-contract.mjs';
+import { registryVersionState } from '../tools/verification/release/registry-version-state.mjs';
 
 test('open-source candidate content rules block secrets without echoing values', () => {
   const secret = ['-----BEGIN ', 'PRIVATE KEY-----'].join('');
@@ -28,13 +29,24 @@ test('open-source metadata and tarball contracts enforce public identity and inv
     repository: { url: 'git+https://github.com/elevenching/Buildr.git', directory: 'projects/product' },
     homepage: 'https://github.com/elevenching/Buildr#readme',
     bugs: { url: 'https://github.com/elevenching/Buildr/issues' },
-    publishConfig: { access: 'public' },
+    publishConfig: { access: 'public', registry: 'https://registry.npmjs.org/' },
   };
   assert.deepEqual(inspectPackageMetadata(valid), []);
   assert.equal(inspectPackageMetadata({ ...valid, name: '@wrong/buildr' })[0].rule, 'package.identity');
   const files = ['LICENSE', 'README.md', 'package.json', 'tools/buildr', 'package/manifest.yml'].map((path) => ({ path }));
   assert.deepEqual(inspectTarballFiles(files), []);
   assert.equal(inspectTarballFiles([...files, { path: 'openspec/spec.md' }]).at(-1).rule, 'tarball.forbidden');
+});
+
+test('official registry version check distinguishes published, absent, and unavailable states', async () => {
+  const published = await registryVersionState('@buildr-ai/buildr', '0.1.0-rc.1', async () => ({ status: 200 }));
+  assert.equal(published.published, true);
+  const absent = await registryVersionState('@buildr-ai/buildr', '0.1.0-rc.1', async () => ({ status: 404 }));
+  assert.equal(absent.published, false);
+  await assert.rejects(
+    registryVersionState('@buildr-ai/buildr', '0.1.0-rc.1', async () => ({ status: 503 })),
+    /HTTP 503/,
+  );
 });
 
 test('release contract maps prerelease to next and stable to latest', () => {
@@ -49,7 +61,8 @@ test('publish workflow is tag-gated, OIDC-ready, and token-free', () => {
   const workflow = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../.github/workflows/publish.yml'), 'utf8');
   for (const required of [
     'tags:', 'id-token: write', 'environment: npm-production', 'release-contract.mjs',
-    './tools/verify-buildr-product', 'npm publish --access public', 'gh release create',
+    './tools/verify-buildr-product', 'registry-version-state.mjs',
+    "steps.registry.outputs.published != 'true'", 'npm publish --access public', 'gh release create',
   ]) assert.equal(workflow.includes(required), true, required);
   assert.equal(workflow.includes('NODE_AUTH_TOKEN'), false);
 });
