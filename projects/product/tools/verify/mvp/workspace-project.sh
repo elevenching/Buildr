@@ -18,6 +18,7 @@ grep -q 'schemaVersion: buildr.projects/v1' "$tmp/projects/manifest.yml"
 grep -q 'projects: {}' "$tmp/projects/manifest.yml"
 grep -q '^/.worktrees/$' "$tmp/.gitignore"
 grep -q '^/.buildr/mutations/$' "$tmp/.gitignore"
+grep -q '^CLAUDE.md$' "$tmp/.gitignore"
 grep -q 'propose 和创建 change artifacts 前' "$product_root/package/targets/workspace/skills/buildr/task-worktree/SKILL.md"
 grep -q 'artifacts、实现和合并前候选验证都只能写入该 worktree' "$product_root/package/targets/workspace/skills/buildr/task-worktree/SKILL.md"
 grep -q '最终候选 Git tree' "$product_root/package/targets/workspace/skills/buildr/task-worktree/SKILL.md"
@@ -120,8 +121,18 @@ grep -q '^# Existing root entry$' "$existing_agents_root/AGENTS.md"
 grep -q 'rules/buildr/core.md' "$existing_agents_root/AGENTS.md"
 test ! -f "$existing_agents_root/AGENTS.workspace.md"
 test ! -f "$existing_agents_root/README.md"
+python3 - "$existing_agents_root/.gitignore" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+path.write_text('\n'.join(line for line in path.read_text().splitlines() if line != 'CLAUDE.md') + '\n')
+PY
 node "$buildr" sync codex --target "$existing_agents_root" >/dev/null
+grep -q '^CLAUDE.md$' "$existing_agents_root/.gitignore"
 node "$buildr" sync claude-code --target "$existing_agents_root" --scope . >/dev/null
+git -C "$existing_agents_root" init -q
+git -C "$existing_agents_root" check-ignore -q CLAUDE.md
 grep -q '^# Existing root entry$' "$existing_agents_root/AGENTS.md"
 grep -q '^user-owned$' "$existing_agents_root/USER-NOTES.md"
 node "$buildr" doctor --agent claude-code --target "$existing_agents_root" --json >/tmp/buildr-product-mvp-existing-root-doctor.json
