@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "guide-users-to-the-next-step",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-d579be4649ec96fa3cacb3102c0d7dfb014103c78dca27c131cbcab8d67273db",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Buildr Core 要求 Agent 引导下一步",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

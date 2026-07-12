@@ -1,0 +1,20 @@
+schema: spec-driven
+
+context: |
+  Buildr 产品定位、核心模型和边界以相对本文件的 `../docs/buildr-product.md` 为准。
+  Buildr 自身的产品能力、CLI 行为、上下文模型、runtime adapter 行为和架构性变更必须先创建 OpenSpec change。
+  OpenSpec artifact 正文使用中文；命令、路径、代码标识符和工具关键字可以保留英文。
+
+rules:
+  proposal:
+    - 必须说明为什么现在需要改变，以及是否包含破坏性变更。
+    - 必须列出新增或修改的 capability，名称使用 kebab-case。
+  design:
+    - 必须解释关键取舍、兼容策略和迁移风险。
+    - 不要写逐行实现细节；实现步骤放入 tasks。
+  specs:
+    - Requirement 必须使用 SHALL 或 MUST 表达规范性约束。
+    - Scenario 必须使用 WHEN/THEN，并保持可验证。
+  tasks:
+    - 每个任务必须使用 `- [ ]` checkbox 格式。
+    - 任务按依赖顺序拆分，后续实现时完成一项立即打勾。

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "batch-change-verification-gates",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-17287aef2444cca65497b286bb6e1c05cbab275f9c00d92c1402e4fd81a361b2",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-development-openspec",
+      "title": "OpenSpec apply 阶段批量安排验证",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "产品验证覆盖分层验证门禁契约",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "实现任务采用分层验证门禁",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

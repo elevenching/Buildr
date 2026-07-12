@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "refactor-cli-monolith",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-e44928755a3bd9ec3e3ecd49727ee3787cf31f9c35ac1ad42e43552300202b01",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "cli-modular-architecture",
+      "title": "CLI executable 必须保持薄入口",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-modular-architecture",
+      "title": "CLI 模块必须具有单向依赖和明确领域所有权",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-modular-architecture",
+      "title": "模块化重构必须保持 CLI 可观察行为兼容",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-modular-architecture",
+      "title": "CLI runtime 模块必须完整发布且不扩大公开 API",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-modular-architecture",
+      "title": "CLI 架构和 mutation 边界必须由自动验证保护",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

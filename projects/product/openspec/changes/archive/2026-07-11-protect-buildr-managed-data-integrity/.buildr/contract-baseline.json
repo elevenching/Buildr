@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "protect-buildr-managed-data-integrity",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-7faf4f2ed3f399d3950ff4773ddfe8a6481fe485245e606cfce3b57edb1e4e07",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-readable-doctor",
+      "title": "doctor 报告 mutation transaction 状态",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "Package output 只能安全接管和替换",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-components",
+      "title": "Component 源资产通过统一 transaction 提交",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "Buildr 使用严格资产 identity",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "Mutation 路径受 scope、ownership 和保护根约束",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "Mutation 在首次写入前完成全量预检",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "Source mutation 原子提交或失败回滚",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "Manifest YAML 保持 schema 内语义",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "Runtime reconcile 位于 source commit 之后",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "生产 mutation 只能使用受审阅写入入口",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "openspec-contract-guard",
+      "title": "OpenSpec 契约 sidecar 原子写入",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-registry",
+      "title": "Project create 验证既有 repo identity",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "service-asset-indexing",
+      "title": "service create 验证既有 repo identity",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

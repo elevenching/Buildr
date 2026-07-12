@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "clarify-legacy-and-internal-product-surface",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-b718ced234c8f3f2f62a11a31550848abe42d06aaac8b26cd9a9de9e8640b67c",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "cli-product-surface",
+      "title": "CLI 产品表面必须显式分层",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-product-surface",
+      "title": "Canonical 输出不得推荐 legacy 形式",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-product-surface",
+      "title": "service create rules 参数仅作为兼容 no-op",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-product-surface",
+      "title": "Package 命令属于产品维护表面",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-product-surface",
+      "title": "package source identity 不得成为公开资产 id",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-product-surface",
+      "title": "产品表面分类必须由验证保护",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

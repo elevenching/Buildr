@@ -1,0 +1,22 @@
+export const PUBLIC_JSON_SCHEMAS = Object.freeze({
+  builtinList: 'buildr.builtin-list/v1',
+  commandsCheck: 'buildr.commands-check/v1',
+  componentCheck: 'buildr.component-check/v1',
+  componentList: 'buildr.component-list/v1',
+  doctor: 'buildr.doctor/v1',
+  openspecBaseline: 'buildr.openspec-baseline/v1',
+  openspecCheck: 'buildr.openspec-check/v1',
+  runtimeList: 'buildr.runtime-list/v1',
+  update: 'buildr.update/v1',
+  updateCheck: 'buildr.update-check/v1',
+});
+
+export function withJsonSchema(schemaVersion, payload) {
+  if (!Object.values(PUBLIC_JSON_SCHEMAS).includes(schemaVersion)) {
+    throw new Error(`Unknown public JSON schema: ${schemaVersion}`);
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error(`Public JSON payload must be an object: ${schemaVersion}`);
+  }
+  return { schemaVersion, ...payload };
+}

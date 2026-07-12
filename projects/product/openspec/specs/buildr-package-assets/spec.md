@@ -1,0 +1,622 @@
+# Buildr package assets 规范
+
+## Purpose
+
+定义 Buildr 产品随包资产、package manifest、默认 workspace baseline 和 package check 的边界。
+## Requirements
+### Requirement: 随包资产使用 package manifest
+Buildr MUST 使用产品 root 下的 `package/manifest.yml` 声明产品随包资产、交付 target 和用户 workspace baseline。
+
+#### Scenario: 随包资产边界
+- **WHEN** Buildr 发布产品包或校验 package baseline
+- **THEN** 发布包和 baseline MUST 只包含产品 root 内 `package/manifest.yml` 显式声明或引用的资产和 CLI 运行所需文件
+
+#### Scenario: 开发资产引用随包资产
+- **WHEN** Buildr 产品开发需要验证初始化或 runtime baseline
+- **THEN** package manifest MAY 引用产品 root 下的 `package/` 随包资产源
+
+#### Scenario: 默认 workspace baseline 源进入 workspace target
+- **WHEN** Buildr 维护默认 workspace baseline
+- **THEN** 默认 workspace 规则、workspace metadata、Git ignore 模板、命令行工具清单入口和 workspace Skills 源 MUST 位于产品 root 下的 `package/targets/workspace/`
+- **AND** package manifest MUST 从 `package/targets/workspace/` 显式引用默认 workspace baseline 源
+
+#### Scenario: 默认 Project 模板源归属 workspace projects 容器
+- **WHEN** Buildr 维护默认 Project baseline 文件
+- **THEN** 默认 Project 模板源 MUST 位于产品 root 下的 `package/targets/workspace/projects/`
+- **AND** package manifest MUST 从 `package/targets/workspace/projects/` 显式引用默认 Project baseline 文件
+
+#### Scenario: 随包资产不得引用开发 overlay
+- **WHEN** Buildr 校验 `package/manifest.yml`
+- **THEN** package baseline MUST NOT 引用产品仓根特有规则、私有业务项目、私有组织名或私有路径
+
+#### Scenario: 通用根规则进入 workspace target 规则源
+- **WHEN** Buildr 维护默认 root 工作规则
+- **THEN** 通用规则 MUST 以产品 root 下 `package/targets/workspace/rules/` 中可独立维护的规则文件作为源
+- **AND** package manifest MUST 显式引用允许发布的规则文件，不得默认发布整个 `rules/` 目录
+
+### Requirement: package manifest 声明发布边界
+Buildr MUST 使用 `package/manifest.yml` 声明产品随包资产 include、workspaceDirectories、workspaceFiles、projectDirectories、projectFiles、模板变量和禁止内容。
+
+#### Scenario: package check 校验 manifest
+- **WHEN** Agent 执行 `buildr package check`
+- **THEN** Buildr MUST 校验 manifest include 和文件映射源路径存在、模板变量完整，并报告禁止内容
+- **AND** Buildr MUST 报告 `.gitkeep` 占位文件
+
+#### Scenario: package check 校验初始化闭环
+- **WHEN** Agent 执行 `buildr package check`
+- **THEN** Buildr MUST 使用 package manifest 在临时目录执行初始化，并验证 `doctor --json` 通过
+
+### Requirement: 初始化从 manifest 映射生成
+Buildr MUST 从 `package/manifest.yml` 声明的目录和文件映射生成默认 root baseline 和项目 baseline，并确保默认 workspace 规则具备可直接指导 Agent 工作的内容质量。
+
+#### Scenario: 渲染 root baseline
+- **WHEN** Agent 执行 `buildr init --target <dir> --name <name>`
+- **THEN** Buildr MUST 使用 manifest `workspaceDirectories` 和 `workspaceFiles` 生成 root 资产
+- **AND** Buildr MUST 直接创建必要空目录，不通过 `.gitkeep` 占位文件表达目录意图
+
+#### Scenario: 已有 root AGENTS 时保留组合入口
+- **WHEN** Agent 执行 `buildr init --target <dir> --name <name>`
+- **AND** `<dir>/AGENTS.md` 已经存在
+- **THEN** Buildr MUST NOT 覆盖 `<dir>/AGENTS.md`
+- **AND** Buildr MUST 补齐或修复 Buildr required block
+- **AND** Buildr MUST NOT 生成 `<dir>/AGENTS.workspace.md`
+
+#### Scenario: 新 workspace 仍生成 root AGENTS
+- **WHEN** Agent 执行 `buildr init --target <dir> --name <name>`
+- **AND** `<dir>/AGENTS.md` 不存在
+- **THEN** Buildr MUST 将默认 workspace 规则写入 `<dir>/AGENTS.md`
+
+#### Scenario: root baseline 不包含 ASSETS
+- **WHEN** Buildr 渲染默认 root baseline
+- **THEN** 模板 MUST NOT 默认生成 `ASSETS.md`
+
+#### Scenario: root AGENTS 提供 Buildr required block
+- **WHEN** Buildr 渲染默认 root `AGENTS.md`
+- **THEN** 文件 MUST 包含 Buildr required block 并引用 `rules/buildr/core.md`
+- **AND** Buildr workspace 基础模型和硬边界 MUST 由 Buildr Core 承载
+- **AND** 场景化操作流程 MUST 由对应 Skill 承载
+- **AND** 文件 MUST NOT 引用产品仓私有业务项目、私有路径或私有业务规则
+
+#### Scenario: 默认 root baseline 不生成 README
+- **WHEN** Buildr 渲染默认 root baseline
+- **THEN** 模板 MUST NOT 默认生成 `README.md`
+
+#### Scenario: 渲染 project baseline
+- **WHEN** Agent 执行 `buildr project create <project>`
+- **THEN** Buildr MUST 使用 manifest `projectDirectories` 和 `projectFiles` 生成项目资产
+
+### Requirement: package manifest 声明产品内置 Agent Skills
+Buildr package manifest MUST 显式声明产品随包内置 Agent Skills，并将其与 workspace target 文件映射分离。
+
+#### Scenario: 声明 agentSkills
+- **WHEN** Buildr 产品包包含内置 Agent Skill
+- **THEN** `package/manifest.yml` MUST 通过专用字段声明 Skill id、源路径和适用 runtime
+- **AND** 产品入口 Buildr Skill 源路径 MUST 位于 `package/targets/runtime/skills/<skill-id>/`
+
+#### Scenario: agentSkills 不参与 init baseline
+- **WHEN** Agent 执行 `buildr init`
+- **THEN** manifest 中声明的产品内置 Agent Skills MUST NOT 被复制到目标 workspace `skills/` 目录
+- **AND** Buildr MUST 继续只按 `workspaceDirectories` 和 `workspaceFiles` 生成 workspace baseline
+
+#### Scenario: package check 校验内置 Agent Skills
+- **WHEN** Agent 执行 `buildr package check`
+- **THEN** Buildr MUST 校验 manifest 声明的产品内置 Agent Skill 源路径存在
+- **AND** Buildr MUST 校验该 Skill 不包含 forbidden patterns
+- **AND** Buildr MUST 校验该 Skill 具备可渲染的 `SKILL.md`
+
+#### Scenario: package check 校验 bootstrap 入口契约
+- **WHEN** Agent 执行 `buildr package check`
+- **THEN** Buildr MUST 校验 bootstrap guide 和 Buildr Skill 满足 `package/bootstrap/contract.yml`
+- **AND** bootstrap 契约 MUST 分别约束 guide 的恢复入口、Buildr Skill 的必要章节、生成后 runtime Skill 的 adapter 内容和禁用入口
+- **AND** bootstrap 契约 MUST NOT 要求 bootstrap guide 覆盖 Buildr Skill 的完整资产维护细节
+
+### Requirement: Package 顶层职责必须分离
+Buildr package MUST 将维护说明、机器映射、恢复入口和交付 target 表达为不同职责。
+
+#### Scenario: Package 维护说明与机器契约
+- **WHEN** 维护者查看 `package/` 顶层
+- **THEN** `package/README.md` MUST 只说明 package 的维护用途
+- **AND** `package/manifest.yml` MUST 是发布边界和 source-to-target 映射的机器契约
+
+#### Scenario: Bootstrap 恢复入口
+- **WHEN** Buildr Skill 不可用且 Agent 运行 `buildr bootstrap guide`
+- **THEN** Buildr MUST 从 `package/bootstrap/guide.md` 输出恢复指南
+- **AND** bootstrap 资产 MUST NOT 被当作 workspace target 或 runtime target 物化
+
+#### Scenario: Target 目录只表达交付目的地
+- **WHEN** Buildr 维护 `package/targets/`
+- **THEN** `package/targets/workspace/` MUST 只保存面向 workspace 的交付源
+- **AND** `package/targets/runtime/` MUST 只保存直接面向 Agent runtime 的交付源
+
+#### Scenario: 旧 package 源路径被拒绝
+- **WHEN** Buildr 校验新版本 package manifest 和活动产品引用
+- **THEN** Buildr MUST NOT 接受 `package/workspace/` 或 `package/agent-skills/` 作为 canonical 源路径
+- **AND** 新版本 npm package MUST NOT 同时发布旧路径兼容副本
+
+### Requirement: package baseline 支持命令行工具清单入口
+Buildr package baseline MUST 支持默认 workspace 中的命令行工具清单入口。
+
+#### Scenario: 初始化命令行工具清单入口
+- **WHEN** Agent 执行 `buildr init --target <dir> --name <name>`
+- **THEN** Buildr MUST 在 workspace 中创建命令行工具清单入口
+- **AND** 该入口 MUST 能承载 `commands/manifest.yml` 或等价 manifest
+
+#### Scenario: 默认命令行工具清单为空
+- **WHEN** Buildr 当前没有随包提供默认外部命令行工具声明
+- **THEN** `buildr init` MUST 初始化空的命令行工具清单
+- **AND** 默认清单 MUST NOT 声明 Buildr 自身为工作区命令行工具资产
+
+#### Scenario: package check 校验命令行工具清单入口
+- **WHEN** Agent 执行 `buildr package check`
+- **THEN** Buildr MUST 校验 package manifest 声明的命令行工具清单入口可以被初始化到临时 workspace
+- **AND** Buildr MUST 校验默认命令行工具 manifest 不包含私有路径、私有组织名或个人机器状态
+
+### Requirement: package check 覆盖 manifest-backed 资产维护命令
+Buildr package check MUST 验证 manifest-backed 资产维护命令不会破坏默认 workspace baseline、manifest 标准格式或 runtime 投射边界。
+
+#### Scenario: 验证命令行工具 add/remove
+- **WHEN** Agent 执行 `buildr package check`
+- **THEN** Buildr MUST 验证 `commands add/remove` 可以在已初始化临时 workspace 中维护 `commands/manifest.yml`
+- **AND** Buildr MUST 验证写回后的命令行工具条目使用 `installHint` 而不是 `install`
+- **AND** Buildr MUST 验证 `commands add/remove` 不会自动安装命令行工具或写入 Agent runtime
+
+#### Scenario: 验证 Skills add/remove
+- **WHEN** Agent 执行 `buildr package check`
+- **THEN** Buildr MUST 验证 `skills add/remove` 可以在已初始化临时 workspace 中维护 workspace 或 project scope 的 `skills/manifest.yml`
+- **AND** Buildr MUST 验证 `skills add --source` 装载的是完整 Skill 源目录
+- **AND** Buildr MUST 验证 `skills add/remove` 不会自动写入 Agent runtime
+
+#### Scenario: 验证 Rules add/remove
+- **WHEN** Agent 执行 `buildr package check`
+- **THEN** Buildr MUST 验证 `rules add/remove` 可以在已初始化临时 workspace 中维护 root `rules/manifest.yml`
+- **AND** Buildr MUST 验证 `rules add` 要求非空 description
+- **AND** Buildr MUST 验证 `rules add` 未传 `--path` 时默认注册 `rules/<id>.md`
+- **AND** Buildr MUST 验证 `rules add` 只能注册已存在的 root Rule 文件
+- **AND** Buildr MUST 验证 `rules remove` 默认删除 Rule 源文件和 manifest entry
+- **AND** Buildr MUST 验证 `rules remove --keep-file` 保留 Rule 源文件、只移除 manifest entry，并可由 doctor 报告为未登记文件
+- **AND** Buildr MUST 验证 `rules add/remove` 不会自动写入 Agent runtime
+- **AND** Buildr MUST 验证 required Buildr Rule 不能通过 `rules remove` 删除
+
+### Requirement: 产品 MVP 验证覆盖 manifest-backed 资产维护
+Buildr 产品 MVP 验证 MUST 覆盖命令行工具、Rules 和 Skills 源资产维护命令的主要用户路径。
+
+#### Scenario: MVP 验证新增源资产
+- **WHEN** Agent 运行产品 MVP 验证脚本
+- **THEN** 验证脚本 MUST 覆盖 `commands add/remove`
+- **AND** 验证脚本 MUST 覆盖 `rules add/remove`
+- **AND** 验证脚本 MUST 覆盖 `skills add/remove`
+- **AND** 验证脚本 MUST 覆盖 add/remove 后通过 check、doctor 或 render/check 继续确认状态的路径
+
+#### Scenario: MVP 验证边界
+- **WHEN** Agent 运行产品 MVP 验证脚本
+- **THEN** 验证脚本 MUST 覆盖 add/remove 要求 target 已初始化
+- **AND** 验证脚本 MUST 覆盖 add/remove 不提供 `--json`
+- **AND** 验证脚本 MUST 覆盖 add/remove 不硬编码特定 Agent adapter 的下一步命令
+
+#### Scenario: 临时 workspace 端到端验收
+- **WHEN** Agent 运行产品 MVP 验证脚本
+- **THEN** 验证脚本 MUST 从空临时目录初始化真实 Buildr workspace
+- **AND** 验证脚本 MUST 按 Workspace、Project、Service、Rules、Commands、Skills、Runtime 七类资产覆盖主要 Agent 操作路径
+- **AND** 验证脚本 MUST 在每类资产关键状态变更后使用 `doctor --json` 或对应专项检查确认状态
+
+### Requirement: 产品级总验证入口
+Buildr MUST 提供一个产品级总验证入口，用于统一执行产品包检查、临时 workspace 端到端验收和 OpenSpec strict 校验。
+
+#### Scenario: 运行产品级总验证
+- **WHEN** Agent 在产品仓执行产品级总验证入口
+- **THEN** 验证 MUST 运行 `./buildr package check`
+- **AND** 验证 MUST 运行临时 workspace 端到端验收
+- **AND** 验证 MUST 运行 `openspec validate --all --strict`
+- **AND** 任一底层检查失败时总验证 MUST 失败
+
+#### Scenario: 产品仓规则引用统一入口
+- **WHEN** 产品仓上下文规则说明验证方式
+- **THEN** 规则 MUST 优先指向产品级总验证入口
+- **AND** 规则 MAY 保留底层分解命令，便于 Agent 定位失败阶段
+
+### Requirement: package manifest 声明 workspace Skill 引用来源
+Buildr package manifest MUST 支持声明产品随包 workspace/project Skill 引用来源，并将其与 workspace baseline 文件映射和产品内置 Agent Skills 分离。
+
+#### Scenario: 声明 skillSources
+- **WHEN** Buildr 产品包提供可被 workspace/project `skills/manifest.yml` 引用的 Skill 源资产
+- **THEN** `package/manifest.yml` MUST 通过专用字段声明 source id、源路径和适用 runtime
+- **AND** 该声明 MUST NOT 使用 `agentSkills` 字段
+
+#### Scenario: skillSources 不参与 init 文件映射
+- **WHEN** Agent 执行 `buildr init`
+- **THEN** manifest 中声明的 `skillSources` MUST NOT 被直接复制到目标 workspace `skills/<skill-id>/` 目录
+- **AND** Buildr MUST 继续只按 `workspaceDirectories` 和 `workspaceFiles` 生成 workspace baseline 文件
+- **AND** 默认 workspace 可通过 `skills/manifest.yml` 中的引用型条目启用这些 Skill
+
+#### Scenario: package check 校验 skillSources
+- **WHEN** Agent 执行 `buildr package check`
+- **THEN** Buildr MUST 校验 manifest 声明的 `skillSources` 源路径存在
+- **AND** Buildr MUST 校验每个 source 具备可读取的 `SKILL.md`
+- **AND** Buildr MUST 校验 `SKILL.md` frontmatter 的 `name` 与 source id 一致
+- **AND** Buildr MUST 校验 source 内容不包含 forbidden patterns
+
+#### Scenario: workspace baseline 引用 package Skill source
+- **WHEN** package workspace baseline 的 `skills/manifest.yml` 声明 `source: package:<source-id>`
+- **THEN** Buildr package check MUST 校验 `<source-id>` 存在于 package manifest 的 `skillSources`
+- **AND** Buildr MUST NOT 要求该 Skill 的 `SKILL.md` 也出现在 `workspaceFiles` 映射中
+
+### Requirement: package manifest 声明内置能力
+Buildr package manifest MUST 声明可同步到用户 workspace 的产品内置 Rules、Skills 和 Commands，并提供旧 workspace 安全采用所需的官方完整性证据。
+
+#### Scenario: 声明内置 Rules
+- **WHEN** Buildr package 包含产品内置 Rules
+- **THEN** `package/manifest.yml` MUST 声明每个内置 Rule 的 id、源路径、目标路径、description 和 required 状态
+- **AND** version 或 hash 元数据 MAY 声明，但不是必填
+
+#### Scenario: 声明内置 Skills
+- **WHEN** Buildr package 包含产品内置 Skills
+- **THEN** `package/manifest.yml` MUST 声明每个内置 Skill 的 id、源路径、目标路径、适用 runtimes 和 required 状态
+- **AND** version 或 hash 元数据 MAY 声明，但不是必填
+
+#### Scenario: 未声明版本的内置能力
+- **WHEN** 某个内置能力未声明 version 或 hash
+- **THEN** Buildr doctor MUST 仍使用安装回执检查该内置能力的精确 live 状态
+- **AND** Buildr MUST NOT 仅因为没有独立 assets version 输出 warning
+
+#### Scenario: 声明内置 Commands
+- **WHEN** Buildr package 包含产品内置 Commands
+- **THEN** `package/manifest.yml` MUST 声明每个内置 Command 在 `commands/manifest.yml` 中需要写入的 manifest entry
+- **AND** 内置 Commands MUST 保持为声明和安装提示，不得变成自动本机安装
+
+#### Scenario: 声明 legacy 官方完整性
+- **WHEN** Buildr 需要让无回执 workspace 从受支持的旧版 Builtin 自动升级
+- **THEN** package MUST 按 Builtin 身份声明对应 legacy SHA-256 完整性
+- **AND** legacy 完整性 MUST 只用于证明随既有 CLI package 发布过的官方内容
+
+#### Scenario: package check 校验内置能力
+- **WHEN** Agent 运行 `buildr package check`
+- **THEN** Buildr MUST 校验已声明的内置能力源路径
+- **AND** Buildr MUST 校验 forbidden patterns、必需 Skill 文件、manifest entry 结构、目标路径安全性和 legacy integrity 格式及身份唯一性
+
+#### Scenario: Rules 和 Skills manifest-first
+- **WHEN** Buildr package 发布内置 Rules 或 Skills
+- **THEN** sync MUST 将它们登记到 `rules/manifest.yml` 或 `skills/manifest.yml`
+- **AND** Buildr MUST NOT 依赖扫描裸文件决定规则或技能是否生效
+
+#### Scenario: Rule manifest metadata
+- **WHEN** Buildr 创建、安装或更新 Rule manifest entry
+- **THEN** entry MUST 声明 `id`、`source`、`path`、`description`、`enabled` 和 `required`
+- **AND** `description` MUST 描述适用场景和用途，供 Agent 判断何时读取该规则
+- **AND** `description` MUST NOT 用来承载规则正文
+
+#### Scenario: package baseline 排除未声明内置能力
+- **WHEN** Buildr 打包或校验产品资产
+- **THEN** builtin package 源目录下的文件 MUST 只有在 package manifest 声明或被 package include 边界覆盖时才能进入发布包
+
+### Requirement: 场景化内置流程以 Skills 发布
+Buildr package assets MUST 将由任务意图触发的场景化流程指引发布为内置 Skills，而不是 optional 内置 Rules。
+
+#### Scenario: package 声明场景化流程指引
+- **WHEN** Buildr package 包含需要按任务意图、工作流阶段、风险条件或命令流程判断是否适用的指引
+- **THEN** `package/manifest.yml` MUST 将该指引声明为内置 Skill
+- **AND** 对应默认 workspace baseline MUST 在 `skills/manifest.yml` 中登记该 Skill
+- **AND** Buildr MUST NOT 将该指引发布为 optional 内置 Rule
+
+#### Scenario: package 声明 invariant 指引
+- **WHEN** Buildr package 包含定义 workspace 模型、源资产边界、必读入口或常驻 invariant 的指引
+- **THEN** `package/manifest.yml` MAY 将该指引声明为内置 Rule
+- **AND** required 内置 Rules MUST 只包含 Agent 无论任务意图如何都必须读取的指引
+
+### Requirement: 默认 baseline 排除场景化 Rules
+Buildr package baseline MUST 不在默认 `rules/buildr/` 资产中发布场景化内置流程指引。
+
+#### Scenario: package check 校验 baseline Rules
+- **WHEN** Agent 运行 `buildr package check`
+- **THEN** 如果默认 package baseline 将任务分流、OpenSpec 工作流、worktree 工作流或 Git 操作流程发布为 optional 内置 Rules，Buildr MUST 校验失败
+- **AND** 当 Buildr 仍随包提供这些流程指引时，Buildr MUST 校验等价指引可通过内置 Skills 获得
+
+### Requirement: 产品验证覆盖递归 AGENTS runtime 投射
+Buildr package check 和 product MVP verification MUST 覆盖 recursive `AGENTS.md` discovery、canonical scope resolution、adapter projection、safe reconciliation boundaries 及 user-visible task workflow status contracts。
+
+#### Scenario: Root Project Service 深层规则链
+- **WHEN** Buildr runs product verification in a temporary workspace
+- **THEN** verification MUST create `AGENTS.md` at Root、Project、Service and a deeper Service module
+- **AND** verification MUST confirm the discovery order is broader-to-more-specific
+- **AND** verification MUST confirm a Service scope excludes sibling Service subtree rules
+
+#### Scenario: Claude Code recursive bridges
+- **WHEN** product verification renders Claude Code rules for Project、Service and root scopes
+- **THEN** verification MUST confirm every discovered source has a same-directory managed `CLAUDE.md` bridge
+- **AND** verification MUST confirm root sync reconciles all managed workspace rule sources
+
+#### Scenario: Codex native recursive rules
+- **WHEN** product verification renders or checks Codex for the same scopes
+- **THEN** verification MUST confirm every discovered `AGENTS.md` is reported as native
+- **AND** verification MUST confirm Rules projection writes no Codex bridge files
+
+#### Scenario: Canonical and legacy scope behavior
+- **WHEN** product verification exercises canonical and legacy Service scope inputs
+- **THEN** verification MUST confirm canonical paths resolve to their literal workspace directories
+- **AND** verification MUST confirm an unambiguous legacy Service shorthand resolves with a migration warning
+- **AND** verification MUST confirm ambiguous or escaping scopes fail without runtime writes
+
+#### Scenario: Recursive reconcile safety
+- **WHEN** product verification encounters excluded directories、unregistered nested Git repos、directory symlinks、orphan managed bridges or non-Buildr-managed target conflicts
+- **THEN** verification MUST confirm excluded and opaque boundaries are not traversed
+- **AND** verification MUST confirm orphan managed bridges are removed
+- **AND** verification MUST confirm a conflict prevents all planned Rules writes and preserves user content
+
+#### Scenario: Task worktree container boundary
+- **WHEN** Buildr initializes or validates a workspace package baseline
+- **THEN** root `.gitignore` MUST ignore `/.worktrees/`
+- **AND** recursive Rules discovery MUST treat `.worktrees/` as an excluded directory
+- **AND** package verification MUST confirm `AGENTS.md` inside `.worktrees/` is not discovered or projected
+
+#### Scenario: Task workflow Skill contract
+- **WHEN** Buildr validates packaged task and OpenSpec Skills
+- **THEN** task-worktree guidance MUST require `<workspace-root>/.worktrees/<task-id>` and pre-action path/branch disclosure
+- **AND** OpenSpec workflow guidance MUST require pre-action change disclosure
+- **AND** task-triage guidance MUST require the user-facing response to report current OpenSpec change status、progress and next action or blocking reason when OpenSpec is used
+
+#### Scenario: Runtime capability metadata
+- **WHEN** product verification runs `buildr runtime list --json`
+- **THEN** verification MUST confirm each supported adapter reports canonical scope syntax、recursive Rules discovery、ancestor inclusion、projection mode and writes-files behavior
+- **AND** rendered adapters MUST report their target pattern
+
+### Requirement: Required Core 暴露 Rule 消费协议
+Buildr package assets MUST 将 Rule manifest consumption protocol 保留在 required Buildr Core 中，同时将 task-triggered procedures 保留在 Skills 中。
+
+#### Scenario: Package Core 声明 Rule 状态语义
+- **WHEN** Buildr packages or validates `rules/buildr/core.md`
+- **THEN** required Core MUST state that enabled、required and installed Rules are always read
+- **AND** required Core MUST state that enabled optional installed Rules are selected semantically from description and task context
+- **AND** required Core MUST state that disabled or uninstalled Rules do not participate in the task
+
+#### Scenario: Package Core 不承载操作手册
+- **WHEN** Buildr packages Rule consumption guidance
+- **THEN** required Core MUST NOT copy task-specific Git、OpenSpec、worktree or other operational procedures
+- **AND** reusable task procedures MUST remain available through the corresponding Skills
+
+#### Scenario: Package Core 提供默认提交语言
+- **WHEN** Buildr packages the default Git operations capability
+- **THEN** Conventional Commits generation guidance MUST be provided by the Git operations Skill
+- **AND** required Core MUST define Chinese as the default commit-message language when no more specific convention applies
+- **AND** required Core MUST NOT contain Git commands、type selection or message generation procedures
+
+### Requirement: Core 默认提交语言独立生效
+Buildr package MUST 通过 required Core 提供独立于 Git Ops Skill 生命周期的默认提交语言。
+
+#### Scenario: 初始化默认 workspace
+- **WHEN** Buildr initializes a workspace from the default package
+- **THEN** required Core MUST state that commit-message subject and body use Chinese when no more specific convention applies
+- **AND** it MUST allow code identifiers、paths、scope and proper nouns to retain their original form
+
+#### Scenario: 卸载 Git Ops Skill
+- **WHEN** Git Ops Skill is uninstalled
+- **THEN** the Core commit-language default MUST remain available to Agent rule consumption
+- **AND** Buildr MUST NOT remove or alter Core as a side effect of the Skill lifecycle
+
+#### Scenario: 更具体约定覆盖默认语言
+- **WHEN** Project、Service or repository rules define a more specific commit language
+- **THEN** Agent MUST use the more specific convention instead of the Core default
+
+### Requirement: 产品验证覆盖提交信息资产边界
+Buildr product verification MUST 防止提交格式与默认语言重新耦合到同一 Skill 生命周期。
+
+#### Scenario: 校验 Git Ops 提交格式
+- **WHEN** Buildr validates the packaged Git Ops Skill
+- **THEN** verification MUST confirm the concise Conventional Commits format、supported types、optional scope and breaking-change guidance
+- **AND** verification MUST confirm Git Ops follows Core and more specific conventions without copying the Chinese constraint
+
+#### Scenario: 校验 Core 默认提交语言
+- **WHEN** Buildr validates the default package and a temporary initialized workspace
+- **THEN** verification MUST confirm required Core contains the concise Chinese default and allowed original-form exceptions
+- **AND** verification MUST confirm the Core default remains present when Git Ops is absent
+
+### Requirement: 产品验证覆盖 Git Ops 集成契约
+Buildr product verification MUST 防止随包 Git Ops Skill 回退到未定义或默认 merge 的任务集成策略。
+
+#### Scenario: 校验线性集成语义
+- **WHEN** Buildr 验证随包 Git Ops Skill
+- **THEN** 验证 MUST 确认 Skill 声明本地未推送任务分支默认 rebase
+- **AND** 验证 MUST 确认目标分支默认 fast-forward-only 集成
+- **AND** 验证 MUST 确认没有用户明确要求时不得创建 merge commit
+
+#### Scenario: 校验共享分支保护
+- **WHEN** Buildr 验证随包 Git Ops Skill
+- **THEN** 验证 MUST 确认已推送或共享任务分支不得自动 rebase 或 force push
+- **AND** 验证 MUST 确认需要语义决策的 rebase 冲突必须停止并等待用户确认
+
+### Requirement: 产品验证覆盖 task worktree 隔离与证据复用
+Buildr package verification MUST 防止 task-worktree guidance 回退为 change artifacts 双写、合并前污染主自举 workspace 或相同 tree 集成后重复产品 E2E。
+
+#### Scenario: 校验 change 创建时机
+- **WHEN** Buildr 验证随包 task-worktree Skill
+- **THEN** 验证 MUST 确认实现型 OpenSpec change 在 propose 前创建或复用 task worktree
+- **AND** 验证 MUST 确认采用 worktree 后 artifacts、实现和候选验证只有一个写入位置
+
+#### Scenario: 校验最终候选 tree 验证契约
+- **WHEN** Buildr 验证 Product Project 开发规则、task-worktree Skill 和 git-ops Skill
+- **THEN** 验证 MUST 确认完整验证绑定准备集成的最终候选 Git tree
+- **AND** 验证 MUST 确认相同 tree 的 commit、集成、push 和 worktree 清理复用已有验证结果
+- **AND** 验证 MUST 确认 tree 改变后在集成前重新运行受影响的验证
+
+#### Scenario: 候选验证保持主工作区干净
+- **WHEN** 产品 E2E 从 task worktree checkout 验证未合并候选版本
+- **THEN** 验证 MUST 使用临时 workspace 或 task worktree 目标
+- **AND** 验证前后的主开发工作区 status MUST 保持不变
+
+#### Scenario: 不要求 post-merge 重复 E2E
+- **WHEN** Buildr 验证产品开发流程文本
+- **THEN** 验证 MUST 确认相同候选 tree 集成后不要求在主开发分支重复产品 E2E
+- **AND** 验证 MUST 区分实际 workspace update/sync 后的 doctor 与产品 E2E
+
+### Requirement: 产品验证覆盖 Task Finish 收尾契约
+Buildr package verification MUST 确保 `task-finish` 作为独立内置 workspace Skill 发布、路由并保留安全收尾契约。
+
+#### Scenario: 校验 Task Finish 随包发布
+- **WHEN** Buildr 执行 package check
+- **THEN** workspace Skill manifests MUST 声明 enabled、installed 的 `task-finish`
+- **AND** 产品入口 Buildr Skill MUST 将完整任务收尾意图路由到 `task-finish`
+- **AND** Git Ops Skill description MUST NOT 继续声明完整“收尾”意图
+
+#### Scenario: 校验收尾状态机
+- **WHEN** Buildr 验证随包 `task-finish` Skill
+- **THEN** 验证 MUST 覆盖前置检查、OpenSpec 归档、EOF 空白行处理、验证证据复用、提交、fetch/rebase、fast-forward、push、入口迁移和本地清理
+- **AND** 验证 MUST 确认 tree 改变后重验、tree 相同时不重复 E2E
+
+#### Scenario: 校验收尾授权边界
+- **WHEN** Buildr 验证随包 `task-finish` Skill
+- **THEN** 验证 MUST 确认“收尾”不授权 force push、merge commit、远端任务分支删除、丢弃改动、共享分支历史改写或语义冲突决策
+- **AND** 验证 MUST 确认任何失败会停止尚未执行的 merge、push 或 cleanup
+
+#### Scenario: Core 不复制收尾流程
+- **WHEN** Buildr 验证 required Core 和 Task Finish Skill
+- **THEN** 完整 task closeout 操作手册 MUST 只存在于 Skills
+- **AND** required Core MUST NOT 包含 OpenSpec archive EOF 修复或 Git 收尾步骤
+
+### Requirement: Package manifest 声明 workspace Components
+Buildr package manifest MUST 显式声明随包 workspace Components，并将 Component 定义、外部 Skill resolved sources 和 Buildr-owned member sources 限制在可验证的发布边界内。
+
+#### Scenario: 声明随包 Component
+- **WHEN** Buildr 产品包提供 workspace Component
+- **THEN** `package/manifest.yml` MUST 声明 Component id、定义源路径、默认启用状态和 required 状态
+- **AND** Component 定义源 MUST 位于 `package/targets/workspace/components/<source>/<id>/component.yml`
+
+#### Scenario: Component 定义引用不同来源成员
+- **WHEN** 随包 Component 声明外部 Skills、Buildr-owned Rules/Skills、Command collections 或 Skill Contributions
+- **THEN** 每个 Buildr-owned member 源和目标路径 MUST 位于允许的 workspace target 边界
+- **AND** 每个外部 Skill MUST 声明可验证的 source、resolved source、version 和 integrity
+- **AND** Component 定义 MUST 声明全部物化成员 integrity
+- **AND** 同一个随包成员 MUST NOT 被多个 Component 声明生命周期所有权
+
+#### Scenario: Package check 校验 Component
+- **WHEN** Agent 运行 `buildr package check`
+- **THEN** Buildr MUST 校验 Component manifest schema、定义 schema、稳定 id、版本、来源、成员路径、成员存在性和 integrity
+- **AND** Buildr MUST 校验外部 Skill 内容未包含 Buildr sidebar 修改
+- **AND** Buildr MUST 校验 Component 与独立 Builtins、workspace baseline 和其他 Components 不存在 id、路径或 ownership 冲突
+
+#### Scenario: OpenSpec Component 上游版本对齐
+- **WHEN** package check 校验随包 OpenSpec Component
+- **THEN** Buildr MUST 校验 OpenSpec Command collection 和全部声明的外部 workflow Skills 存在
+- **AND** Buildr MUST 校验外部 Skills 的 `generatedBy`、resolved source 和 integrity 与 Component 声明的 OpenSpec 上游版本一致
+- **AND** Buildr MUST 校验 sidebar 对该上游版本兼容
+
+#### Scenario: Component 不重复进入 baseline 映射
+- **WHEN** package manifest 已通过 Component 声明某个 Rule、Skill 或 Command collection
+- **THEN** Buildr MUST NOT 再依赖重复的 workspace baseline 文件清单决定该成员的安装状态
+- **AND** init/update MUST 通过 Component 生命周期物化该成员
+
+### Requirement: 产品验证覆盖 Component 生命周期
+Buildr package check 和产品端到端验证 MUST 覆盖 Component 及 Commands collections 的主要用户路径和安全边界。
+
+#### Scenario: 临时 workspace Component 验证
+- **WHEN** Agent 运行产品验证入口
+- **THEN** 验证 MUST 覆盖默认 Component 初始化、list、check、install、uninstall、update 和 sync
+- **AND** 验证 MUST 覆盖 Component 成员的 runtime 安装与清理
+
+#### Scenario: Component 冲突与迁移验证
+- **WHEN** Agent 运行产品验证入口
+- **THEN** 验证 MUST 覆盖安全三方升级、用户修改阻塞、成员缺失、ownership conflict 和旧 OpenSpec Builtins 原位采用
+- **AND** 验证 MUST 确认失败预检不会产生部分源资产写入
+
+#### Scenario: Commands collections 验证
+- **WHEN** Agent 运行产品验证入口
+- **THEN** 验证 MUST 覆盖根 collection、嵌套 collection、相同声明合并、冲突声明报错和 Component-owned collection 保护
+
+### Requirement: Package 发布 OpenSpec 契约门禁 sidebar
+Buildr package MUST 发布 OpenSpec 契约门禁 Skill、Contribution fragments、CLI 契约和 Component metadata，并严格区分上游 workflow Skills 与 Buildr 自有 sidebar。
+
+#### Scenario: Package manifest 声明门禁 Skill
+- **WHEN** package check 校验 OpenSpec Component
+- **THEN** package manifest MUST 将 `openspec-contract-guard` 声明为该 Component 的 Buildr-owned workspace Skill
+- **AND** Component definition 和 integrity MUST 包含该 Skill 的完整源目录
+
+#### Scenario: 校验不同来源的 Skills
+- **WHEN** package check 遍历 OpenSpec Component Skill members
+- **THEN** 外部 workflow Skills MUST 校验 `generatedBy`、resolved source 与 upstream version 一致
+- **AND** 外部 workflow Skills MUST 位于外部来源命名空间且正文不含 Buildr sidebar 修改
+- **AND** Buildr 契约门禁 Skill MUST 校验 Buildr 自有来源和支持的 upstream version
+- **AND** package check MUST NOT 要求 Buildr sidebar 伪装为 OpenSpec 上游生成资产
+
+#### Scenario: Runtime 组合 sidebar
+- **WHEN** 临时 workspace 为支持的 Agent render OpenSpec Component
+- **THEN** runtime workflow Skills MUST 由纯上游内容和 enabled sidebar contributions 确定性组合
+- **AND** workspace 外部 Skill 源 MUST 与上游 package source 保持一致
+- **AND** Component 卸载并 reconcile 后 runtime MUST 移除 sidebar 和 Component-owned workflow Skills，不得遗留 Buildr fork
+
+### Requirement: 产品验证覆盖 OpenSpec 契约漂移门禁
+Buildr 产品总验证 MUST 覆盖契约基线、同步前后检查、上游兼容性和候选 tree 的 canonical spec 变更审计。
+
+#### Scenario: 门禁 fixture corpus
+- **WHEN** 产品验证运行 OpenSpec contract fixtures
+- **THEN** 验证 MUST 覆盖安全 ADDED、MODIFIED、REMOVED 和 RENAMED 同步
+- **AND** 验证 MUST 覆盖 proposal/delta 不一致、active change 冲突、stale baseline、缺失基线、delta 后改动和未触达 Requirement 被破坏
+
+#### Scenario: Product candidate 修改 canonical specs
+- **WHEN** Product Project 的候选 Git tree 包含 canonical spec 变化
+- **THEN** 产品验证 MUST 要求变化能够关联到通过 post-sync 的 active change 或本次归档 change receipt
+- **AND** 只有 `openspec validate --all --strict` 通过 MUST NOT 被视为充分证据
+
+#### Scenario: OpenSpec Component 上游升级
+- **WHEN** package 中声明的 OpenSpec upstream version 变化
+- **THEN** package check 和产品验证 MUST 对该版本运行 contract fixture corpus
+- **AND** 未经支持或 fixture 失败 MUST 阻止 package verification 通过
+
+#### Scenario: Runtime 投射门禁 Skill
+- **WHEN** 临时 workspace 初始化、update 或 sync 支持的 Agent runtime
+- **THEN** 产品 E2E MUST 验证 `openspec-contract-guard` 随 OpenSpec Component 物化并投射
+- **AND** OpenSpec Component 被显式卸载时该 Skill MUST 随集合安全移除
+
+#### Scenario: Runtime 组合和移除门禁 Contribution
+- **WHEN** 临时 workspace 对支持的 Agent 安装或卸载 OpenSpec Component
+- **THEN** 产品 E2E MUST 验证安装后的 `task-triage` 与 `task-finish` runtime 包含 Component-owned 门禁片段
+- **AND** 产品 E2E MUST 验证卸载并 reconcile 后通用 runtime Skills 仍存在但门禁片段与命令完全消失
+- **AND** workspace 中的通用 Skill 源 MUST NOT 因安装或卸载被注入门禁正文
+
+### Requirement: Package output 只能安全接管和替换
+Buildr MUST 将 package build 输出视为带版本化 receipt 和 integrity 的受管生成树，并在替换前验证目标 ownership。
+
+#### Scenario: 新建或接管空输出目录
+- **WHEN** `buildr package build --out <dir>` 的目标不存在或为空且不属于保护根
+- **THEN** Buildr MUST 在同级 staging 完成构建后物化输出
+- **AND** 输出 MUST 包含 `.buildr-package-output.json` receipt
+
+#### Scenario: 安全替换既有输出
+- **WHEN** 既有输出包含有效 receipt，且 live 文件集合与 integrity 匹配上次 receipt
+- **THEN** Buildr MUST staged build 新输出并原子替换旧输出
+- **AND** 失败时 MUST 恢复旧输出
+
+#### Scenario: 拒绝未受管或已修改输出
+- **WHEN** 输出目录非空但没有有效 receipt，或 live 内容已修改、缺失或包含未登记文件
+- **THEN** Buildr MUST 在删除任何目标内容前拒绝构建
+- **AND** Buildr MUST NOT 提供隐式 force 覆盖
+
+#### Scenario: 拒绝危险输出路径
+- **WHEN** `--out` 解析为 workspace 根、Product 根、当前目录、用户 home、文件系统根、资产集合根或这些保护根的祖先
+- **THEN** Buildr MUST 拒绝构建且保持目标不变
+
+### Requirement: 产品验证覆盖分层验证门禁契约
+Buildr package verification MUST 防止随包任务 Skills 和 Product Project 开发契约回退为逐任务完整 E2E、重复启动运行中验证或重复执行被上层入口覆盖的检查。
+
+#### Scenario: 校验三级验证边界
+- **WHEN** Buildr 验证随包任务 Skills 和 Product Project 开发契约
+- **THEN** 验证 MUST 确认单任务只要求最小反馈检查
+- **AND** 验证 MUST 确认任务组边界要求一次受影响范围验证
+- **AND** 验证 MUST 确认只有冻结后的最终候选要求完整验证
+
+#### Scenario: 校验完整 E2E 去重语义
+- **WHEN** Buildr 验证实现阶段和收尾阶段的流程文本
+- **THEN** 验证 MUST 确认流程不要求每个任务后运行完整 E2E
+- **AND** 验证 MUST 确认上层入口已覆盖的底层检查在同一候选状态中不会被机械重复
+- **AND** 验证 MUST 确认相同最终候选 tree 的后续 Git 动作复用已有验证证据
+
+#### Scenario: 校验运行中验证进程复用
+- **WHEN** Buildr 验证随包任务 Skills
+- **THEN** 验证 MUST 确认 session、cell、process id 或仍在运行状态通过 wait、poll 或 resume 继续
+- **AND** 验证 MUST 确认暂时无输出不会触发相同命令的重复启动
+
+#### Scenario: 校验失败后的重验范围
+- **WHEN** Buildr 验证最终候选完整验证失败后的流程
+- **THEN** 验证 MUST 确认修复期间优先重跑失败项和受影响专项检查
+- **AND** 验证 MUST 确认候选重新稳定后执行一次新的最终完整验证
+
+#### Scenario: 校验外部 OpenSpec Skill 所有权
+- **WHEN** Buildr 验证分层验证门禁的交付来源
+- **THEN** 门禁 MUST 由 Buildr-owned Skills 或 Product Project 开发契约提供
+- **AND** Component 管理的外部 `openspec-apply-change` Skill MUST 保持上游所有权

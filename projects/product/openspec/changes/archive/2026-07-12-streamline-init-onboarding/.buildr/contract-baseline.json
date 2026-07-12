@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "streamline-init-onboarding",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-527ec1230fb56e022481317a757a52b60a21e64fa4799451072b35868cb2c395",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr sync 是 Agent 升级主路径",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr sync 是 Agent 升级主路径\nBuildr MUST 提供 sync 命令，让 Agent 能把最新 Buildr 产品交付到支持的 Agent runtime。\n\n#### Scenario: 同步 Codex\n- **WHEN** Agent 运行 `buildr sync codex --target <dir>`\n- **THEN** Buildr MUST 同步 workspace 产品能力、安装或修复产品入口 Buildr Skill、渲染 Codex runtime，并报告最终 Codex doctor 状态\n\n#### Scenario: 同步 Claude Code\n- **WHEN** Agent 运行 `buildr sync claude-code --target <dir>`\n- **THEN** Buildr MUST 同步 workspace 产品能力、安装或修复产品入口 Buildr Skill、渲染 Claude Code runtime，并报告最终 Claude Code doctor 状态\n\n#### Scenario: sync 遇到用户决策点时停止\n- **WHEN** sync 遇到修改过的 optional 内置能力、manifest 对齐问题，或需要安装外部命令行工具\n- **THEN** sync MUST 在执行破坏性或会修改本机环境的动作前停止\n- **AND** sync MUST 提供清晰下一步，供 Agent 向用户确认\n"
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr 产品交付必须单向物化",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr 产品交付必须单向物化\nBuildr MUST 将当前产品 package target 视为产品交付源，并将用户 workspace 和 Agent runtime 中的对应文件视为安装结果。\n\n#### Scenario: Workspace target 单向物化\n- **WHEN** Agent 使用当前 Buildr 产品执行 init、update 或 sync\n- **THEN** Buildr MUST 从 `package/targets/workspace/` 向目标 workspace 物化 manifest 声明的资产\n- **AND** Buildr MUST NOT 从目标 workspace 反向更新 Product Project 的 package 源\n\n#### Scenario: Runtime target 单向物化\n- **WHEN** Agent 执行 `buildr skill install <agent>` 或 `buildr sync <agent>`\n- **THEN** Buildr MUST 从 `package/targets/runtime/` 安装 manifest 声明的产品入口 Agent Skill\n- **AND** 安装后的 runtime 文件 MUST NOT 成为产品 Skill 的源资产\n\n#### Scenario: 未合并候选产品使用隔离目标验证\n- **WHEN** Buildr 维护者使用未合并的 task worktree Product checkout 验证候选产品\n- **THEN** update/sync MUST 使用该 checkout 随附的 package target\n- **AND** 验证目标 MUST 是临时 workspace 或 task worktree 自身，而不是主开发工作区的自举 workspace\n\n#### Scenario: 相同候选 tree 集成后不重复物化验证\n- **WHEN** 已完成隔离验证的候选 Git tree 未经内容改变集成到主开发分支\n- **THEN** Buildr 开发流程 MUST NOT 要求仅为重复产品验证而从主开发分支 checkout 再次 update/sync 主自举 workspace\n- **AND** 实际 workspace 后续需要消费新版产品资产时 MAY 独立执行 update/sync\n\n#### Scenario: 保留 workspace 自有内容\n- **WHEN** update/sync 向已有 workspace 物化产品管理资产\n- **THEN** Buildr MUST 继续保留用户或自举 workspace 自有的 `AGENTS.md` 正文和未由 package manifest 管理的资产\n- **AND** Buildr MUST 只修复 required block 和 manifest 声明的产品管理资产\n"
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "MVP 先通过 Buildr Skill 和基础命令闭环",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: MVP 先通过 Buildr Skill 和基础命令闭环\nBuildr MVP MUST 先通过 Buildr Skill、bootstrap guide 兜底、`init`、`project create`、`service create`、`doctor` 和按 Agent 类型选择的 runtime 动作完成 onboarding 闭环，不得要求先实现更高层 `buildr use` 入口。\n\n#### Scenario: Agent 获取 Buildr 使用指南\n- **WHEN** Agent 通过 README、安装说明、`buildr --help` 或本地 CLI 发现 Buildr，但当前 Agent runtime 尚未安装 Buildr Skill\n- **THEN** Agent MUST 通过 `buildr skill install <agent>` 安装 Buildr Skill\n- **AND** 当 Buildr Skill 仍不可用时，Agent MUST 能通过 `buildr bootstrap guide` 理解基础命令和 onboarding 兜底路径\n\n#### Scenario: Agent 使用 Buildr Skill\n- **WHEN** 当前 Agent runtime 已安装 Buildr Skill\n- **THEN** Agent MUST 通过 Buildr Skill 理解 Buildr workspace onboarding、项目创建、服务接入、诊断和 runtime 处理约束\n- **AND** Buildr Skill MUST 以轻约束和命令地图引导 Agent 自主编排，而不是规定固定交互脚本\n\n#### Scenario: service create 维护服务资产\n- **WHEN** Agent 需要创建或维护 service metadata 与 service repo 引用\n- **THEN** Agent MUST 使用 `buildr service create`\n- **AND** bootstrap guide MUST NOT 将 `service link` 描述为主命令\n\n#### Scenario: 共享服务创建项目\n- **WHEN** 用户希望接入共享、基础或平台 service repo\n- **THEN** Agent MUST 引导用户选择或创建一个 Project 来承载这些 services\n- **AND** Agent MUST NOT 引导用户维护 root `shared/`\n\n#### Scenario: 渐进式引导项目和服务\n- **WHEN** Agent 完成 `buildr init` 或其他 Buildr 状态变更\n- **THEN** Agent MUST 基于 `doctor --json` 和用户回答，逐步引导创建项目、接入 service repo 和执行必要的 runtime check/render\n\n#### Scenario: Agent 根据自身 runtime 选择动作\n- **WHEN** Agent 完成 `buildr init`\n- **THEN** bootstrap guide 和 Buildr Skill MUST 引导 Agent 先判断自身是否原生读取 `AGENTS.md`\n- **AND** 对原生读取 `AGENTS.md` 的 Agent MUST NOT 要求执行 rules render\n\n#### Scenario: Codex 使用 Buildr workspace\n- **WHEN** Codex Agent 在 Buildr workspace 中工作\n- **THEN** Agent MUST 直接使用 `AGENTS.md` 作为规则入口\n- **AND** Agent MUST NOT 为规则入口执行 `buildr rules render claude-code`\n\n#### Scenario: Claude Code 使用 Buildr workspace\n- **WHEN** Claude Code Agent 在 Buildr workspace 中工作\n- **THEN** Agent MUST 使用 Claude Code adapter 的 runtime check/render 来维护 `CLAUDE.md` 和 `.claude/skills/`\n\n#### Scenario: 初始化不自动写 runtime\n- **WHEN** Agent 执行 `buildr init`\n- **THEN** Buildr MUST 只创建 Buildr workspace 源资产\n- **AND** Buildr MUST NOT 自动渲染 Buildr Skill、`CLAUDE.md` 或其他 Agent runtime 文件\n\n#### Scenario: 产品 Skill 安装不同于 workspace Skills 投射\n- **WHEN** Agent 只需要让当前 runtime 学会使用 Buildr\n- **THEN** Agent MUST 使用 `buildr skill install <agent>`\n- **AND** 当 Agent 需要投射 workspace/project Skills 时，Agent MUST 使用 `buildr skills render <agent>`\n\n#### Scenario: 讨论更高层入口\n- **WHEN** 需要评估 `buildr use` 等更高层入口\n- **THEN** 该能力 MUST 在 Buildr Skill 编排效果被验证后再单独设计\n"
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "开发仓库安装必须形成 Agent 可用闭环",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 开发仓库安装必须形成 Agent 可用闭环\nBuildr MUST 提供与当前 GitHub 仓库结构一致的开发 checkout 安装路径，使 Agent 在没有预装 `node_modules` 或 Buildr Skill 的干净 clone 中能够准备 CLI、初始化 workspace、同步自身 runtime 并完成诊断。\n\n#### Scenario: Agent 从干净开发仓库开始\n- **WHEN** Agent 在 Buildr GitHub 仓库的干净 clone 中按公开 README 安装 Buildr\n- **THEN** 安装说明 MUST 使用仓库中真实存在的产品目录和安装脚本\n- **AND** 安装流程 MUST 确定性准备 lockfile 声明的运行依赖\n- **AND** Agent MUST 能运行 `buildr runtime list --json`\n\n#### Scenario: Agent 完成首次 runtime 准备\n- **WHEN** CLI 已从开发 checkout 或已安装 npm package 可用\n- **THEN** 公开 onboarding MUST 引导 Agent 运行 `buildr init` 创建源资产\n- **AND** 公开 onboarding MUST 引导 Agent 使用 `buildr sync <agent>` 安装产品 Buildr Skill、投射 workspace Skills 并运行 doctor\n- **AND** 最终 `buildr doctor --agent <agent> --json` MUST 不包含需要立即处理的 error\n\n#### Scenario: 开发仓库安装回归验证\n- **WHEN** 产品完整验证运行 repository onboarding smoke test\n- **THEN** verifier MUST 使用不包含 `node_modules` 和 Agent runtime 产物的临时候选树\n- **AND** verifier MUST 从公开安装入口完成 CLI 安装、workspace 初始化、runtime sync 和 doctor 检查\n"
+    },
+    {
+      "capability": "npm-cli-package",
+      "title": "installed CLI uses package assets",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: installed CLI uses package assets\n已安装的 `buildr` command MUST 使用 npm package 中包含的 assets，而不是要求访问 development checkout。\n\n#### Scenario: Initialize workspace from installed command\n- **WHEN** the installed `buildr` command runs `buildr init --target <dir> --name <name> --profile <profile>`\n- **THEN** Buildr MUST create the default workspace baseline from the package assets\n- **AND** the workspace MUST NOT require files outside the installed npm package\n\n#### Scenario: Run onboarding commands from installed command\n- **WHEN** the installed `buildr` command runs `project create`, `service create`, `doctor`, `runtime check`, `rules render`, `skills render`, `package check`, and `bootstrap guide`\n- **THEN** each command MUST behave consistently with the checkout-based CLI for the same inputs\n"
+    },
+    {
+      "capability": "npm-cli-package",
+      "title": "product verification covers npm installation",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: product verification covers npm installation\nBuildr product verification MUST 测试从 product root 开始的 npm package installation path。\n\n#### Scenario: Verify installed package\n- **WHEN** `tools/verify-buildr-product-mvp` runs from the Buildr product root\n- **THEN** it MUST pack the Buildr npm package from the product root, install it into a temporary prefix, execute the installed `buildr` command, and verify the core onboarding loop succeeds\n"
+    },
+    {
+      "capability": "npm-cli-package",
+      "title": "npm package 具备公开发布基线 metadata",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: npm package 具备公开发布基线 metadata\nBuildr npm package MUST 声明非占位版本、开源 License、可执行 bin、Node engine 和运行依赖，并且 MUST NOT 使用阻止打包发布的 private 状态。\n\n#### Scenario: 检查公开 package metadata\n- **WHEN** 维护者从 product root 运行 `npm pack --dry-run --json`\n- **THEN** package identity MUST 使用非 `0.0.0` 的语义版本\n- **AND** package metadata MUST 声明开源 License\n- **AND** package MUST 允许公开打包\n- **AND** tarball MUST 包含 License、CLI runtime modules 和 package assets\n\n#### Scenario: npm package 安装后由 Agent 使用\n- **WHEN** Agent 安装本地 tarball 或后续公开 registry package\n- **THEN** 已安装的 `buildr` MUST 能列出 runtime、初始化 workspace、执行 `sync <agent>` 并通过 `doctor --agent <agent> --json`\n- **AND** 已安装 package MUST NOT 依赖 development checkout 或仓库级验证脚本\n"
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "产品内置 Agent Skills",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品内置 Agent Skills\nBuildr MUST 支持面向支持 runtime 的产品内置 Agent Skills，并将其作为向用户交付最新 Buildr 产品的一部分进行同步。\n\n#### Scenario: 产品内置 Buildr Skill\n- **WHEN** Buildr 产品包包含 Buildr 使用 Skill\n- **THEN** 该 Skill MUST 由 package 的产品入口 Skill 声明管理\n- **AND** `buildr skill install <agent>` 和 `buildr sync <agent>` MUST 能够为支持的 Agent runtime 安装或修复该 Skill\n- **AND** 该 Skill MUST NOT 写入 workspace 的 `skills/manifest.yml`\n\n#### Scenario: Buildr Skill 感知更新意图\n- **WHEN** 用户要求 Agent “更新 Buildr”\n- **THEN** 产品内置 Buildr Skill 的 description 和正文 MUST 能让 Agent 识别该意图\n- **AND** Buildr Skill MUST 引导 Agent 先确认自身 runtime adapter，再运行 `buildr sync <agent> --target <dir>`\n- **AND** 该 sync 流程 MUST 包含 workspace 产品能力 update、产品入口 Buildr Skill 安装、当前 Agent runtime render 和 doctor 复查\n\n#### Scenario: Buildr Skill 与用户 Skills 保持区分\n- **WHEN** Buildr 同步产品内置 Skills\n- **THEN** Buildr MUST 将产品入口 Buildr Skill 与 `skills/buildr/*` 能力 Skills 区分开\n- **AND** 用户 workspace/project Skill 维护 MUST 继续使用 `skills/manifest.yml` 和源目录，而不是编辑 runtime 目录\n\n#### Scenario: 内置能力 Skills 默认 optional\n- **WHEN** Buildr 提供 `skills/buildr/*` 能力 Skills\n- **THEN** 这些 Skills MUST 默认为 optional\n- **AND** 用户 MUST 能够卸载 optional 内置 Skill，卸载时删除源目录和 runtime 投射，并在 `skills/manifest.yml` 保留卸载状态\n"
+    }
+  ]
+}

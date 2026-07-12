@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "buildr.builtin-receipts/v1",
+  "builtins": [
+    {
+      "type": "rule",
+      "id": "buildr-core",
+      "target": "rules/buildr/core.md",
+      "integrity": "sha256-698bd9ed0e0915c36cb5f9f668560ffe4b4591d89ff0aa594dd46bb570790191",
+      "files": [
+        {
+          "path": "core.md",
+          "integrity": "sha256-de82702d10a07aa9a90e80b1d81dce7fedb44571a30ac6d8dbf5e1277db65deb"
+        }
+      ]
+    },
+    {
+      "type": "skill",
+      "id": "git-ops",
+      "target": "skills/buildr/git-ops",
+      "integrity": "sha256-badf69cfc2f7983fdbd2c681f7418a542d5538bfab283dfe8da927bfdfdd96c8",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "integrity": "sha256-b5d23b42d211ba2ea187570ef48bfef240591641ffde878c4f0f7a8023e13d22"
+        }
+      ]
+    },
+    {
+      "type": "skill",
+      "id": "task-finish",
+      "target": "skills/buildr/task-finish",
+      "integrity": "sha256-0607663344932ed85cdff84fe5c8dc817e4fc12a159a047eac054fa307fc1fd1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "integrity": "sha256-aa6db3f08d9638b01c4e3531b9775c76850630f746f36f9089dcaddf90984514"
+        }
+      ]
+    },
+    {
+      "type": "skill",
+      "id": "task-triage",
+      "target": "skills/buildr/task-triage",
+      "integrity": "sha256-6a9a2876eb3f625525b228c8fd60025c8bdf89272e0e9e12e674e2a2899698c8",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "integrity": "sha256-278d94da3537f58b8155193bf9d0bb4f9a586bff372c2e5fbdc09dbf68e406a5"
+        }
+      ]
+    },
+    {
+      "type": "skill",
+      "id": "task-worktree",
+      "target": "skills/buildr/task-worktree",
+      "integrity": "sha256-7c792606db5d07e9364feb4be20755e184fb83291e4ae83a9cbb4884cf731b6d",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "integrity": "sha256-c523644d7ad60219fe29a788cca22d7a8eeba4fa11f37b62b81924d8a3ac7bde"
+        }
+      ]
+    }
+  ]
+}

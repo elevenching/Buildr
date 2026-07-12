@@ -1,0 +1,144 @@
+#!/usr/bin/env node
+
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import process from 'node:process';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const workspaceRoot = path.resolve(productRoot, '../..');
+const npmExecutable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const maximumTrackedFileBytes = 1024 * 1024;
+
+const contentRules = [
+  { id: 'secret.private-key', pattern: /-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----/ },
+  { id: 'secret.github-token', pattern: /gh[pousr]_[A-Za-z0-9_]{20,}/ },
+  { id: 'secret.npm-token', pattern: /npm_[A-Za-z0-9]{20,}/ },
+  { id: 'secret.aws-access-key', pattern: /AKIA[0-9A-Z]{16}/ },
+  { id: 'private.internal-domain', pattern: /git\.ops\.yunlizhi\.cn|product-mananger\.git/i },
+  { id: 'private.absolute-user-path', pattern: /\/(?:Users|home)\/[A-Za-z0-9._-]+\/(?:Buildr|\.ssh|\.npm|Library)(?:\/|\b)/ },
+  { id: 'public.repository-placeholder', pattern: /<(?:buildr-)?repo(?:sitory)?-url>/i },
+];
+
+const tarballForbiddenPrefixes = [
+  '.agents/', '.claude/', '.codex/', '.git/', '.github/', '.worktrees/', 'openspec/', 'projects/', 'test/',
+];
+
+function finding(rule, relativePath, message) {
+  return { rule, path: relativePath.split(path.sep).join('/'), message };
+}
+
+export function inspectCandidateFile(relativePath, content, size = Buffer.byteLength(content)) {
+  const findings = [];
+  if (size > maximumTrackedFileBytes) findings.push(finding('candidate.large-file', relativePath, `tracked file exceeds ${maximumTrackedFileBytes} bytes`));
+  if (content.includes('\0')) return findings;
+  for (const rule of contentRules) {
+    if (rule.pattern.test(content)) findings.push(finding(rule.id, relativePath, 'blocked content pattern detected; inspect and remove or explicitly redesign the fixture'));
+  }
+  const emails = content.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || [];
+  if (emails.some((email) => !email.endsWith('@example.com') && email !== 'git@github.com')) {
+    findings.push(finding('private.email-address', relativePath, 'non-fixture email address detected; replace it with a public project contact or example.com fixture'));
+  }
+  return findings;
+}
+
+export function inspectPackageMetadata(metadata) {
+  const findings = [];
+  if (metadata.name !== '@buildr-ai/buildr') findings.push(finding('package.identity', 'projects/product/package.json', 'expected @buildr-ai/buildr'));
+  if (metadata.bin?.buildr !== './tools/buildr') findings.push(finding('package.bin', 'projects/product/package.json', 'expected buildr executable'));
+  if (metadata.repository?.url !== 'git+https://github.com/elevenching/Buildr.git' || metadata.repository?.directory !== 'projects/product') findings.push(finding('package.repository', 'projects/product/package.json', 'canonical repository metadata is missing'));
+  if (metadata.homepage !== 'https://github.com/elevenching/Buildr#readme') findings.push(finding('package.homepage', 'projects/product/package.json', 'canonical homepage is missing'));
+  if (metadata.bugs?.url !== 'https://github.com/elevenching/Buildr/issues') findings.push(finding('package.bugs', 'projects/product/package.json', 'canonical issue URL is missing'));
+  if (metadata.publishConfig?.access !== 'public') findings.push(finding('package.access', 'projects/product/package.json', 'publishConfig.access must be public'));
+  return findings;
+}
+
+export function inspectTarballFiles(files) {
+  const findings = [];
+  const paths = new Set(files.map((entry) => entry.path));
+  for (const required of ['LICENSE', 'README.md', 'package.json', 'tools/buildr', 'package/manifest.yml']) {
+    if (!paths.has(required)) findings.push(finding('tarball.required', required, 'required publish asset is missing'));
+  }
+  for (const entry of paths) {
+    if (tarballForbiddenPrefixes.some((prefix) => entry === prefix.slice(0, -1) || entry.startsWith(prefix))) {
+      findings.push(finding('tarball.forbidden', entry, 'non-publish asset is present in npm tarball'));
+    }
+  }
+  return findings;
+}
+
+function trackedFiles() {
+  const result = spawnSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: workspaceRoot, encoding: 'buffer' });
+  if (result.status !== 0) throw new Error(`git ls-files failed with exit ${result.status}`);
+  return result.stdout.toString('utf8').split('\0').filter(Boolean);
+}
+
+function inspectTrackedCandidate() {
+  const findings = [];
+  for (const relativePath of trackedFiles()) {
+    const absolutePath = path.join(workspaceRoot, relativePath);
+    const buffer = fs.readFileSync(absolutePath);
+    findings.push(...inspectCandidateFile(relativePath, buffer.toString('utf8'), buffer.length));
+  }
+  return findings;
+}
+
+function packAndInspect() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-open-source-candidate-'));
+  try {
+    const result = spawnSync(npmExecutable, ['pack', productRoot, '--pack-destination', root, '--json'], { cwd: productRoot, encoding: 'utf8' });
+    if (result.status !== 0) throw new Error(`npm pack failed with exit ${result.status}: ${(result.stderr || '').trim()}`);
+    const packages = JSON.parse(result.stdout);
+    if (packages.length !== 1) throw new Error(`expected one npm pack result, got ${packages.length}`);
+    return inspectTarballFiles(packages[0].files || []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function inspectReadmes() {
+  const findings = [];
+  const readmes = ['README.md', 'README.en.md'].map((file) => [file, fs.readFileSync(path.join(workspaceRoot, file), 'utf8')]);
+  for (const token of ['https://github.com/elevenching/Buildr', '@buildr-ai/buildr', 'buildr runtime list --json']) {
+    for (const [file, content] of readmes) {
+      if (!content.includes(token)) findings.push(finding('readme.parity', file, `missing canonical token: ${token}`));
+    }
+  }
+  if (!readmes[0][1].includes('[English](README.en.md)')) findings.push(finding('readme.navigation', 'README.md', 'missing English navigation'));
+  if (!readmes[1][1].includes('[中文](README.md)')) findings.push(finding('readme.navigation', 'README.en.md', 'missing Chinese navigation'));
+  for (const [chinese, english] of [
+    ['## 核心模型', '## Core Model'],
+    ['## 快速开始', '## Quick Start'],
+    ['## 当前支持摘要', '## Current Capability Summary'],
+    ['## 文档', '## Documentation'],
+    ['## Buildr 自举 workspace', '## Buildr Bootstrap Workspace'],
+  ]) {
+    if (!readmes[0][1].includes(chinese)) findings.push(finding('readme.structure', 'README.md', `missing section: ${chinese}`));
+    if (!readmes[1][1].includes(english)) findings.push(finding('readme.structure', 'README.en.md', `missing section: ${english}`));
+  }
+  return findings;
+}
+
+export function runOpenSourceCandidateCheck() {
+  const metadata = JSON.parse(fs.readFileSync(path.join(productRoot, 'package.json'), 'utf8'));
+  return [
+    ...inspectTrackedCandidate(),
+    ...inspectPackageMetadata(metadata),
+    ...inspectReadmes(),
+    ...packAndInspect(),
+  ];
+}
+
+function main() {
+  const findings = runOpenSourceCandidateCheck();
+  if (findings.length) {
+    console.error('Open-source candidate verification failed:');
+    for (const item of findings) console.error(`- [${item.rule}] ${item.path}: ${item.message}`);
+    process.exit(1);
+  }
+  console.log('Open-source candidate verification passed: tracked tree, public metadata, bilingual README, file sizes, and npm tarball inventory.');
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

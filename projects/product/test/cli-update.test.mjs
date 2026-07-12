@@ -1,0 +1,151 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import { spawnSync } from 'node:child_process';
+
+import { buildCliUpdatePlan, executeCliUpdatePlan, identifyCliSource } from '../tools/cli/application/cli-update.mjs';
+
+function git(cwd, ...args) {
+  const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout.trim();
+}
+
+function writePackage(root) {
+  fs.mkdirSync(path.join(root, 'projects', 'product'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'projects', 'product', 'package.json'), '{"name":"@buildr-ai/buildr","version":"1.0.0"}\n');
+  return path.join(root, 'projects', 'product');
+}
+
+test('CLI 来源识别支持 Git workspace 中的嵌套 Product root', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-cli-update-git-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const productRoot = writePackage(root);
+  git(root, 'init', '-q');
+  git(root, 'config', 'user.email', 'buildr@example.com');
+  git(root, 'config', 'user.name', 'Buildr Test');
+  git(root, 'add', '.');
+  git(root, 'commit', '-qm', 'initial');
+  assert.equal(identifyCliSource(productRoot).mode, 'development-checkout');
+});
+
+test('无法证明来源时 fail closed', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-cli-update-unknown-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(root, 'package.json'), '{"name":"@buildr-ai/buildr","version":"1.0.0"}\n');
+  const source = identifyCliSource(root);
+  assert.equal(source.mode, 'unknown');
+  assert.equal(source.blockingReasons.length, 1);
+});
+
+test('开发 checkout 缺少 upstream 时 check 返回稳定阻塞结构', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-cli-update-plan-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const productRoot = writePackage(root);
+  git(root, 'init', '-q');
+  git(root, 'config', 'user.email', 'buildr@example.com');
+  git(root, 'config', 'user.name', 'Buildr Test');
+  git(root, 'add', '.');
+  git(root, 'commit', '-qm', 'initial');
+  const plan = buildCliUpdatePlan(productRoot, { fetch: false });
+  assert.equal(plan.mode, 'development-checkout');
+  assert.equal(plan.status, 'blocked');
+  assert.deepEqual(Object.keys(plan).sort(), ['available', 'blockingReasons', 'current', 'mode', 'nextActions', 'status', 'strategy']);
+  assert.match(plan.blockingReasons.join('\n'), /upstream/);
+});
+
+test('npm global prefix 布局识别为 registry package', (t) => {
+  const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-cli-update-prefix-'));
+  t.after(() => fs.rmSync(prefix, { recursive: true, force: true }));
+  const productRoot = path.join(prefix, 'lib', 'node_modules', '@buildr-ai', 'buildr');
+  fs.mkdirSync(productRoot, { recursive: true });
+  fs.writeFileSync(path.join(productRoot, 'package.json'), '{"name":"@buildr-ai/buildr","version":"1.0.0"}\n');
+  const source = identifyCliSource(productRoot);
+  assert.equal(source.mode, 'registry-package');
+  assert.equal(source.installPrefix, prefix);
+});
+
+test('开发者模式自动 fast-forward 到 upstream', (t) => {
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-cli-update-ff-'));
+  t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+  const remote = path.join(fixture, 'remote.git');
+  const seed = path.join(fixture, 'seed');
+  const client = path.join(fixture, 'client');
+  git(fixture, 'init', '--bare', '-q', remote);
+  fs.mkdirSync(seed);
+  git(seed, 'init', '-q');
+  git(seed, 'config', 'user.email', 'buildr@example.com');
+  git(seed, 'config', 'user.name', 'Buildr Test');
+  writePackage(seed);
+  git(seed, 'add', '.');
+  git(seed, 'commit', '-qm', 'initial');
+  git(seed, 'branch', '-M', 'main');
+  git(seed, 'remote', 'add', 'origin', remote);
+  git(seed, 'push', '-qu', 'origin', 'main');
+  git(fixture, 'clone', '-q', '--branch', 'main', remote, client);
+  fs.writeFileSync(path.join(seed, 'remote.txt'), 'remote\n');
+  git(seed, 'add', '.');
+  git(seed, 'commit', '-qm', 'remote');
+  git(seed, 'push', '-q');
+  const plan = buildCliUpdatePlan(path.join(client, 'projects', 'product'));
+  assert.equal(plan.strategy, 'fast-forward');
+  assert.equal(executeCliUpdatePlan(plan).ok, true);
+  assert.equal(git(client, 'rev-parse', 'HEAD'), git(seed, 'rev-parse', 'HEAD'));
+});
+
+test('开发者模式只对本地未发布提交执行 rebase', (t) => {
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-cli-update-rebase-'));
+  t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+  const remote = path.join(fixture, 'remote.git');
+  const seed = path.join(fixture, 'seed');
+  const client = path.join(fixture, 'client');
+  git(fixture, 'init', '--bare', '-q', remote);
+  fs.mkdirSync(seed);
+  git(seed, 'init', '-q');
+  git(seed, 'config', 'user.email', 'buildr@example.com');
+  git(seed, 'config', 'user.name', 'Buildr Test');
+  writePackage(seed);
+  git(seed, 'add', '.');
+  git(seed, 'commit', '-qm', 'initial');
+  git(seed, 'branch', '-M', 'main');
+  git(seed, 'remote', 'add', 'origin', remote);
+  git(seed, 'push', '-qu', 'origin', 'main');
+  git(fixture, 'clone', '-q', '--branch', 'main', remote, client);
+  git(client, 'config', 'user.email', 'buildr@example.com');
+  git(client, 'config', 'user.name', 'Buildr Test');
+  fs.writeFileSync(path.join(client, 'local.txt'), 'local\n');
+  git(client, 'add', '.');
+  git(client, 'commit', '-qm', 'local');
+  fs.writeFileSync(path.join(seed, 'remote.txt'), 'remote\n');
+  git(seed, 'add', '.');
+  git(seed, 'commit', '-qm', 'remote');
+  git(seed, 'push', '-q');
+  const plan = buildCliUpdatePlan(path.join(client, 'projects', 'product'));
+  assert.equal(plan.strategy, 'rebase');
+  assert.equal(executeCliUpdatePlan(plan).ok, true);
+  assert.equal(fs.readFileSync(path.join(client, 'local.txt'), 'utf8'), 'local\n');
+  assert.equal(fs.readFileSync(path.join(client, 'remote.txt'), 'utf8'), 'remote\n');
+});
+
+test('发布模式更新保持 package identity 与安装 prefix', (t) => {
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-cli-update-npm-'));
+  t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+  const bin = path.join(fixture, 'bin');
+  const log = path.join(fixture, 'npm.log');
+  fs.mkdirSync(bin);
+  const npm = path.join(bin, 'npm');
+  fs.writeFileSync(npm, `#!/bin/sh\nprintf '%s\\n' "$*" > "${log}"\n`);
+  fs.chmodSync(npm, 0o755);
+  const plan = {
+    mode: 'registry-package',
+    status: 'update-available',
+    strategy: 'npm-install',
+    current: { package: '@buildr-ai/buildr', installPrefix: '/safe/prefix' },
+    available: { version: '2.0.0' },
+  };
+  const result = executeCliUpdatePlan(plan, { env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}` } });
+  assert.equal(result.ok, true);
+  assert.equal(fs.readFileSync(log, 'utf8').trim(), 'install --global --prefix /safe/prefix @buildr-ai/buildr@2.0.0');
+});

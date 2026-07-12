@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "refine-git-ops-commit-messages",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-7ef0885257534fa05e34b701aae0320bfd13a57849d7b8f44d436d2a6abdb8e1",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-package-assets",
+      "title": "Core 默认提交语言独立生效",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "产品验证覆盖提交信息资产边界",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "Required Core 暴露 Rule 消费协议",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Required Core 暴露 Rule 消费协议\nBuildr package assets MUST 将 Rule manifest consumption protocol 保留在 required Buildr Core 中，同时将 task-triggered procedures 保留在 Skills 中。\n\n#### Scenario: Package Core 声明 Rule 状态语义\n- **WHEN** Buildr packages or validates `rules/buildr/core.md`\n- **THEN** required Core MUST state that enabled、required and installed Rules are always read\n- **AND** required Core MUST state that enabled optional installed Rules are selected semantically from description and task context\n- **AND** required Core MUST state that disabled or uninstalled Rules do not participate in the task\n\n#### Scenario: Package Core 不承载操作手册\n- **WHEN** Buildr packages Rule consumption guidance\n- **THEN** required Core MUST NOT copy task-specific Git、OpenSpec、worktree or other operational procedures\n- **AND** reusable task procedures MUST remain available through the corresponding Skills\n\n#### Scenario: Package 默认不硬编码组织提交语言\n- **WHEN** Buildr packages the default Git operations capability\n- **THEN** Conventional Commits generation guidance MAY be provided by the Git operations Skill\n- **AND** the default package MUST NOT install an organization-specific Chinese commit-message Rule\n"
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "Git Ops 生成精简提交信息",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "Rule 与 Skill 语义边界",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Rule 与 Skill 语义边界\nBuildr Skill MUST 按 asset semantics 定义 Rules 与 Skills，而不是按它们是否总会被加载定义，并且 MUST 说明 Rule manifest state 如何控制 Agent consumption。\n\n#### Scenario: 解释 Rule 与 Skill\n- **WHEN** 用户询问 Rules 与 Skills 的区别\n- **THEN** Buildr Skill MUST explain that Rules control Agent values, boundaries, and constraints\n- **AND** Buildr Skill MUST explain that Skills encapsulate reusable professional actions and procedures\n- **AND** Buildr Skill MUST NOT define the primary distinction as whether the artifact is required or lazily loaded\n\n#### Scenario: Agent 判断相关 Rules\n- **WHEN** Agent works on a task that may touch user-managed Rules\n- **THEN** Buildr Skill MUST require Agent to use Rule descriptions, user goals, files being changed, code semantics, and workspace context to judge relevant Rules\n- **AND** Buildr Skill MUST NOT require users to preconfigure roles, paths, service names, or other routing tables for Rules relevance\n\n#### Scenario: 解释 Rule manifest 状态\n- **WHEN** 用户或 Agent 询问 enabled、required or state 如何影响 Rule 加载\n- **THEN** Buildr Skill MUST explain that enabled、required and installed Rules are always read\n- **AND** Buildr Skill MUST explain that enabled、non-required and installed Rules are semantically evaluated from description and read when relevant\n- **AND** Buildr Skill MUST explain that disabled or uninstalled Rules do not participate in the current task\n- **AND** Buildr Skill MUST distinguish runtime source discovery from Agent semantic relevance judgment\n\n#### Scenario: Git 提交规则与技能边界\n- **WHEN** Buildr Skill explains where Git commit guidance belongs\n- **THEN** reusable Conventional Commits format、type selection and message generation procedure MUST belong to the Git operations Skill\n- **AND** organization-specific commit language or acceptance constraints MUST belong to a user-managed Rule\n- **AND** Buildr product defaults MUST NOT hardcode a Chinese commit-message Rule for every workspace\n"
+    }
+  ]
+}

@@ -1,0 +1,259 @@
+# human-agent-onboarding Specification
+
+## Purpose
+定义 Buildr MVP 的用户与 Agent 协作 onboarding 行为：用户用自然语言触发，Agent 在 Buildr Skill 可用时使用它，并通过基础 CLI 命令完成最小闭环；当 Skill 不可用时，bootstrap guide 提供兜底路径。
+## Requirements
+### Requirement: 自然语言触发 Buildr onboarding
+Buildr MVP MUST 支持用户通过自然语言向 Agent 表达使用 Buildr 管理项目的意图，并由 Agent 在 Buildr Skill 可用时按 Skill 完成后续引导；当 Skill 不可用时，Agent MUST 能按 bootstrap guide 兜底。
+
+#### Scenario: 用户请求使用 Buildr
+- **WHEN** 用户在一个目录中向 Agent 表达“使用 Buildr 作为项目管理框架”或等价意图
+- **THEN** Agent MUST 识别该意图并在 Buildr Skill 可用时使用 Buildr Skill
+- **AND** 当 Buildr Skill 不可用时，Agent MUST 读取 Buildr bootstrap guide，而不是要求用户先记忆或手动输入一组 Buildr CLI 命令
+
+#### Scenario: Agent 确认 workspace 根目录
+- **WHEN** 当前目录尚未初始化为 Buildr workspace
+- **THEN** Agent MUST 与用户确认是否将当前目录作为 Buildr workspace 根目录
+
+### Requirement: Agent 使用 CLI 作为确定性执行层
+Buildr MVP MUST 将 CLI 作为 Agent 执行用户意图的 hard constraint 层。
+
+#### Scenario: Agent 执行初始化
+- **WHEN** 用户确认使用当前目录作为 Buildr workspace
+- **THEN** Agent MUST 通过 `buildr init` 或等价可验证命令初始化 workspace
+
+#### Scenario: Agent 汇报执行动作
+- **WHEN** Agent 即将执行会改变 Buildr workspace 的命令
+- **THEN** Agent MUST 向用户说明将执行的 Buildr 动作和预期资产变化
+
+### Requirement: MVP 先通过 Buildr Skill 和基础命令闭环
+Buildr MVP MUST 通过 Buildr Skill、bootstrap guide 兜底、带 Agent identity 的高层 `init`、`project create`、`service create`、`doctor` 和按 Agent 类型选择的 runtime 动作完成 onboarding 闭环，不得要求先实现 `buildr use` 等额外入口。
+
+#### Scenario: Agent 获取 Buildr 使用指南
+- **WHEN** Agent 通过 README、安装说明、`buildr --help` 或本地 CLI 发现 Buildr，但当前 workspace 尚未初始化且当前 runtime adapter 已确认
+- **THEN** Agent MUST 优先使用 `buildr init --agent <agent>` 初始化 workspace 并安装产品 Buildr Skill
+- **AND** 当 Buildr Skill 仍不可用时，Agent MUST 能通过 `buildr bootstrap guide` 理解基础命令和 onboarding 兜底路径
+
+#### Scenario: Agent 使用 Buildr Skill
+- **WHEN** 当前 Agent runtime 已安装 Buildr Skill
+- **THEN** Agent MUST 通过 Buildr Skill 理解 Buildr workspace onboarding、项目创建、服务接入、诊断和 runtime 处理约束
+- **AND** Buildr Skill MUST 以轻约束和命令地图引导 Agent 自主编排，而不是规定固定交互脚本
+
+#### Scenario: service create 维护服务资产
+- **WHEN** Agent 需要创建或维护 service metadata 与 service repo 引用
+- **THEN** Agent MUST 使用 `buildr service create`
+- **AND** bootstrap guide MUST NOT 将 `service link` 描述为主命令
+
+#### Scenario: 共享服务创建项目
+- **WHEN** 用户希望接入共享、基础或平台 service repo
+- **THEN** Agent MUST 引导用户选择或创建一个 Project 来承载这些 services
+- **AND** Agent MUST NOT 引导用户维护 root `shared/`
+
+#### Scenario: 渐进式引导项目和服务
+- **WHEN** Agent 完成 `buildr init --agent <agent>` 或其他 Buildr 状态变更
+- **THEN** Agent MUST 基于该命令的最终 doctor 结果和用户回答，逐步引导创建项目、接入 service repo 和执行必要的 runtime 维护
+
+#### Scenario: Agent 根据自身 runtime 选择动作
+- **WHEN** Agent 准备执行 `buildr init --agent <agent>`
+- **THEN** bootstrap guide 和 Buildr Skill MUST 引导 Agent 先确认自身 runtime adapter
+- **AND** 对原生读取 `AGENTS.md` 的 Agent MUST NOT 要求执行独立 rules render
+
+#### Scenario: Codex 使用 Buildr workspace
+- **WHEN** Codex Agent 在 Buildr workspace 中工作
+- **THEN** Agent MUST 直接使用 `AGENTS.md` 作为规则入口
+- **AND** Agent MUST NOT 为规则入口执行 `buildr rules render claude-code`
+
+#### Scenario: Claude Code 使用 Buildr workspace
+- **WHEN** Claude Code Agent 在 Buildr workspace 中工作
+- **THEN** Agent MUST 使用 Claude Code adapter 的 runtime check/render 来维护 `CLAUDE.md` 和 `.claude/skills/`
+
+#### Scenario: 纯源资产初始化保持兼容
+- **WHEN** Agent 执行不带 `--agent` 的 `buildr init`
+- **THEN** Buildr MUST 只创建 Buildr workspace 源资产
+- **AND** Buildr MUST NOT 自动渲染 Buildr Skill、`CLAUDE.md` 或其他 Agent runtime 文件
+
+#### Scenario: 高层初始化准备当前 Agent runtime
+- **WHEN** Agent 执行 `buildr init --agent <agent> --target <dir>`
+- **THEN** Buildr MUST 在创建 workspace 源资产后执行等价于 `buildr sync <agent> --target <dir>` 的完整 reconcile
+- **AND** Buildr MUST 以指定 Agent 的最终 doctor 通过作为 onboarding 完成条件
+- **AND** Agent MUST NOT 需要再执行独立的 `skill install`、`render`、`sync` 或 `doctor` 才完成首次 onboarding
+
+#### Scenario: 高层初始化参数预检
+- **WHEN** `buildr init --agent <agent>` 收到不支持或无效的 Agent id
+- **THEN** Buildr MUST 在写入 workspace 源资产或 Agent runtime 前失败
+- **AND** Buildr MUST 输出 supported runtime guidance
+
+#### Scenario: 高层初始化 sync 失败
+- **WHEN** workspace 源资产已经初始化，但 `init --agent` 的后续 sync 或 doctor 未通过
+- **THEN** Buildr MUST 保留已初始化的 workspace 源资产
+- **AND** Buildr MUST NOT 报告 onboarding 成功
+- **AND** Buildr MUST 引导 Agent 修复问题后运行 `buildr sync <agent> --target <dir>`
+
+#### Scenario: 产品 Skill 安装不同于 workspace Skills 投射
+- **WHEN** Agent 只需要让当前 runtime 学会使用 Buildr
+- **THEN** Agent MUST 使用 `buildr skill install <agent>`
+- **AND** 当 Agent 需要投射 workspace/project Skills 时，Agent MUST 使用 `buildr skills render <agent>`
+
+#### Scenario: 讨论其他更高层入口
+- **WHEN** 需要评估 `buildr use` 等其他更高层入口
+- **THEN** 该能力 MUST 在 `init --agent` onboarding 效果被验证后再单独设计
+
+### Requirement: onboarding 引导 Agent 使用工具型资产规则
+Buildr onboarding MUST 引导 Agent 通过 Buildr 技能和默认规则维护规则、技能和命令行工具清单。
+
+#### Scenario: Agent 安装 Buildr 技能后继续初始化
+- **WHEN** Agent 已安装或可使用 Buildr 技能
+- **THEN** onboarding MUST 引导 Agent 按 Buildr 技能使用 Buildr CLI 初始化 workspace、检查状态并维护需要沉淀或复用的资产
+
+#### Scenario: Agent 遇到命令行工具需求
+- **WHEN** onboarding 或后续协作中出现需要沉淀或复用的命令行工具需求
+- **THEN** Agent MUST 将该需求登记到 Buildr 命令行工具清单
+- **AND** Agent MUST 通过 `commands check` 或 doctor 判断当前本机环境是否满足声明
+
+#### Scenario: Buildr 技能不可用
+- **WHEN** 当前 Agent 无法使用 Buildr 技能
+- **THEN** onboarding MUST 引导 Agent 运行 `buildr bootstrap guide`
+- **AND** bootstrap guide MUST 说明规则、技能、命令行工具等需要沉淀或复用的资产应先维护到 Buildr 源资产，再按需同步到 Agent 运行环境或本机
+
+### Requirement: onboarding supports Project registry and Project asset repos
+Buildr onboarding MUST 引导 Agent 和用户完成 Project registry maintenance 与 independent Project asset repo creation。
+
+#### Scenario: Agent creates a Project
+- **WHEN** user asks Agent to create a Project in a Buildr workspace
+- **THEN** Agent MUST use `buildr project create <project>`
+- **AND** Agent MUST expect the command to maintain both `projects/<project>/` and `projects/manifest.yml`
+
+#### Scenario: Agent records concise Project identity
+- **WHEN** Agent creates a Project and the user provides a human-readable title or short description
+- **THEN** Agent MUST pass that information through Project creation or registry repair
+- **AND** Agent MUST NOT treat the registry description as a replacement for Project OpenSpec knowledge or specs
+
+#### Scenario: 用户提供 Project 资产 Git repo
+- **WHEN** user provides a Git repo intended to store Project memory, rules, OpenSpec, Skills or docs
+- **THEN** Agent MUST treat it as a Project asset repo rather than a service repo
+- **AND** Agent MUST use `buildr project create <project> --repo <git-url>`
+
+#### Scenario: 用户提供本地 Project 资产目录
+- **WHEN** user provides a local directory intended to become a Project asset repo
+- **THEN** Agent MUST NOT register that directory as an external Project link
+- **AND** Agent MUST guide the user to materialize the Project assets under `projects/<project>/`
+
+#### Scenario: Agent uses doctor after Project changes
+- **WHEN** Agent creates or repairs a Project
+- **THEN** Agent MUST run or rely on `buildr doctor --agent <agent> --json` after runtime identity is known to inspect Project registry, Project baseline and Project repo state
+
+### Requirement: Agent selects runtime adapter before render
+Buildr onboarding MUST 引导 Agent 在运行 runtime render、sync、skill install 或 runtime check 命令前，先识别自身 runtime，并与 Buildr supported runtime adapter list 对比。
+
+#### Scenario: Agent discovers supported runtimes
+- **WHEN** Agent 开始 Buildr onboarding 或 runtime maintenance
+- **THEN** Agent MUST 在 runtime-specific Buildr commands 前运行或依赖 `buildr runtime list --json`
+- **AND** Agent MUST 在运行 runtime-specific commands 前选择与自身 runtime 匹配的 adapter id
+
+#### Scenario: Supported Agent uses matching adapter
+- **WHEN** Agent 确认自己是 supported runtime
+- **THEN** Agent MUST 将匹配的 `<agent>` 值传给 Buildr runtime-specific commands
+- **AND** Agent MUST 在 runtime identity 已知后使用 `doctor --agent <agent>` 进行 onboarding diagnostics
+
+#### Scenario: Agent cannot identify itself
+- **WHEN** Agent 无法可靠识别自身 runtime
+- **THEN** Agent MUST NOT 构造 `unknown`、`generic` 或其他 placeholder Agent id
+- **AND** Agent MUST NOT 运行 runtime render、sync、skill install 或 runtime check commands
+- **AND** Agent MUST NOT 继续执行 Buildr workspace 维护命令
+- **AND** Agent MUST 告诉用户当前 Agent runtime identity 尚未确认，并请联系 Buildr 作者反馈该 Agent
+
+#### Scenario: Unsupported Agent warns instead of rendering
+- **WHEN** Agent 确认自己是 unsupported runtime
+- **THEN** Agent MUST 警示用户 Buildr 暂不支持当前 Agent 的自动渲染
+- **AND** Agent MUST NOT 使用猜测的 adapter id 执行 render、sync、skill install 或 runtime check
+- **AND** Agent MUST NOT 使用 supported fallback adapter 代替
+- **AND** Agent MUST 告诉用户联系 Buildr 作者反馈该 Agent
+
+### Requirement: Buildr guidance names runtime render assets
+Buildr onboarding guidance MUST 说明哪些 Buildr assets 参与 Agent runtime render，哪些仍保持为 source assets。
+
+#### Scenario: Runtime render explanation
+- **WHEN** Buildr Skill、bootstrap guide、README、init output 或 doctor unsupported-Agent guidance 描述 runtime render
+- **THEN** guidance MUST 将 rules entry or bridge、product Buildr Skill、workspace/project Skills、Skill install plans 和 runtime check 说明为 adapter render capabilities
+- **AND** guidance MUST 说明 Commands、Project registry、Service registry、OpenSpec、knowledge 和 docs 保持为 Buildr source assets，除非未来 adapter 明确支持 render 它们
+- **AND** guidance MUST NOT 将 Practices 表示为 Buildr source asset
+
+### Requirement: Buildr Skill uses runtime discovery in its main loop
+Buildr product Skill MUST 将 runtime adapter discovery 作为主执行循环的一部分。
+
+#### Scenario: Buildr Skill runtime selection
+- **WHEN** Agent 使用 Buildr product Skill 维护 Buildr workspace
+- **THEN** Skill MUST 要求 Agent 在 runtime-specific commands 前检查 `buildr runtime list --json`
+- **AND** Skill MUST 要求 Agent 在 Agent identity 已知后使用 `buildr doctor --agent <agent> --target <dir> --json`
+- **AND** Skill MUST 要求 Agent 不为 unsupported Agent runtime 使用 fallback adapters
+
+### Requirement: CLI help is useful and safe for Agent exploration
+Buildr CLI help MUST 对 Agent exploration 有用且安全，并且 MUST NOT 执行 state-changing actions。
+
+#### Scenario: All supported commands expose help
+- **WHEN** Agent runs `--help` for any supported Buildr command or nested subcommand
+- **THEN** Buildr MUST output non-empty help that names the requested command or subcommand
+- **AND** Buildr MUST exit successfully
+- **AND** Buildr MUST NOT perform state-changing actions
+
+#### Scenario: Subcommand help has no side effects
+- **WHEN** Agent runs `buildr init --help`
+- **THEN** Buildr MUST output help for `init`
+- **AND** Buildr MUST NOT initialize the target directory
+- **AND** Buildr MUST exit successfully
+
+#### Scenario: Nested subcommand help has no side effects
+- **WHEN** Agent runs `buildr project create --help`
+- **THEN** Buildr MUST output help for `project create`
+- **AND** Buildr MUST NOT create or repair any Project
+- **AND** Buildr MUST exit successfully
+
+#### Scenario: Runtime list help has no side effects
+- **WHEN** Agent runs `buildr runtime list --help`
+- **THEN** Buildr MUST output help for `runtime list`
+- **AND** Buildr MUST NOT require a Buildr workspace
+- **AND** Buildr MUST exit successfully
+
+### Requirement: 开发仓库安装必须形成 Agent 可用闭环
+Buildr MUST 提供与当前仓库结构一致的开发 checkout 安装路径，并提供 registry package 安装路径，使 Agent 在没有预装 Buildr Skill 的环境中能够准备 CLI，再用单个高层初始化命令完成 workspace 源资产、当前 runtime 和诊断闭环。
+
+#### Scenario: Agent 从干净开发仓库开始
+- **WHEN** Agent 在 Buildr 仓库的干净 clone 中按根 README 安装 Buildr
+- **THEN** 安装说明 MUST 使用仓库中真实存在的产品目录和安装脚本
+- **AND** 安装流程 MUST 确定性准备 lockfile 声明的运行依赖
+- **AND** Agent MUST 能运行 `buildr runtime list --json`
+
+#### Scenario: Agent 从 registry package 开始
+- **WHEN** Agent 在没有 Buildr checkout 的环境中按根 README 安装 Buildr
+- **THEN** 安装说明 MUST 使用发布的 npm package identity 和支持的 registry 安装方式
+- **AND** Agent MUST 能运行 `buildr runtime list --json`
+
+#### Scenario: Agent 完成首次 runtime 准备
+- **WHEN** CLI 已从开发 checkout 或已安装 npm package 可用，且 Agent 已从 supported runtime list 选择自身 adapter
+- **THEN** 公开 onboarding MUST 引导 Agent 运行 `buildr init --agent <agent>`
+- **AND** 该单个命令 MUST 创建源资产、安装产品 Buildr Skill、投射 workspace Skills 并运行最终 doctor
+- **AND** 最终 doctor MUST 不包含需要立即处理的 error
+
+#### Scenario: 两种安装模式回归验证
+- **WHEN** 产品完整验证运行 onboarding smoke tests
+- **THEN** verifier MUST 分别覆盖不包含 `node_modules` 和 Agent runtime 产物的临时开发 checkout，以及从 npm package 安装的临时 prefix
+- **AND** 两种模式 MUST 都能从公开安装入口运行 `buildr runtime list --json` 并仅用 `buildr init --agent <agent>` 完成 workspace/runtime onboarding
+- **AND** verifier MUST 独立读取 doctor JSON 证明最终状态可用
+
+### Requirement: 公开 README 统一产品入口与两种模式
+Buildr MUST 以 workspace 根 README 作为公开产品入口，并分别说明开发 checkout 与 registry package 两种快速开始和更新模式。
+
+#### Scenario: 根 README 介绍 Buildr 产品
+- **WHEN** 用户或 Agent 从仓库根 README 了解 Buildr
+- **THEN** README MUST 先说明 Buildr 产品定位、核心模型、快速开始、主要能力和文档入口
+- **AND** README MUST 在产品说明之后再说明该仓库同时是 Buildr 自举 workspace
+
+#### Scenario: 两种快速开始
+- **WHEN** README 提供 Buildr 安装说明
+- **THEN** README MUST 分别提供开发 checkout 安装和 registry package 安装路径
+- **AND** 两种路径 MUST 汇合到 runtime discovery 与 `buildr init --agent <agent>` onboarding
+
+#### Scenario: 不重复维护 Product README
+- **WHEN** 根 README 已承载公开产品说明
+- **THEN** Product Project MUST NOT 继续维护内容重复的独立产品 README
+- **AND** 仓内文档链接 MUST 指向根 README 或对应权威产品文档

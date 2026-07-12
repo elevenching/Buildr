@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "prevent-openspec-contract-drift",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-67f92ec3cfc157714a05e2344581c1f1f79026eac8e1ecdecd5b3a0111b01d84",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-package-assets",
+      "title": "Package 发布 OpenSpec 契约门禁 sidebar",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "产品验证覆盖 OpenSpec 契约漂移门禁",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-components",
+      "title": "OpenSpec Component 交付 Buildr 契约门禁 sidebar",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-components",
+      "title": "Component 可以声明自然语言 Skill Contribution",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "openspec-contract-guard",
+      "title": "Buildr 维护 OpenSpec change 契约基线",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "openspec-contract-guard",
+      "title": "Proposal capability、delta 与基线保持一致",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "openspec-contract-guard",
+      "title": "同一 Requirement 的活动 change 冲突必须阻塞",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "openspec-contract-guard",
+      "title": "陈旧 Requirement 基线必须阻塞同步",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "openspec-contract-guard",
+      "title": "同步结果必须符合 delta 且保持未触达契约",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "openspec-contract-guard",
+      "title": "OpenSpec 契约门禁提供稳定 CLI 和 Agent-readable 输出",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "openspec-contract-guard",
+      "title": "未验证的 OpenSpec 上游版本不得绕过门禁",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "Buildr 通过声明式 Skill Contribution 编排 OpenSpec 契约门禁",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

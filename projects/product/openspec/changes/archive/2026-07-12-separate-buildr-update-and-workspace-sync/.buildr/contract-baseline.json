@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "separate-buildr-update-and-workspace-sync",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-937a62e1ea9430268ecad9e6566ad28c6fb040b96d08e35652487fe047fb9b4a",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-cli-self-update",
+      "title": "Buildr CLI 自动识别更新来源",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-cli-self-update",
+      "title": "Buildr update 只更新 CLI 自身",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-cli-self-update",
+      "title": "开发者模式安全更新 Git checkout",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-cli-self-update",
+      "title": "发布模式更新 registry package",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr sync 同步随包 Components",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr 内置能力层",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr 内置能力层\nBuildr MUST 在每个 Buildr workspace 中支持由产品管理的 Rules、Skills 和 Commands 内置能力层。\n\n#### Scenario: 内置能力目录\n- **WHEN** Buildr 初始化或更新 workspace\n- **THEN** Buildr MUST 能够在 `rules/buildr/` 和 `skills/buildr/` 下物化产品管理的内置 Rule 和 Skill\n- **AND** Buildr MUST 将内置 Commands 声明写入 `commands/manifest.yml`\n- **AND** 用户管理的 Rules、Skills 和 Commands MUST 与内置能力共用对应 manifest\n\n#### Scenario: 内置能力分 required 和 optional\n- **WHEN** Buildr 提供内置 Rules、Skills 或 Commands\n- **THEN** Buildr MUST 支持 `required: true` 和 `required: false`\n- **AND** `rules/buildr/core.md` MUST 是 required Rule 且不可卸载\n- **AND** optional 内置能力 MUST 支持显式卸载\n\n#### Scenario: 内置能力状态跟踪\n- **WHEN** Buildr 跟踪内置能力状态\n- **THEN** Buildr MUST 区分 `installed`、`modified`、`uninstalled` 和 `missing`\n- **AND** Buildr MUST 在对应 manifest 中持久化显式卸载状态，确保 update 和 doctor 不把它误判为意外损坏\n\n#### Scenario: 修改过的内置能力不被静默覆盖\n- **WHEN** 某个内置能力在本地被修改\n- **THEN** Buildr update MUST NOT 在没有用户明确决策时覆盖 optional 内置能力\n- **AND** doctor MUST 报告该修改状态，并提供足够上下文让用户选择还原或保留\n\n#### Scenario: 已卸载的内置能力默认不还原\n- **WHEN** 某个内置能力被标记为 `uninstalled`\n- **THEN** Buildr update MUST NOT 默认还原它\n- **AND** doctor SHOULD 将其作为 info 而不是 warning 报告\n"
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr sync 是 Agent 升级主路径",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr sync 是 Agent 升级主路径\nBuildr MUST 提供 sync 命令，让 Agent 能把最新 Buildr 产品交付到支持的 Agent runtime；首次 `init --agent` MUST 复用同一 sync 管线，而不是维护独立的产品交付实现。\n\n#### Scenario: 同步 Codex\n- **WHEN** Agent 运行 `buildr sync codex --target <dir>`\n- **THEN** Buildr MUST 同步 workspace 产品能力、安装或修复产品入口 Buildr Skill、渲染 Codex runtime，并报告最终 Codex doctor 状态\n\n#### Scenario: 同步 Claude Code\n- **WHEN** Agent 运行 `buildr sync claude-code --target <dir>`\n- **THEN** Buildr MUST 同步 workspace 产品能力、安装或修复产品入口 Buildr Skill、渲染 Claude Code runtime，并报告最终 Claude Code doctor 状态\n\n#### Scenario: 高层初始化复用 sync\n- **WHEN** Agent 运行 `buildr init --agent <agent> --target <dir>`\n- **THEN** Buildr MUST 先完成 workspace 源资产初始化，再通过与 `buildr sync <agent>` 相同的管线执行产品能力更新、Component reconcile、runtime 投射和 doctor\n- **AND** Buildr MUST NOT 为初始化维护第二套 update、render 或 doctor 实现\n\n#### Scenario: sync 遇到用户决策点时停止\n- **WHEN** sync 遇到修改过的 optional 内置能力、manifest 对齐问题，或需要安装外部命令行工具\n- **THEN** sync MUST 在执行破坏性或会修改本机环境的动作前停止\n- **AND** sync MUST 提供清晰下一步，供 Agent 向用户确认\n"
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "已有 workspace 升级兼容",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 已有 workspace 升级兼容\nBuildr MUST 支持已有 Buildr workspace 升级到内置能力和 adapter render 模型，同时不静默覆盖用户编写的规则正文。\n\n#### Scenario: 修复根 AGENTS required block\n- **WHEN** 已有 workspace 的根 `AGENTS.md` 缺少或破坏 Buildr required block\n- **THEN** Buildr update MUST 恢复 required block，使其引用 `rules/buildr/core.md`\n- **AND** Buildr MUST NOT 覆盖 `AGENTS.md` 的用户正文\n\n#### Scenario: 迁入产品 baseline 规则\n- **WHEN** 已有 workspace 使用旧版 package baseline rules\n- **THEN** Buildr update MUST 能将产品发布的规则迁入 `rules/buildr/` 和 `rules/manifest.yml`\n- **AND** `runtime.md` 的语义 MUST 内化进 `rules/buildr/core.md`\n\n#### Scenario: MVP 不提供 migrate 命令\n- **WHEN** Buildr 处于本变更的 MVP 实施阶段\n- **THEN** Buildr MUST NOT 要求实现 `buildr migrate agents`\n- **AND** Buildr MUST 通过 doctor 兼容提示保护已有 workspace\n"
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr 产品交付必须单向物化",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr 产品交付必须单向物化\nBuildr MUST 将当前产品 package target 视为产品交付源，并将用户 workspace 和 Agent runtime 中的对应文件视为安装结果。\n\n#### Scenario: Workspace target 单向物化\n- **WHEN** Agent 使用当前 Buildr 产品执行 init、update 或 sync\n- **THEN** Buildr MUST 从 `package/targets/workspace/` 向目标 workspace 物化 manifest 声明的资产\n- **AND** Buildr MUST NOT 从目标 workspace 反向更新 Product Project 的 package 源\n\n#### Scenario: Runtime target 单向物化\n- **WHEN** Agent 执行 `buildr skill install <agent>`、`buildr sync <agent>` 或 `buildr init --agent <agent>`\n- **THEN** Buildr MUST 从 `package/targets/runtime/` 安装 manifest 声明的产品入口 Agent Skill\n- **AND** 安装后的 runtime 文件 MUST NOT 成为产品 Skill 的源资产\n\n#### Scenario: 未合并候选产品使用隔离目标验证\n- **WHEN** Buildr 维护者使用未合并的 task worktree Product checkout 验证候选产品\n- **THEN** init/update/sync MUST 使用该 checkout 随附的 package target\n- **AND** 验证目标 MUST 是临时 workspace 或 task worktree 自身，而不是主开发工作区的自举 workspace\n\n#### Scenario: 相同候选 tree 集成后不重复物化验证\n- **WHEN** 已完成隔离验证的候选 Git tree 未经内容改变集成到主开发分支\n- **THEN** Buildr 开发流程 MUST NOT 要求仅为重复产品验证而从主开发分支 checkout 再次 update/sync 主自举 workspace\n- **AND** 实际 workspace 后续需要消费新版产品资产时 MAY 独立执行 update/sync\n\n#### Scenario: 保留 workspace 自有内容\n- **WHEN** init/update/sync 向 workspace 物化产品管理资产\n- **THEN** Buildr MUST 继续保留用户或自举 workspace 自有的 `AGENTS.md` 正文和未由 package manifest 管理的资产\n- **AND** Buildr MUST 只修复 required block 和 manifest 声明的产品管理资产\n"
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Sync 聚合 Component 与 runtime 状态",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Sync 聚合 Component 与 runtime 状态\nBuildr sync MUST 在产品能力更新阶段处理 workspace Components，并在没有待决冲突时将其有效 Rules 和 Skills 投射到指定 Agent runtime。\n\n#### Scenario: 同步启用 Component\n- **WHEN** Agent 运行 `buildr sync <agent> --target <dir>`\n- **THEN** Buildr MUST 先完成 Component update/check\n- **AND** Buildr MUST 将启用 Component 的有效 Skills 和 Rules 纳入指定 adapter 的 runtime reconcile\n- **AND** Buildr MUST 在最终 doctor 中聚合 Component 和 Commands collections 状态\n\n#### Scenario: Component 冲突阻止 render\n- **WHEN** sync 发现 Component modified、missing、ownership conflict 或 manifest invalid\n- **THEN** sync MUST 在 runtime render 前停止\n- **AND** sync MUST 提供需要用户处理的 Component 和成员上下文\n"
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "已有 OpenSpec Builtins 迁移为 Component",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 已有 OpenSpec Builtins 迁移为 Component\nBuildr update MUST 安全识别旧 workspace 中独立管理或由 Buildr fork 管理的 OpenSpec workflow Skills，并迁移为外部上游 Skill 与 Buildr sidebar 分离的 Component。\n\n#### Scenario: 原位采用一致的外部 OpenSpec Skills\n- **WHEN** 旧 workspace 中全部预期 OpenSpec Skills 已以外部来源安装，且内容匹配当前 resolved package source\n- **THEN** Buildr MUST 创建或更新 OpenSpec Component registry entry 和 installed definition\n- **AND** Buildr MUST 创建 OpenSpec Command collection 和 Buildr sidebar members\n- **AND** Buildr MUST 保留外部 Skill 源内容，并在 runtime reconcile 时组合 sidebar\n\n#### Scenario: 迁移一致的 Buildr OpenSpec fork\n- **WHEN** 旧 workspace 的 `skills/buildr/openspec-*` 内容完整匹配已知旧 package receipt，且目标外部 Skill 路径无冲突\n- **THEN** Buildr MUST 在一个 source transaction 中删除旧 fork、物化外部上游 Skills、更新 manifests 和 Component definition\n- **AND** runtime reconcile MUST 从新的外部源和 sidebar contributions 生成等价或更新后的派生 Skills\n- **AND** 成功后 workspace MUST 不再包含 `skills/buildr/openspec-*` workflow fork\n\n#### Scenario: 旧 OpenSpec Skills 状态不一致\n- **WHEN** 任一旧 fork 或外部 Skill 为 modified、missing、uninstalled，或存在来源、路径、version、integrity 冲突\n- **THEN** Buildr MUST 停止 OpenSpec Component 迁移\n- **AND** Buildr MUST 保留全部旧状态\n- **AND** Buildr MUST 输出集合级用户决策信息\n"
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr update 同步 workspace 产品能力",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: Buildr update 同步 workspace 产品能力\nBuildr MUST 提供 update 路径，将当前 Buildr 产品管理的 workspace 源资产同步到已有 workspace，同时不接管用户资产或 Agent runtime。\n\n#### Scenario: update 不直接维护 Agent runtime\n- **WHEN** Agent 运行 `buildr update --target <dir>`\n- **THEN** Buildr MUST NOT 安装产品入口 Buildr Skill 或渲染 Agent runtime\n- **AND** Agent runtime MUST 通过 `buildr skill install <agent>` 或 `buildr sync <agent>` 安装和同步\n\n#### Scenario: 更新内置能力\n- **WHEN** Agent 运行 `buildr update --target <dir>`\n- **THEN** Buildr MUST 按内置能力状态同步 package 声明的内置 Rules、Skills 和 Commands\n- **AND** Buildr MUST 恢复 required 能力和根 `AGENTS.md` required block\n- **AND** Buildr MUST NOT 覆盖用户管理 Rules、Skills、Commands 或 `AGENTS.md` 正文\n\n#### Scenario: 更新检查\n- **WHEN** Agent 运行 `buildr update check --target <dir> --json`\n- **THEN** Buildr MUST 输出 Agent-readable 状态，覆盖根 `AGENTS.md` required block 和 package 声明的内置能力状态\n- **AND** Agent runtime 和 workspace 综合诊断 MUST 继续由 `buildr doctor --agent <agent> --target <dir> --json` 提供\n"
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr update 同步随包 Components",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: Buildr update 同步随包 Components\nBuildr update MUST 将当前 package 声明的 workspace Components 按 registry 期望状态和三方比较结果同步到已有 workspace。\n\n#### Scenario: 更新已启用 Component\n- **WHEN** Agent 运行 `buildr update --target <dir>`\n- **AND** Buildr-managed Component 为 enabled 且实际成员未被用户修改\n- **THEN** Buildr MUST 按当前 package 定义更新 Component 和全部成员源资产\n- **AND** update MUST NOT 直接渲染 Agent runtime\n\n#### Scenario: 不恢复已卸载 Component\n- **WHEN** Component registry 将 optional Buildr-managed Component 标记为 uninstalled\n- **THEN** Buildr update MUST 保留该状态\n- **AND** Buildr MUST NOT 因 package 新增或更新成员而重新安装它\n\n#### Scenario: Component 修改阻塞 update\n- **WHEN** 已启用 Component 的实际成员不同于已安装 definition\n- **THEN** Buildr update MUST 停止该 Component 的更新\n- **AND** Buildr MUST 输出成员差异和用户可选择的恢复或迁移动作\n"
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "公开 README 统一产品入口与两种模式",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "开发仓库安装必须形成 Agent 可用闭环",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 开发仓库安装必须形成 Agent 可用闭环\nBuildr MUST 提供与当前 GitHub 仓库结构一致的开发 checkout 安装路径，使 Agent 在没有预装 `node_modules` 或 Buildr Skill 的干净 clone 中能够准备 CLI，并用单个高层初始化命令完成 workspace 源资产、当前 runtime 和诊断闭环。\n\n#### Scenario: Agent 从干净开发仓库开始\n- **WHEN** Agent 在 Buildr GitHub 仓库的干净 clone 中按公开 README 安装 Buildr\n- **THEN** 安装说明 MUST 使用仓库中真实存在的产品目录和安装脚本\n- **AND** 安装流程 MUST 确定性准备 lockfile 声明的运行依赖\n- **AND** Agent MUST 能运行 `buildr runtime list --json`\n\n#### Scenario: Agent 完成首次 runtime 准备\n- **WHEN** CLI 已从开发 checkout 或已安装 npm package 可用，且 Agent 已从 supported runtime list 选择自身 adapter\n- **THEN** 公开 onboarding MUST 引导 Agent 运行 `buildr init --agent <agent>`\n- **AND** 该单个命令 MUST 创建源资产、安装产品 Buildr Skill、投射 workspace Skills 并运行最终 doctor\n- **AND** 最终 doctor MUST 不包含需要立即处理的 error\n\n#### Scenario: 开发仓库安装回归验证\n- **WHEN** 产品完整验证运行 repository onboarding smoke test\n- **THEN** verifier MUST 使用不包含 `node_modules` 和 Agent runtime 产物的临时候选树\n- **AND** verifier MUST 从公开安装入口完成 CLI 安装并仅用 `buildr init --agent <agent>` 完成 workspace/runtime onboarding\n- **AND** verifier MUST 独立读取 doctor JSON 证明最终状态可用\n"
+    },
+    {
+      "capability": "npm-cli-package",
+      "title": "registry package 支持 CLI 自更新",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "产品内置 Agent Skills",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品内置 Agent Skills\nBuildr MUST 支持面向支持 runtime 的产品内置 Agent Skills，并将其作为向用户交付最新 Buildr 产品的一部分进行同步。\n\n#### Scenario: 产品内置 Buildr Skill\n- **WHEN** Buildr 产品包包含 Buildr 使用 Skill\n- **THEN** 该 Skill MUST 由 package 的产品入口 Skill 声明管理\n- **AND** `buildr skill install <agent>`、`buildr sync <agent>` 和首次 `buildr init --agent <agent>` MUST 能够为支持的 Agent runtime 安装或修复该 Skill\n- **AND** 该 Skill MUST NOT 写入 workspace 的 `skills/manifest.yml`\n\n#### Scenario: Buildr Skill 感知更新意图\n- **WHEN** 用户要求 Agent “更新 Buildr”\n- **THEN** 产品内置 Buildr Skill 的 description 和正文 MUST 能让 Agent 识别该意图\n- **AND** Buildr Skill MUST 引导 Agent 先确认自身 runtime adapter，再运行 `buildr sync <agent> --target <dir>`\n- **AND** 该 sync 流程 MUST 包含 workspace 产品能力 update、产品入口 Buildr Skill 安装、当前 Agent runtime render 和 doctor 复查\n\n#### Scenario: Buildr Skill 感知首次初始化意图\n- **WHEN** 用户要求 Agent 首次使用 Buildr 管理尚未初始化的目录，且 runtime adapter 已确认\n- **THEN** Buildr Skill MUST 引导 Agent 使用 `buildr init --agent <agent>` 完成源资产初始化、产品 Buildr Skill 安装、runtime render 和 doctor\n- **AND** Buildr Skill MUST NOT 把独立 `skill install` 或 `sync` 列为完成首次 onboarding 的额外必需步骤\n\n#### Scenario: Buildr Skill 与用户 Skills 保持区分\n- **WHEN** Buildr 同步产品内置 Skills\n- **THEN** Buildr MUST 将产品入口 Buildr Skill 与 `skills/buildr/*` 能力 Skills 区分开\n- **AND** 用户 workspace/project Skill 维护 MUST 继续使用 `skills/manifest.yml` 和源目录，而不是编辑 runtime 目录\n\n#### Scenario: 内置能力 Skills 默认 optional\n- **WHEN** Buildr 提供 `skills/buildr/*` 能力 Skills\n- **THEN** 这些 Skills MUST 默认为 optional\n- **AND** 用户 MUST 能够卸载 optional 内置 Skill，卸载时删除源目录和 runtime 投射，并在 `skills/manifest.yml` 保留卸载状态\n"
+    }
+  ]
+}

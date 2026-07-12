@@ -1,0 +1,53 @@
+## ADDED Requirements
+
+### Requirement: 公开产品身份必须一致且无占位符
+Buildr MUST 将官方源码仓库声明为 `https://github.com/elevenching/Buildr`，将公开 npm package 声明为 `@buildr-ai/buildr`，并 MUST 在公开 metadata、安装命令、反馈入口和 License 中使用已确认身份而非占位符。
+
+#### Scenario: 检查公开候选 metadata
+- **WHEN** 维护者运行开源候选检查
+- **THEN** repository、homepage 和 bugs MUST 指向 `elevenching/Buildr`
+- **AND** npm package MUST 使用 `@buildr-ai/buildr` 且 bin MUST 继续暴露 `buildr`
+- **AND** License MUST 声明 `Copyright (c) 2025-2026 陈俊`
+- **AND** tracked 公开材料 MUST NOT 包含 repository URL 占位符
+
+### Requirement: 公开 README 必须提供中文入口和英文翻译
+Buildr MUST 使用根 `README.md` 作为中文产品入口，并 MUST 提供 `README.en.md` 作为 README 的完整英文翻译；其他文档 MUST 继续遵循 Project 管理语言而不要求双语复制。
+
+#### Scenario: 用户从任一 README 开始
+- **WHEN** 用户打开中文或英文 README
+- **THEN** README MUST 在顶部链接另一语言版本
+- **AND** 两份 README MUST 包含一致的产品定位、核心模型、快速开始、当前能力和文档导航
+- **AND** 两份 README MUST 使用相同的 canonical repository、npm package 和 CLI 命令
+
+### Requirement: 开源候选必须通过可重复安全扫描
+Buildr MUST 提供可在本地和 CI 重复运行的开源候选 verifier，扫描 tracked candidate tree 和 npm tarball inventory，并 MUST 对敏感信息、内部来源、占位符、异常大文件或禁止发布路径 fail closed。
+
+#### Scenario: 扫描安全候选
+- **WHEN** verifier 检查准备公开的最终候选
+- **THEN** verifier MUST 检查常见 secret/private-key 模式、内部 remote/domain、个人绝对路径、公开 URL 占位符和异常大文件
+- **AND** verifier MUST 检查 npm tarball 不包含 `.git`、OpenSpec active/archive、task worktree、Agent runtime 或其他非发布资产
+- **AND** verifier MUST 仅读取 tracked candidate 和生成的 tarball inventory，不得扫描用户 home、登录态或本机 secrets
+
+#### Scenario: 候选包含被禁止内容
+- **WHEN** 任一 tracked 文件或 tarball entry 命中未允许的阻塞规则
+- **THEN** verifier MUST 返回非零状态
+- **AND** 诊断 MUST 包含规则、相对路径和可执行的修复方向，且 MUST NOT 回显 secret 全文
+
+### Requirement: Release workflow 必须按版本和渠道受控发布
+Buildr MUST 提供 tag 驱动、GitHub-hosted、Environment 审批且 OIDC-ready 的 release workflow，并 MUST 在发布前校验候选、版本、dist-tag 和 tarball。
+
+#### Scenario: 发布 prerelease tag
+- **WHEN** `v<version>` tag 对应的 package version 包含 prerelease 标识
+- **THEN** workflow MUST 使用 `next` dist-tag
+- **AND** workflow MUST 在 `npm-production` Environment 中执行完整验证和公开候选检查后才允许 publish
+
+#### Scenario: 发布稳定 tag
+- **WHEN** `v<version>` tag 对应稳定 package version
+- **THEN** workflow MUST 使用 `latest` dist-tag
+- **AND** tag version MUST 与 package version 完全一致
+- **AND** workflow MUST NOT 从长期 npm publish token 获得默认写权限
+
+#### Scenario: 第一阶段只准备发布能力
+- **WHEN** 本 change 完成并集成内部 `dev`
+- **THEN** Buildr MUST NOT 因此自动推送公开 GitHub、创建 release tag 或执行 npm publish
+- **AND** 外部发布 MUST 等待后续显式授权和账号侧配置完成

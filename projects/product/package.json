@@ -1,0 +1,66 @@
+{
+  "name": "@buildr-ai/buildr",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Buildr CLI for managing Agent workspace assets.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elevenching/Buildr.git",
+    "directory": "projects/product"
+  },
+  "homepage": "https://github.com/elevenching/Buildr#readme",
+  "bugs": {
+    "url": "https://github.com/elevenching/Buildr/issues"
+  },
+  "keywords": [
+    "agent",
+    "agentic-coding",
+    "cli",
+    "developer-tools",
+    "workspace"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "bin": {
+    "buildr": "./tools/buildr"
+  },
+  "files": [
+    "LICENSE",
+    "tools/buildr",
+    "tools/cli/",
+    "tools/runtime/check-codex.mjs",
+    "tools/runtime/check-claude-code.mjs",
+    "tools/shared/fetch-remote-text.mjs",
+    "tools/runtime/adapter-contract.mjs",
+    "tools/runtime/projection.mjs",
+    "tools/runtime/render-claude-code-rules.mjs",
+    "tools/runtime/render-claude-code.mjs",
+    "tools/runtime/skills",
+    "tools/verification/openspec/contract.mjs",
+    "tools/verification/integrity/managed-mutations.mjs",
+    "tools/verification/integrity/managed-data-integrity.mjs",
+    "tools/verification/runtime/adapter-contract.mjs",
+    "tools/verification/runtime/adapter-parity.mjs",
+    "README.md",
+    "docs/cli-reference.md",
+    "docs/cli-architecture.md",
+    "docs/known-limitations.md",
+    "examples/minimal-workspace/README.md",
+    "package/"
+  ],
+  "scripts": {
+    "test": "./tools/verify-buildr-product",
+    "test:unit": "node --test test/*.test.mjs",
+    "test:release": "node tools/verification/release/release-smoke.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
+  }
+}
