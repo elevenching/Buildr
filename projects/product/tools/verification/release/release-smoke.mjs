@@ -20,6 +20,7 @@ function run(command, args, options = {}) {
     cwd: options.cwd ?? productRoot,
     encoding: 'utf8',
     env: { ...process.env, ...options.env },
+    shell: process.platform === 'win32' && command === npmExecutable,
   });
   if (result.status !== (options.expectedStatus ?? 0)) {
     throw new Error(`${command} ${args.join(' ')} exited ${result.status}:\n${result.stdout}\n${result.stderr}`);
