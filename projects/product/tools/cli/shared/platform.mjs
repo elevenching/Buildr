@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import YAML from 'yaml';
 import { checkClaudeCodeRuntime, printRuntimeCheckReport } from '../../runtime/check-claude-code.mjs';
@@ -36,7 +37,7 @@ const RUNTIME_CHECK_PRINTERS = { 'claude-code': printRuntimeCheckReport, codex: 
 const BUILDR_REQUIRED_BLOCK_START = '<!-- buildr:required begin -->';
 
 export {
-  fs, crypto, os, path, process, execFileSync, spawnSync, YAML,
+  fs, crypto, os, path, process, fileURLToPath, execFileSync, spawnSync, YAML,
   checkClaudeCodeRuntime, printRuntimeCheckReport,
   hasManagedSkillMarker, parseInstallClaudeCodeBuildrSkillArgs,
   buildRuleDiscoveryPlan, hasManagedRulesMarker, renderClaudeCodeRules, resolveRuleScope,

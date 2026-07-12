@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const productRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const specsRoot = path.join(productRoot, 'openspec', 'specs');
 const placeholderPatterns = [
   { label: 'TBD', pattern: /\bTBD\b/i },

@@ -4,6 +4,7 @@ import {
   os,
   path,
   process,
+  fileURLToPath,
   YAML,
   PACKAGE_WORKSPACE_TARGET,
   PACKAGE_BOOTSTRAP_CONTRACT,
@@ -243,7 +244,7 @@ export function registerSharedInfrastructure(runtime) {
   }
 
   function productRoot() {
-    return path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
+    return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
   }
 
   function packageRoot() {

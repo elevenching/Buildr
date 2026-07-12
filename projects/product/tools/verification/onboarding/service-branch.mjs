@@ -5,9 +5,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 
-const productRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const buildr = path.join(productRoot, 'tools', 'buildr');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-service-branch-'));
 const remote = path.join(root, 'api.git');

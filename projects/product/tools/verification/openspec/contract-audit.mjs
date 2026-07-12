@@ -4,9 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
-const productRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const gitPrefix = execFileSync('git', ['rev-parse', '--show-prefix'], { cwd: productRoot, encoding: 'utf8' }).trim();
 function gitPathList(args) {
   return execFileSync('git', args, {

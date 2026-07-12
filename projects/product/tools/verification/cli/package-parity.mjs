@@ -5,8 +5,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const productRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const checkoutCli = path.join(productRoot, 'tools', 'buildr');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-cli-parity-'));
 

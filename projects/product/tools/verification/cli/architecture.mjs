@@ -2,9 +2,10 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const reportOnly = process.argv.includes('--report');
-const productRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const entry = path.join(productRoot, 'tools', 'buildr');
 const cliRoot = path.join(productRoot, 'tools', 'cli');
 const problems = [];

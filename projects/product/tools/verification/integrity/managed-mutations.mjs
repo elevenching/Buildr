@@ -2,8 +2,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const productRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const packageManifest = JSON.parse(fs.readFileSync(path.join(productRoot, 'package.json'), 'utf8'));
 const productionFiles = [];
 for (const entry of packageManifest.files.filter((file) => file.startsWith('tools/'))) {

@@ -4,9 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-const productRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const reporter = path.join(productRoot, 'tools', 'verification', 'timing', 'report.mjs');
 
 test('verification timing reporter emits a versioned machine-readable summary', () => {
