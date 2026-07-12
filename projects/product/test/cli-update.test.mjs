@@ -59,7 +59,7 @@ test('开发 checkout 缺少 upstream 时 check 返回稳定阻塞结构', (t) =
 test('npm global prefix 布局识别为 registry package', (t) => {
   const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-cli-update-prefix-'));
   t.after(() => fs.rmSync(prefix, { recursive: true, force: true }));
-  const productRoot = path.join(prefix, 'lib', 'node_modules', '@buildr-ai', 'buildr');
+  const productRoot = path.join(prefix, ...(process.platform === 'win32' ? [] : ['lib']), 'node_modules', '@buildr-ai', 'buildr');
   fs.mkdirSync(productRoot, { recursive: true });
   fs.writeFileSync(path.join(productRoot, 'package.json'), '{"name":"@buildr-ai/buildr","version":"1.0.0"}\n');
   const source = identifyCliSource(productRoot);

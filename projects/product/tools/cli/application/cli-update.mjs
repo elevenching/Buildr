@@ -18,7 +18,9 @@ function readPackage(file) {
 
 function registryPrefixForProductRoot(root) {
   const normalized = path.resolve(root);
-  const marker = `${path.sep}lib${path.sep}node_modules${path.sep}`;
+  const marker = process.platform === 'win32'
+    ? `${path.sep}node_modules${path.sep}`
+    : `${path.sep}lib${path.sep}node_modules${path.sep}`;
   const index = normalized.lastIndexOf(marker);
   return index > 0 ? normalized.slice(0, index) : null;
 }
