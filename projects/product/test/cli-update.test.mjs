@@ -125,8 +125,8 @@ test('开发者模式只对本地未发布提交执行 rebase', (t) => {
   const plan = buildCliUpdatePlan(path.join(client, 'projects', 'product'));
   assert.equal(plan.strategy, 'rebase');
   assert.equal(executeCliUpdatePlan(plan).ok, true);
-  assert.equal(fs.readFileSync(path.join(client, 'local.txt'), 'utf8'), 'local\n');
-  assert.equal(fs.readFileSync(path.join(client, 'remote.txt'), 'utf8'), 'remote\n');
+  assert.equal(fs.readFileSync(path.join(client, 'local.txt'), 'utf8').replace(/\r\n/g, '\n'), 'local\n');
+  assert.equal(fs.readFileSync(path.join(client, 'remote.txt'), 'utf8').replace(/\r\n/g, '\n'), 'remote\n');
 });
 
 test('发布模式更新保持 package identity 与安装 prefix', (t) => {

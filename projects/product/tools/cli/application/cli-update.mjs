@@ -150,7 +150,7 @@ export function executeCliUpdatePlan(plan, options = {}) {
   if (plan.status !== 'update-available') return { ok: plan.status === 'up-to-date', status: plan.status === 'up-to-date' ? 0 : 1, stdout: '', stderr: '', error: null };
   return plan.mode === 'development-checkout'
     ? run('git', ['-C', plan.current.gitRoot, plan.strategy === 'fast-forward' ? 'merge' : 'rebase', ...(plan.strategy === 'fast-forward' ? ['--ff-only'] : []), plan.current.upstream], options)
-    : run('npm', ['install', '--global', '--prefix', plan.current.installPrefix, `${plan.current.package}@${plan.available.version}`], options);
+    : run(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['install', '--global', '--prefix', plan.current.installPrefix, `${plan.current.package}@${plan.available.version}`], options);
 }
 
 function printPlan(plan, label) {
