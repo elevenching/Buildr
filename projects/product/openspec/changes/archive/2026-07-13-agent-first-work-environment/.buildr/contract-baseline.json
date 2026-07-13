@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "agent-first-work-environment",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-a3516d0bcf6d7375753fc898574b8c793870d46a47d5cf75a60cb9b071b73683",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-first-product-positioning",
+      "title": "Buildr 采用 Agent-first 用户模型",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-first-product-positioning",
+      "title": "Buildr 区分工作资产、共享工作环境和任务上下文",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-first-product-positioning",
+      "title": "公开入口表达多层用户价值",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-first-product-positioning",
+      "title": "跨工作范围问题使用准确表述",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "Onboarding 采用 Agent-first 协作入口",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "open-source-release-governance",
+      "title": "公开 README 必须提供中文入口和英文翻译",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 公开 README 必须提供中文入口和英文翻译\nBuildr MUST 使用根 `README.md` 作为中文产品入口，并 MUST 提供 `README.en.md` 作为 README 的完整英文翻译；其他文档 MUST 继续遵循 Project 管理语言而不要求双语复制。\n\n#### Scenario: 用户从任一 README 开始\n- **WHEN** 用户打开中文或英文 README\n- **THEN** README MUST 在顶部链接另一语言版本\n- **AND** 两份 README MUST 包含一致的产品定位、核心模型、快速开始、当前能力和文档导航\n- **AND** 两份 README MUST 使用相同的 canonical repository、npm package 和 CLI 命令\n"
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Runtime 投射不得替代 Agent 构建任务上下文",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}
