@@ -433,10 +433,6 @@ export function createPackageSmokeChecks(deps) {
       problems.push('OpenSpec contract fixture verifier is missing.');
     } else {
       files.push(contractFixture);
-      const fixtureResult = spawnSync(process.execPath, [contractFixture], { cwd: root, encoding: 'utf8', timeout: 30000 });
-      if (fixtureResult.status !== 0) {
-        problems.push(`OpenSpec contract fixture verifier failed: ${(fixtureResult.stderr || fixtureResult.stdout || 'unknown error').trim()}`);
-      }
     }
 
     const mutationVerifier = path.join(root, 'tools', 'verification', 'integrity', 'managed-mutations.mjs');
@@ -444,8 +440,6 @@ export function createPackageSmokeChecks(deps) {
       problems.push('Managed mutation verifier is missing.');
     } else {
       files.push(mutationVerifier);
-      const mutationResult = spawnSync(process.execPath, [mutationVerifier], { cwd: root, encoding: 'utf8', timeout: 30000 });
-      if (mutationResult.status !== 0) problems.push(`Managed mutation verifier failed: ${(mutationResult.stderr || mutationResult.stdout || 'unknown error').trim()}`);
     }
   }
 

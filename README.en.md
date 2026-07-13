@@ -64,11 +64,11 @@ When runtime dependencies are missing, the installer runs `npm ci --omit=dev` fr
 ### Release Mode: npm Registry Package
 
 ```bash
-npm install --global @buildr-ai/buildr
+npm install --global @buildr-ai/buildr@next
 buildr --help
 ```
 
-Before the stable release, use the release candidate documented in [GitHub Releases](https://github.com/elevenching/Buildr/releases). See [Known Limitations](projects/product/docs/known-limitations.md) for the current publication status.
+The current public preview is [`0.1.0-rc.1`](https://github.com/elevenching/Buildr/releases/tag/v0.1.0-rc.1); `next` is reserved for release candidates. To report a problem or share feedback, open a [GitHub Issue](https://github.com/elevenching/Buildr/issues/new/choose). Report security vulnerabilities privately through the [Security Policy](SECURITY.md). See [Known Limitations](projects/product/docs/known-limitations.md) for the current trial boundaries.
 
 ### Initialize a Workspace
 

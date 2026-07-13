@@ -64,11 +64,11 @@ buildr --help
 ### 发布模式：npm registry package
 
 ```bash
-npm install --global @buildr-ai/buildr
+npm install --global @buildr-ai/buildr@next
 buildr --help
 ```
 
-正式版发布前可使用 release candidate；具体版本和 tag 以 [GitHub Releases](https://github.com/elevenching/Buildr/releases) 为准。当前公开发布准备状态见[已知限制](projects/product/docs/known-limitations.md)。
+当前公开试用版本是 [`0.1.0-rc.1`](https://github.com/elevenching/Buildr/releases/tag/v0.1.0-rc.1)，`next` 始终用于 release candidate。使用中遇到问题或希望提供建议，请提交 [GitHub Issue](https://github.com/elevenching/Buildr/issues/new/choose)；安全漏洞请按[安全报告](SECURITY.md)私下报告。当前试用边界见[已知限制](projects/product/docs/known-limitations.md)。
 
 ### 初始化 workspace
 

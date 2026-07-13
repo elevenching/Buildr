@@ -25,7 +25,7 @@ test('open-source candidate content rules block secrets without echoing values',
 test('open-source metadata and tarball contracts enforce public identity and inventory', () => {
   const valid = {
     name: '@buildr-ai/buildr',
-    bin: { buildr: './tools/buildr' },
+    bin: { buildr: 'tools/buildr' },
     repository: { url: 'git+https://github.com/elevenching/Buildr.git', directory: 'projects/product' },
     homepage: 'https://github.com/elevenching/Buildr#readme',
     bugs: { url: 'https://github.com/elevenching/Buildr/issues' },

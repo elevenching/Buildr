@@ -3,11 +3,12 @@ set -euo pipefail
 
 product_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 timing_file="$(mktemp)"
+mvp_timing_file="$(mktemp)"
 timing_output="${BUILDR_TIMING_OUTPUT:-${TMPDIR:-/tmp}/buildr-product-verification-timing.json}"
 total_started_at="$(node -e 'process.stdout.write(String(Date.now()))')"
 
 cleanup() {
-  rm -f "$timing_file"
+  rm -f "$timing_file" "$mvp_timing_file"
 }
 trap cleanup EXIT
 
@@ -29,7 +30,7 @@ run_step() {
     printf '[verify-product] completed: %s (%s ms)\n' "$label" "$duration_ms"
   else
     printf '%s\tfailed\t%s\t%s\n' "$label" "$status" "$duration_ms" >> "$timing_file"
-    node tools/verification/timing/report.mjs "$timing_file" "$timing_output" failed "$((finished_at - total_started_at))"
+    node tools/verification/timing/report.mjs "$timing_file" "$timing_output" failed "$((finished_at - total_started_at))" "$mvp_timing_file"
     return "$status"
   fi
 }
@@ -57,12 +58,14 @@ run_step "Service branch contract" node tools/verification/onboarding/service-br
 
 run_step "remote Skill timeout contract" node tools/verification/network/remote-text.mjs
 
-run_step "temporary workspace end-to-end" tools/verify-buildr-product-mvp
+BUILDR_MVP_TIMING_FILE="$mvp_timing_file" run_step "temporary workspace end-to-end" tools/verify-buildr-product-mvp
 
 run_step "release tarball smoke" node tools/verification/release/release-smoke.mjs
 
 run_step "managed mutations" node tools/verification/integrity/managed-mutations.mjs
 run_step "managed data integrity" node tools/verification/integrity/managed-data-integrity.mjs
+
+run_step "OpenSpec contract fixtures" node tools/verification/openspec/contract.mjs
 
 run_step "OpenSpec contract candidate audit" node tools/verification/openspec/contract-audit.mjs
 
@@ -71,6 +74,6 @@ run_step "OpenSpec canonical spec quality" node tools/verification/openspec/spec
 run_step "openspec strict validation" openspec validate --all --strict
 
 total_finished_at="$(node -e 'process.stdout.write(String(Date.now()))')"
-node tools/verification/timing/report.mjs "$timing_file" "$timing_output" passed "$((total_finished_at - total_started_at))"
+node tools/verification/timing/report.mjs "$timing_file" "$timing_output" passed "$((total_finished_at - total_started_at))" "$mvp_timing_file"
 
 printf '\nBuildr product verification passed.\n'

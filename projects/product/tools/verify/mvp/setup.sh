@@ -18,8 +18,35 @@ skill_install_target="$(mktemp -d)"
 remote_skill_dir="$(mktemp -d)"
 reconcile_tmp="$(mktemp -d)"
 remote_skill_pid=""
+current_section=""
+section_started_at=""
+
+now_ms() {
+  node -e 'process.stdout.write(String(Date.now()))'
+}
+
+finish_section() {
+  local status="${1:-0}"
+  local finished_at duration_ms result
+  if [[ -z "$current_section" ]]; then
+    return
+  fi
+  finished_at="$(now_ms)"
+  duration_ms="$((finished_at - section_started_at))"
+  result="passed"
+  if [[ "$status" -ne 0 ]]; then
+    result="failed"
+  fi
+  printf '[verify-mvp] completed: %s (%s ms)\n' "$current_section" "$duration_ms"
+  if [[ -n "${BUILDR_MVP_TIMING_FILE:-}" ]]; then
+    printf '%s\t%s\t%s\t%s\n' "$current_section" "$result" "$status" "$duration_ms" >> "$BUILDR_MVP_TIMING_FILE"
+  fi
+  current_section=""
+}
 
 cleanup() {
+  local status=$?
+  finish_section "$status"
   if [[ -n "$remote_skill_pid" ]]; then
     kill "$remote_skill_pid" >/dev/null 2>&1 || true
     wait "$remote_skill_pid" 2>/dev/null || true
@@ -29,6 +56,9 @@ cleanup() {
 trap cleanup EXIT
 
 section() {
+  finish_section 0
+  current_section="$1"
+  section_started_at="$(now_ms)"
   printf '\n[verify-mvp] %s\n' "$1"
 }
 

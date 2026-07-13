@@ -38,11 +38,12 @@
 - [x] Linux Node 20/22 执行完整验证，Linux/macOS/Windows Node 22 验证正式 tarball 生命周期。
 - [x] 明确 npm registry 发布流程：`@buildr-ai/buildr`、RC 使用 `next`、稳定版使用 `latest`、tag/version fail closed、GitHub Environment 审批和 OIDC trusted publishing。
 - [x] 将干净候选快照推到 `elevenching/Buildr`，在真实 GitHub runner 通过 CI，并配置 `main`/`dev` branch protection 与 Private Vulnerability Reporting。
-- [ ] 通过 2FA 首次发布 `0.1.0-rc.1`，随后为 `@buildr-ai/buildr` 配置 GitHub trusted publisher；完成试用后再发布 `0.1.0`。
+- [x] 通过 2FA 首次发布 `0.1.0-rc.1`，随后为 `@buildr-ai/buildr` 配置 GitHub trusted publisher。
+- [ ] 完成 RC 试用和反馈收敛后发布 `0.1.0` 稳定版。
 
 ### 建议完成
 
-- [x] 补充 `CHANGELOG.md`，记录首个 `0.1.0` 未发布版本范围。
+- [x] 补充 `CHANGELOG.md`，记录 `0.1.0-rc.1` 发布范围和日期。
 - [x] 补充 issue / PR 模板，降低外部反馈成本。
 - [x] 补充公开试用指南和已知限制，明确支持的 Agent runtime 与试用范围；反馈渠道随 GitHub repository URL 确定后补链接。
 - [ ] 评估是否提供 Homebrew tap、standalone install script 或 release binary。
@@ -73,6 +74,7 @@ tools/verification/network/remote-text.mjs
 tools/verify-buildr-product-mvp
 tools/verification/integrity/managed-mutations.mjs
 tools/verification/integrity/managed-data-integrity.mjs
+tools/verification/openspec/contract.mjs
 tools/verification/openspec/contract-audit.mjs
 tools/verification/openspec/spec-quality.mjs
 openspec validate --all --strict
@@ -87,12 +89,12 @@ npm pack --dry-run
 
 1. 日常改动集成到 `dev`；准备发布时通过 PR 将已验证候选合入 `main`。
 2. package version 与 Git tag 必须完全一致。`0.1.0-rc.1` 对应 `v0.1.0-rc.1` 和 `next`，`0.1.0` 对应 `v0.1.0` 和 `latest`。
-3. 首个 `@buildr-ai/buildr` package 由 npm Organization owner `elevenching2` 使用 2FA 执行一次 `npm publish --access public --tag next`。
-4. package 存在后，在 npm 配置 trusted publisher：GitHub user `elevenching`、repository `Buildr`、workflow `publish.yml`、Environment `npm-production`、allowed action `npm publish`。
+3. 首个 `@buildr-ai/buildr` package 已由 npm Organization owner `elevenching2` 使用 2FA 执行 `npm publish --access public --tag next`，于 2026-07-13 完成。
+4. npm trusted publisher 已配置为 GitHub user `elevenching`、repository `Buildr`、workflow `publish.yml`、Environment `npm-production`、allowed action `npm publish`。
 5. 后续发布只由 release tag 触发 GitHub-hosted workflow；Environment 人工批准后运行完整验证、候选安全检查、publish 和 GitHub Release 创建。
 6. 已发布版本不覆盖。RC 问题发布新的 prerelease；正式版本问题优先发布 patch，必要时 deprecate 或移动 dist-tag，不把 unpublish 当作常规回滚。
 
-第一阶段只准备上述代码和门禁，不授权向公开 GitHub push、创建 tag 或执行 npm publish。
+`0.1.0-rc.1` 已完成 npm 发布和 GitHub prerelease 创建。后续发布仍需每次具有明确发布意图，并按上述 tag、Environment 审批和 trusted publishing 流程执行。
 
 实际自举 workspace 如需消费新版产品资产，可独立执行 sync，并在状态变更后运行当前 Agent doctor；CLI update 只更新当前 Product checkout 或 registry package。这不是第二轮产品 E2E。上述验证只证明当前本地产品包和 MVP 主路径成立；公开发布仍需要完成上面的发布材料和分发流程。
 

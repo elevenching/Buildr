@@ -1,5 +1,3 @@
-section "Package and npm"
-
 section "Runtime reconciliation"
 
 node "$buildr" init --target "$reconcile_tmp" >/dev/null
@@ -29,6 +27,8 @@ if node "$buildr" skills render codex --scope . --target "$reconcile_tmp" >/tmp/
 fi
 grep -q '内容不同' /tmp/buildr-product-mvp-project-skill-conflict.txt
 test ! -e "$reconcile_tmp/.agents/skills/openspec-explore"
+
+section "OpenSpec audit fixture"
 
 audit_fixture="$(mktemp -d)"
 mkdir -p "$audit_fixture/projects/product/tools/verification/openspec" \
@@ -68,6 +68,8 @@ EOF
 node "$audit_fixture/projects/product/tools/verification/openspec/contract-audit.mjs" >/tmp/buildr-product-mvp-contract-audit-nested.txt
 grep -q 'audit-fixture associated with current candidate receipts' /tmp/buildr-product-mvp-contract-audit-nested.txt
 rm -rf "$audit_fixture"
+
+section "Package source checks"
 
 if ! node "$buildr" package check >/tmp/buildr-product-mvp-package-check.txt 2>/tmp/buildr-product-mvp-package-check.err; then
   cat /tmp/buildr-product-mvp-package-check.err >&2
@@ -110,6 +112,8 @@ if grep -q '默认使用中文' "$git_ops_skill"; then
   exit 1
 fi
 
+section "npm package lifecycle"
+
 if ! command -v npm >/dev/null 2>&1; then
   echo "npm is required to verify the Buildr npm package." >&2
   exit 1
@@ -130,7 +134,7 @@ metadata = json.load(open(os.path.join(os.environ['PRODUCT_ROOT'], 'package.json
 assert metadata['version'] != '0.0.0'
 assert metadata.get('private') is not True
 assert metadata['license'] == 'MIT'
-assert metadata['bin']['buildr'] == './tools/buildr'
+assert metadata['bin']['buildr'] == 'tools/buildr'
 files = {item['path'] for item in pkg['files']}
 required = {
     'LICENSE',
@@ -290,6 +294,8 @@ if grep -q 'buildr runtime check claude-code' /tmp/buildr-product-mvp-bootstrap-
   echo "bootstrap guide included runtime adapter detail" >&2
   exit 1
 fi
+
+section "Runtime conflict safeguards"
 
 cat > "$tmp/skills/manifest.yml" <<'EOF'
 skills:
