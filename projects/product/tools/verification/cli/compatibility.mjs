@@ -60,6 +60,11 @@ const runtime = run(['runtime', 'list', '--json']);
 assert.equal(runtime.status, 0);
 const runtimeJson = JSON.parse(runtime.stdout);
 assert.deepEqual(runtimeJson.supportedAgents, ['claude-code', 'codex']);
+assert.deepEqual(runtimeJson.adapterTraitCatalog.rules, ['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']);
+assert.equal(runtimeJson.agents.codex.traits.rules.kind, 'native-recursive');
+assert.equal(runtimeJson.agents.codex.traits.skills.root, '.agents');
+assert.equal(runtimeJson.agents['claude-code'].traits.rules.kind, 'reference-bridge');
+assert.equal(runtimeJson.agents['claude-code'].traits.skills.root, '.claude');
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-compat-'));
 try {

@@ -51,14 +51,13 @@ function prependAfterFrontmatter(source, block) {
   return lines.join('\n');
 }
 
-export function buildSkillTarget(targetRoot, skill) {
-  const runtimePath = skill.runtimePath ?? skill.id;
-  return path.join(targetRoot, '.claude', 'skills', ...runtimePath.split('/'), 'SKILL.md');
+export function buildSkillTarget(targetRoot, skill, runtime = 'claude-code') {
+  return buildRuntimeSkillTarget(targetRoot, skill, runtime);
 }
 
 export function buildRuntimeSkillTarget(targetRoot, skill, runtime) {
   const runtimePath = skill.runtimePath ?? skill.id;
-  const root = getRuntimeAdapter(runtime).skillsRoot;
+  const root = getRuntimeAdapter(runtime).traits.skills.root;
   return path.join(targetRoot, root, 'skills', ...runtimePath.split('/'), 'SKILL.md');
 }
 
@@ -98,7 +97,7 @@ function buildAdapterRuntimeContext(skill) {
     ...maintenanceCommands,
     '```',
     '',
-    `当前 adapter 的 runtime 入口：${ruleGuidance}；Skills 渲染到当前项目根目录 \`${adapter.skillsRoot}/skills/\`。如果当前 Agent 不是该 adapter，停止当前 Buildr 操作；请联系 Buildr 作者反馈该 Agent。`,
+    `当前 adapter 的 runtime 入口：${ruleGuidance}；Skills 渲染到当前项目根目录 \`${adapter.traits.skills.root}/skills/\`。如果当前 Agent 不是该 adapter，停止当前 Buildr 操作；请联系 Buildr 作者反馈该 Agent。`,
     '',
   ].join('\n');
 }
@@ -132,8 +131,8 @@ export function buildSkillContent(repoRoot, skill) {
   return addManagedMarker(content, marker);
 }
 
-export function buildAgentInstallPlanTarget(targetRoot, skill) {
-  return path.join(targetRoot, '.claude', 'buildr', 'skill-install-plans', `${skill.id}.md`);
+export function buildAgentInstallPlanTarget(targetRoot, skill, runtime = 'claude-code') {
+  return path.join(targetRoot, getRuntimeAdapter(runtime).traits.skills.root, 'buildr', 'skill-install-plans', `${skill.id}.md`);
 }
 
 function formatSkillSourceDetails(skill) {
@@ -200,7 +199,7 @@ export function buildSkillRenderPlan(repoRoot, targetRoot, skills, runtime, opti
   for (const skill of skills) {
     const installPlan = skill.installMode === 'agent';
     const targetFile = installPlan
-      ? path.join(targetRoot, adapter.skillsRoot, 'buildr', 'skill-install-plans', `${skill.id}.md`)
+      ? buildAgentInstallPlanTarget(targetRoot, skill, runtime)
       : buildRuntimeSkillTarget(targetRoot, skill, runtime);
     const content = installPlan ? buildAgentInstallPlanContent(skill) : buildSkillContent(repoRoot, skill);
     const sourceContent = installPlan ? null : skill.sourceContent ?? fs.readFileSync(skill.sourceFile, 'utf8');
@@ -240,5 +239,5 @@ export function applySkillRenderPlan(plan, targetRoot) {
 
 function renderSkill(repoRoot, targetRoot, skill, runtime = 'claude-code') {
   return applySkillRenderPlan(buildSkillRenderPlan(repoRoot, targetRoot, [skill], runtime), targetRoot)[0]
-    ?? (skill.installMode === 'agent' ? buildAgentInstallPlanTarget(targetRoot, skill) : buildRuntimeSkillTarget(targetRoot, skill, runtime));
+    ?? (skill.installMode === 'agent' ? buildAgentInstallPlanTarget(targetRoot, skill, runtime) : buildRuntimeSkillTarget(targetRoot, skill, runtime));
 }

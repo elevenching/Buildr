@@ -1,4 +1,4 @@
-import { fs, path, PACKAGE_BOOTSTRAP_CONTRACT } from '../shared/platform.mjs';
+import { fs, path, PACKAGE_BOOTSTRAP_CONTRACT, SUPPORTED_AGENT_IDS } from '../shared/platform.mjs';
 
 export function registerDomainsPackageAssets(runtime) {
   const readGitRemote = (...args) => runtime.readGitRemote(...args);
@@ -418,7 +418,7 @@ export function registerDomainsPackageAssets(runtime) {
       enabled: true,
       required: builtin.required === true,
       state: 'installed',
-      runtimes: builtin.runtimes || ['claude-code', 'codex'],
+      runtimes: builtin.runtimes || [...SUPPORTED_AGENT_IDS],
       runtimePath: builtin.id,
     };
   }

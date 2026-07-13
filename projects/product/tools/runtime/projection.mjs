@@ -5,6 +5,7 @@ import {
   createRuntimeContext,
   getRuntimeAdapter,
   reconcileRuntimePlan,
+  selectAdapterImplementation,
 } from './adapter-contract.mjs';
 import {
   buildSkillRenderPlan,
@@ -67,25 +68,18 @@ function referenceMetadataStale(current, sourceFile) {
   return hash !== crypto.createHash('sha256').update(fs.readFileSync(sourceFile)).digest('hex');
 }
 
-function assembleRules(repoRoot, targetRoot, scopeInfo, adapter) {
-  const discovery = buildRuleDiscoveryPlan(repoRoot, scopeInfo);
-  const findings = [
-    ...discovery.warnings.map((message) => ruleFinding('warning', scopeInfo.scope, message, { code: 'runtime.scope_legacy', canonicalScope: scopeInfo.scope })),
-    ...discovery.boundaries.map((boundary) => ruleFinding('info', boundary.path, `Rules discovery skipped boundary: ${boundary.reason}.`, { code: 'runtime.rules_discovery_boundary', boundaryReason: boundary.reason, userActionRequired: false })),
-  ];
-  if (discovery.files.length === 0) {
-    findings.push(ruleFinding(adapter.projection === 'native-agents' ? 'missing' : 'conflict', adapter.projection === 'native-agents' ? 'AGENTS.md' : 'CLAUDE.md', `No AGENTS.md files found for scope: ${scopeInfo.scope}.`, { code: adapter.projection === 'native-agents' ? 'runtime.codex_rules_missing' : 'runtime.rules_bridge_missing' }));
-    return { writes: [], removals: [], nativeAssets: [], actions: [], findings, discovery };
-  }
-  if (adapter.projection === 'native-agents') {
-    return {
-      writes: [], removals: [], actions: [], findings, discovery,
-      nativeAssets: discovery.files.map((targetFile) => ({ targetFile, source: path.relative(repoRoot, targetFile), diagnostic: { label: 'Codex native AGENTS.md rule asset', code: 'runtime.codex_rules_ok' } })),
-    };
-  }
+function assembleNativeRecursiveRules({ repoRoot, discovery, findings, adapter }) {
+  const diagnostics = adapter.traits.rules.diagnostics;
+  return {
+    writes: [], removals: [], actions: [], findings, discovery,
+    nativeAssets: discovery.files.map((targetFile) => ({ targetFile, source: path.relative(repoRoot, targetFile), diagnostic: { label: diagnostics.label, code: diagnostics.okCode } })),
+  };
+}
+
+function assembleReferenceBridgeRules({ repoRoot, targetRoot, scopeInfo, discovery, findings, adapter }) {
   const planned = planRulesRender(repoRoot, targetRoot, scopeInfo);
   for (const conflict of planned.conflicts) findings.push(ruleFinding('conflict', scopeInfo.scope, conflict, { code: 'runtime.rules_bridge_conflict' }));
-  const diagnostic = { label: 'Claude Code rules bridge', codes: { ok: 'runtime.reference_bridge_ok', missing: 'runtime.rules_bridge_missing', stale: 'runtime.rules_bridge_stale', conflict: 'runtime.rules_bridge_conflict', orphan: 'runtime.rules_bridge_orphan' }, repair: 'rules-render' };
+  const diagnostic = { label: adapter.traits.rules.diagnostics.label, codes: adapter.traits.rules.diagnostics.codes, repair: 'rules-render' };
   for (const item of planned.actions) {
     if (!item.sourceFile || !fs.existsSync(item.targetFile)) continue;
     const current = fs.readFileSync(item.targetFile, 'utf8');
@@ -98,6 +92,26 @@ function assembleRules(repoRoot, targetRoot, scopeInfo, adapter) {
     removals: planned.actions.filter((item) => item.content === null).map((item) => ({ targetFile: item.targetFile, capability: 'rules-entry', isManaged: hasManagedRulesMarker, diagnostic })),
     nativeAssets: [], actions: planned.actions, findings, discovery: planned.discovery,
   };
+}
+
+const RULE_IMPLEMENTATIONS = Object.freeze({
+  'native-recursive': assembleNativeRecursiveRules,
+  'reference-bridge': assembleReferenceBridgeRules,
+});
+
+function assembleRules(repoRoot, targetRoot, scopeInfo, adapter) {
+  const discovery = buildRuleDiscoveryPlan(repoRoot, scopeInfo);
+  const findings = [
+    ...discovery.warnings.map((message) => ruleFinding('warning', scopeInfo.scope, message, { code: 'runtime.scope_legacy', canonicalScope: scopeInfo.scope })),
+    ...discovery.boundaries.map((boundary) => ruleFinding('info', boundary.path, `Rules discovery skipped boundary: ${boundary.reason}.`, { code: 'runtime.rules_discovery_boundary', boundaryReason: boundary.reason, userActionRequired: false })),
+  ];
+  const diagnostics = adapter.traits.rules.diagnostics;
+  if (discovery.files.length === 0) {
+    findings.push(ruleFinding(diagnostics.missingStatus, diagnostics.missingPath, `No AGENTS.md files found for scope: ${scopeInfo.scope}.`, { code: diagnostics.missingCode }));
+    return { writes: [], removals: [], nativeAssets: [], actions: [], findings, discovery };
+  }
+  const implementation = selectAdapterImplementation(adapter, 'rules', RULE_IMPLEMENTATIONS);
+  return implementation({ repoRoot, targetRoot, scopeInfo, discovery, findings, adapter });
 }
 
 export function assembleRuntimeProjection(options) {

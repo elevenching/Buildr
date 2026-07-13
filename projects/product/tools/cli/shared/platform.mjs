@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import YAML from 'yaml';
 import { checkClaudeCodeRuntime, printRuntimeCheckReport } from '../../runtime/check-claude-code.mjs';
+import { RUNTIME_CHECKERS, RUNTIME_CHECK_PRINTERS } from '../../runtime/check-runtime.mjs';
 import { hasManagedSkillMarker, parseInstallClaudeCodeBuildrSkillArgs } from '../../runtime/render-claude-code.mjs';
 import { buildRuleDiscoveryPlan, hasManagedRulesMarker, renderClaudeCodeRules, resolveRuleScope } from '../../runtime/render-claude-code-rules.mjs';
 import { checkCodexRuntime, printCodexRuntimeCheckReport } from '../../runtime/check-codex.mjs';
@@ -19,6 +20,7 @@ import {
   isSupportedAgent,
   reconcileRuntimePlan,
   runtimeDiscoveryPayload,
+  selectAdapterImplementation,
 } from '../../runtime/adapter-contract.mjs';
 
 const PACKAGE_WORKSPACE_TARGET = 'package/targets/workspace';
@@ -32,8 +34,6 @@ const LEGACY_PACKAGE_PATHS = [
 const OPENSPEC_CONTRACT_BASELINE_SCHEMA = 'buildr.openspec-contract-baseline/v1';
 const OPENSPEC_CONTRACT_RECEIPT_SCHEMA = 'buildr.openspec-contract-receipt/v1';
 const OPENSPEC_CONTRACT_SUPPORTED_UPSTREAM_VERSIONS = new Set(['1.4.1']);
-const RUNTIME_CHECKERS = { 'claude-code': checkClaudeCodeRuntime, codex: checkCodexRuntime };
-const RUNTIME_CHECK_PRINTERS = { 'claude-code': printRuntimeCheckReport, codex: printCodexRuntimeCheckReport };
 const BUILDR_REQUIRED_BLOCK_START = '<!-- buildr:required begin -->';
 
 export {
@@ -43,7 +43,7 @@ export {
   buildRuleDiscoveryPlan, hasManagedRulesMarker, renderClaudeCodeRules, resolveRuleScope,
   checkCodexRuntime, printCodexRuntimeCheckReport, assembleRuntimeProjection,
   RUNTIME_ADAPTERS, SUPPORTED_AGENT_IDS, UNSUPPORTED_AGENT_GUIDANCE,
-  getRuntimeAdapter, isSupportedAgent, reconcileRuntimePlan, runtimeDiscoveryPayload,
+  getRuntimeAdapter, isSupportedAgent, reconcileRuntimePlan, runtimeDiscoveryPayload, selectAdapterImplementation,
   PACKAGE_WORKSPACE_TARGET, PACKAGE_RUNTIME_TARGET, PACKAGE_BOOTSTRAP_CONTRACT,
   LEGACY_PACKAGE_PATHS, OPENSPEC_CONTRACT_BASELINE_SCHEMA,
   OPENSPEC_CONTRACT_RECEIPT_SCHEMA, OPENSPEC_CONTRACT_SUPPORTED_UPSTREAM_VERSIONS,

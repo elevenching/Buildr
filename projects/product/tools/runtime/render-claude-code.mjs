@@ -16,7 +16,7 @@ export { applySkillRenderPlan, buildRuntimeSkillTarget, buildSkillRenderPlan, bu
 
 function renderSkill(repoRoot, targetRoot, skill, runtime = 'claude-code') {
   return applySkillRenderPlan(buildSkillRenderPlan(repoRoot, targetRoot, [skill], runtime), targetRoot)[0]
-    ?? (skill.installMode === 'agent' ? buildAgentInstallPlanTarget(targetRoot, skill) : buildRuntimeSkillTarget(targetRoot, skill, runtime));
+    ?? (skill.installMode === 'agent' ? buildAgentInstallPlanTarget(targetRoot, skill, runtime) : buildRuntimeSkillTarget(targetRoot, skill, runtime));
 }
 
 export function renderClaudeCode(argv, options = {}) {

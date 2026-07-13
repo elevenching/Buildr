@@ -6,20 +6,27 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
+  ADAPTER_TRAIT_CATALOG,
   REQUIRED_RENDER_CAPABILITIES,
   RUNTIME_ADAPTERS,
   SUPPORTED_AGENT_IDS,
+  createRuntimeAdapterDescriptor,
   createRuntimeAdapterRegistry,
   createRuntimeContext,
   createRuntimePlan,
   getRuntimeAdapter,
   reconcileRuntimePlan,
+  runtimeDiscoveryPayload,
+  selectAdapterImplementation,
   validateRuntimePlan,
 } from '../../runtime/adapter-contract.mjs';
 import { resolveSkillContributions } from '../../runtime/render-claude-code.mjs';
 
 assert.deepEqual(SUPPORTED_AGENT_IDS, ['claude-code', 'codex']);
+assert.deepEqual(ADAPTER_TRAIT_CATALOG.rules, ['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']);
+assert.equal(runtimeDiscoveryPayload().adapterTraitCatalog, ADAPTER_TRAIT_CATALOG);
 for (const adapter of Object.values(RUNTIME_ADAPTERS)) {
+  assert.ok(adapter.traits);
   assert.deepEqual(Object.keys(adapter.renderCapabilities), REQUIRED_RENDER_CAPABILITIES);
   const root = path.join(os.tmpdir(), `buildr-adapter-${adapter.id}`);
   const context = createRuntimeContext({
@@ -35,18 +42,50 @@ for (const adapter of Object.values(RUNTIME_ADAPTERS)) {
 assert.throws(() => getRuntimeAdapter('fake-runtime'), /Unsupported Agent runtime/);
 assert.throws(() => createRuntimeAdapterRegistry([{ id: 'fake-runtime', runtimeTargets: [], renderCapabilities: {}, recommendedCommands: {} }], { testOnly: true }), /Invalid runtime adapter registry/);
 
-const fakeCapabilities = Object.fromEntries(REQUIRED_RENDER_CAPABILITIES.map((capability) => [capability, { supported: true }]));
-const fakeRegistry = createRuntimeAdapterRegistry([{
+const fakeImplementations = { rules: ['fake-rules'], skills: ['fake-skills'], checker: ['fake-checker'] };
+const fakeDescriptor = createRuntimeAdapterDescriptor({
   id: 'fake-runtime',
   displayName: 'Fake Runtime',
-  runtimeTargets: ['.fake/'],
-  implementation: { skills: 'fake', rules: 'fake', checker: 'fake' },
-  renderCapabilities: fakeCapabilities,
+  traits: {
+    rules: { kind: 'vendor-rule-files', implementation: 'fake-rules', targetPattern: '.fake/rules/<source>.md' },
+    skills: { kind: 'vendor-root', implementation: 'fake-skills', root: '.fake' },
+    surfaces: [{ kind: 'ide', variant: 'test' }],
+    activation: { rules: 'explicit-reload', skills: 'explicit-reload', reloadGuidance: 'Reload Fake Runtime.' },
+    checker: {
+      kind: 'projection',
+      implementation: 'fake-checker',
+      installationProbe: { kind: 'manual', guidance: 'Confirm Fake Runtime is installed.' },
+      versionProbe: { kind: 'command', executable: 'fake-runtime', args: ['--version'], timeoutMs: 1000 },
+    },
+  },
   recommendedCommands: {},
-  planRuntime(context) { return { ...context, schemaVersion: 'buildr.runtime-plan/v1', writes: [], nativeAssets: [], removals: [], capabilityEvidence: REQUIRED_RENDER_CAPABILITIES.map((capability) => ({ capability, supported: true })), findings: [], repairs: [], warnings: [], ruleActions: [] }; },
-}], { testOnly: true });
+}, { implementations: fakeImplementations });
+const fakeRegistry = createRuntimeAdapterRegistry([fakeDescriptor], { testOnly: true, implementations: fakeImplementations });
 assert.equal(fakeRegistry['fake-runtime'].id, 'fake-runtime');
+assert.equal(fakeRegistry['fake-runtime'].traits.skills.root, '.fake');
+assert.equal(fakeRegistry['fake-runtime'].renderCapabilities['rules-entry'].projection.mode, 'rendered');
+const fakeRulesPlanner = () => 'fake-plan';
+assert.equal(selectAdapterImplementation(fakeRegistry['fake-runtime'], 'rules', { 'fake-rules': fakeRulesPlanner }), fakeRulesPlanner);
+assert.throws(() => selectAdapterImplementation(fakeRegistry['fake-runtime'], 'rules', {}), /no registered rules implementation/);
 assert.equal(RUNTIME_ADAPTERS['fake-runtime'], undefined);
+
+const fakeValue = {
+  id: 'invalid-runtime',
+  displayName: 'Invalid Runtime',
+  recommendedCommands: {},
+  traits: {
+    rules: { kind: 'vendor-rule-files', implementation: 'fake-rules', targetPattern: '.fake/rules/<source>.md' },
+    skills: { kind: 'vendor-root', implementation: 'fake-skills', root: '.fake' },
+    surfaces: [{ kind: 'ide' }],
+    activation: { rules: 'session-start', skills: 'session-start' },
+    checker: { kind: 'projection', implementation: 'fake-checker', installationProbe: { kind: 'none' }, versionProbe: { kind: 'none' } },
+  },
+};
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, rules: { ...fakeValue.traits.rules, kind: 'unknown' } } }, { implementations: fakeImplementations }), /rules trait is invalid/);
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, skills: { ...fakeValue.traits.skills, root: '../escape' } } }, { implementations: fakeImplementations }), /skills root is unsafe/);
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, rules: { kind: 'native-root', implementation: 'fake-rules' } } }, { implementations: fakeImplementations }), /do not cover recursive scope/);
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, rules: { ...fakeValue.traits.rules, implementation: 'missing' } } }, { implementations: fakeImplementations }), /no registered rules implementation/);
+assert.throws(() => createRuntimeAdapterRegistry([fakeDescriptor, fakeDescriptor], { testOnly: true, implementations: fakeImplementations }), /duplicate adapter id/);
 
 const codex = RUNTIME_ADAPTERS.codex;
 const root = path.join(os.tmpdir(), 'buildr-invalid-plan');

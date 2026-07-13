@@ -776,7 +776,7 @@ export function registerDomainsComponents(runtime) {
   }
 
   function managedRuntimeSkillOrphans(targetRoot, agent) {
-    const runtimeRoot = getRuntimeAdapter(agent).skillsRoot;
+    const runtimeRoot = getRuntimeAdapter(agent).traits.skills.root;
     const skillsRoot = path.join(targetRoot, runtimeRoot, 'skills');
     if (!existsDirectory(skillsRoot)) return [];
     const declared = declaredRuntimeSkillPaths(targetRoot, agent);
@@ -804,7 +804,7 @@ export function registerDomainsComponents(runtime) {
         removals.push({ type: 'directory', path: orphan.targetDir });
       }
     }
-    const runtimeRoot = getRuntimeAdapter(agent).skillsRoot;
+    const runtimeRoot = getRuntimeAdapter(agent).traits.skills.root;
     const plansRoot = path.join(targetRoot, runtimeRoot, 'buildr', 'skill-install-plans');
     const declaredPlans = declaredRuntimeInstallPlanIds(targetRoot, agent);
     if (existsDirectory(plansRoot)) {

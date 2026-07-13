@@ -16,6 +16,7 @@ import {
   PACKAGE_RUNTIME_TARGET,
   LEGACY_PACKAGE_PATHS,
   BUILDR_REQUIRED_BLOCK_START,
+  SUPPORTED_AGENT_IDS,
 } from '../shared/platform.mjs';
 import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../shared/json-contracts.mjs';
 import { createPackageOutput } from './package-maintenance/output.mjs';
@@ -409,6 +410,7 @@ export function registerApplicationPackageMaintenance(runtime) {
     LEGACY_PACKAGE_PATHS,
     PACKAGE_RUNTIME_TARGET,
     PACKAGE_WORKSPACE_TARGET,
+    SUPPORTED_AGENT_IDS,
     collectFiles,
     componentMemberPaths,
     existsDirectory,

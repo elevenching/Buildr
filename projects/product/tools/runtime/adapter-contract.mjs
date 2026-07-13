@@ -9,6 +9,21 @@ export const REQUIRED_RENDER_CAPABILITIES = Object.freeze([
   'runtime-check',
 ]);
 
+export const ADAPTER_TRAIT_CATALOG = Object.freeze({
+  rules: Object.freeze(['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']),
+  skills: Object.freeze(['agents-compatible', 'vendor-root']),
+  surfaces: Object.freeze(['ide', 'cli', 'desktop', 'cloud']),
+  activation: Object.freeze(['immediate', 'path-read', 'session-start', 'explicit-reload']),
+  checker: Object.freeze(['projection']),
+  environmentProbe: Object.freeze(['none', 'command', 'manual']),
+});
+
+export const BUILTIN_ADAPTER_IMPLEMENTATIONS = Object.freeze({
+  rules: Object.freeze(['native-recursive', 'reference-bridge']),
+  skills: Object.freeze(['filesystem-skills']),
+  checker: Object.freeze(['projection']),
+});
+
 export const UNSUPPORTED_AGENT_GUIDANCE = Object.freeze({
   message: 'Buildr 暂不支持当前 Agent runtime 的自动渲染。',
   nextStep: '请联系 Buildr 作者反馈该 Agent。',
@@ -23,8 +38,8 @@ function freeze(value) {
   return Object.freeze(value);
 }
 
-function planFromProjection(context, projection) {
-  const rules = projection === 'native'
+function planFromTraits(context, traits) {
+  const rules = traits.rules.kind === 'native-recursive'
     ? {
         writes: [],
         removals: [],
@@ -51,20 +66,154 @@ function planFromProjection(context, projection) {
   });
 }
 
+function isSafeRuntimeRoot(value) {
+  if (typeof value !== 'string' || value.length === 0 || path.isAbsolute(value)) return false;
+  const normalized = path.posix.normalize(value.replaceAll('\\', '/'));
+  return normalized !== '.' && normalized !== '..' && !normalized.startsWith('../') && normalized === value.replaceAll('\\', '/').replace(/\/$/, '');
+}
+
+function normalizeImplementationCatalog(value = {}) {
+  return {
+    rules: new Set(value.rules || BUILTIN_ADAPTER_IMPLEMENTATIONS.rules),
+    skills: new Set(value.skills || BUILTIN_ADAPTER_IMPLEMENTATIONS.skills),
+    checker: new Set(value.checker || BUILTIN_ADAPTER_IMPLEMENTATIONS.checker),
+  };
+}
+
+function validateEnvironmentProbe(probe, label, errors) {
+  if (!probe || !ADAPTER_TRAIT_CATALOG.environmentProbe.includes(probe.kind)) {
+    errors.push(`${label} kind is invalid: ${probe?.kind || '<missing>'}`);
+    return;
+  }
+  if (probe.kind === 'command') {
+    if (typeof probe.executable !== 'string' || !AGENT_ID_PATTERN.test(probe.executable)) errors.push(`${label} command executable must be a static command name`);
+    if (!Array.isArray(probe.args) || probe.args.some((item) => typeof item !== 'string')) errors.push(`${label} command args must be an array of strings`);
+    if (!Number.isInteger(probe.timeoutMs) || probe.timeoutMs < 100 || probe.timeoutMs > 10000) errors.push(`${label} command timeoutMs must be between 100 and 10000`);
+  }
+  if (probe.kind === 'manual' && !probe.guidance) errors.push(`${label} manual guidance is required`);
+}
+
+function validateAdapterTraits(descriptor, options = {}) {
+  const errors = [];
+  const traits = descriptor?.traits;
+  const implementations = normalizeImplementationCatalog(options.implementations);
+  if (!traits || typeof traits !== 'object') return [`adapter ${descriptor?.id || '<missing>'} traits are required`];
+
+  const rules = traits.rules;
+  if (!rules || !ADAPTER_TRAIT_CATALOG.rules.includes(rules.kind)) errors.push(`adapter ${descriptor.id} rules trait is invalid: ${rules?.kind || '<missing>'}`);
+  if (!rules?.implementation || !implementations.rules.has(rules.implementation)) errors.push(`adapter ${descriptor.id} has no registered rules implementation: ${rules?.implementation || '<missing>'}`);
+  if (rules?.kind === 'native-recursive' && rules.implementation !== 'native-recursive') errors.push(`adapter ${descriptor.id} native-recursive rules must use native-recursive implementation`);
+  if (rules?.kind === 'native-root' && rules.scopeCoverage !== 'recursive') errors.push(`adapter ${descriptor.id} native-root rules do not cover recursive scope`);
+  if (['reference-bridge', 'vendor-rule-files'].includes(rules?.kind) && !rules.targetPattern) errors.push(`adapter ${descriptor.id} rendered rules targetPattern is required`);
+
+  const skills = traits.skills;
+  if (!skills || !ADAPTER_TRAIT_CATALOG.skills.includes(skills.kind)) errors.push(`adapter ${descriptor.id} skills trait is invalid: ${skills?.kind || '<missing>'}`);
+  if (!skills?.implementation || !implementations.skills.has(skills.implementation)) errors.push(`adapter ${descriptor.id} has no registered skills implementation: ${skills?.implementation || '<missing>'}`);
+  if (!isSafeRuntimeRoot(skills?.root)) errors.push(`adapter ${descriptor.id} skills root is unsafe: ${skills?.root || '<missing>'}`);
+  if (skills?.kind === 'agents-compatible' && skills.root !== '.agents') errors.push(`adapter ${descriptor.id} agents-compatible skills root must be .agents`);
+
+  if (!Array.isArray(traits.surfaces) || traits.surfaces.length === 0) errors.push(`adapter ${descriptor.id} surfaces are required`);
+  for (const surface of traits.surfaces || []) {
+    if (!surface || !ADAPTER_TRAIT_CATALOG.surfaces.includes(surface.kind)) errors.push(`adapter ${descriptor.id} surface is invalid: ${surface?.kind || '<missing>'}`);
+  }
+
+  const activation = traits.activation;
+  for (const asset of ['rules', 'skills']) {
+    if (!ADAPTER_TRAIT_CATALOG.activation.includes(activation?.[asset])) errors.push(`adapter ${descriptor.id} ${asset} activation is invalid: ${activation?.[asset] || '<missing>'}`);
+  }
+  if ([activation?.rules, activation?.skills].includes('explicit-reload') && !activation.reloadGuidance) errors.push(`adapter ${descriptor.id} explicit-reload guidance is required`);
+
+  const checker = traits.checker;
+  if (!checker || !ADAPTER_TRAIT_CATALOG.checker.includes(checker.kind)) errors.push(`adapter ${descriptor.id} checker trait is invalid: ${checker?.kind || '<missing>'}`);
+  if (!checker?.implementation || !implementations.checker.has(checker.implementation)) errors.push(`adapter ${descriptor.id} has no registered checker implementation: ${checker?.implementation || '<missing>'}`);
+  validateEnvironmentProbe(checker?.installationProbe, `adapter ${descriptor.id} installation probe`, errors);
+  validateEnvironmentProbe(checker?.versionProbe, `adapter ${descriptor.id} version probe`, errors);
+  return errors;
+}
+
+function ruleCapability(traits) {
+  const rules = traits.rules;
+  const native = rules.kind === 'native-recursive';
+  return {
+    supported: true,
+    mode: native ? 'native' : 'rendered',
+    scopeSyntax: 'workspace-relative-path',
+    sourceDiscovery: { pattern: '**/AGENTS.md', mode: 'recursive-scope', includesAncestors: true },
+    projection: native ? { mode: 'native' } : { mode: 'rendered', targetPattern: rules.targetPattern },
+    writesFiles: !native,
+    ...(native ? { sourceAssets: ['**/AGENTS.md'] } : { targets: [rules.targetPattern] }),
+  };
+}
+
+function renderCapabilities(traits) {
+  const root = traits.skills.root;
+  return {
+    'rules-entry': ruleCapability(traits),
+    'product-buildr-skill': { supported: true, mode: 'install', writesFiles: true, targets: [`${root}/skills/buildr/SKILL.md`] },
+    'workspace-project-skills': { supported: true, mode: 'rendered', writesFiles: true, targets: [`${root}/skills/<skill>/SKILL.md`] },
+    'skill-install-plans': { supported: true, mode: 'plan', writesFiles: true, targets: [`${root}/buildr/skill-install-plans/<skill>.md`] },
+    'runtime-check': {
+      supported: true,
+      mode: 'diagnostic',
+      writesFiles: false,
+      projection: traits.checker.kind,
+      installationProbe: traits.checker.installationProbe.kind,
+      versionProbe: traits.checker.versionProbe.kind,
+    },
+  };
+}
+
+function runtimeTargets(traits) {
+  const rules = traits.rules.kind === 'native-recursive'
+    ? ['AGENTS.md']
+    : [traits.rules.targetPattern.replace('<source-dir>/', '')];
+  return [...rules, `${traits.skills.root}/skills/`, `${traits.skills.root}/buildr/skill-install-plans/`];
+}
+
+export function createRuntimeAdapterDescriptor(value, options = {}) {
+  const traitErrors = validateAdapterTraits(value, options);
+  if (traitErrors.length > 0) throw new Error(`Invalid runtime adapter descriptor ${value.id || '<missing>'}:\n- ${traitErrors.join('\n- ')}`);
+  const traits = freeze(structuredClone(value.traits));
+  const descriptor = {
+    id: value.id,
+    displayName: value.displayName,
+    traits,
+    implementation: {
+      rules: traits.rules.implementation,
+      skills: traits.skills.implementation,
+      checker: traits.checker.implementation,
+    },
+    runtimeTargets: runtimeTargets(traits),
+    renderCapabilities: renderCapabilities(traits),
+    recommendedCommands: value.recommendedCommands,
+    planRuntime(context) { return planFromTraits(context, traits); },
+  };
+  const errors = validateAdapterDescriptor(descriptor, options);
+  if (errors.length > 0) throw new Error(`Invalid runtime adapter descriptor ${value.id || '<missing>'}:\n- ${errors.join('\n- ')}`);
+  return freeze(descriptor);
+}
+
 const DESCRIPTORS = [
-  {
+  createRuntimeAdapterDescriptor({
     id: 'claude-code',
     displayName: 'Claude Code',
-    projection: 'reference-bridge',
-    skillsRoot: '.claude',
-    implementation: { skills: 'claude-code', rules: 'reference-bridge', checker: 'claude-code' },
-    runtimeTargets: ['CLAUDE.md', '.claude/skills/', '.claude/buildr/skill-install-plans/'],
-    renderCapabilities: {
-      'rules-entry': { supported: true, mode: 'rendered', scopeSyntax: 'workspace-relative-path', sourceDiscovery: { pattern: '**/AGENTS.md', mode: 'recursive-scope', includesAncestors: true }, projection: { mode: 'rendered', targetPattern: '<source-dir>/CLAUDE.md' }, writesFiles: true, targets: ['<source-dir>/CLAUDE.md'] },
-      'product-buildr-skill': { supported: true, mode: 'install', writesFiles: true, targets: ['.claude/skills/buildr/SKILL.md'] },
-      'workspace-project-skills': { supported: true, mode: 'rendered', writesFiles: true, targets: ['.claude/skills/<skill>/SKILL.md'] },
-      'skill-install-plans': { supported: true, mode: 'plan', writesFiles: true, targets: ['.claude/buildr/skill-install-plans/<skill>.md'] },
-      'runtime-check': { supported: true, mode: 'diagnostic', writesFiles: false },
+    traits: {
+      rules: {
+        kind: 'reference-bridge',
+        implementation: 'reference-bridge',
+        targetPattern: '<source-dir>/CLAUDE.md',
+        diagnostics: {
+          missingStatus: 'conflict',
+          missingPath: 'CLAUDE.md',
+          missingCode: 'runtime.rules_bridge_missing',
+          label: 'Claude Code rules bridge',
+          codes: { ok: 'runtime.reference_bridge_ok', missing: 'runtime.rules_bridge_missing', stale: 'runtime.rules_bridge_stale', conflict: 'runtime.rules_bridge_conflict', orphan: 'runtime.rules_bridge_orphan' },
+        },
+      },
+      skills: { kind: 'vendor-root', implementation: 'filesystem-skills', root: '.claude' },
+      surfaces: [{ kind: 'cli' }],
+      activation: { rules: 'session-start', skills: 'session-start' },
+      checker: { kind: 'projection', implementation: 'projection', resultKey: 'claudeCode', skillsManifestAbsentCode: 'runtime.skills_manifest_absent', installationProbe: { kind: 'none' }, versionProbe: { kind: 'none' } },
     },
     recommendedCommands: {
       doctor: 'buildr doctor --agent claude-code --target <dir> --json',
@@ -75,21 +224,20 @@ const DESCRIPTORS = [
       runtimeCheckScope: 'buildr runtime check claude-code --scope <workspace-relative-path> --target <dir>',
       installProductSkill: 'buildr skill install claude-code --target <dir>',
     },
-    planRuntime(context) { return planFromProjection(context, 'reference-bridge'); },
-  },
-  {
+  }),
+  createRuntimeAdapterDescriptor({
     id: 'codex',
     displayName: 'Codex',
-    projection: 'native-agents',
-    skillsRoot: '.agents',
-    implementation: { skills: 'codex', rules: 'native-agents', checker: 'codex' },
-    runtimeTargets: ['AGENTS.md', '.agents/skills/', '.agents/buildr/skill-install-plans/'],
-    renderCapabilities: {
-      'rules-entry': { supported: true, mode: 'native', scopeSyntax: 'workspace-relative-path', sourceDiscovery: { pattern: '**/AGENTS.md', mode: 'recursive-scope', includesAncestors: true }, projection: { mode: 'native' }, writesFiles: false, sourceAssets: ['**/AGENTS.md'] },
-      'product-buildr-skill': { supported: true, mode: 'install', writesFiles: true, targets: ['.agents/skills/buildr/SKILL.md'] },
-      'workspace-project-skills': { supported: true, mode: 'rendered', writesFiles: true, targets: ['.agents/skills/<skill>/SKILL.md'] },
-      'skill-install-plans': { supported: true, mode: 'plan', writesFiles: true, targets: ['.agents/buildr/skill-install-plans/<skill>.md'] },
-      'runtime-check': { supported: true, mode: 'diagnostic', writesFiles: false },
+    traits: {
+      rules: {
+        kind: 'native-recursive',
+        implementation: 'native-recursive',
+        diagnostics: { missingStatus: 'missing', missingPath: 'AGENTS.md', missingCode: 'runtime.codex_rules_missing', label: 'Codex native AGENTS.md rule asset', okCode: 'runtime.codex_rules_ok' },
+      },
+      skills: { kind: 'agents-compatible', implementation: 'filesystem-skills', root: '.agents' },
+      surfaces: [{ kind: 'cli' }, { kind: 'desktop' }],
+      activation: { rules: 'path-read', skills: 'session-start' },
+      checker: { kind: 'projection', implementation: 'projection', resultKey: 'codex', installationProbe: { kind: 'none' }, versionProbe: { kind: 'none' } },
     },
     recommendedCommands: {
       doctor: 'buildr doctor --agent codex --target <dir> --json',
@@ -99,13 +247,13 @@ const DESCRIPTORS = [
       runtimeCheckScope: 'buildr runtime check codex --scope <workspace-relative-path> --target <dir>',
       installProductSkill: 'buildr skill install codex --target <dir>',
     },
-    planRuntime(context) { return planFromProjection(context, 'native'); },
-  },
+  }),
 ];
 
-export function validateAdapterDescriptor(descriptor) {
+export function validateAdapterDescriptor(descriptor, options = {}) {
   const errors = [];
   if (!descriptor || typeof descriptor !== 'object') return ['adapter descriptor must be an object'];
+  errors.push(...validateAdapterTraits(descriptor, options));
   if (!AGENT_ID_PATTERN.test(descriptor.id || '')) errors.push(`adapter id is invalid: ${descriptor.id || '<missing>'}`);
   if (!descriptor.displayName) errors.push(`adapter ${descriptor.id || '<missing>'} displayName is required`);
   if (!Array.isArray(descriptor.runtimeTargets) || descriptor.runtimeTargets.length === 0) errors.push(`adapter ${descriptor.id} runtimeTargets are required`);
@@ -126,7 +274,7 @@ export function createRuntimeAdapterRegistry(descriptors, options = {}) {
   const registry = {};
   const errors = [];
   for (const descriptor of descriptors) {
-    errors.push(...validateAdapterDescriptor(descriptor));
+    errors.push(...validateAdapterDescriptor(descriptor, options));
     if (registry[descriptor?.id]) errors.push(`duplicate adapter id: ${descriptor.id}`);
     if (descriptor?.id) registry[descriptor.id] = descriptor;
   }
@@ -149,10 +297,18 @@ export function getRuntimeAdapter(agent) {
   return adapter;
 }
 
+export function selectAdapterImplementation(adapter, kind, implementations) {
+  const implementation = adapter.implementation?.[kind];
+  const selected = implementations[implementation];
+  if (!selected) throw new Error(`Runtime adapter ${adapter.id} has no registered ${kind} implementation: ${implementation || '<missing>'}`);
+  return selected;
+}
+
 export function runtimeDiscoveryPayload() {
   return {
     supportedAgents: [...SUPPORTED_AGENT_IDS],
     requiredRenderCapabilities: [...REQUIRED_RENDER_CAPABILITIES],
+    adapterTraitCatalog: ADAPTER_TRAIT_CATALOG,
     agents: RUNTIME_ADAPTERS,
     unsupportedAgentGuidance: UNSUPPORTED_AGENT_GUIDANCE,
   };

@@ -34,6 +34,7 @@
     "tools/cli/",
     "tools/runtime/check-codex.mjs",
     "tools/runtime/check-claude-code.mjs",
+    "tools/runtime/check-runtime.mjs",
     "tools/shared/fetch-remote-text.mjs",
     "tools/runtime/adapter-contract.mjs",
     "tools/runtime/projection.mjs",

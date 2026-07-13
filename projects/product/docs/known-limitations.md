@@ -1,6 +1,7 @@
 # Buildr 0.1 已知限制
 
 - 当前只支持 `claude-code` 和 `codex` runtime adapter。
+- runtime trait catalog 只降低新增 adapter 的重复实现；它不会把尚未独立验证五项 capabilities 的 Agent 自动视为 supported。
 - CLI 支持 Node.js 20 及以上版本。CI 在 Linux 上对 Node 20/22 执行完整验证，并在 Linux、macOS、Windows 的 Node 22 上验证打包安装生命周期；其他 Node/操作系统组合不属于 0.1 的持续验证范围。
 - Component 只支持 workspace scope；没有 Project/Service Component、远程 registry、依赖求解或可执行 Hook。
 - Buildr 使用本地文件系统和 Git 保存资产，没有云端权限系统、Web UI 或跨机器自动恢复服务。

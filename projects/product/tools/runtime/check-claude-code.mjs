@@ -1,17 +1,14 @@
 #!/usr/bin/env node
 
-import path from 'node:path';
 import process from 'node:process';
-import { parseRenderClaudeCodeArgs } from './render-claude-code.mjs';
-import { checkRuntimeProjection, printRuntimeProjectionReport, repairCommands } from './projection.mjs';
+import { checkRuntimeAdapter, printRuntimeAdapterCheckReport } from './check-runtime.mjs';
+import { repairCommands } from './projection.mjs';
 
 export function claudeCodeRepairCommands(result) { return repairCommands(result, 'claude-code'); }
-export function printRuntimeCheckReport(result) { printRuntimeProjectionReport(result, 'Claude Code'); }
+export function printRuntimeCheckReport(result) { printRuntimeAdapterCheckReport(result); }
 
 export function checkClaudeCodeRuntime(argv, options = {}) {
-  const repoRoot = options.repoRoot ?? process.cwd();
-  const args = parseRenderClaudeCodeArgs(argv, options.command ?? 'buildr runtime check claude-code');
-  return checkRuntimeProjection({ repoRoot, targetRoot: path.resolve(repoRoot, args.target), scope: args.scope, adapterId: 'claude-code' });
+  return checkRuntimeAdapter(argv, { ...options, adapterId: 'claude-code', command: options.command ?? 'buildr runtime check claude-code' });
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

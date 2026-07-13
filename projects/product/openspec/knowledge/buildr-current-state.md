@@ -103,7 +103,7 @@ Organization/Root -> Project -> Service
 ## Agent Skills
 
 - Buildr 产品内置 Agent Skill 位于 `package/targets/runtime/skills/buildr/SKILL.md`，由 `package/manifest.yml` 的 `agentSkills` 声明。
-- `buildr runtime list --json` 输出 supported Agent runtime adapter、五类 required render capabilities、各 adapter render 能力和推荐命令。
+- `buildr runtime list --json` 输出 supported Agent runtime adapter、五类 required render capabilities、Rules/Skills/surface/activation/checker trait catalog、各 adapter 组合 traits、render 能力和推荐命令。
 - 当前 supported Agent runtime adapter 是 `claude-code` 和 `codex`，Agent id 大小写敏感。
 - `buildr skill install <agent> --target <dir>` 只安装产品入口 Buildr Skill。
 - 该安装不要求目标目录已经是 Buildr workspace。
@@ -173,6 +173,7 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 - Agent runtime 文件是可重建渲染产物，不是长期资产源。
 - `service create` 不向 service repo 写入 `CLAUDE.md`、`.claude/` 或其他 runtime 文件。
 - adapter required render capabilities 固定为 `rules-entry`、`product-buildr-skill`、`workspace-project-skills`、`skill-install-plans` 和 `runtime-check`。
+- supported adapter descriptor 由受约束 traits 组合：Rules 为 `native-recursive`、`native-root`、`reference-bridge` 或 `vendor-rule-files`，Skills 为 `agents-compatible` 或 `vendor-root`，并显式声明 surface、activation 和 checker；组合不完整或部分 Rules scope 不得注册为 supported。
 - Codex 当前原生使用全部已发现的 `AGENTS.md`，Rules render 零写入；Codex Skills adapter 将 enabled Skills 渲染到 `.agents/skills/<skill-id>/`。
 - Claude Code adapter 支持 `skill install`、`runtime check`、`rules render` 和 `skills render`。
 - Claude Code rules render 在每个 source 同目录生成 `@AGENTS.md` reference bridge，不复制规则全文；reconcile 先校验全部 conflict 再写入，并清理 source 已删除的 Buildr-managed orphan bridge。
