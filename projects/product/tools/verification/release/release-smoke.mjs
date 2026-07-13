@@ -7,6 +7,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { readSharedCandidatePackage } from './candidate-package.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-release-smoke-'));
@@ -42,9 +43,13 @@ try {
   fs.mkdirSync(packDirectory, { recursive: true });
   fs.mkdirSync(workspace, { recursive: true });
 
-  const pack = JSON.parse(run(npmExecutable, ['pack', productRoot, '--pack-destination', packDirectory, '--json']));
-  assert.equal(pack.length, 1, 'release smoke must produce one tarball');
-  const tarball = path.join(packDirectory, pack[0].filename);
+  const shared = readSharedCandidatePackage();
+  let tarball = shared?.tarball;
+  if (!tarball) {
+    const pack = JSON.parse(run(npmExecutable, ['pack', productRoot, '--pack-destination', packDirectory, '--json']));
+    assert.equal(pack.length, 1, 'release smoke must produce one tarball');
+    tarball = path.join(packDirectory, pack[0].filename);
+  }
   run(npmExecutable, ['install', '--global', '--prefix', prefix, tarball]);
 
   const modulesRoot = process.platform === 'win32' ? path.join(prefix, 'node_modules') : path.join(prefix, 'lib', 'node_modules');

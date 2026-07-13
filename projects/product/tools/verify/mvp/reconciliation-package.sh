@@ -113,9 +113,19 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
-npm pack "$product_root" --pack-destination "$npm_pack_dir" --json >/tmp/buildr-product-mvp-npm-pack.json
+if [[ -n "${BUILDR_CANDIDATE_TARBALL:-}" || -n "${BUILDR_CANDIDATE_PACK_METADATA:-}" ]]; then
+  if [[ -z "${BUILDR_CANDIDATE_TARBALL:-}" || -z "${BUILDR_CANDIDATE_PACK_METADATA:-}" ]]; then
+    echo "shared candidate package requires both tarball and pack metadata" >&2
+    exit 1
+  fi
+  test -f "$BUILDR_CANDIDATE_TARBALL"
+  test -f "$BUILDR_CANDIDATE_PACK_METADATA"
+  cp "$BUILDR_CANDIDATE_PACK_METADATA" /tmp/buildr-product-mvp-npm-pack.json
+else
+  npm pack "$product_root" --pack-destination "$npm_pack_dir" --json >/tmp/buildr-product-mvp-npm-pack.json
+fi
 tarball="$(
-  NPM_PACK_DIR="$npm_pack_dir" PRODUCT_ROOT="$product_root" python3 - <<'PY'
+  NPM_PACK_DIR="$npm_pack_dir" PRODUCT_ROOT="$product_root" TARBALL_OVERRIDE="${BUILDR_CANDIDATE_TARBALL:-}" python3 - <<'PY'
 import json
 import os
 import sys
@@ -199,7 +209,10 @@ forbidden_prefixes = (
 for file in sorted(files):
     if file in forbidden_exact or file.startswith(forbidden_prefixes):
         raise SystemExit(f'npm package included forbidden file: {file}')
-print(os.path.join(os.environ['NPM_PACK_DIR'], pkg['filename']))
+tarball = os.environ.get('TARBALL_OVERRIDE') or os.path.join(os.environ['NPM_PACK_DIR'], pkg['filename'])
+if os.path.basename(tarball) != pkg['filename']:
+    raise SystemExit('candidate tarball filename does not match npm pack metadata')
+print(tarball)
 PY
 )"
 
@@ -261,10 +274,8 @@ assert_compact_claude_bridge "$npm_workspace/CLAUDE.md"
 assert_compact_claude_bridge "$npm_workspace/projects/demo/CLAUDE.md"
 test -f "$npm_workspace/.claude/skills/buildr/SKILL.md"
 test -f "$npm_workspace/.claude/skills/openspec-explore/SKILL.md"
-section "npm: installed maintenance"
+section "npm: installed help"
 
-"$installed_buildr" package check >/tmp/buildr-product-mvp-npm-package-check.txt
-grep -q 'Buildr package check passed' /tmp/buildr-product-mvp-npm-package-check.txt
 "$installed_buildr" bootstrap guide >/tmp/buildr-product-mvp-npm-bootstrap-guide.txt
 grep -q 'buildr service create' /tmp/buildr-product-mvp-npm-bootstrap-guide.txt
 

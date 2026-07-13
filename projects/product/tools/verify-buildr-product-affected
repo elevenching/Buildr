@@ -15,8 +15,8 @@ Groups:
   openspec  OpenSpec fixtures, candidate audit, spec quality, and strict validation
   release   Public candidate and packed release lifecycle
 
-The affected check always runs fine-grained unit tests once. Final candidates must
-still run the complete tools/verify-buildr-product entry point.
+The affected check always runs the fast verification once and de-duplicates shared
+steps. Final candidates must still run npm run test:candidate.
 EOF
 }
 
@@ -26,34 +26,42 @@ if [[ "$#" -eq 0 ]]; then
 fi
 
 cd "$product_root"
-npm run test:unit
+npm run test:fast
+
+seen_steps=" "
+run_once() {
+  local step_id="$1"
+  shift
+  case "$seen_steps" in
+    *" $step_id "*) return 0 ;;
+  esac
+  seen_steps="$seen_steps$step_id "
+  printf '\n[verify-affected] %s\n' "$step_id"
+  "$@"
+}
 
 for group in "$@"; do
   case "$group" in
     public)
-      node tools/verification/release/open-source-candidate.mjs
+      run_once open-source-candidate node tools/verification/release/open-source-candidate.mjs
       ;;
     cli)
-      node tools/verification/cli/architecture.mjs
-      node tools/verification/cli/compatibility.mjs
-      node tools/verification/cli/package-parity.mjs
-      node tools/verification/runtime/adapter-contract.mjs
-      node tools/verification/runtime/adapter-parity.mjs
+      run_once cli-compatibility node tools/verification/cli/compatibility.mjs
+      run_once cli-package-parity node tools/verification/cli/package-parity.mjs
+      run_once runtime-adapter-parity node tools/verification/runtime/adapter-parity.mjs
       ;;
     package)
-      ./buildr package check
-      node tools/verification/integrity/managed-mutations.mjs
-      node tools/verification/integrity/managed-data-integrity.mjs
+      run_once package-check ./buildr package check
+      run_once managed-mutations node tools/verification/integrity/managed-mutations.mjs
+      run_once managed-data-integrity node tools/verification/integrity/managed-data-integrity.mjs
       ;;
     openspec)
-      node tools/verification/openspec/contract.mjs
-      node tools/verification/openspec/contract-audit.mjs
-      node tools/verification/openspec/spec-quality.mjs
-      openspec validate --all --strict
+      run_once openspec-contract node tools/verification/openspec/contract.mjs
+      run_once openspec-contract-audit node tools/verification/openspec/contract-audit.mjs
       ;;
     release)
-      node tools/verification/release/open-source-candidate.mjs
-      node tools/verification/release/release-smoke.mjs
+      run_once open-source-candidate node tools/verification/release/open-source-candidate.mjs
+      run_once release-smoke node tools/verification/release/release-smoke.mjs
       ;;
     *)
       echo "Unknown affected verification group: $group" >&2

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "buildr.openspec-contract-receipt/v1",
+  "change": "optimize-product-verification",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-37d0e7ecef1317768c35635c47b27a345134b0b7a39bab7c045cb0b766fe8e5a",
+  "baselineHash": "sha256-869e2f2f46f54494b262a3a700c7b69bbfc9c0442945f4516f43be4b34290511",
+  "capabilities": {
+    "product-verification-quality": {
+      "CI 必须覆盖最低 Node、当前 Node 和目标桌面平台": "### Requirement: CI 必须覆盖最低 Node、当前 Node 和目标桌面平台\nBuildr CI MUST 在 Linux Node 20 和 Node 22 上运行完整产品验证，并 MUST 在 Linux、macOS、Windows Node 22 上运行可移植 release smoke。\n\n#### Scenario: 验证最低 Node 版本\n- **WHEN** push 或 pull request 触发产品 CI\n- **THEN** Linux Node 20 job MUST 安装锁定依赖和支持的 OpenSpec CLI\n- **AND** job MUST 运行完整产品验证\n\n#### Scenario: 验证当前 Node 与桌面平台\n- **WHEN** push 或 pull request 触发产品 CI\n- **THEN** Linux Node 22 MUST 运行完整产品验证\n- **AND** Linux、macOS、Windows Node 22 MUST 运行 unit tests 和 release smoke\n",
+      "release smoke 必须验证安装后生命周期": "### Requirement: release smoke 必须验证安装后生命周期\nBuildr MUST 提供不依赖 development checkout runtime 的跨平台 release smoke，从当前候选生成正式 npm tarball，并使用安装后的 `buildr` 完成初始化、同步、诊断、optional Component 卸载和最终诊断。\n\n#### Scenario: 从候选 tarball 验证 release lifecycle\n- **WHEN** 维护者或 CI 运行 release smoke\n- **THEN** verifier MUST 执行 `npm pack` 并将 tarball 安装到隔离 prefix\n- **AND** 安装后的 CLI MUST 完成 `init --agent`、独立 `sync` 和 `doctor --json`\n- **AND** 安装后的 CLI MUST 卸载一个 optional Component 并再次运行 `doctor --json`\n- **AND** 两次 doctor MUST 没有 error\n\n#### Scenario: release smoke 跨平台运行\n- **WHEN** verifier 在 Linux、macOS 或 Windows Node 22 运行\n- **THEN** verifier MUST 使用平台对应的 npm executable 和 installed bin 路径\n- **AND** verifier MUST NOT 依赖 Bash、Unix-only 临时目录命令或固定 `/tmp` 路径\n",
+      "Timing summary 必须支持开发完成报告": "### Requirement: Timing summary 必须支持开发完成报告\nBuildr verification timing summary MUST 提供总耗时、每阶段名称/状态/耗时和失败退出状态，使 Agent 能确定最慢阶段、失败阶段和 summary 路径。\n\n#### Scenario: Agent 汇报成功验证\n- **WHEN** 产品完整验证成功并生成 timing summary\n- **THEN** summary MUST 足以确定 totalDurationMs 和耗时最长的 step\n- **AND** 产品验证输出 MUST 显示 summary 的绝对路径\n\n#### Scenario: Agent 汇报失败验证\n- **WHEN** 产品完整验证失败并生成 timing summary\n- **THEN** summary MUST 标记整体失败状态和失败 step\n- **AND** 失败 step MUST 保留非零 exitCode 与 durationMs\n",
+      "产品总验证必须包含开源候选门禁": "### Requirement: 产品总验证必须包含开源候选门禁\nBuildr 产品总验证 MUST 运行开源候选安全 verifier，并 MUST 在公开 metadata、tracked candidate 或 npm tarball inventory 不满足发布边界时失败。\n\n#### Scenario: 验证最终产品候选\n- **WHEN** 维护者运行 `tools/verify-buildr-product`\n- **THEN** verifier MUST 在最终成功前运行开源候选安全检查\n- **AND** timing summary MUST 将该检查记录为独立阶段\n",
+      "产品验证必须记录阶段耗时": "### Requirement: 产品验证必须记录阶段耗时\nBuildr 产品总验证 MUST 记录每个阶段和整体 wall-clock elapsed milliseconds，并 MUST 在成功或失败时生成可供 CI 保存的机器可读 timing summary。\n\n#### Scenario: 完整验证成功\n- **WHEN** 产品总验证全部通过\n- **THEN** 人类输出 MUST 展示每个阶段的耗时和总耗时\n- **AND** verifier MUST 写出包含 schemaVersion、steps、status、durationMs 和 totalDurationMs 的 JSON summary\n\n#### Scenario: 某阶段失败\n- **WHEN** 产品验证阶段返回非零状态\n- **THEN** timing summary MUST 记录失败阶段、非零状态和已完成阶段耗时\n- **AND** 产品验证 MUST 保持该阶段的失败退出状态\n\n#### Scenario: 耗时波动\n- **WHEN** 某阶段或总耗时高于此前运行\n- **THEN** 当前版本 MUST 只记录事实\n- **AND** verifier MUST NOT 仅因耗时增长而失败\n"
+    }
+  },
+  "postSyncVerified": true,
+  "postSyncDeltaHash": "sha256-37d0e7ecef1317768c35635c47b27a345134b0b7a39bab7c045cb0b766fe8e5a",
+  "postSyncSpecIntegrities": {
+    "product-verification-quality": "sha256-4be4656d5732781a256d354448f4a1e0e13b43a96c0a3fa5cb2c62d112fd1ef0"
+  }
+}

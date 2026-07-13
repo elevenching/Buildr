@@ -55,9 +55,11 @@
     "package/"
   ],
   "scripts": {
-    "test": "./tools/verify-buildr-product",
+    "test": "./tools/verify-buildr-product-fast",
+    "test:fast": "./tools/verify-buildr-product-fast",
     "test:unit": "node --test test/*.test.mjs",
     "test:affected": "./tools/verify-buildr-product-affected",
+    "test:candidate": "./tools/verify-buildr-product",
     "test:release": "node tools/verification/release/release-smoke.mjs",
     "pack:check": "npm pack --dry-run"
   },

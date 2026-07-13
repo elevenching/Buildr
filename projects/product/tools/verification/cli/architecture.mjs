@@ -21,6 +21,7 @@ const allowedTopLevelEntries = new Set([
   'verify',
   'verify-buildr-product',
   'verify-buildr-product-affected',
+  'verify-buildr-product-fast',
   'verify-buildr-product-mvp',
 ]);
 for (const entry of fs.readdirSync(path.join(productRoot, 'tools'))) {

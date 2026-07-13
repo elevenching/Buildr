@@ -23,6 +23,7 @@ import {
   validateRuntimePlan,
 } from '../../runtime/adapter-contract.mjs';
 import { resolveSkillContributions } from '../../runtime/render-claude-code.mjs';
+import { assembleRuntimeProjection } from '../../runtime/projection.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const repositoryRoot = path.resolve(productRoot, '../..');
@@ -44,6 +45,35 @@ for (const adapter of Object.values(RUNTIME_ADAPTERS)) {
   });
   validateRuntimePlan(adapter.planRuntime(context), adapter);
 }
+
+const projectionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-adapter-projection-contract-'));
+fs.writeFileSync(path.join(projectionRoot, 'AGENTS.md'), '# Adapter projection contract\n');
+const expectedRuleTargets = {
+  'claude-code': 'CLAUDE.md',
+  cursor: '.cursor/rules/buildr.mdc',
+  qoder: '.qoder/rules/buildr/',
+  trae: '.trae/rules/buildr.md',
+  'trae-work': 'CLAUDE.local.md',
+  workbuddy: 'CODEBUDDY.md',
+};
+for (const adapterId of SUPPORTED_AGENT_IDS) {
+  const adapter = RUNTIME_ADAPTERS[adapterId];
+  const assembled = assembleRuntimeProjection({
+    repoRoot: projectionRoot,
+    targetRoot: projectionRoot,
+    adapterId,
+    scope: '.',
+    selection: { productSkill: true, rules: true },
+  });
+  const targets = assembled.plan.writes.map((item) => path.relative(projectionRoot, item.targetFile).split(path.sep).join('/'));
+  assert.ok(targets.some((target) => target.startsWith(`${adapter.traits.skills.root}/skills/buildr/`)), `${adapterId} must plan its declared product Skill root`);
+  if (adapterId === 'codex') {
+    assert.ok(assembled.plan.nativeAssets.some((item) => item.targetFile === path.join(projectionRoot, 'AGENTS.md')));
+  } else {
+    assert.ok(targets.some((target) => target.includes(expectedRuleTargets[adapterId])), `${adapterId} must plan its declared Rules target`);
+  }
+}
+fs.rmSync(projectionRoot, { recursive: true, force: true });
 
 for (const adapterId of ['cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']) {
   const adapter = RUNTIME_ADAPTERS[adapterId];
@@ -77,6 +107,7 @@ assert.equal(RUNTIME_ADAPTERS.trae.traits.checker.versionProbe.kind, 'manual');
 assert.equal(RUNTIME_ADAPTERS.trae.traits.skills.root, '.agents');
 assert.equal(RUNTIME_ADAPTERS.cursor.traits.rules.format, 'cursor-mdc');
 assert.equal(RUNTIME_ADAPTERS['trae-work'].traits.rules.placement, 'root-index');
+assert.equal(RUNTIME_ADAPTERS['trae-work'].traits.checker.prerequisites[0].code, 'runtime.trae_work_rules_import_unverified');
 assert.equal(RUNTIME_ADAPTERS.workbuddy.traits.rules.maxChars, 8000);
 assert.equal(RUNTIME_ADAPTERS.workbuddy.traits.skills.root, '.codebuddy');
 assert.deepEqual(RUNTIME_ADAPTERS.workbuddy.traits.surfaces, [{ kind: 'desktop' }, { kind: 'cli', variant: 'desktop-bundled' }]);

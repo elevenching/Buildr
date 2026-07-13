@@ -12,7 +12,7 @@ const generator = path.join(productRoot, 'tools', 'verification', 'runtime', 'ad
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-adapter-smoke-generator-'));
 
 try {
-  for (const adapterId of ['cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']) {
+  for (const adapterId of ['cursor', 'workbuddy']) {
     const target = path.join(root, adapterId);
     const result = spawnSync(process.execPath, [generator, adapterId, target], { cwd: productRoot, encoding: 'utf8' });
     assert.equal(result.status, 0, `${adapterId}: ${result.stdout}\n${result.stderr}`);

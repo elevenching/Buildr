@@ -6,6 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { readSharedCandidatePackage } from './candidate-package.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const workspaceRoot = path.resolve(productRoot, '../..');
@@ -87,6 +88,8 @@ function inspectTrackedCandidate() {
 }
 
 function packAndInspect() {
+  const shared = readSharedCandidatePackage();
+  if (shared) return inspectTarballFiles(shared.metadata.files);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-open-source-candidate-'));
   try {
     const result = spawnSync(npmExecutable, ['pack', productRoot, '--pack-destination', root, '--json'], { cwd: productRoot, encoding: 'utf8' });

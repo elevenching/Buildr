@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { readSharedCandidatePackage } from '../release/candidate-package.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const checkoutCli = path.join(productRoot, 'tools', 'buildr');
@@ -36,9 +37,13 @@ try {
   const packDir = path.join(root, 'pack');
   const prefix = path.join(root, 'prefix');
   fs.mkdirSync(packDir, { recursive: true });
-  const packed = spawn('npm', ['pack', '--json', '--pack-destination', packDir]);
-  assert.equal(packed.status, 0, packed.stderr);
-  const tarball = path.join(packDir, JSON.parse(packed.stdout)[0].filename);
+  const shared = readSharedCandidatePackage();
+  let tarball = shared?.tarball;
+  if (!tarball) {
+    const packed = spawn('npm', ['pack', '--json', '--pack-destination', packDir]);
+    assert.equal(packed.status, 0, packed.stderr);
+    tarball = path.join(packDir, JSON.parse(packed.stdout)[0].filename);
+  }
   const installed = spawn('npm', ['install', '--prefix', prefix, tarball]);
   assert.equal(installed.status, 0, installed.stderr);
   const packagedCli = path.join(prefix, 'node_modules', '.bin', 'buildr');

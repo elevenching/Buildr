@@ -57,7 +57,14 @@
 
 开发期间只在单任务后做最小反馈检查，在相关任务组完成后做一次受影响范围验证；不要逐任务运行本节的完整验证。验证命令仍在运行或暂时无输出时继续等待同一进程，不重复启动。
 
-受影响范围验证可按改动类型组合执行；该入口始终先运行一次 unit tests，但不能替代最终候选完整验证：
+普通任务默认运行 fast gate；该入口只包含 unit、架构、canonical spec quality/strict 和全部 runtime adapter 低成本契约，不创建临时用户 workspace，也不执行 npm pack/install 或 MVP E2E：
+
+```bash
+npm test
+# 等价于 npm run test:fast
+```
+
+受影响范围验证可按改动类型组合执行；该入口始终先运行一次 fast gate，并按 verifier identity 去重多个 group 共享的检查，但不能替代最终候选完整验证：
 
 ```bash
 npm run test:affected -- public
@@ -67,28 +74,10 @@ npm run test:affected -- openspec
 npm run test:affected -- release
 ```
 
-以下完整验证在所有 rebase、冲突解决和内容修改结束后，对 task worktree 的最终候选 Git tree 执行。commit、相同 tree 集成、push 和 worktree 清理复用该结果，不在主开发分支重复执行；tree 改变时才重新运行受影响的验证。
+以下完整验证在所有 rebase、冲突解决和内容修改结束后，对 task worktree 的最终候选 Git tree 执行。commit、相同 tree 集成、push 和 worktree 清理复用该结果，不在主开发分支重复执行；tree 改变时才重新运行受影响的验证。仓库 CI/publish 继续调用兼容入口 `tools/verify-buildr-product`，其语义与 `test:candidate` 相同。
 
 ```bash
-projects/product/buildr package check
-(cd projects/product && npm run test:unit)
-(cd projects/product && npm run test:release)
-node tools/verification/release/open-source-candidate.mjs
-node tools/verification/onboarding/init.mjs
-node tools/verification/cli/architecture.mjs
-node tools/verification/cli/compatibility.mjs
-node tools/verification/cli/package-parity.mjs
-tools/verification/onboarding/repository.mjs
-tools/verification/onboarding/service-branch.mjs
-tools/verification/network/remote-text.mjs
-tools/verify-buildr-product-mvp
-tools/verification/integrity/managed-mutations.mjs
-tools/verification/integrity/managed-data-integrity.mjs
-tools/verification/openspec/contract.mjs
-tools/verification/openspec/contract-audit.mjs
-tools/verification/openspec/spec-quality.mjs
-openspec validate --all --strict
-npm pack --dry-run
+npm run test:candidate
 ```
 
 完整产品验证会把每个阶段和总耗时写入 `BUILDR_TIMING_OUTPUT` 指定的 JSON 文件（默认写入系统临时目录），CI 总是上传该文件。0.1 仅记录趋势，不设置会因环境波动阻塞发布的耗时阈值。
