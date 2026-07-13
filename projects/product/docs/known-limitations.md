@@ -9,7 +9,7 @@
 - Commands 只声明和诊断外部 CLI，不执行本机安装、升级或登录。
 - 远端 Skill 当前只支持 raw `SKILL.md` 的 `resolved.kind: skill-url`；未声明 integrity 时允许 render，但 doctor 会警告。
 - Service branch intent 不负责 pull、merge、rebase 或长期分支同步；它只控制首次 clone、metadata 和 drift 诊断。
-- `@buildr-ai/buildr@0.1.0-rc.1` 已通过 npm 官方 registry 发布，并已配置 GitHub trusted publisher；`next` 指向该 RC。由于它是该 package 的首个版本，`latest` 当前也暂时指向该 RC；稳定版 `0.1.0` 尚未发布，公开试用应显式安装 `@next`。
+- `@buildr-ai/buildr@0.1.0-rc.2` 通过 GitHub trusted publisher 发布，`next` 指向该 RC；`latest` 仍可能指向历史 prerelease，它不代表稳定版。稳定版 `0.1.0` 尚未发布，公开试用应显式安装 `@next`。
 - `package check/build` 与 `openspec baseline/check` 是维护/workflow 表面，不建议普通 workspace 直接依赖。
 
 遇到 unsupported runtime 或不能确定的资产边界时，Agent 应停止自动变更、保留源资产，并报告可执行下一步。

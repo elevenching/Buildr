@@ -43,7 +43,7 @@
 
 ### 建议完成
 
-- [x] 补充 `CHANGELOG.md`，记录 `0.1.0-rc.1` 发布范围和日期。
+- [x] 补充 `CHANGELOG.md`，持续记录各候选版的发布范围和日期。
 - [x] 补充 issue / PR 模板，降低外部反馈成本。
 - [x] 补充公开试用指南和已知限制，明确支持的 Agent runtime 与试用范围；反馈渠道随 GitHub repository URL 确定后补链接。
 - [ ] 评估是否提供 Homebrew tap、standalone install script 或 release binary。
@@ -87,13 +87,13 @@ npm run test:candidate
 ## npm Release 流程
 
 1. 日常改动集成到 `dev`；准备发布时通过 PR 将已验证候选合入 `main`。
-2. package version 与 Git tag 必须完全一致。`0.1.0-rc.1` 对应 `v0.1.0-rc.1` 和 `next`，`0.1.0` 对应 `v0.1.0` 和 `latest`。
+2. package version 与 Git tag 必须完全一致。当前 `0.1.0-rc.2` 对应 `v0.1.0-rc.2` 和 `next`，稳定版 `0.1.0` 对应 `v0.1.0` 和 `latest`。
 3. 首个 `@buildr-ai/buildr` package 已由 npm Organization owner `elevenching2` 使用 2FA 执行 `npm publish --access public --tag next`，于 2026-07-13 完成。
 4. npm trusted publisher 已配置为 GitHub user `elevenching`、repository `Buildr`、workflow `publish.yml`、Environment `npm-production`、allowed action `npm publish`。
 5. 后续发布只由 release tag 触发 GitHub-hosted workflow；Environment 人工批准后运行完整验证、候选安全检查、publish 和 GitHub Release 创建。
 6. 已发布版本不覆盖。RC 问题发布新的 prerelease；正式版本问题优先发布 patch，必要时 deprecate 或移动 dist-tag，不把 unpublish 当作常规回滚。
 
-`0.1.0-rc.1` 已完成 npm 发布和 GitHub prerelease 创建。后续发布仍需每次具有明确发布意图，并按上述 tag、Environment 审批和 trusted publishing 流程执行。
+`0.1.0-rc.1` 已完成 npm 发布和 GitHub prerelease 创建；`0.1.0-rc.2` 使用同一 trusted publishing 流程，发布事实以 npm 官方 registry 和对应 GitHub prerelease 为准。后续发布仍需每次具有明确发布意图。
 
 实际自举 workspace 如需消费新版产品资产，可独立执行 sync，并在状态变更后运行当前 Agent doctor；CLI update 只更新当前 Product checkout 或 registry package。这不是第二轮产品 E2E。上述验证只证明当前本地产品包和 MVP 主路径成立；公开发布仍需要完成上面的发布材料和分发流程。
 
