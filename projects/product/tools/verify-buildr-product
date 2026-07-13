@@ -66,6 +66,7 @@ run_step "CLI package parity" node tools/verification/cli/package-parity.mjs
 
 run_step "runtime adapter contract" node tools/verification/runtime/adapter-contract.mjs
 run_step "runtime adapter parity" node tools/verification/runtime/adapter-parity.mjs
+run_step "runtime adapter smoke workspace generator" node tools/verification/runtime/adapter-smoke-workspace.test.mjs
 
 run_step "Service branch contract" node tools/verification/onboarding/service-branch.mjs
 

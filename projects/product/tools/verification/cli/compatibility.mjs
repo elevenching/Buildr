@@ -59,12 +59,17 @@ for (const [args, expected] of [
 const runtime = run(['runtime', 'list', '--json']);
 assert.equal(runtime.status, 0);
 const runtimeJson = JSON.parse(runtime.stdout);
-assert.deepEqual(runtimeJson.supportedAgents, ['claude-code', 'codex']);
+assert.deepEqual(runtimeJson.supportedAgents, ['claude-code', 'codex', 'cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']);
 assert.deepEqual(runtimeJson.adapterTraitCatalog.rules, ['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']);
 assert.equal(runtimeJson.agents.codex.traits.rules.kind, 'native-recursive');
 assert.equal(runtimeJson.agents.codex.traits.skills.root, '.agents');
 assert.equal(runtimeJson.agents['claude-code'].traits.rules.kind, 'reference-bridge');
 assert.equal(runtimeJson.agents['claude-code'].traits.skills.root, '.claude');
+assert.equal(runtimeJson.agents.cursor.traits.rules.format, 'cursor-mdc');
+assert.equal(runtimeJson.agents.qoder.traits.rules.format, 'qoder-markdown');
+assert.equal(runtimeJson.agents.trae.traits.rules.format, 'trae-markdown');
+assert.equal(runtimeJson.agents['trae-work'].traits.rules.placement, 'root-index');
+assert.equal(runtimeJson.agents.workbuddy.traits.rules.placement, 'root-index');
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-compat-'));
 try {
@@ -78,6 +83,8 @@ try {
   const doctor = JSON.parse(result.stdout);
   assert.equal(doctor.ok, true);
   assert.equal(doctor.projectRegistry.projects[0].name, 'demo');
+  assert.equal(doctor.runtime.codex[0].environmentChecks.installation.status, 'not-checked');
+  assert.equal(doctor.runtime.codex[0].activation.rules, 'path-read');
 } finally {
   fs.rmSync(workspace, { recursive: true, force: true });
 }

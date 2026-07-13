@@ -5,7 +5,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
+  ADAPTER_VERIFICATION_LEVELS,
   ADAPTER_TRAIT_CATALOG,
   REQUIRED_RENDER_CAPABILITIES,
   RUNTIME_ADAPTERS,
@@ -22,7 +24,11 @@ import {
 } from '../../runtime/adapter-contract.mjs';
 import { resolveSkillContributions } from '../../runtime/render-claude-code.mjs';
 
-assert.deepEqual(SUPPORTED_AGENT_IDS, ['claude-code', 'codex']);
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const repositoryRoot = path.resolve(productRoot, '../..');
+
+assert.deepEqual(SUPPORTED_AGENT_IDS, ['claude-code', 'codex', 'cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']);
+assert.deepEqual(ADAPTER_VERIFICATION_LEVELS, ['documented', 'verified']);
 assert.deepEqual(ADAPTER_TRAIT_CATALOG.rules, ['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']);
 assert.equal(runtimeDiscoveryPayload().adapterTraitCatalog, ADAPTER_TRAIT_CATALOG);
 for (const adapter of Object.values(RUNTIME_ADAPTERS)) {
@@ -39,6 +45,46 @@ for (const adapter of Object.values(RUNTIME_ADAPTERS)) {
   validateRuntimePlan(adapter.planRuntime(context), adapter);
 }
 
+for (const adapterId of ['cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']) {
+  const adapter = RUNTIME_ADAPTERS[adapterId];
+  assert.ok(adapter.evidence.rules, `${adapterId} must retain runtime-specific Rules evidence`);
+  assert.ok(adapter.evidence.skills, `${adapterId} must retain runtime-specific Skills evidence`);
+  assert.equal(adapter.evidence.verificationLevel, adapterId === 'workbuddy' ? 'verified' : 'documented');
+  assert.equal(adapter.evidence.smokeStatus, adapterId === 'workbuddy' ? 'passed' : 'pending');
+  assert.deepEqual(adapter.planRuntime(createRuntimeContext({
+    adapterId,
+    targetRoot: path.join(os.tmpdir(), `buildr-${adapterId}-evidence`),
+    scope: '.',
+    rules: { writes: [], nativeAssets: [], removals: [], actions: [] },
+    skills: { writes: [], removals: [] },
+  })).capabilityEvidence.map((item) => item.adapterId), REQUIRED_RENDER_CAPABILITIES.map(() => adapterId));
+}
+
+const adapterDocPath = path.join(productRoot, 'docs', 'agent-runtime-adapters.md');
+const adapterDoc = fs.readFileSync(adapterDocPath, 'utf8');
+for (const adapterId of SUPPORTED_AGENT_IDS) {
+  assert.ok(adapterDoc.includes(`(\`${adapterId}\`)`), `${adapterId} must have an adapter documentation section`);
+}
+for (const token of ['Rules 接入', 'Skills 接入', '生效/刷新', 'checker', '证据', 'smoke']) assert.ok(adapterDoc.includes(token), `adapter documentation must contain ${token}`);
+for (const readmeName of ['README.md', 'README.en.md']) {
+  const readme = fs.readFileSync(path.join(repositoryRoot, readmeName), 'utf8');
+  assert.ok(readme.includes('projects/product/docs/agent-runtime-adapters.md'), `${readmeName} must link the authoritative adapter documentation`);
+}
+assert.equal(RUNTIME_ADAPTERS.cursor.traits.rules.kind, 'vendor-rule-files');
+assert.equal(RUNTIME_ADAPTERS.qoder.traits.rules.format, 'qoder-markdown');
+assert.equal(RUNTIME_ADAPTERS.trae.traits.rules.format, 'trae-markdown');
+assert.equal(RUNTIME_ADAPTERS.trae.traits.checker.versionProbe.kind, 'manual');
+assert.equal(RUNTIME_ADAPTERS.trae.traits.skills.root, '.agents');
+assert.equal(RUNTIME_ADAPTERS.cursor.traits.rules.format, 'cursor-mdc');
+assert.equal(RUNTIME_ADAPTERS['trae-work'].traits.rules.placement, 'root-index');
+assert.equal(RUNTIME_ADAPTERS.workbuddy.traits.rules.maxChars, 8000);
+assert.equal(RUNTIME_ADAPTERS.workbuddy.traits.skills.root, '.codebuddy');
+assert.deepEqual(RUNTIME_ADAPTERS.workbuddy.traits.surfaces, [{ kind: 'desktop' }, { kind: 'cli', variant: 'desktop-bundled' }]);
+assert.equal(RUNTIME_ADAPTERS.workbuddy.evidence.smoke.surface, 'desktop-bundled-cli');
+assert.equal(RUNTIME_ADAPTERS.workbuddy.evidence.smoke.rules.siblingIsolated, 'pass');
+assert.equal(RUNTIME_ADAPTERS.workbuddy.evidence.smoke.skill.result, 'SMOKE_SKILL_DISCOVERED_19AF');
+assert.ok(adapterDoc.includes('`.codebuddy/skills`'));
+
 assert.throws(() => getRuntimeAdapter('fake-runtime'), /Unsupported Agent runtime/);
 assert.throws(() => createRuntimeAdapterRegistry([{ id: 'fake-runtime', runtimeTargets: [], renderCapabilities: {}, recommendedCommands: {} }], { testOnly: true }), /Invalid runtime adapter registry/);
 
@@ -47,7 +93,7 @@ const fakeDescriptor = createRuntimeAdapterDescriptor({
   id: 'fake-runtime',
   displayName: 'Fake Runtime',
   traits: {
-    rules: { kind: 'vendor-rule-files', implementation: 'fake-rules', targetPattern: '.fake/rules/<source>.md' },
+    rules: { kind: 'vendor-rule-files', implementation: 'fake-rules', format: 'qoder-markdown', targetPattern: '.fake/rules/<source>.md' },
     skills: { kind: 'vendor-root', implementation: 'fake-skills', root: '.fake' },
     surfaces: [{ kind: 'ide', variant: 'test' }],
     activation: { rules: 'explicit-reload', skills: 'explicit-reload', reloadGuidance: 'Reload Fake Runtime.' },
@@ -74,7 +120,7 @@ const fakeValue = {
   displayName: 'Invalid Runtime',
   recommendedCommands: {},
   traits: {
-    rules: { kind: 'vendor-rule-files', implementation: 'fake-rules', targetPattern: '.fake/rules/<source>.md' },
+    rules: { kind: 'vendor-rule-files', implementation: 'fake-rules', format: 'qoder-markdown', targetPattern: '.fake/rules/<source>.md' },
     skills: { kind: 'vendor-root', implementation: 'fake-skills', root: '.fake' },
     surfaces: [{ kind: 'ide' }],
     activation: { rules: 'session-start', skills: 'session-start' },

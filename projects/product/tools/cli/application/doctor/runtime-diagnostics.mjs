@@ -71,7 +71,7 @@ export function createRuntimeDiagnostics(deps) {
             command: 'buildr doctor',
           });
           const findings = dedupeFindings(agent, runtimeFindingsForDoctor(check.findings, includeInfo));
-          result.runtime[resultKey].push({ agent, scope, counts: summarizeRuntimeFindings(findings), findings });
+          result.runtime[resultKey].push({ agent, scope, counts: summarizeRuntimeFindings(findings), findings, environmentChecks: check.environmentChecks, activation: check.activation });
           if (findings.some((finding) => ['missing', 'stale', 'orphan'].includes(finding.status))) {
             addDoctorFinding(result, 'warning', `runtime.${codeId}_stale`, `${adapter.displayName} runtime 缺失或过期：${scope}`, {
               path: toPosixRelative(targetRoot, check.targetRoot),

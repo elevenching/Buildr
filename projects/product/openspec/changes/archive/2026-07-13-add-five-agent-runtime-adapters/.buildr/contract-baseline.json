@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "add-five-agent-runtime-adapters",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-7192125e7ebf68e35df33ee50ea8381ff8b55835cf9ef0f9e8c35482b98bb380",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "human-agent-onboarding",
+      "title": "公开文档提供已接入 Agent adapter 权威说明",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "Buildr onboarding guidance 覆盖新增 adapters",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Buildr 支持五个新增 Agent runtime adapters",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "新增 adapters 按目标 runtime 机制投射 Rules",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Vendor rule files 与 root bridge 遵守通用 runtime 安全边界",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "新增 adapters 使用各自认证的 Skills root 与 activation",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "新增 adapters 的 checker 报告环境与前置条件事实",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "每个新增 adapter 保留独立兼容证据与分层验证状态",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

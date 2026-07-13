@@ -27,7 +27,7 @@ try {
   let result = run(['init', '--agent', 'unsupported', '--target', unsupported, '--name', 'unsupported']);
   assert.notEqual(result.status, 0, 'unsupported Agent must fail');
   assert.equal(fs.existsSync(unsupported), false, 'unsupported Agent must fail before workspace writes');
-  assert.match(output(result), /Supported Agent runtime adapters: claude-code, codex/);
+  assert.match(output(result), /Supported Agent runtime adapters: claude-code, codex, cursor, qoder, trae, trae-work, workbuddy/);
   assert.match(output(result), /请联系 Buildr 作者反馈该 Agent/);
 
   const sourceOnly = path.join(root, 'source-only');

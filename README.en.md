@@ -166,8 +166,8 @@ See the [Buildr Skill](projects/product/package/targets/runtime/skills/buildr/SK
 
 - The Buildr Skill lets Agents start from natural-language goals, understand Buildr work assets, select the next action, and guide user decisions.
 - The Buildr CLI provides deterministic initialization, asset maintenance, diagnosis, update, synchronization, and runtime rendering.
-- Runtime adapters currently support `claude-code` and `codex`; run `buildr runtime list --json` for the factual matrix.
-- Rules support Root, Project, Service, and deeper workspace scopes. Codex reads them natively; Claude Code uses generated reference bridges.
+- Runtime adapters currently support `claude-code`, `codex`, `cursor`, `qoder`, `trae`, `trae-work`, and `workbuddy`. Run `buildr runtime list --json` for machine-readable facts and see [Agent Runtime Adapters](projects/product/docs/agent-runtime-adapters.md) for integration paths and verification status.
+- Rules support Root, Project, Service, and deeper workspace scopes through native discovery, scoped vendor rule files, or managed reference bridges, depending on the Agent.
 - Workspace and Project Skills support locally authored and resolved remote sources.
 - Workspace Components manage Rules, Skills, Command collections, and declarative Skill Contributions. Project/Service Components are not currently supported.
 - Commands declare and diagnose shared external CLIs without installing software or modifying the host environment.
@@ -181,6 +181,7 @@ See the [Buildr Skill](projects/product/package/targets/runtime/skills/buildr/SK
 - [Current State](projects/product/openspec/knowledge/buildr-current-state.md): implemented product facts.
 - [OpenSpec Specifications](projects/product/openspec/specs/): normative behavior contracts.
 - [CLI Reference](projects/product/docs/cli-reference.md): public commands and parameter boundaries.
+- [Agent Runtime Adapters](projects/product/docs/agent-runtime-adapters.md): Rules and Skills paths, activation, checker behavior, limitations, and evidence status for each integrated Agent.
 - [Documentation Index](projects/product/docs/document-index.md): responsibilities of README, docs, knowledge, specs, and archive.
 - [Roadmap](projects/product/docs/roadmap/): future directions, not current product facts or approved implementation contracts.
 - [Release Checklist](projects/product/docs/release-checklist.md): publication readiness and verification entry points.

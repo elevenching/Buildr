@@ -167,8 +167,8 @@ buildr bootstrap guide
 
 - Buildr Skill 让 Agent 从自然语言目标出发，理解 Buildr 工作资产、判断下一步并引导用户决策。
 - Buildr CLI 提供初始化、资产维护、诊断、更新、同步和 runtime render 的确定性执行层。
-- 当前 runtime adapter 支持 `claude-code` 和 `codex`；使用 `buildr runtime list --json` 查看事实矩阵。
-- Rules 支持 Root、Project、Service 和任意深层 workspace scope；Codex 原生读取，Claude Code 使用生成的 reference bridge。
+- 当前 runtime adapter 支持 `claude-code`、`codex`、`cursor`、`qoder`、`trae`、`trae-work` 和 `workbuddy`；使用 `buildr runtime list --json` 查看机器事实，接入路径与验证状态见 [Agent Runtime Adapters](projects/product/docs/agent-runtime-adapters.md)。
+- Rules 支持 Root、Project、Service 和任意深层 workspace scope；不同 Agent 通过原生读取、scoped vendor rule files 或受管 reference bridge 接入。
 - workspace/project Skills 支持本地作者型和已解析的远端来源。
 - workspace Components 统一管理 Rules、Skills、Command collections 和声明式 Skill Contribution；当前不支持 Project/Service Component。
 - Commands 声明并检查组织复用的外部 CLI，但不负责安装或修改本机环境。
@@ -182,6 +182,7 @@ buildr bootstrap guide
 - [Buildr current state](projects/product/openspec/knowledge/buildr-current-state.md)：当前已实现事实。
 - [OpenSpec specs](projects/product/openspec/specs/)：规范性产品行为契约。
 - [CLI Reference](projects/product/docs/cli-reference.md)：公开命令和参数边界。
+- [Agent Runtime Adapters](projects/product/docs/agent-runtime-adapters.md)：已接入 Agent 的 Rules/Skills 路径、生效方式、checker、限制和证据状态。
 - [文档说明](projects/product/docs/document-index.md)：README、docs、knowledge、specs 和 archive 的分工。
 - [Roadmap 资料](projects/product/docs/roadmap/)：尚未实现的产品方向，不作为当前事实或实施契约。
 - [发布检查清单](projects/product/docs/release-checklist.md)：发布准备和验证入口。

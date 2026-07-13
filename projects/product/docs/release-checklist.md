@@ -15,8 +15,8 @@
 - `buildr openspec baseline create` 与 `buildr openspec check` 保护 OpenSpec change 的 proposal、同步前和同步后契约边界；fixture corpus 覆盖并行冲突、陈旧基线和破坏性同步结果。
 - `skills add/remove/render` 维护 workspace/project Skills 源资产，并按需渲染到 Agent runtime。
 - Skill Contribution 只在 runtime render 时组合自然语言 fragments；检查安装后注入、卸载后移除、通用 Skill 源不变，以及无效 slot/integrity fail closed。
-- `skill install claude-code` 和 `skill install codex` 安装 Buildr 产品内置 Agent Skill。
-- `sync claude-code` 和 `sync codex` 同步 Buildr 产品能力并准备当前 Agent 的 workspace 入口 runtime。
+- `skill install <agent>` 为七个 supported adapters 安装 Buildr 产品内置 Agent Skill。
+- `sync <agent>` 同步 Buildr 产品能力并准备当前 Agent 的 workspace 入口 runtime。
 - `rules render`、`runtime check` 和 `skills render` 支持当前 adapter 主路径。
 - Supported runtime adapter 由静态 registry 和声明式 RuntimePlan contract 管理；Component 必须验证自身完整性但不能扩展 adapter。
 - `package check` 和 `package build` 校验、构建 Buildr 产品随包资产。
@@ -51,7 +51,7 @@
 
 ### 当前不作为开源阻塞
 
-- Project/Service Component、更多 Agent runtime adapter、权限裁剪、远程 Component registry、依赖求解和系统级 Hook 仍属于后续能力。
+- Project/Service Component、其他 Agent runtime adapter、权限裁剪、远程 Component registry、依赖求解和系统级 Hook 仍属于后续能力。
 
 ## 发布前验证
 

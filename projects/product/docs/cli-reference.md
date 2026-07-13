@@ -8,7 +8,7 @@
 
 ```bash
 buildr runtime list --json
-buildr init --agent <claude-code|codex> --target <workspace> --name <name> --profile <personal|team|company>
+buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --target <workspace> --name <name> --profile <personal|team|company>
 ```
 
 `init --agent` 是默认首次 onboarding 入口：它先初始化源资产，再复用完整 `sync` 执行 source update、产品 Buildr Skill 安装、workspace/project Skills 投射和最终 doctor。已有 workspace 的产品能力与 runtime 更新继续使用 `sync`。
@@ -43,7 +43,7 @@ buildr init --agent <claude-code|codex> --target <workspace> --name <name> --pro
 | `buildr skill install <agent>` | 只安装产品入口 Buildr Skill。 |
 | `buildr mutation recover <id>` | 从完整 transaction journal/backup 恢复未完成 source mutation。 |
 
-当前支持 `claude-code` 和 `codex`。其他 runtime 不使用 fallback adapter。
+当前支持 `claude-code`、`codex`、`cursor`、`qoder`、`trae`、`trae-work` 和 `workbuddy`。其他 runtime 不使用 fallback adapter；各 adapter 的文件路径、刷新方式和证据状态见 [Agent Runtime Adapters](agent-runtime-adapters.md)。
 
 ## Product maintenance / workflow internal
 

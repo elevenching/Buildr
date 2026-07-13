@@ -14,6 +14,7 @@
 | [release-checklist.md](release-checklist.md) | 发布准备和验证清单 |
 | [cli-reference.md](cli-reference.md) | 公开 CLI 命令、参数边界和 canonical onboarding |
 | [cli-architecture.md](cli-architecture.md) | CLI 内部分层、依赖方向、兼容和维护验证边界 |
+| [agent-runtime-adapters.md](agent-runtime-adapters.md) | 已接入 Agent runtime adapter 的支持矩阵、接入路径、刷新方式、限制和证据状态 |
 | [agent-runtime-adapter-contribution.md](agent-runtime-adapter-contribution.md) | 新 Agent runtime adapter 的证据采集、分诊、设计、实现和验收流程 |
 | [agent-runtime-adapter-research-prompt.md](agent-runtime-adapter-research-prompt.md) | 可直接交给目标 Agent 执行的 runtime 能力调查 Prompt |
 | [known-limitations.md](known-limitations.md) | 当前公开试用范围和已知限制 |

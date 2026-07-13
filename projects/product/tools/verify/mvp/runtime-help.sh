@@ -5,11 +5,11 @@ runtime_list_dir="$(mktemp -d)"
 python3 - <<'PY'
 import json
 result = json.load(open('/tmp/buildr-product-mvp-runtime-list.json'))
-assert result['supportedAgents'] == ['claude-code', 'codex']
+assert result['supportedAgents'] == ['claude-code', 'codex', 'cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']
 assert result['requiredRenderCapabilities'] == ['rules-entry', 'product-buildr-skill', 'workspace-project-skills', 'skill-install-plans', 'runtime-check']
 assert result['unsupportedAgentGuidance']['mustNotUseFallbackAdapter'] is True
 assert '请联系 Buildr 作者反馈该 Agent' in result['unsupportedAgentGuidance']['nextStep']
-for agent in ['claude-code', 'codex']:
+for agent in result['supportedAgents']:
     adapter = result['agents'][agent]
     assert set(result['requiredRenderCapabilities']) == set(adapter['renderCapabilities'])
     assert adapter['recommendedCommands']['doctor'].startswith(f'buildr doctor --agent {agent}')

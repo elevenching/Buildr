@@ -9,6 +9,8 @@ export const REQUIRED_RENDER_CAPABILITIES = Object.freeze([
   'runtime-check',
 ]);
 
+export const ADAPTER_VERIFICATION_LEVELS = Object.freeze(['documented', 'verified']);
+
 export const ADAPTER_TRAIT_CATALOG = Object.freeze({
   rules: Object.freeze(['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']),
   skills: Object.freeze(['agents-compatible', 'vendor-root']),
@@ -19,7 +21,7 @@ export const ADAPTER_TRAIT_CATALOG = Object.freeze({
 });
 
 export const BUILTIN_ADAPTER_IMPLEMENTATIONS = Object.freeze({
-  rules: Object.freeze(['native-recursive', 'reference-bridge']),
+  rules: Object.freeze(['native-recursive', 'reference-bridge', 'vendor-rule-files']),
   skills: Object.freeze(['filesystem-skills']),
   checker: Object.freeze(['projection']),
 });
@@ -105,6 +107,9 @@ function validateAdapterTraits(descriptor, options = {}) {
   if (rules?.kind === 'native-recursive' && rules.implementation !== 'native-recursive') errors.push(`adapter ${descriptor.id} native-recursive rules must use native-recursive implementation`);
   if (rules?.kind === 'native-root' && rules.scopeCoverage !== 'recursive') errors.push(`adapter ${descriptor.id} native-root rules do not cover recursive scope`);
   if (['reference-bridge', 'vendor-rule-files'].includes(rules?.kind) && !rules.targetPattern) errors.push(`adapter ${descriptor.id} rendered rules targetPattern is required`);
+  if (rules?.kind === 'reference-bridge' && !['per-source', 'root-index'].includes(rules.placement || 'per-source')) errors.push(`adapter ${descriptor.id} reference bridge placement is invalid: ${rules?.placement}`);
+  if (rules?.kind === 'vendor-rule-files' && !['cursor-mdc', 'qoder-markdown', 'trae-markdown'].includes(rules.format)) errors.push(`adapter ${descriptor.id} vendor rules format is invalid: ${rules?.format || '<missing>'}`);
+  if (rules?.maxChars !== undefined && (!Number.isInteger(rules.maxChars) || rules.maxChars < 256)) errors.push(`adapter ${descriptor.id} rules maxChars must be an integer of at least 256`);
 
   const skills = traits.skills;
   if (!skills || !ADAPTER_TRAIT_CATALOG.skills.includes(skills.kind)) errors.push(`adapter ${descriptor.id} skills trait is invalid: ${skills?.kind || '<missing>'}`);
@@ -128,6 +133,10 @@ function validateAdapterTraits(descriptor, options = {}) {
   if (!checker?.implementation || !implementations.checker.has(checker.implementation)) errors.push(`adapter ${descriptor.id} has no registered checker implementation: ${checker?.implementation || '<missing>'}`);
   validateEnvironmentProbe(checker?.installationProbe, `adapter ${descriptor.id} installation probe`, errors);
   validateEnvironmentProbe(checker?.versionProbe, `adapter ${descriptor.id} version probe`, errors);
+  if (checker?.prerequisites !== undefined && !Array.isArray(checker.prerequisites)) errors.push(`adapter ${descriptor.id} checker prerequisites must be an array`);
+  for (const prerequisite of checker?.prerequisites || []) {
+    if (!prerequisite?.code || !prerequisite?.message || !prerequisite?.guidance) errors.push(`adapter ${descriptor.id} checker prerequisite must declare code, message, and guidance`);
+  }
   return errors;
 }
 
@@ -166,7 +175,7 @@ function renderCapabilities(traits) {
 function runtimeTargets(traits) {
   const rules = traits.rules.kind === 'native-recursive'
     ? ['AGENTS.md']
-    : [traits.rules.targetPattern.replace('<source-dir>/', '')];
+    : [traits.rules.targetPattern.replace('<source-dir>/', '').replace('<workspace-root>/', '')];
   return [...rules, `${traits.skills.root}/skills/`, `${traits.skills.root}/buildr/skill-install-plans/`];
 }
 
@@ -186,11 +195,40 @@ export function createRuntimeAdapterDescriptor(value, options = {}) {
     runtimeTargets: runtimeTargets(traits),
     renderCapabilities: renderCapabilities(traits),
     recommendedCommands: value.recommendedCommands,
+    evidence: value.evidence || {},
     planRuntime(context) { return planFromTraits(context, traits); },
   };
   const errors = validateAdapterDescriptor(descriptor, options);
   if (errors.length > 0) throw new Error(`Invalid runtime adapter descriptor ${value.id || '<missing>'}:\n- ${errors.join('\n- ')}`);
   return freeze(descriptor);
+}
+
+function recommendedCommands(id) {
+  return {
+    doctor: `buildr doctor --agent ${id} --target <dir> --json`,
+    syncWorkspaceEntry: `buildr sync ${id} --target <dir>`,
+    renderScope: `buildr render ${id} --scope <workspace-relative-path> --target <dir>`,
+    renderSkillsScope: `buildr skills render ${id} --scope <scope> --target <dir>`,
+    renderRulesScope: `buildr rules render ${id} --scope <scope> --target <dir>`,
+    runtimeCheckScope: `buildr runtime check ${id} --scope <workspace-relative-path> --target <dir>`,
+    installProductSkill: `buildr skill install ${id} --target <dir>`,
+  };
+}
+
+function renderedRulesDiagnostics(label, codeId) {
+  return {
+    missingStatus: 'missing',
+    missingPath: 'AGENTS.md',
+    missingCode: `runtime.${codeId}_rules_missing`,
+    label,
+    codes: {
+      ok: `runtime.${codeId}_rules_ok`,
+      missing: `runtime.${codeId}_rules_missing`,
+      stale: `runtime.${codeId}_rules_stale`,
+      conflict: `runtime.${codeId}_rules_conflict`,
+      orphan: `runtime.${codeId}_rules_orphan`,
+    },
+  };
 }
 
 const DESCRIPTORS = [
@@ -201,6 +239,7 @@ const DESCRIPTORS = [
       rules: {
         kind: 'reference-bridge',
         implementation: 'reference-bridge',
+        placement: 'per-source',
         targetPattern: '<source-dir>/CLAUDE.md',
         diagnostics: {
           missingStatus: 'conflict',
@@ -248,6 +287,129 @@ const DESCRIPTORS = [
       installProductSkill: 'buildr skill install codex --target <dir>',
     },
   }),
+  createRuntimeAdapterDescriptor({
+    id: 'cursor',
+    displayName: 'Cursor',
+    traits: {
+      rules: {
+        kind: 'vendor-rule-files', implementation: 'vendor-rule-files', format: 'cursor-mdc',
+        targetPattern: '<source-dir>/.cursor/rules/buildr.mdc',
+        diagnostics: renderedRulesDiagnostics('Cursor scoped project rule', 'cursor'),
+      },
+      skills: { kind: 'agents-compatible', implementation: 'filesystem-skills', root: '.agents' },
+      surfaces: [{ kind: 'ide' }, { kind: 'cli' }],
+      activation: { rules: 'path-read', skills: 'session-start', reloadGuidance: 'Start a new Cursor chat after adding or changing project Skills; reopen the chat if project-rule discovery is stale.' },
+      checker: {
+        kind: 'projection', implementation: 'projection', resultKey: 'cursor',
+        installationProbe: { kind: 'manual', guidance: 'Confirm Cursor IDE or Cursor Agent CLI is installed for the surface you are using.' },
+        versionProbe: { kind: 'manual', guidance: 'Record the Cursor IDE About version or run agent --version when the CLI is installed.' },
+      },
+    },
+    recommendedCommands: recommendedCommands('cursor'),
+    evidence: { verificationLevel: 'documented', rules: 'official-documentation-with-version-drift-mitigation', skills: 'official-documentation', smokeStatus: 'pending' },
+  }),
+  createRuntimeAdapterDescriptor({
+    id: 'qoder',
+    displayName: 'Qoder',
+    traits: {
+      rules: {
+        kind: 'vendor-rule-files', implementation: 'vendor-rule-files', format: 'qoder-markdown',
+        targetPattern: '<workspace-root>/.qoder/rules/buildr/<source-id>.md', maxChars: 100000,
+        diagnostics: renderedRulesDiagnostics('Qoder vendor rule file', 'qoder'),
+      },
+      skills: { kind: 'vendor-root', implementation: 'filesystem-skills', root: '.qoder' },
+      surfaces: [{ kind: 'ide' }],
+      activation: { rules: 'path-read', skills: 'explicit-reload', reloadGuidance: 'Run /skills reload when available, or start a new Qoder session.' },
+      checker: {
+        kind: 'projection', implementation: 'projection', resultKey: 'qoder',
+        installationProbe: { kind: 'command', executable: 'qoder', args: ['--version'], timeoutMs: 3000 },
+        versionProbe: { kind: 'command', executable: 'qoder', args: ['--version'], timeoutMs: 3000 },
+      },
+    },
+    recommendedCommands: recommendedCommands('qoder'),
+    evidence: { verificationLevel: 'documented', rules: 'official-documentation-and-local-intake', skills: 'official-documentation-and-local-intake', smokeStatus: 'pending' },
+  }),
+  createRuntimeAdapterDescriptor({
+    id: 'trae',
+    displayName: 'TRAE',
+    traits: {
+      rules: {
+        kind: 'vendor-rule-files', implementation: 'vendor-rule-files', format: 'trae-markdown',
+        targetPattern: '<source-dir>/.trae/rules/buildr.md',
+        diagnostics: renderedRulesDiagnostics('TRAE vendor rule file', 'trae'),
+      },
+      skills: { kind: 'agents-compatible', implementation: 'filesystem-skills', root: '.agents' },
+      surfaces: [{ kind: 'ide' }],
+      activation: { rules: 'path-read', skills: 'session-start', reloadGuidance: 'Start a new TRAE conversation after adding or changing Rules or Skills.' },
+      checker: {
+        kind: 'projection', implementation: 'projection', resultKey: 'trae',
+        installationProbe: { kind: 'command', executable: 'trae', args: ['--version'], timeoutMs: 3000 },
+        versionProbe: { kind: 'manual', guidance: 'Record the TRAE product version from About; trae --version may report the embedded editor build instead.' },
+      },
+    },
+    recommendedCommands: recommendedCommands('trae'),
+    evidence: { verificationLevel: 'documented', rules: 'installed-product-and-local-intake', skills: 'installed-product-and-local-intake', smokeStatus: 'pending' },
+  }),
+  createRuntimeAdapterDescriptor({
+    id: 'trae-work',
+    displayName: 'TRAE Work',
+    traits: {
+      rules: {
+        kind: 'reference-bridge', implementation: 'reference-bridge', placement: 'root-index', template: 'buildr-root-index',
+        targetPattern: '<workspace-root>/CLAUDE.local.md',
+        diagnostics: renderedRulesDiagnostics('TRAE Work root rules bridge', 'trae_work'),
+      },
+      skills: { kind: 'vendor-root', implementation: 'filesystem-skills', root: '.trae' },
+      surfaces: [{ kind: 'desktop' }],
+      activation: { rules: 'session-start', skills: 'immediate', reloadGuidance: 'Start a new TRAE Work conversation after adding or changing imported Rules.' },
+      checker: {
+        kind: 'projection', implementation: 'projection', resultKey: 'traeWork',
+        installationProbe: { kind: 'command', executable: 'defaults', args: ['read', '/Applications/TRAE SOLO.app/Contents/Info', 'CFBundleIdentifier'], timeoutMs: 3000 },
+        versionProbe: { kind: 'command', executable: 'defaults', args: ['read', '/Applications/TRAE SOLO.app/Contents/Info', 'CFBundleShortVersionString'], timeoutMs: 3000 },
+        prerequisites: [
+          { code: 'runtime.trae_work_rules_import_unverified', message: 'TRAE Work Rules import and reference traversal cannot be proven from projection state.', guidance: 'Enable the desktop Rules import toggle for CLAUDE.local.md, start a new conversation, and run the documented reference-bridge smoke.' },
+        ],
+      },
+    },
+    recommendedCommands: recommendedCommands('trae-work'),
+    evidence: { verificationLevel: 'documented', rules: 'official-documentation-and-local-intake', skills: 'official-documentation-and-local-intake', smokeStatus: 'pending' },
+  }),
+  createRuntimeAdapterDescriptor({
+    id: 'workbuddy',
+    displayName: 'WorkBuddy',
+    traits: {
+      rules: {
+        kind: 'reference-bridge', implementation: 'reference-bridge', placement: 'root-index', template: 'buildr-root-index',
+        targetPattern: '<workspace-root>/CODEBUDDY.md', maxChars: 8000,
+        diagnostics: renderedRulesDiagnostics('WorkBuddy CODEBUDDY.md rules bridge', 'workbuddy'),
+      },
+      skills: { kind: 'vendor-root', implementation: 'filesystem-skills', root: '.codebuddy' },
+      surfaces: [{ kind: 'desktop' }, { kind: 'cli', variant: 'desktop-bundled' }],
+      activation: { rules: 'session-start', skills: 'session-start', reloadGuidance: 'Start a new WorkBuddy task after adding or changing Rules or Skills.' },
+      checker: {
+        kind: 'projection', implementation: 'projection', resultKey: 'workbuddy',
+        installationProbe: { kind: 'command', executable: 'defaults', args: ['read', '/Applications/WorkBuddy.app/Contents/Info', 'CFBundleIdentifier'], timeoutMs: 3000 },
+        versionProbe: { kind: 'command', executable: 'defaults', args: ['read', '/Applications/WorkBuddy.app/Contents/Info', 'CFBundleShortVersionString'], timeoutMs: 3000 },
+      },
+    },
+    recommendedCommands: recommendedCommands('workbuddy'),
+    evidence: {
+      verificationLevel: 'verified',
+      rules: 'installed-source-code-5.2.5',
+      skills: 'installed-product-docs-and-source',
+      smokeStatus: 'passed',
+      smoke: {
+        observedAt: '2026-07-13',
+        productVersion: '5.2.5',
+        runtimeVersion: '2.106.4',
+        surface: 'desktop-bundled-cli',
+        rules: { root: 'pass', project: 'pass', active: 'pass', siblingIsolated: 'pass' },
+        skill: { status: 'pass', result: 'SMOKE_SKILL_DISCOVERED_19AF' },
+        activation: { rules: 'session-start', skills: 'session-start' },
+        evidence: 'Headless task from the WorkBuddy desktop bundle plus an audited tool transcript; no sibling Rule file was read.',
+      },
+    },
+  }),
 ];
 
 export function validateAdapterDescriptor(descriptor, options = {}) {
@@ -267,6 +429,13 @@ export function validateAdapterDescriptor(descriptor, options = {}) {
   if (typeof descriptor.planRuntime !== 'function') errors.push(`adapter ${descriptor.id} planRuntime is required`);
   if (!descriptor.implementation || !['string', 'object'].includes(typeof descriptor.implementation)) errors.push(`adapter ${descriptor.id} implementation entry is required`);
   if (!descriptor.recommendedCommands || typeof descriptor.recommendedCommands !== 'object') errors.push(`adapter ${descriptor.id} recommendedCommands are required`);
+  const evidence = descriptor.evidence || {};
+  if (Object.keys(evidence).length > 0) {
+    if (!ADAPTER_VERIFICATION_LEVELS.includes(evidence.verificationLevel)) errors.push(`adapter ${descriptor.id} evidence verificationLevel is invalid: ${evidence.verificationLevel || '<missing>'}`);
+    if (!['pending', 'passed'].includes(evidence.smokeStatus)) errors.push(`adapter ${descriptor.id} evidence smokeStatus is invalid: ${evidence.smokeStatus || '<missing>'}`);
+    if (evidence.verificationLevel === 'verified' && evidence.smokeStatus !== 'passed') errors.push(`adapter ${descriptor.id} verified evidence requires a passed smoke`);
+    if (evidence.smokeStatus === 'passed' && evidence.verificationLevel !== 'verified') errors.push(`adapter ${descriptor.id} passed smoke requires verified evidence`);
+  }
   return errors;
 }
 
