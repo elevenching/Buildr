@@ -1,4 +1,8 @@
-import { path, SUPPORTED_AGENT_IDS } from '../shared/platform.mjs';
+import { path, RUNTIME_ADAPTERS, SUPPORTED_AGENT_IDS } from '../shared/platform.mjs';
+
+const RULES_RENDER_AGENT_IDS = Object.values(RUNTIME_ADAPTERS)
+  .filter((adapter) => adapter.renderCapabilities['rules-entry'].writesFiles)
+  .map((adapter) => adapter.id);
 
 export function registerCommandHelp(runtime) {
   const doctor = (...args) => runtime.doctor(...args);
@@ -39,7 +43,7 @@ export function registerCommandHelp(runtime) {
     console.error(`  buildr skills render <${runtimeIds}> --scope <.|projects/project> --target <dir>`);
     console.error('  buildr rules add <id> [--path <rules/file.md>] --description <text> [--target <dir>] [--replace]');
     console.error('  buildr rules remove <id> [--target <dir>] [--keep-file]');
-    console.error('  buildr rules render claude-code --scope <.|projects/project[/services/service[/path...]]> --target <dir>');
+    console.error(`  buildr rules render <${RULES_RENDER_AGENT_IDS.join('|')}> --scope <.|projects/project[/services/service[/path...]]> --target <dir>`);
     console.error(`  buildr runtime check <${runtimeIds}> --scope <.|projects/project[/services/service[/path...]]> --target <dir>`);
   }
 
@@ -272,9 +276,9 @@ export function registerCommandHelp(runtime) {
   }
 
   HELP_TOPICS['rules render'] = [
-    'Usage: buildr rules render claude-code --scope <.|projects/project[/services/service[/path...]]> --target <dir>',
+    `Usage: buildr rules render <${RULES_RENDER_AGENT_IDS.join('|')}> --scope <.|projects/project[/services/service[/path...]]> --target <dir>`,
     '',
-    '递归发现 canonical workspace scope 的祖先链和子树，为 Claude Code reconcile 同目录 rules entry bridge。Codex 原生读取 AGENTS.md，不执行 rules render。',
+    '递归发现 canonical workspace scope 的祖先链和子树，并按 adapter reconcile rules bridge 或 vendor rule files。原生消费 AGENTS.md 的 adapter 不执行 rules render。',
   ];
 
   function printHelp(rawArgs) {

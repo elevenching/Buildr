@@ -1,0 +1,94 @@
+# Agent Runtime Adapters
+
+本文是 Buildr 已接入 Agent runtime adapter 的权威说明。机器可读事实始终以 `buildr runtime list --json` 为准；本文解释每个 adapter 如何把标准 `AGENTS.md` 与 Skills 源资产接入目标 Agent。
+
+新增 adapter 的调查与实现流程见 [Agent Runtime Adapter 接入指南](agent-runtime-adapter-contribution.md)，可交给目标 Agent 的采集问题见 [调研 Prompt](agent-runtime-adapter-research-prompt.md)。
+
+## 使用方式
+
+```bash
+buildr runtime list --json
+buildr init --agent <agent> --target <workspace>
+# 已初始化 workspace
+buildr sync <agent> --target <workspace>
+buildr doctor --agent <agent> --target <workspace> --json
+```
+
+adapter id 不做 alias 或 fallback。目标 Agent 不在列表中时必须停止自动投射并反馈，而不是借用“兼容”的 adapter。
+
+## 支持矩阵
+
+| Adapter id | Surface | Rules 接入 | Skills 接入 | 生效/刷新 | 验证等级 / smoke |
+|---|---|---|---|---|---|
+| `claude-code` | CLI | 每个 source 同目录 `CLAUDE.md` bridge | `.claude/skills` | 新会话 | 既有 adapter |
+| `codex` | CLI | 原生递归 `AGENTS.md` | `.agents/skills` | path read / 新会话 | 既有 adapter |
+| `cursor` | IDE、CLI | 各 source scope 的 `.cursor/rules/buildr.mdc` | `.agents/skills` | Rules path read；Skills 新会话 | `documented` / `pending` |
+| `qoder` | IDE | `.qoder/rules/buildr/*.md` | `.qoder/skills` | Rules path read；Skills `/skills reload` 或新会话 | `documented` / `pending` |
+| `trae` | IDE | 各 source scope 的 `.trae/rules/buildr.md` | `.agents/skills` | 新会话 | `documented` / `pending` |
+| `trae-work` | desktop | root `CLAUDE.local.md` reference bridge | `.trae/skills` | Rules 新会话；Skills immediate | `documented` / `pending` |
+| `workbuddy` | desktop、desktop-bundled CLI | root `CODEBUDDY.md` reference bridge | `.codebuddy/skills` | 新任务 | `verified` / `passed`（5.2.5 bundled CLI） |
+
+`documented` 表示官方文档、产品随包文档、安装包 discovery 源码或可重复的本机会话观察足以认证接入路径；`verified` 表示在此基础上又完成了真实 runtime marker smoke。`pending` 只表示可选的真实产品 smoke 尚未记录为通过，不否定自动契约或已有文档证据。文件生成成功仍不等于目标 Agent 已读取。
+
+GUI 产品的标准 smoke 是一次新会话、一份由 Buildr 生成的 `SMOKE_PROMPT.md` 和一份返回 JSON。Buildr 不把自动点击 GUI、抓取应用数据库或重复验证 reload 作为新增 adapter 的常规完成条件；只有文档/源码与实际行为冲突时才进入深度调查。
+
+## Claude Code (`claude-code`)
+
+- Buildr 在每个 `AGENTS.md` 同目录生成受管 `CLAUDE.md` reference bridge，并将 Skills/install plans 投射到 `.claude/`。
+- Rules 与 Skills 在新会话加载；checker 比较 bridge、Skills 和 install plans 的 missing/stale/conflict/orphan 状态。
+- 证据状态为既有 adapter contract/parity 与产品验证基线。
+
+## Codex (`codex`)
+
+- Codex 原生递归读取 `AGENTS.md`，Buildr 不生成 Rules 文件；Skills/install plans 使用 `.agents/`。
+- Rules 在访问路径时生效，Skills 以新会话发现为准；checker 同时检查 native Rules source 和 Skills projection。
+- 证据状态为既有 adapter contract/parity、当前 Buildr 自举运行时与产品验证基线。
+
+## Cursor (`cursor`)
+
+- Buildr 将每个 `AGENTS.md` 转换为同 scope 的 `.cursor/rules/buildr.mdc`；Cursor 官方的 nested project rules 机制负责将子目录 rule 限定到该目录树，避免依赖发生过版本漂移的 native nested `AGENTS.md` 或 glob 匹配。
+- Buildr Skill、workspace/Project Skills 和 install plans 使用 `.agents/`。
+- checker 对 IDE/CLI 安装与版本采用人工确认，因为安装形态并不稳定。
+- 当前不直接依赖 Cursor 原生 nested `AGENTS.md`：公开版本行为曾发生漂移，scoped `.mdc` 才能保持 Buildr 的 sibling isolation。Rules 或 Skills 未刷新时开启新 chat。
+- 验证等级为 `documented`：证据来自 [Cursor Rules](https://cursor.com/docs/context/rules)、[Cursor Skills](https://cursor.com/docs/context/skills)；一次性 root/child/sibling 与 Skill smoke 仍为 `pending`。
+
+## Qoder (`qoder`)
+
+- Buildr 把每个 `AGENTS.md` 转换为 `.qoder/rules/buildr/<source-id>.md`。root 使用 `trigger: always_on`，nested 使用 `trigger: glob` 与 `<scope>/**`。
+- Skills 与 install plans 使用 `.qoder/`；同名 Skill 的官方优先级为 project 高于 user。
+- Qoder 官方限制 active Rules 总量最多 100,000 字符；Buildr 在写入前检查每个目标和总量。
+- checker 使用静态无 shell 的 `qoder --version`；Skills 修改后运行 `/skills reload`，不可用时开启新会话。
+- 验证等级为 `documented`：证据来自 [Qoder Rules](https://docs.qoder.com/user-guide/rules)、[Qoder Skills](https://docs.qoder.com/en/cli/Skills) 与本机 1.13.3 intake；IDE 一次性 marker smoke 仍为 `pending`。
+
+## TRAE (`trae`)
+
+- Buildr 在每个 discovered source scope 生成带 `alwaysApply: true` frontmatter 的 `.trae/rules/buildr.md`；这样 root、Project、Service/deeper Rules 保持各自目录边界。
+- Skills 与 install plans 使用 `.agents/`。TRAE 3.5.73 的 `AI.skills.enableAgentsDir` 默认开启，安装包说明会自动加载 `.agents/skills`；这也与本机会话中项目 Skills 的实际注入一致。`.trae/skills` 在该版本安装包中只证明为 vendor 内容/编辑器路径，不能替代已观察到的项目发现入口。
+- checker 使用静态无 shell 的 `trae --version` 确认入口存在；该命令当前返回底层编辑器 build，因此产品版本必须从 About 人工记录。Rules 或 Skills 修改后开启新会话。
+- 验证等级为 `documented`：[TRAE 官方 Skills 指南](https://www.trae.ai/blog/trae_tutorial_0115?v=1)确认产品采用开放 Agent Skills 标准，但没有声明项目目录；具体路径证据为 TRAE 3.5.73 本机 intake（root `AGENTS.md`、项目 `.agents/skills` 及用户级 `~/.agents/skills`/`~/.trae/skills` 的会话注入观察）、安装包 `AI.skills.enableAgentsDir` 配置，以及 `agent-tool-host` 中的 `globs`、`alwaysApply`、`description`、Rules import flags。nested vendor Rules 与 sibling 一次性 marker smoke 仍为 `pending`。
+
+## TRAE Work (`trae-work`)
+
+- TRAE Work 与 TRAE IDE 是两个独立 adapter：TRAE IDE 的项目 Skills 使用 `.agents/skills`，TRAE Work 使用 `.trae/skills`；两者的 Rules、Skills root、surface 和 activation 都必须分别认证。
+- Buildr 生成 root `CLAUDE.local.md`。bridge 明确要求 Agent 读取 root 和当前工作路径 ancestor chain 中适用的 `AGENTS.md`，并列出 source index；普通 Markdown 链接本身不视为 include。
+- 使用前必须在桌面 Settings 中启用对应 Rules import；修改 Rules 后开启新会话。Skills 写入后的实际即时发现仍以产品版本为准。
+- checker 读取 `/Applications/TRAE SOLO.app` 版本，并持续给出 import/reference smoke 前置条件 warning。
+- 验证等级为 `documented`：证据来自 [TRAE Work Rules](https://docs.trae.cn/work_rules)、[TRAE Work Skills](https://docs.trae.cn/work_skills) 与本机 0.1.31/内置 runtime 1.0.37 机制 intake；当前安装包为 0.1.34，bridge traversal 一次性 smoke 仍为 `pending`。
+
+## WorkBuddy (`workbuddy`)
+
+- Buildr 生成 root `CODEBUDDY.md`，其中包含 imperative ancestor-chain 读取指令和 source index；内容不得超过 WorkBuddy 5.2.5 已观察到的 8,000 字符 project guidance 上限。
+- WorkBuddy 5.2.5 安装源码的 first-match 顺序是 `CODEBUDDY.md`、`.codebuddy/CODEBUDDY.md`、`AGENTS.md`，只读取 workspace root 第一个存在的入口。非 Buildr 管理的 `CODEBUDDY.md` 会触发 conflict，Buildr 不覆盖也不静默降级。
+- Skills 与 install plans 使用 `.codebuddy/`。WorkBuddy 5.2.5 内置的 CodeBuddy CLI 2.106.4 文档和 Skills panel 源码都将项目 Skill 根声明为 `.codebuddy/skills/`；`.workbuddy/skills` 只出现在 sandbox 可写路径中，不能据此认定为发现入口。Rules 与 Skills 修改后都要开启新任务。
+- checker 读取 `/Applications/WorkBuddy.app` 的 bundle id/版本，并检查 bridge、Skills 和 install plans 的 projection 状态。
+- 验证等级为 `verified`：2026-07-13 使用 WorkBuddy 5.2.5 桌面包内置 CodeBuddy CLI 2.106.4 新建 headless task，`CODEBUDDY.md` 作为 `always_applied_workspace_rules` 预注入，Agent 按 root → Project → active 路径读取三个 `AGENTS.md`，工具调用审计证明没有读取 sibling Rule；`.codebuddy/skills/adapter-smoke-skill` 被发现并返回 `SMOKE_SKILL_DISCOVERED_19AF`。该结果记为 `passed`，surface 为 `desktop-bundled-cli`；桌面 UI 不再重复 smoke。
+- 其他证据为 WorkBuddy 5.2.5 本机 app.asar 源码、随应用交付的 CodeBuddy CLI 文档/源码和运行时 intake；官方公开文档只覆盖产品与 Marketplace，未公开 project guidance 与 project Skills 的完整实现。
+
+## Checker 与限制
+
+`runtime check`/doctor 分别报告 projection、安装/版本 probe、activation/reload guidance 和 adapter prerequisite。它们能证明 Buildr 计划是否完整、目标是否 missing/stale/conflict/orphan，但不能从文件系统单独证明 GUI Agent 已加载内容。
+
+- `trae-work` 在 Rules import/reference smoke 完成前保持 warning。
+- `cursor`、`qoder`、`trae` 与 `trae-work` 保持 `documented` / `pending`；这表示接入路径已有独立证据，真实产品 smoke 尚未把等级提升为 `verified`。
+- 标准贡献流程不得为了把 `pending` 变成 `passed` 而自动操控 GUI 或抓取目标产品私有数据库；仅在有稳定官方 automation surface 时自动执行。
+- 所有 runtime 目标都受统一路径保护、symlink 防护、零写入冲突预检、managed ownership、orphan cleanup 和幂等 reconcile 约束。

@@ -1,2 +1,5 @@
 schemaVersion: buildr.skills/v1
-skills: []
+skills:
+  - id: "buildr-release"
+    path: "buildr-release"
+    description: "准备、检查、发布和验证 Buildr 候选版或稳定版时使用，覆盖版本与发布材料更新、dev 到 main 候选收敛、release tag、GitHub Actions、npm dist-tag、GitHub Release、失败恢复和发布后验证；用户提到准备发布、发布 RC、发布候选版、发布稳定版、检查是否可发布、继续或排查 Buildr 发布时触发。"

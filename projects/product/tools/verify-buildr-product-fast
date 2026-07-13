@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+product_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PATH="$product_root/node_modules/.bin:$PATH"
+if ! command -v openspec >/dev/null 2>&1; then
+  echo "OpenSpec CLI is missing. Run npm ci in projects/product before verification." >&2
+  exit 1
+fi
+
+cd "$product_root"
+
+npm run test:unit
+node tools/verification/cli/architecture.mjs
+node tools/verification/openspec/spec-quality.mjs
+openspec validate --all --strict
+node tools/verification/runtime/adapter-contract.mjs
+
+echo "Buildr fast verification passed."

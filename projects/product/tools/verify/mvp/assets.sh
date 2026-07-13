@@ -315,7 +315,7 @@ if node "$buildr" builtin restore openspec-propose --target "$tmp" >/tmp/buildr-
 fi
 grep -q 'component install openspec' /tmp/buildr-product-mvp-builtin-restore-skill.txt
 
-section "Components"
+section "Components: inventory and ownership"
 
 node "$buildr" component list --target "$tmp" --json >/tmp/buildr-product-mvp-component-list.json
 node "$buildr" component check openspec --target "$tmp" --json >/tmp/buildr-product-mvp-component-check.json
@@ -343,6 +343,8 @@ if node "$buildr" skills remove openspec-propose --scope . --target "$tmp" >/tmp
   exit 1
 fi
 grep -q 'managed by Component openspec' /tmp/buildr-product-mvp-component-owned-skill.txt
+
+section "Components: contributions and lifecycle"
 
 grep -q 'buildr openspec baseline create' "$tmp/.agents/skills/task-triage/SKILL.md"
 grep -q -- '--stage pre-sync' "$tmp/.agents/skills/task-finish/SKILL.md"
@@ -386,6 +388,8 @@ test -f "$tmp/.agents/skills/openspec-contract-guard/SKILL.md"
 grep -q 'buildr openspec baseline create' "$tmp/.agents/skills/task-triage/SKILL.md"
 grep -q -- '--stage pre-sync' "$tmp/.agents/skills/task-finish/SKILL.md"
 
+section "Components: contribution validation"
+
 cp "$tmp/components/buildr/openspec/component.yml" /tmp/buildr-product-mvp-component-contribution-definition.yml
 python3 - "$tmp/components/buildr/openspec/component.yml" <<'PY'
 import pathlib
@@ -406,6 +410,8 @@ test ! -e "$tmp/.agents/skills/task-finish"
 node "$buildr" builtin restore task-finish --target "$tmp" >/dev/null
 node "$buildr" render codex --target "$tmp" --scope . >/dev/null
 grep -q -- '--stage pre-sync' "$tmp/.agents/skills/task-finish/SKILL.md"
+
+section "Components: upgrades and conflicts"
 
 printf '\nold installed version\n' >> "$tmp/skills/openspec/openspec-explore/SKILL.md"
 node --input-type=module - "$tmp" <<'NODE'
@@ -458,6 +464,8 @@ grep -q 'openspec-archive-change' /tmp/buildr-product-mvp-component-missing.txt
 test "$(openssl dgst -sha256 -r "$tmp/skills/openspec/openspec-explore/SKILL.md")" = "$component_sibling_before"
 cp "$product_root/package/targets/workspace/skills/openspec/openspec-archive-change/SKILL.md" "$tmp/skills/openspec/openspec-archive-change/SKILL.md"
 node "$buildr" sync codex --target "$tmp" >/dev/null
+section "Components: runtime cleanup"
+
 node "$buildr" render claude-code --target "$tmp" --scope . >/dev/null
 test -f "$tmp/.claude/skills/openspec-propose/SKILL.md"
 test -f "$tmp/.claude/skills/openspec-contract-guard/SKILL.md"
@@ -481,6 +489,8 @@ test ! -e "$tmp/.agents/skills/openspec-propose"
 node "$buildr" component install openspec --agent claude-code --target "$tmp" >/dev/null
 test -f "$tmp/.claude/skills/openspec-propose/SKILL.md"
 grep -q -- '--stage post-sync' "$tmp/.claude/skills/task-finish/SKILL.md"
+
+section "Components: migration and workspace ownership"
 
 legacy_root="$(mktemp -d)"
 node "$buildr" init --target "$legacy_root" --name legacy-component >/dev/null

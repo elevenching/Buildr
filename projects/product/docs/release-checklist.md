@@ -15,8 +15,8 @@
 - `buildr openspec baseline create` 与 `buildr openspec check` 保护 OpenSpec change 的 proposal、同步前和同步后契约边界；fixture corpus 覆盖并行冲突、陈旧基线和破坏性同步结果。
 - `skills add/remove/render` 维护 workspace/project Skills 源资产，并按需渲染到 Agent runtime。
 - Skill Contribution 只在 runtime render 时组合自然语言 fragments；检查安装后注入、卸载后移除、通用 Skill 源不变，以及无效 slot/integrity fail closed。
-- `skill install claude-code` 和 `skill install codex` 安装 Buildr 产品内置 Agent Skill。
-- `sync claude-code` 和 `sync codex` 同步 Buildr 产品能力并准备当前 Agent 的 workspace 入口 runtime。
+- `skill install <agent>` 为七个 supported adapters 安装 Buildr 产品内置 Agent Skill。
+- `sync <agent>` 同步 Buildr 产品能力并准备当前 Agent 的 workspace 入口 runtime。
 - `rules render`、`runtime check` 和 `skills render` 支持当前 adapter 主路径。
 - Supported runtime adapter 由静态 registry 和声明式 RuntimePlan contract 管理；Component 必须验证自身完整性但不能扩展 adapter。
 - `package check` 和 `package build` 校验、构建 Buildr 产品随包资产。
@@ -38,11 +38,12 @@
 - [x] Linux Node 20/22 执行完整验证，Linux/macOS/Windows Node 22 验证正式 tarball 生命周期。
 - [x] 明确 npm registry 发布流程：`@buildr-ai/buildr`、RC 使用 `next`、稳定版使用 `latest`、tag/version fail closed、GitHub Environment 审批和 OIDC trusted publishing。
 - [x] 将干净候选快照推到 `elevenching/Buildr`，在真实 GitHub runner 通过 CI，并配置 `main`/`dev` branch protection 与 Private Vulnerability Reporting。
-- [ ] 通过 2FA 首次发布 `0.1.0-rc.1`，随后为 `@buildr-ai/buildr` 配置 GitHub trusted publisher；完成试用后再发布 `0.1.0`。
+- [x] 通过 2FA 首次发布 `0.1.0-rc.1`，随后为 `@buildr-ai/buildr` 配置 GitHub trusted publisher。
+- [ ] 完成 RC 试用和反馈收敛后发布 `0.1.0` 稳定版。
 
 ### 建议完成
 
-- [x] 补充 `CHANGELOG.md`，记录首个 `0.1.0` 未发布版本范围。
+- [x] 补充 `CHANGELOG.md`，持续记录各候选版的发布范围和日期。
 - [x] 补充 issue / PR 模板，降低外部反馈成本。
 - [x] 补充公开试用指南和已知限制，明确支持的 Agent runtime 与试用范围；反馈渠道随 GitHub repository URL 确定后补链接。
 - [ ] 评估是否提供 Homebrew tap、standalone install script 或 release binary。
@@ -50,33 +51,33 @@
 
 ### 当前不作为开源阻塞
 
-- Project/Service Component、更多 Agent runtime adapter、权限裁剪、远程 Component registry、依赖求解和系统级 Hook 仍属于后续能力。
+- Project/Service Component、其他 Agent runtime adapter、权限裁剪、远程 Component registry、依赖求解和系统级 Hook 仍属于后续能力。
 
 ## 发布前验证
 
 开发期间只在单任务后做最小反馈检查，在相关任务组完成后做一次受影响范围验证；不要逐任务运行本节的完整验证。验证命令仍在运行或暂时无输出时继续等待同一进程，不重复启动。
 
-以下完整验证在所有 rebase、冲突解决和内容修改结束后，对 task worktree 的最终候选 Git tree 执行。commit、相同 tree 集成、push 和 worktree 清理复用该结果，不在主开发分支重复执行；tree 改变时才重新运行受影响的验证。
+普通任务默认运行 fast gate；该入口只包含 unit、架构、canonical spec quality/strict 和全部 runtime adapter 低成本契约，不创建临时用户 workspace，也不执行 npm pack/install 或 MVP E2E：
 
 ```bash
-projects/product/buildr package check
-(cd projects/product && npm run test:unit)
-(cd projects/product && npm run test:release)
-node tools/verification/release/open-source-candidate.mjs
-node tools/verification/onboarding/init.mjs
-node tools/verification/cli/architecture.mjs
-node tools/verification/cli/compatibility.mjs
-node tools/verification/cli/package-parity.mjs
-tools/verification/onboarding/repository.mjs
-tools/verification/onboarding/service-branch.mjs
-tools/verification/network/remote-text.mjs
-tools/verify-buildr-product-mvp
-tools/verification/integrity/managed-mutations.mjs
-tools/verification/integrity/managed-data-integrity.mjs
-tools/verification/openspec/contract-audit.mjs
-tools/verification/openspec/spec-quality.mjs
-openspec validate --all --strict
-npm pack --dry-run
+npm test
+# 等价于 npm run test:fast
+```
+
+受影响范围验证可按改动类型组合执行；该入口始终先运行一次 fast gate，并按 verifier identity 去重多个 group 共享的检查，但不能替代最终候选完整验证：
+
+```bash
+npm run test:affected -- public
+npm run test:affected -- cli
+npm run test:affected -- package
+npm run test:affected -- openspec
+npm run test:affected -- release
+```
+
+以下完整验证在所有 rebase、冲突解决和内容修改结束后，对 task worktree 的最终候选 Git tree 执行。commit、相同 tree 集成、push 和 worktree 清理复用该结果，不在主开发分支重复执行；tree 改变时才重新运行受影响的验证。仓库 CI/publish 继续调用兼容入口 `tools/verify-buildr-product`，其语义与 `test:candidate` 相同。
+
+```bash
+npm run test:candidate
 ```
 
 完整产品验证会把每个阶段和总耗时写入 `BUILDR_TIMING_OUTPUT` 指定的 JSON 文件（默认写入系统临时目录），CI 总是上传该文件。0.1 仅记录趋势，不设置会因环境波动阻塞发布的耗时阈值。
@@ -86,13 +87,13 @@ npm pack --dry-run
 ## npm Release 流程
 
 1. 日常改动集成到 `dev`；准备发布时通过 PR 将已验证候选合入 `main`。
-2. package version 与 Git tag 必须完全一致。`0.1.0-rc.1` 对应 `v0.1.0-rc.1` 和 `next`，`0.1.0` 对应 `v0.1.0` 和 `latest`。
-3. 首个 `@buildr-ai/buildr` package 由 npm Organization owner `elevenching2` 使用 2FA 执行一次 `npm publish --access public --tag next`。
-4. package 存在后，在 npm 配置 trusted publisher：GitHub user `elevenching`、repository `Buildr`、workflow `publish.yml`、Environment `npm-production`、allowed action `npm publish`。
+2. package version 与 Git tag 必须完全一致。当前 `0.1.0-rc.2` 对应 `v0.1.0-rc.2` 和 `next`，稳定版 `0.1.0` 对应 `v0.1.0` 和 `latest`。
+3. 首个 `@buildr-ai/buildr` package 已由 npm Organization owner `elevenching2` 使用 2FA 执行 `npm publish --access public --tag next`，于 2026-07-13 完成。
+4. npm trusted publisher 已配置为 GitHub user `elevenching`、repository `Buildr`、workflow `publish.yml`、Environment `npm-production`、allowed action `npm publish`。
 5. 后续发布只由 release tag 触发 GitHub-hosted workflow；Environment 人工批准后运行完整验证、候选安全检查、publish 和 GitHub Release 创建。
 6. 已发布版本不覆盖。RC 问题发布新的 prerelease；正式版本问题优先发布 patch，必要时 deprecate 或移动 dist-tag，不把 unpublish 当作常规回滚。
 
-第一阶段只准备上述代码和门禁，不授权向公开 GitHub push、创建 tag 或执行 npm publish。
+`0.1.0-rc.1` 已完成 npm 发布和 GitHub prerelease 创建；`0.1.0-rc.2` 使用同一 trusted publishing 流程，发布事实以 npm 官方 registry 和对应 GitHub prerelease 为准。后续发布仍需每次具有明确发布意图。
 
 实际自举 workspace 如需消费新版产品资产，可独立执行 sync，并在状态变更后运行当前 Agent doctor；CLI update 只更新当前 Product checkout 或 registry package。这不是第二轮产品 E2E。上述验证只证明当前本地产品包和 MVP 主路径成立；公开发布仍需要完成上面的发布材料和分发流程。
 

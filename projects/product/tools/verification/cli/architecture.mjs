@@ -20,6 +20,8 @@ const allowedTopLevelEntries = new Set([
   'verification',
   'verify',
   'verify-buildr-product',
+  'verify-buildr-product-affected',
+  'verify-buildr-product-fast',
   'verify-buildr-product-mvp',
 ]);
 for (const entry of fs.readdirSync(path.join(productRoot, 'tools'))) {
@@ -110,6 +112,7 @@ const facadeLimits = new Map([
   ['tools/runtime/render-claude-code.mjs', 100],
   ['tools/cli/application/doctor.mjs', 250],
   ['tools/cli/application/package-maintenance.mjs', 550],
+  ['tools/verify-buildr-product-affected', 100],
   ['tools/verify-buildr-product-mvp', 30],
 ]);
 for (const [relative, limit] of facadeLimits) {

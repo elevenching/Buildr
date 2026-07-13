@@ -7,7 +7,7 @@ skills:
     enabled: true
     required: false
     state: installed
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: task-triage
   - id: task-worktree
     source: buildr
@@ -16,7 +16,7 @@ skills:
     enabled: true
     required: false
     state: installed
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: task-worktree
   - id: task-finish
     source: buildr
@@ -25,7 +25,7 @@ skills:
     enabled: true
     required: false
     state: installed
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: task-finish
   - id: git-ops
     source: buildr
@@ -34,5 +34,5 @@ skills:
     enabled: true
     required: false
     state: installed
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: git-ops

@@ -1,5 +1,3 @@
-section "Package and npm"
-
 section "Runtime reconciliation"
 
 node "$buildr" init --target "$reconcile_tmp" >/dev/null
@@ -29,6 +27,8 @@ if node "$buildr" skills render codex --scope . --target "$reconcile_tmp" >/tmp/
 fi
 grep -q '内容不同' /tmp/buildr-product-mvp-project-skill-conflict.txt
 test ! -e "$reconcile_tmp/.agents/skills/openspec-explore"
+
+section "OpenSpec audit fixture"
 
 audit_fixture="$(mktemp -d)"
 mkdir -p "$audit_fixture/projects/product/tools/verification/openspec" \
@@ -69,11 +69,7 @@ node "$audit_fixture/projects/product/tools/verification/openspec/contract-audit
 grep -q 'audit-fixture associated with current candidate receipts' /tmp/buildr-product-mvp-contract-audit-nested.txt
 rm -rf "$audit_fixture"
 
-if ! node "$buildr" package check >/tmp/buildr-product-mvp-package-check.txt 2>/tmp/buildr-product-mvp-package-check.err; then
-  cat /tmp/buildr-product-mvp-package-check.err >&2
-  exit 1
-fi
-grep -q 'Buildr package check passed' /tmp/buildr-product-mvp-package-check.txt
+section "Packaged governance assets"
 
 git_ops_skill="$product_root/package/targets/workspace/skills/buildr/git-ops/SKILL.md"
 grep -q '优先使用常用、直接和简练的语言' "$product_root/package/targets/workspace/rules/buildr/core.md"
@@ -110,14 +106,26 @@ if grep -q '默认使用中文' "$git_ops_skill"; then
   exit 1
 fi
 
+section "npm: tarball contract"
+
 if ! command -v npm >/dev/null 2>&1; then
   echo "npm is required to verify the Buildr npm package." >&2
   exit 1
 fi
 
-npm pack "$product_root" --pack-destination "$npm_pack_dir" --json >/tmp/buildr-product-mvp-npm-pack.json
+if [[ -n "${BUILDR_CANDIDATE_TARBALL:-}" || -n "${BUILDR_CANDIDATE_PACK_METADATA:-}" ]]; then
+  if [[ -z "${BUILDR_CANDIDATE_TARBALL:-}" || -z "${BUILDR_CANDIDATE_PACK_METADATA:-}" ]]; then
+    echo "shared candidate package requires both tarball and pack metadata" >&2
+    exit 1
+  fi
+  test -f "$BUILDR_CANDIDATE_TARBALL"
+  test -f "$BUILDR_CANDIDATE_PACK_METADATA"
+  cp "$BUILDR_CANDIDATE_PACK_METADATA" /tmp/buildr-product-mvp-npm-pack.json
+else
+  npm pack "$product_root" --pack-destination "$npm_pack_dir" --json >/tmp/buildr-product-mvp-npm-pack.json
+fi
 tarball="$(
-  NPM_PACK_DIR="$npm_pack_dir" PRODUCT_ROOT="$product_root" python3 - <<'PY'
+  NPM_PACK_DIR="$npm_pack_dir" PRODUCT_ROOT="$product_root" TARBALL_OVERRIDE="${BUILDR_CANDIDATE_TARBALL:-}" python3 - <<'PY'
 import json
 import os
 import sys
@@ -130,7 +138,7 @@ metadata = json.load(open(os.path.join(os.environ['PRODUCT_ROOT'], 'package.json
 assert metadata['version'] != '0.0.0'
 assert metadata.get('private') is not True
 assert metadata['license'] == 'MIT'
-assert metadata['bin']['buildr'] == './tools/buildr'
+assert metadata['bin']['buildr'] == 'tools/buildr'
 files = {item['path'] for item in pkg['files']}
 required = {
     'LICENSE',
@@ -201,9 +209,14 @@ forbidden_prefixes = (
 for file in sorted(files):
     if file in forbidden_exact or file.startswith(forbidden_prefixes):
         raise SystemExit(f'npm package included forbidden file: {file}')
-print(os.path.join(os.environ['NPM_PACK_DIR'], pkg['filename']))
+tarball = os.environ.get('TARBALL_OVERRIDE') or os.path.join(os.environ['NPM_PACK_DIR'], pkg['filename'])
+if os.path.basename(tarball) != pkg['filename']:
+    raise SystemExit('candidate tarball filename does not match npm pack metadata')
+print(tarball)
 PY
 )"
+
+section "npm: install and onboarding"
 
 npm install -g --prefix "$npm_prefix" "$tarball" >/tmp/buildr-product-mvp-npm-install.txt
 installed_buildr="$npm_prefix/bin/buildr"
@@ -237,6 +250,8 @@ grep -q 'id: "openspec"' "$npm_workspace/components/manifest.yml"
 grep -q 'openspec-explore' "$npm_workspace/skills/manifest.yml"
 grep -Eq 'source: "?buildr"?' "$npm_workspace/skills/manifest.yml"
 test -f "$npm_workspace/skills/openspec/openspec-explore/SKILL.md"
+section "npm: Project and Service lifecycle"
+
 "$installed_buildr" project create demo --target "$npm_workspace" >/dev/null
 grep -q 'demo:' "$npm_workspace/projects/manifest.yml"
 "$installed_buildr" service create demo/api "$remote_repo" --target "$npm_workspace" --type backend >/dev/null
@@ -248,6 +263,8 @@ assert result['workspace']['initialized'] is True
 assert result['projectRegistry']['exists'] is True
 assert any(service['name'] == 'api' for service in result['services'])
 PY
+section "npm: runtime projection"
+
 "$installed_buildr" skill install claude-code --target "$npm_workspace" >/tmp/buildr-product-mvp-npm-workspace-skill-install.txt
 (cd "$npm_workspace" && "$installed_buildr" runtime check claude-code --scope projects/demo --target "$npm_workspace" >/tmp/buildr-product-mvp-npm-runtime-before.txt || true)
 (cd "$npm_workspace" && "$installed_buildr" rules render claude-code --scope projects/demo --target "$npm_workspace" >/dev/null)
@@ -257,10 +274,12 @@ assert_compact_claude_bridge "$npm_workspace/CLAUDE.md"
 assert_compact_claude_bridge "$npm_workspace/projects/demo/CLAUDE.md"
 test -f "$npm_workspace/.claude/skills/buildr/SKILL.md"
 test -f "$npm_workspace/.claude/skills/openspec-explore/SKILL.md"
-"$installed_buildr" package check >/tmp/buildr-product-mvp-npm-package-check.txt
-grep -q 'Buildr package check passed' /tmp/buildr-product-mvp-npm-package-check.txt
+section "npm: installed help"
+
 "$installed_buildr" bootstrap guide >/tmp/buildr-product-mvp-npm-bootstrap-guide.txt
 grep -q 'buildr service create' /tmp/buildr-product-mvp-npm-bootstrap-guide.txt
+
+section "npm: bootstrap contract"
 
 node "$buildr" bootstrap guide >/tmp/buildr-product-mvp-bootstrap-guide.txt
 grep -q 'Buildr Skill' /tmp/buildr-product-mvp-bootstrap-guide.txt
@@ -290,6 +309,8 @@ if grep -q 'buildr runtime check claude-code' /tmp/buildr-product-mvp-bootstrap-
   echo "bootstrap guide included runtime adapter detail" >&2
   exit 1
 fi
+
+section "Runtime conflict safeguards"
 
 cat > "$tmp/skills/manifest.yml" <<'EOF'
 skills:

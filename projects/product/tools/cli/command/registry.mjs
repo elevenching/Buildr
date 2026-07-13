@@ -49,7 +49,7 @@ export const COMMAND_REGISTRY = [
     const adapter = r.getRuntimeAdapter(c.runtimeId);
     const checker = r.runtimeImplementation(adapter, 'checker', r.RUNTIME_CHECKERS);
     const printer = r.runtimeImplementation(adapter, 'checker', r.RUNTIME_CHECK_PRINTERS);
-    const result = checker(command.args, { repoRoot: command.targetRoot, command: `buildr runtime check ${c.runtimeId}` });
+    const result = checker(command.args, { repoRoot: command.targetRoot, adapterId: adapter.id, command: `buildr runtime check ${c.runtimeId}` });
     printer(result); process.exit(result.exitCode);
   } },
   { key: 'skills render', requiresAgent: true, match: ({ domain, action }) => domain === 'skills' && action === 'render', run: (r, c) => runScopedRender(r, c) },
@@ -60,7 +60,7 @@ function runScopedRender(r, context) {
   const adapter = r.getRuntimeAdapter(context.runtimeId);
   const renderer = context.domain === 'skills'
     ? (args) => r.renderSkillsRuntime(context.runtimeId, args)
-    : context.domain === 'rules' && adapter.implementation.rules === 'reference-bridge'
+    : context.domain === 'rules' && adapter.renderCapabilities['rules-entry'].writesFiles
       ? (args) => r.renderRulesRuntime(context.runtimeId, args)
       : null;
   if (!renderer) { r.usage(); process.exit(2); }

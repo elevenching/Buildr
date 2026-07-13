@@ -1,17 +1,16 @@
 import {
   path,
   process,
-  checkClaudeCodeRuntime,
-  printRuntimeCheckReport,
   parseInstallClaudeCodeBuildrSkillArgs,
-  checkCodexRuntime,
-  printCodexRuntimeCheckReport,
   assembleRuntimeProjection,
   RUNTIME_ADAPTERS,
   SUPPORTED_AGENT_IDS,
   UNSUPPORTED_AGENT_GUIDANCE,
   reconcileRuntimePlan,
   runtimeDiscoveryPayload,
+  selectAdapterImplementation,
+  RUNTIME_CHECKERS,
+  RUNTIME_CHECK_PRINTERS,
 } from '../shared/platform.mjs';
 import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../shared/json-contracts.mjs';
 
@@ -60,14 +59,8 @@ export function registerDomainsRuntime(runtime) {
     console.log(`Unsupported Agent: ${UNSUPPORTED_AGENT_GUIDANCE.message}${UNSUPPORTED_AGENT_GUIDANCE.nextStep}`);
   }
 
-  const RUNTIME_CHECKERS = { 'claude-code': checkClaudeCodeRuntime, codex: checkCodexRuntime };
-  const RUNTIME_CHECK_PRINTERS = { 'claude-code': printRuntimeCheckReport, codex: printCodexRuntimeCheckReport };
-
   function runtimeImplementation(adapter, kind, implementations) {
-    const implementation = adapter.implementation?.[kind];
-    const selected = implementations[implementation];
-    if (!selected) throw new Error(`Runtime adapter ${adapter.id} has no registered ${kind} implementation: ${implementation || '<missing>'}`);
-    return selected;
+    return selectAdapterImplementation(adapter, kind, implementations);
   }
 
   function installProductRuntimeSkill(agent, args, options = {}) {

@@ -6,6 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { readSharedCandidatePackage } from './candidate-package.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const workspaceRoot = path.resolve(productRoot, '../..');
@@ -47,7 +48,7 @@ export function inspectCandidateFile(relativePath, content, size = Buffer.byteLe
 export function inspectPackageMetadata(metadata) {
   const findings = [];
   if (metadata.name !== '@buildr-ai/buildr') findings.push(finding('package.identity', 'projects/product/package.json', 'expected @buildr-ai/buildr'));
-  if (metadata.bin?.buildr !== './tools/buildr') findings.push(finding('package.bin', 'projects/product/package.json', 'expected buildr executable'));
+  if (metadata.bin?.buildr !== 'tools/buildr') findings.push(finding('package.bin', 'projects/product/package.json', 'expected normalized buildr executable'));
   if (metadata.repository?.url !== 'git+https://github.com/elevenching/Buildr.git' || metadata.repository?.directory !== 'projects/product') findings.push(finding('package.repository', 'projects/product/package.json', 'canonical repository metadata is missing'));
   if (metadata.homepage !== 'https://github.com/elevenching/Buildr#readme') findings.push(finding('package.homepage', 'projects/product/package.json', 'canonical homepage is missing'));
   if (metadata.bugs?.url !== 'https://github.com/elevenching/Buildr/issues') findings.push(finding('package.bugs', 'projects/product/package.json', 'canonical issue URL is missing'));
@@ -87,6 +88,8 @@ function inspectTrackedCandidate() {
 }
 
 function packAndInspect() {
+  const shared = readSharedCandidatePackage();
+  if (shared) return inspectTarballFiles(shared.metadata.files);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-open-source-candidate-'));
   try {
     const result = spawnSync(npmExecutable, ['pack', productRoot, '--pack-destination', root, '--json'], { cwd: productRoot, encoding: 'utf8' });

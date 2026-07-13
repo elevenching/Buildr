@@ -5,21 +5,35 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
+  ADAPTER_VERIFICATION_LEVELS,
+  ADAPTER_TRAIT_CATALOG,
   REQUIRED_RENDER_CAPABILITIES,
   RUNTIME_ADAPTERS,
   SUPPORTED_AGENT_IDS,
+  createRuntimeAdapterDescriptor,
   createRuntimeAdapterRegistry,
   createRuntimeContext,
   createRuntimePlan,
   getRuntimeAdapter,
   reconcileRuntimePlan,
+  runtimeDiscoveryPayload,
+  selectAdapterImplementation,
   validateRuntimePlan,
 } from '../../runtime/adapter-contract.mjs';
 import { resolveSkillContributions } from '../../runtime/render-claude-code.mjs';
+import { assembleRuntimeProjection } from '../../runtime/projection.mjs';
 
-assert.deepEqual(SUPPORTED_AGENT_IDS, ['claude-code', 'codex']);
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const repositoryRoot = path.resolve(productRoot, '../..');
+
+assert.deepEqual(SUPPORTED_AGENT_IDS, ['claude-code', 'codex', 'cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']);
+assert.deepEqual(ADAPTER_VERIFICATION_LEVELS, ['documented', 'verified']);
+assert.deepEqual(ADAPTER_TRAIT_CATALOG.rules, ['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']);
+assert.equal(runtimeDiscoveryPayload().adapterTraitCatalog, ADAPTER_TRAIT_CATALOG);
 for (const adapter of Object.values(RUNTIME_ADAPTERS)) {
+  assert.ok(adapter.traits);
   assert.deepEqual(Object.keys(adapter.renderCapabilities), REQUIRED_RENDER_CAPABILITIES);
   const root = path.join(os.tmpdir(), `buildr-adapter-${adapter.id}`);
   const context = createRuntimeContext({
@@ -32,21 +46,123 @@ for (const adapter of Object.values(RUNTIME_ADAPTERS)) {
   validateRuntimePlan(adapter.planRuntime(context), adapter);
 }
 
+const projectionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-adapter-projection-contract-'));
+fs.writeFileSync(path.join(projectionRoot, 'AGENTS.md'), '# Adapter projection contract\n');
+const expectedRuleTargets = {
+  'claude-code': 'CLAUDE.md',
+  cursor: '.cursor/rules/buildr.mdc',
+  qoder: '.qoder/rules/buildr/',
+  trae: '.trae/rules/buildr.md',
+  'trae-work': 'CLAUDE.local.md',
+  workbuddy: 'CODEBUDDY.md',
+};
+for (const adapterId of SUPPORTED_AGENT_IDS) {
+  const adapter = RUNTIME_ADAPTERS[adapterId];
+  const assembled = assembleRuntimeProjection({
+    repoRoot: projectionRoot,
+    targetRoot: projectionRoot,
+    adapterId,
+    scope: '.',
+    selection: { productSkill: true, rules: true },
+  });
+  const targets = assembled.plan.writes.map((item) => path.relative(projectionRoot, item.targetFile).split(path.sep).join('/'));
+  assert.ok(targets.some((target) => target.startsWith(`${adapter.traits.skills.root}/skills/buildr/`)), `${adapterId} must plan its declared product Skill root`);
+  if (adapterId === 'codex') {
+    assert.ok(assembled.plan.nativeAssets.some((item) => item.targetFile === path.join(projectionRoot, 'AGENTS.md')));
+  } else {
+    assert.ok(targets.some((target) => target.includes(expectedRuleTargets[adapterId])), `${adapterId} must plan its declared Rules target`);
+  }
+}
+fs.rmSync(projectionRoot, { recursive: true, force: true });
+
+for (const adapterId of ['cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']) {
+  const adapter = RUNTIME_ADAPTERS[adapterId];
+  assert.ok(adapter.evidence.rules, `${adapterId} must retain runtime-specific Rules evidence`);
+  assert.ok(adapter.evidence.skills, `${adapterId} must retain runtime-specific Skills evidence`);
+  assert.equal(adapter.evidence.verificationLevel, adapterId === 'workbuddy' ? 'verified' : 'documented');
+  assert.equal(adapter.evidence.smokeStatus, adapterId === 'workbuddy' ? 'passed' : 'pending');
+  assert.deepEqual(adapter.planRuntime(createRuntimeContext({
+    adapterId,
+    targetRoot: path.join(os.tmpdir(), `buildr-${adapterId}-evidence`),
+    scope: '.',
+    rules: { writes: [], nativeAssets: [], removals: [], actions: [] },
+    skills: { writes: [], removals: [] },
+  })).capabilityEvidence.map((item) => item.adapterId), REQUIRED_RENDER_CAPABILITIES.map(() => adapterId));
+}
+
+const adapterDocPath = path.join(productRoot, 'docs', 'agent-runtime-adapters.md');
+const adapterDoc = fs.readFileSync(adapterDocPath, 'utf8');
+for (const adapterId of SUPPORTED_AGENT_IDS) {
+  assert.ok(adapterDoc.includes(`(\`${adapterId}\`)`), `${adapterId} must have an adapter documentation section`);
+}
+for (const token of ['Rules 接入', 'Skills 接入', '生效/刷新', 'checker', '证据', 'smoke']) assert.ok(adapterDoc.includes(token), `adapter documentation must contain ${token}`);
+for (const readmeName of ['README.md', 'README.en.md']) {
+  const readme = fs.readFileSync(path.join(repositoryRoot, readmeName), 'utf8');
+  assert.ok(readme.includes('projects/product/docs/agent-runtime-adapters.md'), `${readmeName} must link the authoritative adapter documentation`);
+}
+assert.equal(RUNTIME_ADAPTERS.cursor.traits.rules.kind, 'vendor-rule-files');
+assert.equal(RUNTIME_ADAPTERS.qoder.traits.rules.format, 'qoder-markdown');
+assert.equal(RUNTIME_ADAPTERS.trae.traits.rules.format, 'trae-markdown');
+assert.equal(RUNTIME_ADAPTERS.trae.traits.checker.versionProbe.kind, 'manual');
+assert.equal(RUNTIME_ADAPTERS.trae.traits.skills.root, '.agents');
+assert.equal(RUNTIME_ADAPTERS.cursor.traits.rules.format, 'cursor-mdc');
+assert.equal(RUNTIME_ADAPTERS['trae-work'].traits.rules.placement, 'root-index');
+assert.equal(RUNTIME_ADAPTERS['trae-work'].traits.checker.prerequisites[0].code, 'runtime.trae_work_rules_import_unverified');
+assert.equal(RUNTIME_ADAPTERS.workbuddy.traits.rules.maxChars, 8000);
+assert.equal(RUNTIME_ADAPTERS.workbuddy.traits.skills.root, '.codebuddy');
+assert.deepEqual(RUNTIME_ADAPTERS.workbuddy.traits.surfaces, [{ kind: 'desktop' }, { kind: 'cli', variant: 'desktop-bundled' }]);
+assert.equal(RUNTIME_ADAPTERS.workbuddy.evidence.smoke.surface, 'desktop-bundled-cli');
+assert.equal(RUNTIME_ADAPTERS.workbuddy.evidence.smoke.rules.siblingIsolated, 'pass');
+assert.equal(RUNTIME_ADAPTERS.workbuddy.evidence.smoke.skill.result, 'SMOKE_SKILL_DISCOVERED_19AF');
+assert.ok(adapterDoc.includes('`.codebuddy/skills`'));
+
 assert.throws(() => getRuntimeAdapter('fake-runtime'), /Unsupported Agent runtime/);
 assert.throws(() => createRuntimeAdapterRegistry([{ id: 'fake-runtime', runtimeTargets: [], renderCapabilities: {}, recommendedCommands: {} }], { testOnly: true }), /Invalid runtime adapter registry/);
 
-const fakeCapabilities = Object.fromEntries(REQUIRED_RENDER_CAPABILITIES.map((capability) => [capability, { supported: true }]));
-const fakeRegistry = createRuntimeAdapterRegistry([{
+const fakeImplementations = { rules: ['fake-rules'], skills: ['fake-skills'], checker: ['fake-checker'] };
+const fakeDescriptor = createRuntimeAdapterDescriptor({
   id: 'fake-runtime',
   displayName: 'Fake Runtime',
-  runtimeTargets: ['.fake/'],
-  implementation: { skills: 'fake', rules: 'fake', checker: 'fake' },
-  renderCapabilities: fakeCapabilities,
+  traits: {
+    rules: { kind: 'vendor-rule-files', implementation: 'fake-rules', format: 'qoder-markdown', targetPattern: '.fake/rules/<source>.md' },
+    skills: { kind: 'vendor-root', implementation: 'fake-skills', root: '.fake' },
+    surfaces: [{ kind: 'ide', variant: 'test' }],
+    activation: { rules: 'explicit-reload', skills: 'explicit-reload', reloadGuidance: 'Reload Fake Runtime.' },
+    checker: {
+      kind: 'projection',
+      implementation: 'fake-checker',
+      installationProbe: { kind: 'manual', guidance: 'Confirm Fake Runtime is installed.' },
+      versionProbe: { kind: 'command', executable: 'fake-runtime', args: ['--version'], timeoutMs: 1000 },
+    },
+  },
   recommendedCommands: {},
-  planRuntime(context) { return { ...context, schemaVersion: 'buildr.runtime-plan/v1', writes: [], nativeAssets: [], removals: [], capabilityEvidence: REQUIRED_RENDER_CAPABILITIES.map((capability) => ({ capability, supported: true })), findings: [], repairs: [], warnings: [], ruleActions: [] }; },
-}], { testOnly: true });
+}, { implementations: fakeImplementations });
+const fakeRegistry = createRuntimeAdapterRegistry([fakeDescriptor], { testOnly: true, implementations: fakeImplementations });
 assert.equal(fakeRegistry['fake-runtime'].id, 'fake-runtime');
+assert.equal(fakeRegistry['fake-runtime'].traits.skills.root, '.fake');
+assert.equal(fakeRegistry['fake-runtime'].renderCapabilities['rules-entry'].projection.mode, 'rendered');
+const fakeRulesPlanner = () => 'fake-plan';
+assert.equal(selectAdapterImplementation(fakeRegistry['fake-runtime'], 'rules', { 'fake-rules': fakeRulesPlanner }), fakeRulesPlanner);
+assert.throws(() => selectAdapterImplementation(fakeRegistry['fake-runtime'], 'rules', {}), /no registered rules implementation/);
 assert.equal(RUNTIME_ADAPTERS['fake-runtime'], undefined);
+
+const fakeValue = {
+  id: 'invalid-runtime',
+  displayName: 'Invalid Runtime',
+  recommendedCommands: {},
+  traits: {
+    rules: { kind: 'vendor-rule-files', implementation: 'fake-rules', format: 'qoder-markdown', targetPattern: '.fake/rules/<source>.md' },
+    skills: { kind: 'vendor-root', implementation: 'fake-skills', root: '.fake' },
+    surfaces: [{ kind: 'ide' }],
+    activation: { rules: 'session-start', skills: 'session-start' },
+    checker: { kind: 'projection', implementation: 'fake-checker', installationProbe: { kind: 'none' }, versionProbe: { kind: 'none' } },
+  },
+};
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, rules: { ...fakeValue.traits.rules, kind: 'unknown' } } }, { implementations: fakeImplementations }), /rules trait is invalid/);
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, skills: { ...fakeValue.traits.skills, root: '../escape' } } }, { implementations: fakeImplementations }), /skills root is unsafe/);
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, rules: { kind: 'native-root', implementation: 'fake-rules' } } }, { implementations: fakeImplementations }), /do not cover recursive scope/);
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, rules: { ...fakeValue.traits.rules, implementation: 'missing' } } }, { implementations: fakeImplementations }), /no registered rules implementation/);
+assert.throws(() => createRuntimeAdapterRegistry([fakeDescriptor, fakeDescriptor], { testOnly: true, implementations: fakeImplementations }), /duplicate adapter id/);
 
 const codex = RUNTIME_ADAPTERS.codex;
 const root = path.join(os.tmpdir(), 'buildr-invalid-plan');

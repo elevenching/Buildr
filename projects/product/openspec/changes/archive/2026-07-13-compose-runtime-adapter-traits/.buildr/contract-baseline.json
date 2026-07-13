@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "compose-runtime-adapter-traits",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-89c653c44d32a0a903d002e69bf376fc77bf97319b37e8b91ebbb1065b0099e6",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Runtime adapter descriptor 通过受约束 traits 组合",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Agent runtime adapter discovery",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Agent runtime adapter discovery\nBuildr MUST 提供 Agent-readable 的方式，用于发现已支持的 Agent runtime adapter、每个 adapter 实现的 render 能力以及 Rules source discovery semantics。\n\n#### Scenario: Agent lists supported runtime adapters\n- **WHEN** Agent 运行 `buildr runtime list --json`\n- **THEN** Buildr MUST 输出包含已支持 Agent runtime id 的 JSON\n- **AND** 当 `claude-code` 和 `codex` adapter 已实现时，输出 MUST 包含 `claude-code` 和 `codex`\n- **AND** 输出 MUST 包含 `requiredRenderCapabilities`\n- **AND** 输出 MUST 描述每个已支持 adapter 的 render 能力、实现模式和 runtime-specific 推荐命令\n\n#### Scenario: Rules entry discovery metadata\n- **WHEN** `runtime list --json` 描述 supported adapter 的 `rules-entry`\n- **THEN** metadata MUST identify canonical scope syntax as workspace-relative paths\n- **AND** metadata MUST describe recursive `**/AGENTS.md` source discovery and ancestor inclusion\n- **AND** metadata MUST identify whether projection is native or rendered\n- **AND** metadata MUST identify whether the capability writes files\n- **AND** rendered projection MUST describe its target pattern\n\n#### Scenario: Runtime list includes recommended command templates\n- **WHEN** Buildr 输出 supported Agent runtime adapter 信息\n- **THEN** 每个 supported adapter MAY 包含 `recommendedCommands`\n- **AND** `recommendedCommands` MUST be treated as Agent execution guidance rather than a complete CLI schema\n- **AND** `recommendedCommands` MUST NOT replace command help as the complete CLI reference\n- **AND** recommended scope examples MUST use canonical workspace-relative paths\n\n#### Scenario: Runtime list is available outside workspace\n- **WHEN** Agent 在非 Buildr workspace 目录运行 `buildr runtime list --json`\n- **THEN** Buildr MUST 返回当前 CLI 支持的 runtime adapter 矩阵\n- **AND** Buildr MUST NOT 要求目标目录已经初始化为 Buildr workspace\n\n#### Scenario: Human lists supported runtime adapters\n- **WHEN** 用户运行 `buildr runtime list`\n- **THEN** Buildr MUST 输出人类可读的 supported Agent runtime adapter 摘要\n- **AND** 摘要 MUST 说明每个 supported runtime 可使用的 render、sync、Skill install 和 runtime check 命令族\n"
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Supported runtime adapter 使用静态完整契约",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Supported runtime adapter 使用静态完整契约\nBuildr MUST 使用随产品发布的静态 registry 作为 supported Agent runtime adapter 的唯一事实源，并要求每个 registered adapter 完整声明和实现 runtime contract。\n\n#### Scenario: 注册完整 adapter\n- **WHEN** package verification 校验一个 supported adapter\n- **THEN** adapter descriptor MUST 包含稳定且唯一的 runtime id、全部 required render capabilities、runtime targets、实现入口和 Agent-readable metadata\n- **AND** `runtime list`、CLI 参数校验、render、sync、Skill install、runtime check 和 doctor MUST 从同一 registry 解析该 adapter\n\n#### Scenario: Adapter contract 不完整\n- **WHEN** registered adapter 缺少任一 required capability、实现入口或必要 capability evidence\n- **THEN** package verification MUST fail\n- **AND** Buildr MUST NOT 将该 adapter 报告为 supported\n\n#### Scenario: 未注册 runtime\n- **WHEN** Agent 请求一个不在静态 registry 中的 runtime id\n- **THEN** Buildr MUST 将其作为 unsupported adapter 处理\n- **AND** Buildr MUST NOT alias、猜测或 fallback 到其他 supported adapter\n"
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Adapter 可以组合受约束的内置投射原语",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Adapter 可以组合受约束的内置投射原语\nBuildr MUST 允许不同静态 adapter 组合相同的内置投射原语，同时保持每个 runtime 的独立 identity、contract 和诊断归因。\n\n#### Scenario: 两个 runtime 复用相同布局\n- **WHEN** 两个 registered adapters 都使用 native `AGENTS.md` 或相同 Skills target layout\n- **THEN** 它们 MAY 复用同一个内置投射原语\n- **AND** 每个 adapter MUST 继续拥有独立 descriptor、capability evidence 和 contract tests\n- **AND** Buildr MUST NOT 将其中一个 runtime id 解析为另一个 runtime id\n\n#### Scenario: 验证 adapter 扩展点\n- **WHEN** package tests 使用 fake adapter 验证新增 adapter 的集成路径\n- **THEN** fake adapter MUST 只能通过测试注入点使用\n- **AND** 发布的 `runtime list`、CLI help 和 package registry MUST NOT 将 fake adapter 报告为 supported\n"
+    }
+  ]
+}

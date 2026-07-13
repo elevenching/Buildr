@@ -42,7 +42,7 @@ export function createRuntimeDiagnostics(deps) {
   function diagnoseRuntime(result, targetRoot, scopes, options = {}) {
     const includeInfo = options.includeInfo === true;
     const selectedAgent = options.agent || null;
-    const runtimeResultKey = (agent) => agent === 'claude-code' ? 'claudeCode' : agent.replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
+    const runtimeResultKey = (agent) => getRuntimeAdapter(agent).traits.checker.resultKey ?? agent.replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
     result.runtime = Object.fromEntries(SUPPORTED_AGENT_IDS.map((agent) => [runtimeResultKey(agent), []]));
     if (selectedAgent && !isSupportedAgent(selectedAgent)) {
       addUnsupportedAgentFinding(result, selectedAgent);
@@ -67,10 +67,11 @@ export function createRuntimeDiagnostics(deps) {
         try {
           const check = checker(['--scope', scope, '--target', targetRoot], {
             repoRoot: targetRoot,
+            adapterId: adapter.id,
             command: 'buildr doctor',
           });
           const findings = dedupeFindings(agent, runtimeFindingsForDoctor(check.findings, includeInfo));
-          result.runtime[resultKey].push({ agent, scope, counts: summarizeRuntimeFindings(findings), findings });
+          result.runtime[resultKey].push({ agent, scope, counts: summarizeRuntimeFindings(findings), findings, environmentChecks: check.environmentChecks, activation: check.activation });
           if (findings.some((finding) => ['missing', 'stale', 'orphan'].includes(finding.status))) {
             addDoctorFinding(result, 'warning', `runtime.${codeId}_stale`, `${adapter.displayName} runtime 缺失或过期：${scope}`, {
               path: toPosixRelative(targetRoot, check.targetRoot),
@@ -107,7 +108,7 @@ export function createRuntimeDiagnostics(deps) {
           }
         } catch (error) {
           const missingManifest = error.message.startsWith('Manifest not found:');
-          const missingCode = agent === 'claude-code' ? 'runtime.skills_manifest_absent' : `runtime.${codeId}_skills_manifest_absent`;
+          const missingCode = adapter.traits.checker.skillsManifestAbsentCode ?? `runtime.${codeId}_skills_manifest_absent`;
           addDoctorFinding(result, missingManifest ? 'ok' : 'error', missingManifest ? missingCode : `runtime.${codeId}_unchecked`, missingManifest ? `未声明 ${adapter.displayName} Skills manifest，跳过 Skills runtime 检查：${scope}` : `无法检查 ${adapter.displayName} runtime：${scope}`, missingManifest ? {} : {
             agent,
             suggestion: error.message,

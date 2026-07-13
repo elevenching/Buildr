@@ -25,7 +25,7 @@ Agent 在 `product` Project 中的最小运行规则。
 ## 产品边界
 
 - 产品定位、核心模型、边界和 Roadmap 以 `docs/buildr-product.md` 为准。
-- Buildr 的用户既包括人，也包括 Agent；产品能力必须同时从人类用户和 Agent 一等用户的视角设计，不能只提供面向人的操作入口与说明。
+- Buildr 的主要用户是 Agent；人是一等参与者，主要通过 Agent 表达目标、提供业务判断并确认重要决策。产品能力必须优先从 Agent 如何发现、理解和使用组织工作资产的视角设计，同时保证人可以低门槛参与，不能只提供面向人的操作入口与说明。
 - 产品交互优先支持 Agent 理解用户意图、自主推理下一步并引导用户使用 Buildr；能够由 Agent 判断、解释和推进的工作，不应要求人类用户先掌握 Buildr 的内部模型或命令细节。
 - 新增或调整产品能力时，必须同时考虑 Buildr Skill 如何让 Agent 发现、理解、选择并正确使用该能力；缺少相应的 Agent 使用指引、决策边界或完成标准时，功能设计不完整。
 - 产品能力、CLI 行为、上下文模型、runtime adapter 行为和架构性变更必须先创建 OpenSpec change。
@@ -56,5 +56,9 @@ Project 服务通过 `services/manifest.yml` 维护 Service registry，默认 re
 ## 验证入口
 
 修改 package baseline、manifest、CLI、bootstrap、Buildr Skill 或 runtime adapter 后，按 `docs/release-checklist.md` 验证。
+
+- 普通任务运行 `npm test` 或 `npm run test:fast`，只承担 unit、架构、spec 和全部 adapter 低成本契约反馈。
+- 任务组运行 `npm run test:affected -- <group...>`，同一组合中的共享 verifier 只执行一次。
+- 最终候选冻结后运行 `npm run test:candidate`；`tools/verify-buildr-product` 是供 CI、publish 和历史集成使用的等价兼容入口。
 
 Buildr 产品完整验证结束后，Agent 必须读取 timing summary，并向维护者汇报总耗时、最慢阶段、失败阶段（如有）和 summary 文件路径。耗时仅用于观察趋势；除非 OpenSpec 另有阈值契约，不得仅因耗时增长判定验证失败。该要求仅适用于 Buildr Product Project，不扩展为其他 Buildr workspace 的通用 Skill 流程。

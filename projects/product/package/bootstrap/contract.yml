@@ -11,6 +11,11 @@ bootstrapGuideRequiredText:
   - buildr skill install <agent>
   - claude-code
   - codex
+  - cursor
+  - qoder
+  - trae
+  - trae-work
+  - workbuddy
   - buildr sync <agent>
   - 产品能力同步
   - 当前 Agent runtime render

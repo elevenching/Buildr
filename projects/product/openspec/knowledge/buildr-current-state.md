@@ -103,8 +103,8 @@ Organization/Root -> Project -> Service
 ## Agent Skills
 
 - Buildr 产品内置 Agent Skill 位于 `package/targets/runtime/skills/buildr/SKILL.md`，由 `package/manifest.yml` 的 `agentSkills` 声明。
-- `buildr runtime list --json` 输出 supported Agent runtime adapter、五类 required render capabilities、各 adapter render 能力和推荐命令。
-- 当前 supported Agent runtime adapter 是 `claude-code` 和 `codex`，Agent id 大小写敏感。
+- `buildr runtime list --json` 输出 supported Agent runtime adapter、五类 required render capabilities、Rules/Skills/surface/activation/checker trait catalog、各 adapter 组合 traits、render 能力和推荐命令。
+- 当前 supported Agent runtime adapter 是 `claude-code`、`codex`、`cursor`、`qoder`、`trae`、`trae-work` 和 `workbuddy`，Agent id 大小写敏感；不为 unsupported runtime 使用 alias 或 fallback。
 - `buildr skill install <agent> --target <dir>` 只安装产品入口 Buildr Skill。
 - 该安装不要求目标目录已经是 Buildr workspace。
 - 产品内置 Agent Skill 不复制到用户 workspace `skills/` 作为源资产。
@@ -125,7 +125,7 @@ Organization/Root -> Project -> Service
 - 当前随包独立 workspace Skills 包括 `task-triage`、`task-worktree`、`task-finish` 和 `git-ops`；OpenSpec workflows 与 `openspec-contract-guard` 由 OpenSpec Component 统一交付，但仍以 Buildr builtin descriptor 提供产品元数据。
 - 产品入口 Buildr Skill 仍位于 `package/targets/runtime/skills/buildr/SKILL.md`，不进入 workspace `skills/manifest.yml`，也不硬编码可卸载 Component 所拥有的专用 Skill 路由。
 - `buildr skills render <agent> --scope <scope>` 渲染 workspace/project Skills 和 Skill install plans；它不安装产品内置 Buildr Skill。
-- `buildr skills render codex` 渲染 workspace/project Skills 到 `.agents/skills/`。
+- `buildr skills render codex|cursor` 渲染 workspace/project Skills 到 `.agents/skills/`；其他 adapter 使用 descriptor 声明的 `.claude`、`.qoder`、`.trae` 或 `.codebuddy` root。
 
 ## Commands
 
@@ -173,8 +173,11 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 - Agent runtime 文件是可重建渲染产物，不是长期资产源。
 - `service create` 不向 service repo 写入 `CLAUDE.md`、`.claude/` 或其他 runtime 文件。
 - adapter required render capabilities 固定为 `rules-entry`、`product-buildr-skill`、`workspace-project-skills`、`skill-install-plans` 和 `runtime-check`。
+- supported adapter descriptor 由受约束 traits 组合：Rules 为 `native-recursive`、`native-root`、`reference-bridge` 或 `vendor-rule-files`，Skills 为 `agents-compatible` 或 `vendor-root`，并显式声明 surface、activation 和 checker；组合不完整或部分 Rules scope 不得注册为 supported。
 - Codex 当前原生使用全部已发现的 `AGENTS.md`，Rules render 零写入；Codex Skills adapter 将 enabled Skills 渲染到 `.agents/skills/<skill-id>/`。
 - Claude Code adapter 支持 `skill install`、`runtime check`、`rules render` 和 `skills render`。
+- Cursor、Qoder、TRAE 使用 `vendor-rule-files`：分别生成各 source scope 的 `.cursor/rules/buildr.mdc`、root `.qoder/rules/buildr/*.md`、各 source scope 的 `.trae/rules/buildr.md`；TRAE Work 与 WorkBuddy 使用 root-index reference bridge，目标分别为 `CLAUDE.local.md` 和 `CODEBUDDY.md`。
+- TRAE Work Rules import/reference traversal 无法仅由 projection 证明，checker 保持 prerequisite warning。新增 adapter 使用 `documented` / `verified` 两级证据：WorkBuddy 5.2.5 已通过桌面包内置 CodeBuddy CLI 2.106.4 的一次性新任务 marker smoke，等级为 `verified`；Cursor、Qoder、TRAE 与 TRAE Work 已由官方资料、本机观察或 discovery 源码认证为 `documented`，真实产品 smoke 保持 `pending`。GUI 自动点击、私有数据库抓取和重复 reload 测试不属于常规 adapter 完成门槛。
 - Claude Code rules render 在每个 source 同目录生成 `@AGENTS.md` reference bridge，不复制规则全文；reconcile 先校验全部 conflict 再写入，并清理 source 已删除的 Buildr-managed orphan bridge。
 - reference bridge 中旧 hash 过期只作为 metadata info，不构成 action-required stale。
 - 当前实现已通过本地 Codex runtime adapter 验证 `.agents/skills/<skill-id>/SKILL.md` 渲染结构；实际扫描行为仍以当前 Codex 产品版本为准。
@@ -187,7 +190,7 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 - `buildr builtin uninstall <id> --target <dir>` 卸载 optional 内置能力；required 能力会被拒绝。
 - 当前随包 optional Skills 卸载会删除源文件，并删除 `.claude/skills/` 和 `.agents/skills/` 下的 runtime 渲染结果。
 - `buildr builtin restore <id> --target <dir>` 从当前产品包恢复指定内置能力。
-- `buildr sync codex --target <dir>` 和 `buildr sync claude-code --target <dir>` 是 workspace 同步主路径：同步 Buildr 产品能力、安装产品入口 Buildr Skill、准备当前 Agent 的 workspace 入口 runtime，并用 `doctor --agent <agent>` 复查；它们不更新 CLI。
+- `buildr sync <agent> --target <dir>` 是七个 supported adapter 的 workspace 同步主路径：同步 Buildr 产品能力、安装产品入口 Buildr Skill、准备当前 Agent 的 workspace 入口 runtime，并用 `doctor --agent <agent>` 复查；它不更新 CLI。
 - 默认 `sync` 从 canonical `.` 递归 reconcile 整个受管理 workspace Rules 子树；组合 `render` 的 Rules 使用完整 canonical scope，Skills scope 折叠到所属 Root/Project。
 
 ## CLI Internal Architecture
@@ -204,10 +207,10 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 
 | 分类 | 命令 |
 |---|---|
-| public onboarding / daily | `buildr init --agent claude-code/codex`、纯源资产 `buildr init`、`buildr project create`、`buildr service create`、`buildr doctor`、`buildr runtime list`、`buildr sync claude-code/codex` |
+| public onboarding / daily | `buildr init --agent <agent>`、纯源资产 `buildr init`、`buildr project create`、`buildr service create`、`buildr doctor`、`buildr runtime list`、`buildr sync <agent>` |
 | public CLI lifecycle | `buildr update/check` |
 | public asset lifecycle | `buildr commands add/remove/check`、`buildr component list/check/install/uninstall`、`buildr rules add/remove`、`buildr skills add/remove`、`buildr builtin list/uninstall/restore` |
-| public advanced / repair | `buildr mutation recover`、`buildr runtime check claude-code/codex`、`buildr render claude-code/codex`、`buildr rules render claude-code`、`buildr skills render claude-code/codex`、`buildr skill install claude-code/codex`、`buildr bootstrap guide` |
+| public advanced / repair | `buildr mutation recover`、`buildr runtime check <agent>`、`buildr render <agent>`、`buildr rules render <agent>`（仅 Rules writesFiles adapters）、`buildr skills render <agent>`、`buildr skill install <agent>`、`buildr bootstrap guide` |
 | internal workflow | `buildr openspec baseline create`、`buildr openspec check` |
 | internal product maintenance | `buildr package check`、`buildr package build` |
 
@@ -244,10 +247,10 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 
 ## Current Limits
 
-- runtime adapter 当前支持 `claude-code` 和 `codex`；其他 Agent 不支持自动渲染，应联系 Buildr 作者反馈。
+- runtime adapter 当前支持 `claude-code`、`codex`、`cursor`、`qoder`、`trae`、`trae-work` 和 `workbuddy`；其他 Agent 不支持自动渲染，应联系 Buildr 作者反馈。
 - Codex 使用 `AGENTS.md` 和 `.agents/skills/`；不生成 managed `AGENTS.md` runtime 文件。
 - service repo 不作为 MVP 的独立 Agent runtime 入口。
 - Project 级 `rules/manifest.yml` 当前不提供；Project 规则仍通过 `projects/<project>/AGENTS.md` 维护。
 - 当前不提供命令行工具 install/render；Component 不安装、升级或卸载外部 CLI。
-- Component 当前仅支持 workspace scope；Project/Service Component、远程 registry、依赖求解、权限系统、系统级 Hook 和更多 Agent adapters 仍是后续能力。
+- Component 当前仅支持 workspace scope；Project/Service Component、远程 registry、依赖求解、权限系统、系统级 Hook 和其他 Agent adapters 仍是后续能力。
 - `buildr openspec baseline create <change> --project <project> --target <workspace>` 在 active change sidecar 中记录 Requirement 基线；`buildr openspec check` 提供 proposal、pre-sync 和 post-sync stages。缺少/不完整基线、active change 同 Requirement 冲突、stale canonical Requirement、delta/receipt 改变或同步修改未触达 Requirement 都会返回非零状态和 Agent-readable nextActions；它不修改外部 OpenSpec CLI 或 Skills。

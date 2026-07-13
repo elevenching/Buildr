@@ -3,6 +3,7 @@ export function createPackageStaticValidator(deps) {
     LEGACY_PACKAGE_PATHS,
     PACKAGE_RUNTIME_TARGET,
     PACKAGE_WORKSPACE_TARGET,
+    SUPPORTED_AGENT_IDS,
     collectFiles,
     componentMemberPaths,
     existsDirectory,
@@ -453,8 +454,9 @@ export function createPackageStaticValidator(deps) {
       if (!skill.path.startsWith(`${PACKAGE_WORKSPACE_TARGET}/skills/`)) {
         problems.push(`${label}.path must be under ${PACKAGE_WORKSPACE_TARGET}/skills/.`);
       }
-      if (!Array.isArray(skill.runtimes) || !skill.runtimes.includes('claude-code') || !skill.runtimes.includes('codex')) {
-        problems.push(`${label}.runtimes must include claude-code and codex.`);
+      const missingRuntimes = SUPPORTED_AGENT_IDS.filter((runtime) => !skill.runtimes?.includes(runtime));
+      if (!Array.isArray(skill.runtimes) || missingRuntimes.length > 0) {
+        problems.push(`${label}.runtimes must include all supported adapters: ${SUPPORTED_AGENT_IDS.join(', ')}.`);
       }
       if (path.isAbsolute(skill.path) || skill.path.startsWith('..') || path.isAbsolute(skill.target) || skill.target.startsWith('..')) {
         problems.push(`${label} paths must stay relative.`);

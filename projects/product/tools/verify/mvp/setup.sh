@@ -2,6 +2,12 @@ set -euo pipefail
 
 product_root="${product_root:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}"
 buildr="$product_root/tools/buildr"
+mvp_lock_dir="${TMPDIR:-/tmp}/buildr-product-mvp.lock"
+if ! mkdir "$mvp_lock_dir" 2>/dev/null; then
+  echo "Another Buildr MVP verification is already using the shared diagnostic paths: $mvp_lock_dir" >&2
+  exit 1
+fi
+rm -f /tmp/buildr-product-mvp-* 2>/dev/null || true
 main_worktree="$(git -C "$product_root" worktree list --porcelain | sed -n 's/^worktree //p' | head -n 1)"
 main_status_before="$(git -C "$main_worktree" status --porcelain=v1 --untracked-files=all)"
 tmp="$(mktemp -d)"
@@ -18,17 +24,54 @@ skill_install_target="$(mktemp -d)"
 remote_skill_dir="$(mktemp -d)"
 reconcile_tmp="$(mktemp -d)"
 remote_skill_pid=""
+current_section=""
+section_started_at=""
+
+now_ms() {
+  node -e 'process.stdout.write(String(Date.now()))'
+}
+
+finish_section() {
+  local status="${1:-0}"
+  local finished_at duration_ms result
+  if [[ -z "$current_section" ]]; then
+    return
+  fi
+  finished_at="$(now_ms)"
+  duration_ms="$((finished_at - section_started_at))"
+  result="passed"
+  if [[ "$status" -ne 0 ]]; then
+    result="failed"
+  fi
+  printf '[verify-mvp] completed: %s (%s ms)\n' "$current_section" "$duration_ms"
+  if [[ -n "${BUILDR_MVP_TIMING_FILE:-}" ]]; then
+    printf '%s\t%s\t%s\t%s\n' "$current_section" "$result" "$status" "$duration_ms" >> "$BUILDR_MVP_TIMING_FILE"
+  fi
+  current_section=""
+}
 
 cleanup() {
+  local status=$?
+  finish_section "$status"
   if [[ -n "$remote_skill_pid" ]]; then
     kill "$remote_skill_pid" >/dev/null 2>&1 || true
     wait "$remote_skill_pid" 2>/dev/null || true
   fi
+  if [[ "$status" -ne 0 && -n "${BUILDR_MVP_DIAGNOSTICS_DIR:-}" ]]; then
+    mkdir -p "$BUILDR_MVP_DIAGNOSTICS_DIR"
+    find /tmp -maxdepth 1 -type f -name 'buildr-product-mvp-*' -exec cp {} "$BUILDR_MVP_DIAGNOSTICS_DIR" \;
+    printf '[verify-mvp] failure diagnostics: %s\n' "$BUILDR_MVP_DIAGNOSTICS_DIR" >&2
+  fi
   rm -rf "$tmp" "$remote_parent" "$remote_seed" "$project_repo" "$local_repo" "$npm_pack_dir" "$npm_prefix" "$npm_workspace" "$npm_skill_workspace" "$skill_install_target" "$remote_skill_dir" "$reconcile_tmp"
+  rm -f /tmp/buildr-product-mvp-* 2>/dev/null || true
+  rmdir "$mvp_lock_dir" 2>/dev/null || true
 }
 trap cleanup EXIT
 
 section() {
+  finish_section 0
+  current_section="$1"
+  section_started_at="$(now_ms)"
   printf '\n[verify-mvp] %s\n' "$1"
 }
 
