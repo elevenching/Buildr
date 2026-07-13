@@ -2,10 +2,17 @@
 set -euo pipefail
 
 product_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PATH="$product_root/node_modules/.bin:$PATH"
+if ! command -v openspec >/dev/null 2>&1; then
+  echo "OpenSpec CLI is missing. Run npm ci in projects/product before verification." >&2
+  exit 1
+fi
 timing_file="$(mktemp)"
 mvp_timing_file="$(mktemp)"
 timing_output="${BUILDR_TIMING_OUTPUT:-${TMPDIR:-/tmp}/buildr-product-verification-timing.json}"
+diagnostics_output="${BUILDR_DIAGNOSTICS_OUTPUT:-${timing_output%.json}-diagnostics}"
 total_started_at="$(node -e 'process.stdout.write(String(Date.now()))')"
+rm -rf "$diagnostics_output"
 
 cleanup() {
   rm -f "$timing_file" "$mvp_timing_file"
@@ -30,7 +37,7 @@ run_step() {
     printf '[verify-product] completed: %s (%s ms)\n' "$label" "$duration_ms"
   else
     printf '%s\tfailed\t%s\t%s\n' "$label" "$status" "$duration_ms" >> "$timing_file"
-    node tools/verification/timing/report.mjs "$timing_file" "$timing_output" failed "$((finished_at - total_started_at))" "$mvp_timing_file"
+    node tools/verification/timing/report.mjs "$timing_file" "$timing_output" failed "$((finished_at - total_started_at))" "$mvp_timing_file" "$diagnostics_output"
     return "$status"
   fi
 }
@@ -39,7 +46,14 @@ cd "$product_root"
 
 run_step "fine-grained unit tests" npm run test:unit
 
+run_step "CLI modular architecture" node tools/verification/cli/architecture.mjs
+
+run_step "OpenSpec canonical spec quality" node tools/verification/openspec/spec-quality.mjs
+run_step "openspec strict validation" openspec validate --all --strict
+
 run_step "open-source candidate" node tools/verification/release/open-source-candidate.mjs
+run_step "OpenSpec contract candidate audit" node tools/verification/openspec/contract-audit.mjs
+run_step "managed mutations" node tools/verification/integrity/managed-mutations.mjs
 
 run_step "repository onboarding from a clean checkout" node tools/verification/onboarding/repository.mjs
 
@@ -47,7 +61,6 @@ run_step "single-command init onboarding" node tools/verification/onboarding/ini
 
 run_step "package check" ./buildr package check
 
-run_step "CLI modular architecture" node tools/verification/cli/architecture.mjs
 run_step "CLI compatibility" node tools/verification/cli/compatibility.mjs
 run_step "CLI package parity" node tools/verification/cli/package-parity.mjs
 
@@ -58,22 +71,15 @@ run_step "Service branch contract" node tools/verification/onboarding/service-br
 
 run_step "remote Skill timeout contract" node tools/verification/network/remote-text.mjs
 
-BUILDR_MVP_TIMING_FILE="$mvp_timing_file" run_step "temporary workspace end-to-end" tools/verify-buildr-product-mvp
+BUILDR_MVP_TIMING_FILE="$mvp_timing_file" BUILDR_MVP_DIAGNOSTICS_DIR="$diagnostics_output" run_step "temporary workspace end-to-end" tools/verify-buildr-product-mvp
 
 run_step "release tarball smoke" node tools/verification/release/release-smoke.mjs
 
-run_step "managed mutations" node tools/verification/integrity/managed-mutations.mjs
 run_step "managed data integrity" node tools/verification/integrity/managed-data-integrity.mjs
 
 run_step "OpenSpec contract fixtures" node tools/verification/openspec/contract.mjs
 
-run_step "OpenSpec contract candidate audit" node tools/verification/openspec/contract-audit.mjs
-
-run_step "OpenSpec canonical spec quality" node tools/verification/openspec/spec-quality.mjs
-
-run_step "openspec strict validation" openspec validate --all --strict
-
 total_finished_at="$(node -e 'process.stdout.write(String(Date.now()))')"
-node tools/verification/timing/report.mjs "$timing_file" "$timing_output" passed "$((total_finished_at - total_started_at))" "$mvp_timing_file"
+node tools/verification/timing/report.mjs "$timing_file" "$timing_output" passed "$((total_finished_at - total_started_at))" "$mvp_timing_file" "$diagnostics_output"
 
 printf '\nBuildr product verification passed.\n'

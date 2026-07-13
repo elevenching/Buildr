@@ -69,13 +69,7 @@ node "$audit_fixture/projects/product/tools/verification/openspec/contract-audit
 grep -q 'audit-fixture associated with current candidate receipts' /tmp/buildr-product-mvp-contract-audit-nested.txt
 rm -rf "$audit_fixture"
 
-section "Package source checks"
-
-if ! node "$buildr" package check >/tmp/buildr-product-mvp-package-check.txt 2>/tmp/buildr-product-mvp-package-check.err; then
-  cat /tmp/buildr-product-mvp-package-check.err >&2
-  exit 1
-fi
-grep -q 'Buildr package check passed' /tmp/buildr-product-mvp-package-check.txt
+section "Packaged governance assets"
 
 git_ops_skill="$product_root/package/targets/workspace/skills/buildr/git-ops/SKILL.md"
 grep -q '优先使用常用、直接和简练的语言' "$product_root/package/targets/workspace/rules/buildr/core.md"
@@ -112,7 +106,7 @@ if grep -q '默认使用中文' "$git_ops_skill"; then
   exit 1
 fi
 
-section "npm package lifecycle"
+section "npm: tarball contract"
 
 if ! command -v npm >/dev/null 2>&1; then
   echo "npm is required to verify the Buildr npm package." >&2
@@ -209,6 +203,8 @@ print(os.path.join(os.environ['NPM_PACK_DIR'], pkg['filename']))
 PY
 )"
 
+section "npm: install and onboarding"
+
 npm install -g --prefix "$npm_prefix" "$tarball" >/tmp/buildr-product-mvp-npm-install.txt
 installed_buildr="$npm_prefix/bin/buildr"
 test -x "$installed_buildr"
@@ -241,6 +237,8 @@ grep -q 'id: "openspec"' "$npm_workspace/components/manifest.yml"
 grep -q 'openspec-explore' "$npm_workspace/skills/manifest.yml"
 grep -Eq 'source: "?buildr"?' "$npm_workspace/skills/manifest.yml"
 test -f "$npm_workspace/skills/openspec/openspec-explore/SKILL.md"
+section "npm: Project and Service lifecycle"
+
 "$installed_buildr" project create demo --target "$npm_workspace" >/dev/null
 grep -q 'demo:' "$npm_workspace/projects/manifest.yml"
 "$installed_buildr" service create demo/api "$remote_repo" --target "$npm_workspace" --type backend >/dev/null
@@ -252,6 +250,8 @@ assert result['workspace']['initialized'] is True
 assert result['projectRegistry']['exists'] is True
 assert any(service['name'] == 'api' for service in result['services'])
 PY
+section "npm: runtime projection"
+
 "$installed_buildr" skill install claude-code --target "$npm_workspace" >/tmp/buildr-product-mvp-npm-workspace-skill-install.txt
 (cd "$npm_workspace" && "$installed_buildr" runtime check claude-code --scope projects/demo --target "$npm_workspace" >/tmp/buildr-product-mvp-npm-runtime-before.txt || true)
 (cd "$npm_workspace" && "$installed_buildr" rules render claude-code --scope projects/demo --target "$npm_workspace" >/dev/null)
@@ -261,10 +261,14 @@ assert_compact_claude_bridge "$npm_workspace/CLAUDE.md"
 assert_compact_claude_bridge "$npm_workspace/projects/demo/CLAUDE.md"
 test -f "$npm_workspace/.claude/skills/buildr/SKILL.md"
 test -f "$npm_workspace/.claude/skills/openspec-explore/SKILL.md"
+section "npm: installed maintenance"
+
 "$installed_buildr" package check >/tmp/buildr-product-mvp-npm-package-check.txt
 grep -q 'Buildr package check passed' /tmp/buildr-product-mvp-npm-package-check.txt
 "$installed_buildr" bootstrap guide >/tmp/buildr-product-mvp-npm-bootstrap-guide.txt
 grep -q 'buildr service create' /tmp/buildr-product-mvp-npm-bootstrap-guide.txt
+
+section "npm: bootstrap contract"
 
 node "$buildr" bootstrap guide >/tmp/buildr-product-mvp-bootstrap-guide.txt
 grep -q 'Buildr Skill' /tmp/buildr-product-mvp-bootstrap-guide.txt

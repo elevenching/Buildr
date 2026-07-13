@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+product_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PATH="$product_root/node_modules/.bin:$PATH"
+
+usage() {
+  cat <<'EOF'
+Usage: tools/verify-buildr-product-affected <group> [group...]
+
+Groups:
+  public    Public metadata, bilingual README, and npm tarball inventory
+  cli       CLI architecture, compatibility, package parity, and runtime adapters
+  package   Package assets, managed mutations, and managed data integrity
+  openspec  OpenSpec fixtures, candidate audit, spec quality, and strict validation
+  release   Public candidate and packed release lifecycle
+
+The affected check always runs fine-grained unit tests once. Final candidates must
+still run the complete tools/verify-buildr-product entry point.
+EOF
+}
+
+if [[ "$#" -eq 0 ]]; then
+  usage >&2
+  exit 2
+fi
+
+cd "$product_root"
+npm run test:unit
+
+for group in "$@"; do
+  case "$group" in
+    public)
+      node tools/verification/release/open-source-candidate.mjs
+      ;;
+    cli)
+      node tools/verification/cli/architecture.mjs
+      node tools/verification/cli/compatibility.mjs
+      node tools/verification/cli/package-parity.mjs
+      node tools/verification/runtime/adapter-contract.mjs
+      node tools/verification/runtime/adapter-parity.mjs
+      ;;
+    package)
+      ./buildr package check
+      node tools/verification/integrity/managed-mutations.mjs
+      node tools/verification/integrity/managed-data-integrity.mjs
+      ;;
+    openspec)
+      node tools/verification/openspec/contract.mjs
+      node tools/verification/openspec/contract-audit.mjs
+      node tools/verification/openspec/spec-quality.mjs
+      openspec validate --all --strict
+      ;;
+    release)
+      node tools/verification/release/open-source-candidate.mjs
+      node tools/verification/release/release-smoke.mjs
+      ;;
+    *)
+      echo "Unknown affected verification group: $group" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+echo "Buildr affected verification passed: $*"

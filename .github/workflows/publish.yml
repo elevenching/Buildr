@@ -28,14 +28,13 @@ jobs:
         run: npm install --global npm@11.5.1
       - name: Install product dependencies
         run: npm ci
-      - name: Install supported OpenSpec CLI
-        run: npm install --global @fission-ai/openspec@1.4.1
       - name: Resolve release contract
         id: contract
         run: node tools/verification/release/release-contract.mjs "${GITHUB_REF_NAME}"
       - name: Verify final release candidate
         env:
           BUILDR_TIMING_OUTPUT: ${{ runner.temp }}/buildr-release-verification-timing.json
+          BUILDR_DIAGNOSTICS_OUTPUT: ${{ runner.temp }}/buildr-release-verification-diagnostics
         run: ./tools/verify-buildr-product
       - name: Check official registry version
         id: registry
@@ -59,3 +58,10 @@ jobs:
           name: release-verification-timing-${{ github.ref_name }}
           path: ${{ runner.temp }}/buildr-release-verification-timing.json
           if-no-files-found: warn
+      - name: Upload release failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-verification-diagnostics-${{ github.ref_name }}
+          path: ${{ runner.temp }}/buildr-release-verification-diagnostics
+          if-no-files-found: ignore

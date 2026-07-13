@@ -57,6 +57,16 @@
 
 开发期间只在单任务后做最小反馈检查，在相关任务组完成后做一次受影响范围验证；不要逐任务运行本节的完整验证。验证命令仍在运行或暂时无输出时继续等待同一进程，不重复启动。
 
+受影响范围验证可按改动类型组合执行；该入口始终先运行一次 unit tests，但不能替代最终候选完整验证：
+
+```bash
+npm run test:affected -- public
+npm run test:affected -- cli
+npm run test:affected -- package
+npm run test:affected -- openspec
+npm run test:affected -- release
+```
+
 以下完整验证在所有 rebase、冲突解决和内容修改结束后，对 task worktree 的最终候选 Git tree 执行。commit、相同 tree 集成、push 和 worktree 清理复用该结果，不在主开发分支重复执行；tree 改变时才重新运行受影响的验证。
 
 ```bash

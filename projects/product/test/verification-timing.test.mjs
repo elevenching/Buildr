@@ -15,10 +15,12 @@ test('verification timing reporter emits a versioned machine-readable summary', 
   try {
     const input = path.join(root, 'timing.tsv');
     const mvpInput = path.join(root, 'mvp-timing.tsv');
+    const diagnostics = path.join(root, 'diagnostics');
     const output = path.join(root, 'timing.json');
+    fs.mkdirSync(diagnostics);
     fs.writeFileSync(input, 'unit tests\tpassed\t0\t125\ntemporary workspace end-to-end\tfailed\t1\t375\n');
     fs.writeFileSync(mvpInput, 'Workspace\tpassed\t0\t150\nRuntime\tfailed\t1\t225\n');
-    const result = spawnSync(process.execPath, [reporter, input, output, 'failed', '500', mvpInput], { encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [reporter, input, output, 'failed', '500', mvpInput, diagnostics], { encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(JSON.parse(fs.readFileSync(output, 'utf8')), {
       schemaVersion: 'buildr.verification-timing/v1',
@@ -37,6 +39,7 @@ test('verification timing reporter emits a versioned machine-readable summary', 
         },
       ],
       totalDurationMs: 500,
+      diagnosticsDirectory: diagnostics,
     });
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

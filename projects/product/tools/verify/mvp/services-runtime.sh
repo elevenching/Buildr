@@ -146,7 +146,7 @@ for line in lines:
 path.write_text('\n'.join(out) + '\n')
 PY
 
-section "Runtime"
+section "Runtime: Skill installation"
 
 node "$buildr" skill install claude-code --target "$skill_install_target" >/tmp/buildr-product-mvp-skill-install.txt
 grep -q '.claude/skills/buildr/SKILL.md' /tmp/buildr-product-mvp-skill-install.txt
@@ -162,6 +162,8 @@ if node "$buildr" skill install claude-code --target "$skill_install_target/conf
   exit 1
 fi
 grep -q 'Refusing to overwrite non-Buildr-managed file' /tmp/buildr-product-mvp-skill-install-conflict.txt
+
+section "Runtime: workspace diagnostics"
 
 node "$buildr" doctor --target "$tmp" --scope projects/demo --json >/tmp/buildr-product-mvp-doctor.json
 python3 - <<'PY'
@@ -224,6 +226,8 @@ if node "$buildr" doctor --target "$tmp" --scope shared --json >/tmp/buildr-prod
   exit 1
 fi
 grep -q 'shared scopes are not supported' /tmp/buildr-product-mvp-shared-scope.err
+
+section "Runtime: Claude Code projection"
 
 (cd "$tmp" && node "$buildr" runtime check claude-code --scope projects/demo --target "$tmp" >/tmp/buildr-product-mvp-runtime-before.txt || true)
 (cd "$tmp" && node "$buildr" rules render claude-code --scope projects/demo --target "$tmp" >/dev/null)
@@ -297,6 +301,8 @@ test -f "$tmp/.claude/skills/openspec-contract-guard/SKILL.md"
 test -f "$tmp/.claude/skills/task-finish/SKILL.md"
 test -f "$tmp/.claude/skills/remote-review/SKILL.md"
 
+section "Runtime: Codex reconciliation"
+
 node "$buildr" sync codex --target "$tmp" --scope . >/tmp/buildr-product-mvp-codex-sync.txt
 test -f "$tmp/.agents/skills/buildr/SKILL.md"
 test -f "$tmp/.agents/skills/openspec-explore/SKILL.md"
@@ -318,6 +324,8 @@ grep -q 'sync 暂停' /tmp/buildr-product-mvp-codex-sync-modified.txt
 grep -q 'openspec-propose' /tmp/buildr-product-mvp-codex-sync-modified.txt
 cp "$product_root/package/targets/workspace/skills/openspec/openspec-propose/SKILL.md" "$tmp/skills/openspec/openspec-propose/SKILL.md"
 node "$buildr" sync codex --target "$tmp" --scope . >/tmp/buildr-product-mvp-codex-sync-after-restore.txt
+
+section "Runtime: drift and legacy compatibility"
 
 printf 'projects/demo/\n' >> "$tmp/.gitignore"
 node "$buildr" doctor --target "$tmp" --scope projects/demo --json >/tmp/buildr-product-mvp-doctor-parent-ignore.json

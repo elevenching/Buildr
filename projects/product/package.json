@@ -55,6 +55,7 @@
   "scripts": {
     "test": "./tools/verify-buildr-product",
     "test:unit": "node --test test/*.test.mjs",
+    "test:affected": "./tools/verify-buildr-product-affected",
     "test:release": "node tools/verification/release/release-smoke.mjs",
     "pack:check": "npm pack --dry-run"
   },
@@ -63,5 +64,8 @@
   },
   "dependencies": {
     "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@fission-ai/openspec": "1.4.1"
   }
 }
