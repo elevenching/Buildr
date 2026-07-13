@@ -7,7 +7,7 @@ skills:
     enabled: true
     required: false
     state: "installed"
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: "task-triage"
   - id: "task-worktree"
     source: "buildr"
@@ -16,7 +16,7 @@ skills:
     enabled: true
     required: false
     state: "installed"
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: "task-worktree"
   - id: "git-ops"
     source: "buildr"
@@ -25,7 +25,7 @@ skills:
     enabled: true
     required: false
     state: "installed"
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: "git-ops"
   - id: "task-finish"
     source: "buildr"
@@ -34,7 +34,7 @@ skills:
     enabled: true
     required: false
     state: "installed"
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: "task-finish"
   - id: "openspec-contract-guard"
     source: "buildr"
@@ -43,7 +43,7 @@ skills:
     enabled: true
     required: false
     state: "installed"
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: "openspec-contract-guard"
   - id: "openspec-explore"
     source: "openspec"
@@ -52,7 +52,7 @@ skills:
     enabled: true
     required: false
     state: "installed"
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: "openspec-explore"
   - id: "openspec-propose"
     source: "openspec"
@@ -61,7 +61,7 @@ skills:
     enabled: true
     required: false
     state: "installed"
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: "openspec-propose"
   - id: "openspec-apply-change"
     source: "openspec"
@@ -70,7 +70,7 @@ skills:
     enabled: true
     required: false
     state: "installed"
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: "openspec-apply-change"
   - id: "openspec-sync-specs"
     source: "openspec"
@@ -79,7 +79,7 @@ skills:
     enabled: true
     required: false
     state: "installed"
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: "openspec-sync-specs"
   - id: "openspec-archive-change"
     source: "openspec"
@@ -88,5 +88,5 @@ skills:
     enabled: true
     required: false
     state: "installed"
-    runtimes: ["claude-code","codex"]
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: "openspec-archive-change"
