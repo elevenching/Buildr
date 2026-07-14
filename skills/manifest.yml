@@ -21,7 +21,7 @@ skills:
   - id: "git-ops"
     source: "buildr"
     path: "buildr/git-ops"
-    description: "用户表达提交、commit、推送、push、提交并推送、合并、merge、rebase、发布、release、删除分支、清理远端分支等单项 Git 意图，或 Git 操作存在授权、范围、amend、远端改写、分支删除等歧义时使用。"
+    description: "用户表达提交、推送、拉取、pull、合并、merge、rebase、checkout、switch、reset、cherry-pick、revert、stash、发布、删除分支等单项 Git 意图，或 Git 操作存在授权、范围、amend、远端改写、工作区转换、分支删除等歧义时使用。"
     enabled: true
     required: false
     state: "installed"
