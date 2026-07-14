@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "remind-runtime-sync-after-git-change",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-193a7da0a5392a9b2998edd6b10479287c5e80a72db401635b4d952ff7939474",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-first-product-positioning",
+      "title": "Buildr 功能优先由 Agent 执行",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "Git 工作区转换后诊断 Buildr Agent 环境",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "产品验证覆盖 Git 工作区转换后的环境检查契约",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

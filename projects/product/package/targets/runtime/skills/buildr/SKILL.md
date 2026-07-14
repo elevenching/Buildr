@@ -17,6 +17,8 @@ Agent 使用本 Skill 判断用户意图属于哪类 Buildr 资产，并通过 B
 
 组织资产先改变源资产（使用 Buildr CLI），再同步 Agent runtime（使用 render/sync）。
 
+Agent 是 Buildr 功能的默认操作入口。Agent 能在当前工具、权限和安全边界内完成的动作，应先说明必要影响并取得所需授权，再直接执行和验证；不得默认把命令交给用户代为执行。用户明确选择手动方式，或 Agent 因工具不可用、权限、登录态、外部环境等原因无法完成时，再提供准确的手动操作兜底。
+
 ## 执行循环
 
 1. 确认 `target`。未指定时默认当前目录；如果当前目录在服务（Service）代码仓内，先定位 Buildr 组织（Organization/Root）。
@@ -39,13 +41,15 @@ Agent 使用本 Skill 判断用户意图属于哪类 Buildr 资产，并通过 B
 | 接入代码仓、服务仓或可执行资产 | 服务（Service） |
 | 代码开发、实现、构建、测试或任务 worktree 生命周期 | `task-worktree` Skill |
 | 完成已验证任务、自动归档集成并清理 task worktree | `task-finish` Skill |
-| 提交、合并、rebase、推送、发布或其他单项 Git 操作 | `git-ops` Skill |
+| 提交、拉取、合并、rebase、checkout/switch、reset、推送、发布或其他单项 Git 操作 | `git-ops` Skill |
 | 统一安装、更新和卸载一组 workspace Rules、Skills、Command collections | 组件（Components） |
 | 沉淀每次会话必须遵守的约束 | 规则（Rules） |
 | 沉淀可复用任务流程或操作能力 | 技能（Skills） |
 | 声明组织复用的外部命令行工具 | 命令（Commands） |
 | 当前 Agent 找不到已声明规则或技能 | Agent runtime 渲染 |
 | 为 Buildr 增加新的 Agent runtime adapter | runtime trait intake + OpenSpec change |
+
+Agent 通过 `git-ops`、`task-worktree` 或 `task-finish` 成功改变已检出工作区内容后，由对应 Skill 在已初始化 Buildr workspace 中执行 post-transition doctor。doctor 指出 workspace sync 是合适修复动作时，询问用户是否由 Agent 立即同步，同时提供手动同步命令作为备选；用户确认后由 Agent 执行 `buildr sync <agent> --target <workspace-root>` 并验证最终 doctor。当前 session 是否重新发现新资产由 Agent runtime 决定。
 
 ## 资产维护
 

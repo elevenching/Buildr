@@ -261,8 +261,8 @@ python3 - "$tmp/skills/buildr/task-worktree/SKILL.md" "$tmp/.buildr/builtin-rece
 import json, pathlib, sys
 skill = pathlib.Path(sys.argv[1])
 content = skill.read_text()
-content = content.replace('向主自举 workspace 执行 sync。', '向主自举 workspace 执行 update/sync。')
-content = content.replace('实际自举 workspace 的 sync 是独立的状态变更，不是第二轮产品 E2E；如果执行，按 Buildr Core 运行当前 Agent doctor。CLI update 只更新 Product checkout 或 registry package，不读取 workspace。', '实际自举 workspace 的 update/sync 是独立的状态变更，不是第二轮产品 E2E；如果执行，按 Buildr Core 运行当前 Agent doctor。')
+content = content.replace('\n新 worktree checkout 完成后，复用 Git Ops 的“工作区转换后的 Buildr 环境检查”：只有新 checkout 实际位于包含 `.buildr/workspace.yml` 的已初始化 Buildr workspace 中，才针对当前 Agent 和该 workspace root 运行 doctor。doctor 无需处理时不询问同步；发现可由 sync 修复的环境问题时，复用同步询问、Agent 执行和手动兜底边界，用户确认前不执行 sync。复用既有 worktree 且没有发生 tree 转换时，不重复运行该检查。\n', '')
+content = content.replace('- 不在用户确认前同步新 worktree runtime，也不把手动命令作为默认处理方式；不为未发生 tree 转换的 worktree 复用重复检查。\n', '')
 skill.write_text(content)
 receipt_path = pathlib.Path(sys.argv[2])
 receipt = json.loads(receipt_path.read_text())

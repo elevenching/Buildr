@@ -1,6 +1,6 @@
 ---
 name: git-ops
-description: 用户表达提交、commit、推送、push、提交并推送、合并、merge、rebase、发布、release、删除分支、清理远端分支等单项 Git 意图，或 Git 操作存在授权、提交范围、amend、远端改写、分支删除等歧义时使用。用于统一 Git 协作约定和安全默认行为，而不是完整任务结束编排。
+description: 用户表达提交、推送、拉取、pull、合并、merge、rebase、checkout、switch、reset、cherry-pick、revert、stash、发布、删除分支等单项 Git 意图，或 Git 操作存在授权、提交范围、amend、远端改写、工作区转换、分支删除等歧义时使用。用于统一 Git 协作约定和安全默认行为，而不是完整任务结束编排。
 ---
 
 # Git Ops Skill
@@ -55,6 +55,26 @@ description: 用户表达提交、commit、推送、push、提交并推送、合
 - 目标分支默认只通过 fast-forward 集成任务分支；除非用户当前轮次或项目规则明确要求，不创建 merge commit。
 - 已推送或多人共享的任务分支不自动 rebase 或 force push。
 - rebase 冲突需要业务或语义选择时，停止并报告冲突，等待用户确认。
+
+## 工作区转换后的 Buildr 环境检查
+
+Agent 通过本 Skill 成功改变已检出工作区内容，且工作区已经离开冲突或中断状态后，执行一次 Buildr 环境检查。触发范围包括产生实际 tree 转换的 `pull`、`merge`、`rebase`、`checkout`、`switch`、`reset`、`cherry-pick`、`revert`、`stash apply` 和 `stash pop`。
+
+`fetch`、`push` 和普通 `commit` 不改变已检出内容，不触发该检查；Git 操作失败、仍处于未解决冲突状态或命令没有产生 tree 转换时也不触发。
+
+检查步骤：
+
+1. 从 Git 操作所在目录逐层向上查找最近的 `.buildr/workspace.yml`。找不到时视为不在已初始化 Buildr workspace 中，不执行 Buildr 检查。
+2. 使用当前 Agent 对应的受支持 adapter，在 workspace root 运行 `buildr doctor --agent <agent> --target <workspace-root> --json`。不得省略 `--agent`，也不得把 Git 仓库根直接当作 Buildr workspace root。
+3. doctor 无需用户处理时，不提醒用户执行 `render` 或 `sync`。
+4. doctor 报告问题时，说明这是当前环境状态，不把既有问题错误归因于刚完成的 Git 操作；按 Rules、Skills、Commands、Components、Contributions 和 Agent runtime 分类汇总，并优先采用 doctor 指向的可执行下一步。
+5. doctor 指出 workspace sync 是合适修复动作时，询问用户是否由 Agent 立即同步当前 workspace 和 Agent runtime；同时给出 `buildr sync <agent> --target <workspace-root>` 作为手动同步备选，面向用户时必须把占位符替换为已解析的实际值并正确引用路径，用户确认前不得执行 sync。
+6. 用户确认后，调用 Buildr Skill 执行 `buildr sync <agent> --target <workspace-root>`，并使用 sync 的最终 doctor 或追加 doctor 验证结果；不得把手动命令作为默认处理方式要求用户代为执行。
+7. Commands、Components、CLI 或其他不能由 sync 正确修复的问题，按对应 Buildr 生命周期询问并在取得授权后由 Agent 执行可完成的动作。只有用户选择手动方式，或 Agent 因工具不可用、权限、登录态、外部环境等原因无法完成时，才提供手动步骤并说明原因；用户选择手动后不假设操作成功，在用户报告完成且 Agent 可以执行 doctor 时再次验证。
+
+如果当前 Agent 无法匹配受支持 adapter，或 doctor 无法执行，报告环境状态尚未确认及具体原因，不猜测 runtime 已同步；此时可提供对应 doctor 命令作为手动兜底。当前 session 是否重新发现新资产由 Agent runtime 决定，不由 Buildr 保证。
+
+该检查点由 Agent 工作流触发，不安装或维护 Git hook、daemon、文件 watcher 或定时任务。用户或其他程序绕过 Agent Skill 直接执行 Git 时，Buildr 不声称能够即时感知；后续进入 Buildr 工作流时由基线 doctor 兜底。
 
 ## 远端默认行为
 
