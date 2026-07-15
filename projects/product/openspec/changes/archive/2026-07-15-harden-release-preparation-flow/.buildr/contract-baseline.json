@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "harden-release-preparation-flow",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-236cf870f82997bc17f8d354977c018e54346583db9726d7812e43cb38b8bbe5",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "Buildr 发布准备使用版本化任务环境",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "squash 发布候选以 tree identity 幂等衔接回 dev",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

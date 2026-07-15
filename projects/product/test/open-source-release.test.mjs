@@ -92,3 +92,22 @@ test('publish workflow is tag-gated, OIDC-ready, and token-free', () => {
   ]) assert.equal(workflow.includes(required), true, required);
   assert.equal(workflow.includes('NODE_AUTH_TOKEN'), false);
 });
+
+test('Buildr release Skill fixes release identity, dependency preparation, and tree-gated history bridging', () => {
+  const skill = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../skills/buildr-release/SKILL.md'), 'utf8');
+  const identity = skill.indexOf('tasks/release-<version>');
+  const npmCi = skill.indexOf('`npm ci`');
+  const versionMutation = skill.indexOf('`package.json`');
+  const candidateTree = skill.indexOf('candidate tree identity');
+  const bridge = skill.indexOf('bridge-main-to-dev.mjs');
+  for (const [name, value] of Object.entries({ identity, npmCi, versionMutation, candidateTree, bridge })) {
+    assert.notEqual(value, -1, name);
+  }
+  assert.equal(identity < npmCi, true);
+  assert.equal(npmCi < versionMutation, true);
+  assert.equal(candidateTree < bridge, true);
+  for (const required of [
+    'release-<version>', '<workspace-root>/.worktrees/release-<version>',
+    'origin/main^{tree}', 'origin/dev^{tree}', 'force push', 'tree gate',
+  ]) assert.equal(skill.includes(required), true, required);
+});

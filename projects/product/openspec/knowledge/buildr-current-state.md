@@ -243,6 +243,7 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 
 - 官方公开源码 identity 是 `https://github.com/elevenching/Buildr`，中文 `README.md` 是 canonical 产品入口，`README.en.md` 是唯一要求维护的英文翻译；其他文档继续按 Project 管理语言维护。
 - 官方 npm package identity 是 `@buildr-ai/buildr`，executable 仍是 `buildr`。prerelease 映射 `next`，稳定版本映射 `latest`，release tag 必须与 package version 一致。
+- Buildr Product Project 发布任务从目标 package version 派生 `release-<version>` task id、`tasks/release-<version>` 分支和 canonical worktree；新建 worktree 先运行 Product Project `npm ci`。`dev -> main` squash merge 后只有 `main`、`dev` 与已验证 candidate tree identity 完全一致时，才使用不改变 tree 的发布专用 merge commit 幂等衔接 `main -> dev`；该特例不扩展通用 Git Ops/Task Finish 授权。
 - `.github/workflows/publish.yml` 使用 GitHub-hosted Node、`npm-production` Environment 和 OIDC 权限准备受控发布；第一阶段不自动 push 公开 GitHub、不创建 tag、不执行首次 npm publish。
 
 ## Current Limits
