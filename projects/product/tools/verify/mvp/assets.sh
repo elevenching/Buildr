@@ -261,8 +261,11 @@ python3 - "$tmp/skills/buildr/task-worktree/SKILL.md" "$tmp/.buildr/builtin-rece
 import json, pathlib, sys
 skill = pathlib.Path(sys.argv[1])
 content = skill.read_text()
+content = content.replace('- 普通开发任务未上线、未归档或未明确收尾前，默认保留 task worktree 和任务分支。\n', '- 任务未上线、未归档或未明确收尾前，默认保留 task worktree 和任务分支。\n')
 content = content.replace('\n新 worktree checkout 完成后，复用 Git Ops 的“工作区转换后的 Buildr 环境检查”：只有新 checkout 实际位于包含 `.buildr/workspace.yml` 的已初始化 Buildr workspace 中，才针对当前 Agent 和该 workspace root 运行 doctor。doctor 无需处理时不询问同步；发现可由 sync 修复的环境问题时，复用同步询问、Agent 执行和手动兜底边界，用户确认前不执行 sync。复用既有 worktree 且没有发生 tree 转换时，不重复运行该检查。\n', '')
 content = content.replace('- 不在用户确认前同步新 worktree runtime，也不把手动命令作为默认处理方式；不为未发生 tree 转换的 worktree 复用重复检查。\n', '')
+content = content.replace('\n发布 worktree 是用于从既有发布基线制作、验证和推送发布分支的临时环境，不沿用普通开发任务的保守保留策略。满足以下全部条件时，默认删除本地发布 worktree 和已由远端安全承载的本地发布分支：\n\n- 远端发布分支已推送，且远端 ref 与本地候选提交一致。\n- 发布 worktree 干净，没有未提交或未处理内容。\n- 没有明确的后续本地构建、部署、修复或验证动作。\n\n发布分支推送后仍有明确的本地构建、部署、修复或验证动作时，保留发布 worktree，并向用户说明保留原因和下一项本地动作。发布 worktree 的默认清理不授权删除远端发布分支。\n', '')
+content = content.replace('- 发布 worktree 已完成远端分支推送和 ref 核对，且没有明确后续本地动作。\n', '')
 skill.write_text(content)
 receipt_path = pathlib.Path(sys.argv[2])
 receipt = json.loads(receipt_path.read_text())

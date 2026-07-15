@@ -526,6 +526,11 @@ export function createPackageStaticValidator(deps) {
           '复用同步询问、Agent 执行和手动兜底边界',
           '用户确认前不执行 sync',
           '不把手动命令作为默认处理方式',
+          '不沿用普通开发任务的保守保留策略',
+          '远端 ref 与本地候选提交一致',
+          '没有明确的后续本地构建、部署、修复或验证动作',
+          '说明保留原因和下一项本地动作',
+          '默认清理不授权删除远端发布分支',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`task-worktree Skill must include ${JSON.stringify(requiredText)}.`);
         }

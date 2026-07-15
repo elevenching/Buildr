@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "cleanup-pushed-release-worktrees",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-12406433f2762546e271d156f99767643243b5c899bfa4f8be0e185c4ba82d83",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "发布 worktree 在远端候选确认后默认清理",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}
