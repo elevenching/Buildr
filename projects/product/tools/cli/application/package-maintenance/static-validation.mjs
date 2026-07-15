@@ -345,6 +345,20 @@ export function createPackageStaticValidator(deps) {
         problems.push(`Package agentSkill SKILL.md does not exist: ${skill.path}/SKILL.md`);
         continue;
       }
+      const skillContent = fs.readFileSync(skillFile, 'utf8');
+      if (skill.id === 'buildr') {
+        for (const requiredText of [
+          '提交、拉取、合并、rebase、checkout/switch、reset、推送',
+          'post-transition doctor',
+          'Agent 是 Buildr 功能的默认操作入口',
+          '询问用户是否由 Agent 立即同步',
+          'buildr sync <agent> --target <workspace-root>',
+          '手动同步命令作为备选',
+          '当前 session 是否重新发现新资产由 Agent runtime 决定',
+        ]) {
+          if (!skillContent.includes(requiredText)) problems.push(`Buildr Agent Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+      }
       files.push(skillFile);
     }
 
@@ -430,6 +444,17 @@ export function createPackageStaticValidator(deps) {
       if (!existsFile(sourceFile)) {
         problems.push(`${label}.path does not exist: ${rule.path}`);
       } else {
+        if (rule.id === 'buildr-core') {
+          const coreContent = fs.readFileSync(sourceFile, 'utf8');
+          for (const requiredText of [
+            'Agent 是默认操作入口',
+            '取得所需授权后直接执行',
+            '不把命令或操作步骤作为默认结果要求用户代为执行',
+            '才提供准确的手动操作作为兜底',
+          ]) {
+            if (!coreContent.includes(requiredText)) problems.push(`Buildr Core must include ${JSON.stringify(requiredText)}.`);
+          }
+        }
         files.push(sourceFile);
       }
     }
@@ -495,6 +520,17 @@ export function createPackageStaticValidator(deps) {
           '不在主开发分支重复运行相同 E2E',
           '候选 tree 已改变时沿用旧验证结果',
           '不从未合并 task checkout 更新主自举 workspace',
+          '新 worktree checkout 完成后',
+          '复用 Git Ops 的“工作区转换后的 Buildr 环境检查”',
+          '复用既有 worktree 且没有发生 tree 转换时，不重复运行该检查',
+          '复用同步询问、Agent 执行和手动兜底边界',
+          '用户确认前不执行 sync',
+          '不把手动命令作为默认处理方式',
+          '不沿用普通开发任务的保守保留策略',
+          '远端 ref 与本地候选提交一致',
+          '没有明确的后续本地构建、部署、修复或验证动作',
+          '说明保留原因和下一项本地动作',
+          '默认清理不授权删除远端发布分支',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`task-worktree Skill must include ${JSON.stringify(requiredText)}.`);
         }
@@ -506,8 +542,31 @@ export function createPackageStaticValidator(deps) {
           '改变已验证 tree 时，原验证结果失效',
           '相同 tree',
           '不因 checkout、commit hash 或分支名称改变而重复运行相同验证',
+          '工作区转换后的 Buildr 环境检查',
+          '`pull`、`merge`、`rebase`、`checkout`、`switch`、`reset`、`cherry-pick`、`revert`、`stash apply` 和 `stash pop`',
+          '`fetch`、`push` 和普通 `commit`',
+          '.buildr/workspace.yml',
+          'buildr doctor --agent <agent> --target <workspace-root> --json',
+          'doctor 无需用户处理时，不提醒用户执行 `render` 或 `sync`',
+          'Rules、Skills、Commands、Components、Contributions 和 Agent runtime',
+          '询问用户是否由 Agent 立即同步当前 workspace 和 Agent runtime',
+          'buildr sync <agent> --target <workspace-root>',
+          '把占位符替换为已解析的实际值并正确引用路径',
+          '用户确认前不得执行 sync',
+          '用户确认后，调用 Buildr Skill',
+          '不得把手动命令作为默认处理方式',
+          '按对应 Buildr 生命周期询问并在取得授权后由 Agent 执行可完成的动作',
+          '只有用户选择手动方式，或 Agent 因工具不可用、权限、登录态、外部环境等原因无法完成时',
+          '用户选择手动后不假设操作成功',
+          '再次验证',
+          '当前 session 是否重新发现新资产由 Agent runtime 决定',
+          'Git hook、daemon、文件 watcher 或定时任务',
+          '后续进入 Buildr 工作流时由基线 doctor 兜底',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`git-ops Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        for (const routedIntent of ['pull', 'checkout', 'switch', 'reset', 'cherry-pick', 'revert', 'stash']) {
+          if (!skill.description.includes(routedIntent)) problems.push(`git-ops builtin description must route ${routedIntent}.`);
         }
         if (skill.description.includes('收尾')) {
           problems.push('git-ops builtin description must not claim the complete task closeout intent.');
@@ -516,6 +575,9 @@ export function createPackageStaticValidator(deps) {
           const metadata = parseSkillFrontmatter(skillFile);
           if (String(metadata.description || '').includes('收尾')) {
             problems.push('git-ops Skill description must not claim the complete task closeout intent.');
+          }
+          for (const routedIntent of ['pull', 'checkout', 'switch', 'reset', 'cherry-pick', 'revert', 'stash']) {
+            if (!String(metadata.description || '').includes(routedIntent)) problems.push(`git-ops Skill description must route ${routedIntent}.`);
           }
         } catch {
           // Frontmatter errors are already reported above.
@@ -536,6 +598,13 @@ export function createPackageStaticValidator(deps) {
           'wait、poll 或 resume 同一进程',
           '暂时无输出不得启动第二个相同验证',
           '停止尚未执行的 archive、commit、rebase、merge、push 或 cleanup',
+          '成功 rebase 后若最终已检出内容实际变化',
+          'fast-forward-only 集成完成后',
+          '复用 Git Ops 的“工作区转换后的 Buildr 环境检查”',
+          '复用同步询问、Agent 执行和手动兜底边界',
+          '用户确认前不执行 sync',
+          '确认后由 Agent 执行并验证',
+          '手动命令只作备选',
           '<!-- buildr:skill-contributions pre-spec-sync -->',
           '<!-- buildr:skill-contributions post-spec-sync -->',
         ]) {
@@ -587,6 +656,10 @@ export function createPackageStaticValidator(deps) {
         '不作为相同 tree 后续 Git 动作的重复产品验证门禁',
         '使用 `task-finish` 编排',
         '不授权 force push、merge commit、远端任务分支删除',
+        'Buildr 功能默认由 Agent 操作',
+        '取得所需授权后直接执行',
+        '不得把命令或操作步骤作为默认交付结果要求用户代为执行',
+        '才提供准确的手动操作作为兜底',
       ]) {
         if (!productAgents.includes(requiredText)) problems.push(`Product AGENTS.md must include ${JSON.stringify(requiredText)}.`);
       }
@@ -600,6 +673,10 @@ export function createPackageStaticValidator(deps) {
         const taskFinish = baselineSkills.find((entry) => entry.id === 'task-finish');
         if (!taskFinish || taskFinish.source !== 'buildr' || taskFinish.state !== 'installed' || taskFinish.enabled !== true) {
           problems.push('Workspace skills baseline must declare enabled installed Buildr task-finish.');
+        }
+        const gitOps = baselineSkills.find((entry) => entry.id === 'git-ops');
+        for (const routedIntent of ['pull', 'checkout', 'switch', 'reset', 'cherry-pick', 'revert', 'stash']) {
+          if (!gitOps?.description?.includes(routedIntent)) problems.push(`Workspace git-ops description must route ${routedIntent}.`);
         }
         for (const skill of baselineSkills.filter((entry) => entry.source !== undefined)) {
           if (typeof skill.source === 'string' && !isManifestSourceLabel(skill.source)) {

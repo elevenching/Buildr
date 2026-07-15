@@ -27,6 +27,7 @@ Agent 在 `product` Project 中的最小运行规则。
 - 产品定位、核心模型、边界和 Roadmap 以 `docs/buildr-product.md` 为准。
 - Buildr 的主要用户是 Agent；人是一等参与者，主要通过 Agent 表达目标、提供业务判断并确认重要决策。产品能力必须优先从 Agent 如何发现、理解和使用组织工作资产的视角设计，同时保证人可以低门槛参与，不能只提供面向人的操作入口与说明。
 - 产品交互优先支持 Agent 理解用户意图、自主推理下一步并引导用户使用 Buildr；能够由 Agent 判断、解释和推进的工作，不应要求人类用户先掌握 Buildr 的内部模型或命令细节。
+- Buildr 功能默认由 Agent 操作：Agent 能在当前工具、权限和安全边界内完成的动作，必须在说明必要影响并取得所需授权后直接执行，不得把命令或操作步骤作为默认交付结果要求用户代为执行。只有用户明确选择手动方式，或 Agent 因工具不可用、权限、登录态、外部环境等原因无法完成时，才提供准确的手动操作作为兜底。
 - 新增或调整产品能力时，必须同时考虑 Buildr Skill 如何让 Agent 发现、理解、选择并正确使用该能力；缺少相应的 Agent 使用指引、决策边界或完成标准时，功能设计不完整。
 - 产品能力、CLI 行为、上下文模型、runtime adapter 行为和架构性变更必须先创建 OpenSpec change。
 - `package/manifest.yml` 声明发布边界；`package/targets/workspace/` 只放映射到用户 workspace 或 Project 的源，`package/targets/runtime/` 只放直接安装到 Agent runtime 的源。

@@ -41,18 +41,23 @@ builtins:
       required: false
       legacyIntegrities:
         - sha256-23e68c3174887ebbf6990526f93e7f1c047199e1bef1f2e8e293b0cba2a3cfad
+        - sha256-7c792606db5d07e9364feb4be20755e184fb83291e4ae83a9cbb4884cf731b6d
       runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     - id: task-finish
       path: package/targets/workspace/skills/buildr/task-finish
       target: skills/buildr/task-finish
       description: 用户在 task worktree 中要求“收尾”、完成任务、自动收尾，或要求自动完成已验证 change 的归档、提交、集成、推送和本地清理时使用。
       required: false
+      legacyIntegrities:
+        - sha256-0607663344932ed85cdff84fe5c8dc817e4fc12a159a047eac054fa307fc1fd1
       runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     - id: git-ops
       path: package/targets/workspace/skills/buildr/git-ops
       target: skills/buildr/git-ops
-      description: 用户表达提交、commit、推送、push、提交并推送、合并、merge、rebase、发布、release、删除分支、清理远端分支等单项 Git 意图，或 Git 操作存在授权、范围、amend、远端改写、分支删除等歧义时使用。
+      description: 用户表达提交、推送、拉取、pull、合并、merge、rebase、checkout、switch、reset、cherry-pick、revert、stash、发布、删除分支等单项 Git 意图，或 Git 操作存在授权、范围、amend、远端改写、工作区转换、分支删除等歧义时使用。
       required: false
+      legacyIntegrities:
+        - sha256-badf69cfc2f7983fdbd2c681f7418a542d5538bfab283dfe8da927bfdfdd96c8
       runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     - id: openspec-explore
       path: package/targets/workspace/skills/openspec/openspec-explore
