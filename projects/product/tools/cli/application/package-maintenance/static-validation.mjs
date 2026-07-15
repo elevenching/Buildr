@@ -355,6 +355,10 @@ export function createPackageStaticValidator(deps) {
           'buildr sync <agent> --target <workspace-root>',
           '手动同步命令作为备选',
           '当前 session 是否重新发现新资产由 Agent runtime 决定',
+          '用户要求“更新 Buildr”或“同步 Buildr”时',
+          'buildr skill install <agent> --target <dir>',
+          '用户要求“更新 workspace”或“同步 workspace”时',
+          '用户明确要求“只更新 CLI”时',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`Buildr Agent Skill must include ${JSON.stringify(requiredText)}.`);
         }

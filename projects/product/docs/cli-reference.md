@@ -13,7 +13,7 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 
 `init --agent` 是默认首次 onboarding 入口：它先初始化源资产，再复用完整 `sync` 执行 source update、产品 Buildr Skill 安装、workspace/project Skills 投射和最终 doctor。已有 workspace 的产品能力与 runtime 更新继续使用 `sync`。
 
-`buildr update` 只更新 CLI 自身：开发 checkout 使用 Git 安全更新，registry package 使用 npm 更新。它不接收 `--target`，也不读取 workspace。用户要求完整“更新 Buildr”时，Agent 在 update 成功后重新解析入口，再执行 `buildr sync <agent> --target <workspace>`。
+`buildr update` 只更新 CLI 自身：开发 checkout 使用 Git 安全更新，registry package 使用 npm 更新。它不接收 `--target`，也不读取 workspace。用户要求“更新 Buildr”或“同步 Buildr”时，Agent 在 update 成功后重新解析入口，再执行 `buildr skill install <agent> --target <workspace>`，更新 CLI 与产品入口 Buildr Skill，而不扩大为 workspace sync。用户要求“更新 workspace”或“同步 workspace”时，Agent 直接执行 `buildr sync <agent> --target <workspace>`，不先更新 CLI。
 
 ## Workspace 与资产
 
