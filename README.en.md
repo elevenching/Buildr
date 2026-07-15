@@ -4,23 +4,23 @@
 
 ## Let Agents Do More—and Do It Better
 
-Buildr is a work asset management tool for the AI era. It turns how individuals and organizations work—and the facts their work depends on—into work assets that Agents can discover, select, and use.
+What limits an Agent's results is not just the model's capability, but also what the Agent can access and whether it can keep building on accumulated work.
+
+Buildr is a work asset management tool for the AI era. It turns the work facts and methods of individuals and organizations into work assets, so Agents can build on what has already been accumulated and move work from idea to delivery in one window.
+
+The broader the work facts and capabilities available to an Agent, the more it can do; the more proven methods accumulate, the more reliable and higher-quality its work becomes.
 
 You direct. Agents build. You own the assets. You can switch Agents.
 
-You keep talking to the Agent; the Agent uses Buildr to manage work assets and select what the current task needs.
-
-Buildr is not another Agent and does not compete with one. It helps the Agent you already use take on more work with accumulated facts and methods, so work becomes more consistent and improves over time.
-
 ## Three Core Values
 
-### 1. From Product to Release, End to End
+### 1. One Agent Window, from Product to Release
 
-Buildr lets one requirement move through PRD, design, development, testing, CI/CD, and release in the same Agent window, continuously using the same work assets.
+One requirement can move from PRD through design, development, testing, CI/CD, and release, continuously using the same set of work assets.
 
 If every stage starts by re-explaining the background and moving documents around, an Agent cannot reliably finish the whole job. Buildr lets the Agent finish one stage and move directly to the next using the facts and methods already available.
 
-**Buildr itself is developed this way**: discussions, OpenSpec proposals, implementation, testing, Git, GitHub Actions, and npm releases all happen in one Agent window.
+**Buildr itself has already run this entire chain**: discussions, OpenSpec proposals, implementation, testing, Git, GitHub Actions, and npm releases—all completed in the same Agent window.
 
 Team collaboration works the same way. Product maintains PRDs, Specs, and project facts in the Project. When those facts change, the Agents used by design, development, and testing continue from the updated source.
 
@@ -28,7 +28,7 @@ Team collaboration works the same way. Product maintains PRDs, Specs, and projec
 
 Different teams and tasks use different Agents. If Rules and Skills are locked inside one Agent tool, switching Agents means rebuilding everything.
 
-Work assets should not be tied to an Agent tool. Buildr keeps them in an independent Workspace controlled by an individual or organization, then generates the native entry point each Agent needs. You switch the Agent, not what you have accumulated.
+Buildr is not another Agent and does not compete with one. It keeps work assets in an independent Workspace controlled by an individual or organization, then generates the native entry point each Agent needs. You switch the Agent, not what you have accumulated.
 
 Buildr currently works with seven Agent types—one asset set, different entry points.
 
@@ -40,7 +40,7 @@ Buildr stores work assets in the filesystem, where Git can manage them. Individu
 
 ## How Buildr Works
 
-Buildr work assets can be understood in two parts:
+Buildr organizes work methods and work facts into work assets that Agents can discover, select, and use:
 
 - **Work methods**: how work gets done—Rules, Skills, and Commands that capture how an individual or organization works
 - **Work facts**: what the work is about—project documents, Specs, Service information, code repositories, and their relationships
