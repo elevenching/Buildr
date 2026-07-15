@@ -113,9 +113,10 @@ function inspectReadmes() {
   if (!readmes[0][1].includes('[English](README.en.md)')) findings.push(finding('readme.navigation', 'README.md', 'missing English navigation'));
   if (!readmes[1][1].includes('[中文](README.md)')) findings.push(finding('readme.navigation', 'README.en.md', 'missing Chinese navigation'));
   for (const [chinese, english] of [
-    ['## 核心模型', '## Core Model'],
+    ['## 三个核心价值', '## Three Core Values'],
+    ['## Buildr 如何工作', '## How Buildr Works'],
     ['## 快速开始', '## Quick Start'],
-    ['## 当前支持摘要', '## Current Capability Summary'],
+    ['## 当前能力', '## Current Capabilities'],
     ['## 文档', '## Documentation'],
     ['## Buildr 自举 workspace', '## Buildr Bootstrap Workspace'],
   ]) {

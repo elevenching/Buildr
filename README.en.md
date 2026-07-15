@@ -2,208 +2,169 @@
 
 [中文](README.md) | English
 
-Buildr is an organizational work-asset management system with AI agents as its primary users.
+## Let Agents Do More—and Do It Better
 
-It turns work content, capabilities, and project structures scattered across employees' experience, documents, repositories, and tools into shared, reusable, and auditable organizational assets available across Agent runtimes.
+Buildr is a work asset management tool for the AI era. It turns how individuals and organizations work—and the facts their work depends on—into work assets that Agents can discover, select, and use.
 
-Agents discover the information and capabilities they need to complete end-to-end work across domains and Services; people express goals, provide judgment, and participate in key decisions through Agents.
+You direct. Agents build. You own the assets. You can switch Agents.
 
-## Why Buildr
+You keep talking to the Agent; the Agent uses Buildr to manage work assets and select what the current task needs.
 
-Agents are becoming more capable, but the experience, capabilities, and knowledge an organization depends on are still fragmented across individual employees and working surfaces:
+Buildr is not another Agent and does not compete with one. It helps the Agent you already use take on more work with accumulated facts and methods, so work becomes more consistent and improves over time.
 
-- Working methods, professional capabilities, and tool practices discovered by one person are passed through documents, meetings, chat, or word of mouth instead of becoming durable organizational assets.
-- When a team has no standard Agent client—or wants to switch clients—each person has to rebuild the working environment, and organizational assets drift.
-- A business Project often spans multiple Services. An Agent starting in a single repository does not naturally have an end-to-end view of the Project.
-- Product, design, development, testing, and release knowledge live in different roles and tools. An Agent often sees only the information inside its immediate working scope and may not discover relevant dependencies from another role or Service.
+## Three Core Values
 
-Buildr turns the experience and capabilities accumulated by individual employees into work assets the organization can maintain together. Team members and supported Agent runtimes start from the same foundation, turning individual discoveries into shared, durable, and continuously evolving organizational value.
+### 1. From Product to Release, End to End
+
+Buildr lets one requirement move through PRD, design, development, testing, CI/CD, and release in the same Agent window, continuously using the same work assets.
+
+If every stage starts by re-explaining the background and moving documents around, an Agent cannot reliably finish the whole job. Buildr lets the Agent finish one stage and move directly to the next using the facts and methods already available.
+
+**Buildr itself is developed this way**: discussions, OpenSpec proposals, implementation, testing, Git, GitHub Actions, and npm releases all happen in one Agent window.
+
+Team collaboration works the same way. Product maintains PRDs, Specs, and project facts in the Project. When those facts change, the Agents used by design, development, and testing continue from the updated source.
+
+### 2. You Own the Assets. Switch Agents Freely.
+
+Different teams and tasks use different Agents. If Rules and Skills are locked inside one Agent tool, switching Agents means rebuilding everything.
+
+Work assets should not be tied to an Agent tool. Buildr keeps them in an independent Workspace controlled by an individual or organization, then generates the native entry point each Agent needs. You switch the Agent, not what you have accumulated.
+
+Buildr currently works with seven Agent types—one asset set, different entry points.
+
+### 3. People and Teams Change. Assets Remain.
+
+When critical work methods and project facts exist only in personal experience, local files, or chat history, they disappear as people change. The next person has to understand the project, repeat the same experiments, and rebuild the same methods.
+
+Buildr stores work assets in the filesystem, where Git can manage them. Individuals can reuse their methods across tasks and Projects. Teams and organizations keep their accumulated project facts, Rules, and Skills when people change. The next person can continue from that foundation through an Agent.
 
 ## How Buildr Works
 
+Buildr work assets can be understood in two parts:
+
+- **Work methods**: how work gets done—Rules, Skills, and Commands that capture how an individual or organization works
+- **Work facts**: what the work is about—project documents, Specs, Service information, code repositories, and their relationships
+
+People direct Agents. Agents manage assets:
+
 ```text
-People capture shared ways of working
-                 │
-                 ▼
- Knowledge · Boundaries · Professional Capabilities · Tool Access
- Projects · Services · Specifications · Workflows · ...
-                 │
-                 ▼
-          Buildr workspace
-   Shared, auditable work-asset source
-                 │
-                 ▼ runtime render
-        Codex · Claude Code · ...
-                 │
-                 ▼
- Agents discover relevant assets and form task context
-                 │
-                 ▼
-       Agents do the work and guide decisions
+You say, "Turn our team's release process into a Skill"
+  → Agent uses Buildr Skill to understand the goal
+    → calls Buildr CLI
+      → The release process becomes a reusable Skill and is rendered to Agent runtime
 ```
 
-Buildr manages organizational work assets, not the context window. It organizes those assets into a shared environment that Agents can discover, select, and use, then projects the required entry points through runtime adapters. The Agent selects what is relevant to the current task and forms the task context carried by its context window.
+An Agent uses Buildr through **Buildr CLI + Buildr Skill**:
 
-Buildr does not promise to load every piece of information into the context window, and it does not use fixed role routing to decide semantic relevance for the Agent. It provides organized information, capabilities, and boundaries so an Agent can build relevant and sufficient task context.
+- **Buildr CLI**: creates, updates, synchronizes, and diagnoses work assets
+- **Buildr Skill**: tells the Agent how to understand goals and choose and verify Buildr CLI operations
 
-```text
-Organize work in Buildr. Work through Agents.
-```
-
-## Who Benefits
-
-| Audience | Value from Buildr |
-|---|---|
-| Individual | Capture and reuse proven working methods, professional capabilities, and tool practices, then work with Agents to complete end-to-end tasks across Projects and Services with greater speed and quality |
-| Team lead | Turn what individual team members discover into shared assets so people and Agents work from common rules, capabilities, and project structure |
-| Enterprise leader | Govern knowledge, experience, and capabilities scattered across individual employees, turning them into organizational assets and value that can be shared, retained, and reused |
-
-Buildr is currently an MVP built on the filesystem, Git, a CLI, and Agent runtime adapters. It is not a complete enterprise permissions, cloud-service, or audit platform. Current capabilities and future directions are kept explicitly separate.
-
-## Common Scenarios
-
-### Share proven team capabilities
-
-Capture working methods, professional capabilities, and tool access in Buildr. Today these can be managed through forms such as Rules, Skills, Command collections, or Components. After synchronizing the workspace, other team members can make the same organizational assets available to their Agents.
-
-### Stay consistent across Agent clients
-
-Buildr maintains standard source assets. Runtime adapters generate the entry points required by supported Agents such as Codex and Claude Code. Switching Agent clients no longer means manually rewriting the organization's ways of working.
-
-### Organize an end-to-end, multi-Service Project
-
-A Project represents a business area, product line, system, or long-running unit of work. A Service represents a code repository, application, or module. Starting from the Buildr workspace lets an Agent understand how those Services are organized instead of receiving one isolated repository at a time.
-
-### Support cross-role collaboration
-
-Product facts, specifications, design constraints, development workflows, test requirements, and release boundaries can be organized as Project or workspace assets. Agents can discover relevant work already captured by other roles when a task requires it, reducing information loss from temporary meetings and manual handoffs.
-
-## Core Model
+Buildr stores work asset source files in the filesystem, where Git can manage them. Agent runtimes are rendered from those source files. The core model is:
 
 ```text
-Organization/Root
+Workspace (personal / team / company)
   └── Project
         └── Service
 ```
 
-- **Organization/Root**: the Buildr workspace root containing organization-level Rules, Skills, Components, Commands, and the Project registry.
-- **Project**: a business area, product line, system, or long-running unit of work—not a synonym for a single repository. A Project may have its own asset repository.
-- **Service**: a code repository, application, module, or executable asset managed by a Project.
-- **Agent runtime**: the location where Codex, Claude Code, or another supported Agent reads Buildr assets. It is a reproducible projection, not the source of truth.
+A Workspace has the following filesystem structure:
 
-The Buildr workspace is the source of work assets; Agent runtimes are rendered results. Buildr does not store binaries, tokens, cookies, login sessions, or private personal configuration. Commands declare and diagnose external CLIs but do not install software or modify the host environment.
+```text
+workspace/
+├── rules/                 # Rules and boundaries the Agent follows
+├── skills/                # Reusable professional actions and workflows
+├── components/            # Shared lifecycle for groups of Rules, Skills, and Commands
+├── commands/              # Declarations and checks for external CLIs
+├── projects/
+│   └── <project>/
+│       ├── project documents · Specs · Skills
+│       └── services/
+│           └── <service>/ # Repository, application, or module
+└── Agent runtime entries  # Rendered native entry points; rebuildable, not the source of truth
+```
+
+| Object | Description |
+|---|---|
+| Workspace | The work asset root for an individual, team, or company |
+| Project | A business or product unit containing project facts, Skills, and Service relationships |
+| Service | A repository, application, or module used by a Project |
+
+Buildr manages long-lived work assets. It does not directly fill a model's context window. The Agent discovers and selects relevant content for the current task and forms its own task context.
 
 ## Quick Start
 
-People normally do not need to learn the complete Buildr model or command surface first. Give this README to an Agent and say:
+Give this README to an Agent, then say:
 
 ```text
 Use Buildr to manage this project.
 ```
 
-### 1. Choose a Buildr source
+The Agent should complete the following initialization flow. This section is mainly for the Agent; people only need to understand the outline.
 
-#### Published package
+**1. Prepare Node.js and Buildr CLI**
 
-```bash
-npm install --global @buildr-ai/buildr
-buildr --help
-```
+Buildr requires Node.js 20 or later. First check the Node.js version and whether the `buildr` command is available. If a requirement is not met, ask the user before installing or upgrading:
 
-Before the stable release, use the release candidate documented in [GitHub Releases](https://github.com/elevenching/Buildr/releases). See [Known Limitations](projects/product/docs/known-limitations.md) for the current trial scope.
+- **Pre-release (currently recommended for evaluation)**: `npm install --global @buildr-ai/buildr@next`
+- **Development checkout**: after the user confirms where to save it, run `git clone https://github.com/elevenching/Buildr.git <path>`, then use `<path>/projects/product/buildr`
 
-#### Development checkout
+In the commands below, `buildr` means the selected entry point: the global command for the pre-release or `<path>/projects/product/buildr` for a development checkout.
 
-To develop Buildr or try the latest product source directly from the repository:
+**2. Initialize the Workspace**
 
-```bash
-git clone https://github.com/elevenching/Buildr.git
-cd Buildr/projects/product
-tools/install-buildr-cli
-buildr --help
-```
-
-The installer makes the current checkout's `buildr` available as a local command. Then enter the directory you want Buildr to manage and follow the same initialization flow below. Product maintenance during development should still use `projects/product/buildr` from the current checkout.
-
-### 2. Initialize the workspace and Agent runtime
+After the CLI is ready, identify the current Agent runtime and initialize the Workspace:
 
 ```bash
 buildr runtime list --json
 buildr init --agent <agent> --target . --name <name> --profile <personal|team|company>
 ```
 
-`runtime list` lets the Agent confirm the supported runtime adapters. `init --agent` initializes Organization/Root source assets, prepares the current Agent runtime, and runs a final doctor check. Running `init` without `--agent` initializes source assets only.
+`init --agent` initializes Workspace source assets, prepares the current Agent runtime, and uses a successful final doctor check as its completion condition.
 
-After initialization, continue by describing goals to the Agent:
+The Agent must consider initialization complete only when all three conditions are met:
+
+- Workspace source assets have been created
+- The current Agent runtime is ready
+- The final doctor check has passed
+
+**3. Start Working**
+
+After initialization, state goals directly:
 
 ```text
-Create a Project for this product and attach the API and Web Services.
-Organize our code-review rules and release workflow as shared assets.
-Check this workspace and synchronize it to my Agent.
+Create the payment Project and use <git-url> as its asset repository.
+Attach <git-url> as the payment/api Service.
+Turn our release process into a Skill.
+Update Buildr and synchronize the Workspace.
 ```
 
-The Agent uses the [Buildr Skill](projects/product/package/targets/runtime/skills/buildr/SKILL.md) to understand the goal and select the next action. The corresponding deterministic CLI entry points include:
+The Agent uses Buildr Skill to understand the goal and Buildr CLI for deterministic execution.
 
-```bash
-buildr project create <project> --target . [--repo <git-url>] [--title <text>] [--description <text>]
-buildr service create <project>/<service> <repo-ref> --target .
-buildr doctor --agent <agent> --target . --json
-```
+Buildr is currently in pre-release. Use [GitHub Releases](https://github.com/elevenching/Buildr/releases) as the source of truth for versions and installation sources.
 
-If the Buildr Skill is not available yet, the Agent can read the fallback guide:
+## Current Capabilities
 
-```bash
-buildr bootstrap guide
-```
+- One Workspace manages multiple Projects; each Project manages multiple Services
+- Unified management of Rules, Skills, Components, and Commands
+- Seven Agent runtime adapters: `claude-code`, `codex`, `cursor`, `qoder`, `trae`, `trae-work`, and `workbuddy`
 
-## Update and Synchronization
-
-`buildr update` updates the Buildr CLI itself. `buildr sync <agent>` synchronizes workspace product assets and the current Agent runtime. In normal use, tell the Agent to “update Buildr,” “update Buildr only,” or “synchronize the workspace,” and let the Buildr Skill select the correct flow.
-
-See the [Buildr Skill](projects/product/package/targets/runtime/skills/buildr/SKILL.md) for behavior and the [CLI Reference](projects/product/docs/cli-reference.md) for complete parameters.
-
-## Current Capability Summary
-
-- The Buildr Skill lets Agents start from natural-language goals, understand Buildr work assets, select the next action, and guide user decisions.
-- The Buildr CLI provides deterministic initialization, asset maintenance, diagnosis, update, synchronization, and runtime rendering.
-- Runtime adapters currently support `claude-code`, `codex`, `cursor`, `qoder`, `trae`, `trae-work`, and `workbuddy`. Run `buildr runtime list --json` for machine-readable facts and see [Agent Runtime Adapters](projects/product/docs/agent-runtime-adapters.md) for integration paths and verification status.
-- Rules support Root, Project, Service, and deeper workspace scopes through native discovery, scoped vendor rule files, or managed reference bridges, depending on the Agent.
-- Workspace and Project Skills support locally authored and resolved remote sources.
-- Workspace Components manage Rules, Skills, Command collections, and declarative Skill Contributions. Project/Service Components are not currently supported.
-- Commands declare and diagnose shared external CLIs without installing software or modifying the host environment.
-- Buildr source mutations use strict identity, scope, and ownership validation, atomic writes, and workspace transactions. Doctor reports incomplete transactions fail-closed.
-- Workspace assets currently ship with the CLI package. Independent asset versioning, complete enterprise permissions, and more runtime adapters remain future directions.
+See [Known Limitations](projects/product/docs/known-limitations.md) for current boundaries.
 
 ## Documentation
 
-- [Buildr Product](projects/product/docs/buildr-product.md): positioning, problems, core model, work assets, collaboration, and future directions.
-- [Buildr Skill](projects/product/package/targets/runtime/skills/buildr/SKILL.md): the primary Agent entry point for understanding and using Buildr.
-- [Current State](projects/product/openspec/knowledge/buildr-current-state.md): implemented product facts.
-- [OpenSpec Specifications](projects/product/openspec/specs/): normative behavior contracts.
-- [CLI Reference](projects/product/docs/cli-reference.md): public commands and parameter boundaries.
-- [Agent Runtime Adapters](projects/product/docs/agent-runtime-adapters.md): Rules and Skills paths, activation, checker behavior, limitations, and evidence status for each integrated Agent.
-- [Documentation Index](projects/product/docs/document-index.md): responsibilities of README, docs, knowledge, specs, and archive.
-- [Roadmap](projects/product/docs/roadmap/): future directions, not current product facts or approved implementation contracts.
-- [Release Checklist](projects/product/docs/release-checklist.md): publication readiness and verification entry points.
-- [Known Limitations](projects/product/docs/known-limitations.md): current trial scope and unsupported capabilities.
-- [Minimal Workspace Example](projects/product/examples/minimal-workspace/README.md): the minimal high-level onboarding path.
+- [Buildr Product](projects/product/docs/buildr-product.md): complete positioning, core model, boundaries, and Roadmap
+- [Buildr Skill](projects/product/package/targets/runtime/skills/buildr/SKILL.md): the primary entry point for Agents using Buildr
+- [CLI Reference](projects/product/docs/cli-reference.md): public commands and parameters
+- [Runtime Adapters](projects/product/docs/agent-runtime-adapters.md): integration paths and limitations for each Agent
+- [OpenSpec Specifications](projects/product/openspec/specs/): normative product behavior contracts
 
 ## Buildr Bootstrap Workspace
 
-This repository is also the bootstrap workspace used to develop, verify, and consume Buildr itself. It is a Buildr Organization/Root instance.
-
-If you entered this repository through the development-checkout path in Quick Start, keep its two layers distinct: Buildr product source lives only under `projects/product/`; root Rules, Skills, Components, Commands, and Agent runtime files are state consumed by this bootstrap workspace, not product source.
-
-When developing or verifying Buildr, always use the CLI from the current Product checkout so another locally installed `buildr` source cannot be used by mistake:
+This repository is also the Workspace in which Buildr develops itself. Product source lives only under `projects/product/`; root-level assets are consumed state.
 
 ```bash
 projects/product/buildr runtime list --json
 projects/product/buildr doctor --agent <agent> --target . --json
 ```
 
-Repository entry points:
-
-- [Contributing](CONTRIBUTING.md)
-- [Security Policy](SECURITY.md)
-- [MIT License](LICENSE)
-- [GitHub Issues](https://github.com/elevenching/Buildr/issues)
+[Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [MIT License](LICENSE) · [GitHub Issues](https://github.com/elevenching/Buildr/issues)

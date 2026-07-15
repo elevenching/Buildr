@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "clarify-readme-end-to-end-work",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-ca34a932dac2ed32b0f9ffe25020dfe52f2a891c348bb060af84d316231ded0a",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-first-product-positioning",
+      "title": "README 直接表达同一 Agent 任务的端到端工作连续性",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-first-product-positioning",
+      "title": "README 按真实 workspace 与 runtime 边界解释 Buildr",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-first-product-positioning",
+      "title": "公开入口表达多层用户价值",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 公开入口表达多层用户价值\nBuildr 公开 README MUST 让个人用户、团队负责人和企业负责人分别理解 Buildr 对个人能力转化为组织资产、工作资产复用、团队工作方式共享、Agent 工具切换、多服务协作和跨岗位信息发现的价值，并 MUST 将尚未实现的企业能力与当前事实区分。\n\n#### Scenario: 不同读者首次访问 README\n- **WHEN** 个人用户、团队负责人或企业负责人首次阅读 README\n- **THEN** README MUST 在快速开始前提供与其目标相关的价值说明或典型场景\n- **AND** 企业价值 MUST 说明 Buildr 将散落在员工个人经验、工作能力和各处组织知识中的内容沉淀为可共享、可传承、可复用的组织资产\n- **AND** 企业价值 MUST 表述为组织资产与协作治理基础，不得暗示当前已实现完整企业权限或云平台\n"
+    }
+  ]
+}
