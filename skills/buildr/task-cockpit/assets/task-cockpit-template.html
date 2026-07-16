@@ -169,227 +169,49 @@
   </main>
 
   <script id="cockpit-data" type="application/json">
-{
-  "meta": {
-    "title": "Buildr 任务驾驶舱能力",
-    "taskId": "add-task-cockpit",
-    "status": "已完成",
-    "phase": "阶段 4 / 4",
-    "taskProgress": "任务 12 / 12",
-    "updatedAt": "2026-07-16 21:25",
-    "relativePath": "projects/product/openspec/knowledge/task-cockpits/2026-07-16-add-task-cockpit.html"
-  },
-  "overview": {
-    "purpose": "让复杂任务不再只存在于对话和单个 change 中，用户可以随时打开一个稳定页面看懂目标、方案、进度、依赖和下一步。",
-    "conclusion": "功能实现、完整候选验证、OpenSpec 同步归档和 workspace runtime 同步均已完成。",
-    "currentFocus": "没有待处理的产品任务；本页保留为这次任务的稳定认知入口和实现证据索引。",
-    "userAttention": "请重点观察：首页是否一眼能看懂，推进是否能体现跨阶段关系，技术信息是否被正确后置。",
-    "highlights": {
-      "done": {
-        "title": "已经完成",
-        "text": "OpenSpec、Skill、模板、task-triage 路由和随包交付已完成"
-      },
-      "current": {
-        "title": "最终结果",
-        "text": "12 / 12 tasks 完成，完整候选验证通过，doctor 为 0 warning / 0 error"
-      },
-      "next": {
-        "title": "后续使用",
-        "text": "复杂任务可由 task-triage 判断并创建或继续维护稳定驾驶舱"
-      }
+  {
+    "meta": {
+      "title": "任务名称",
+      "taskId": "task-id",
+      "status": "进行中",
+      "phase": "阶段 1 / 3",
+      "taskProgress": "任务 0 / 0",
+      "updatedAt": "yyyy-MM-dd HH:mm",
+      "relativePath": "projects/<project>/openspec/knowledge/task-cockpits/yyyy-MM-dd-task-id.html"
     },
-    "blockers": [],
-    "flow": [
-      {
-        "title": "任务分流",
-        "text": "task-triage 判断是否需要驾驶舱"
+    "overview": {
+      "purpose": "用一句话说明这个任务要解决什么，以及完成后用户会得到什么。",
+      "conclusion": "先写当前最重要的结论。",
+      "currentFocus": "说明 Agent 现在正在推进什么。",
+      "userAttention": "没有需要用户立即处理的事项。",
+      "highlights": {
+        "done": { "title": "已经完成", "text": "列出最重要的已完成结果。" },
+        "current": { "title": "正在进行", "text": "列出当前工作和预期产物。" },
+        "next": { "title": "下一步", "text": "列出下一项可执行动作。" }
       },
-      {
-        "title": "Agent 维护",
-        "text": "task-cockpit 核实并组织任务事实"
-      },
-      {
-        "title": "稳定入口",
-        "text": "保存到 Project task knowledge"
-      },
-      {
-        "title": "持续可见",
-        "text": "关键回复提供可点击位置"
-      }
-    ]
-  },
-  "progress": {
-    "stages": [
-      {
-        "label": "已完成",
-        "status": "done",
-        "title": "阶段一 · 产品边界与契约",
-        "summary": "明确驾驶舱由 Agent 单向维护、覆盖整个任务、普通用户优先，并创建完整 OpenSpec change。",
-        "items": [
-          "完成 proposal、design、三组 delta specs 和 tasks",
-          "建立 current baseline，proposal contract check 通过",
-          "确定 yyyy-MM-dd-<task-id>.html 命名"
-        ]
-      },
-      {
-        "label": "已完成",
-        "status": "done",
-        "title": "阶段二 · Skill 与产品交付",
-        "summary": "实现 task-cockpit、HTML 模板、task-triage 路由以及 package builtin 交付。",
-        "items": [
-          "Skill Creator 初始化并校验 Skill metadata",
-          "完成四层信息结构和响应式单文件模板",
-          "package + openspec 受影响验证通过"
-        ]
-      },
-      {
-        "label": "已完成",
-        "status": "done",
-        "title": "阶段三 · 真实驾驶舱体验验证",
-        "summary": "本页面就是首个真实任务驾驶舱，用它检查信息聚焦、可读性和技术后置效果。",
-        "items": [
-          "创建 2026-07-16-add-task-cockpit.html",
-          "完成 Tab、响应式、溢出、只读和自包含静态审计",
-          "记录本地浏览器受限，截图级视觉验收由用户打开页面审阅"
-        ]
-      },
-      {
-        "label": "已完成",
-        "status": "done",
-        "title": "阶段四 · 最终候选验证",
-        "summary": "完整产品候选验证已通过，任务状态、驾驶舱与验证证据一致。",
-        "items": [
-          "OpenSpec strict、Skill/package 静态检查和 git diff check",
-          "npm run test:candidate 全部通过",
-          "临时 workspace 端到端测试通过",
-          "timing summary：总计 82.316 秒，最慢临时 workspace 端到端 65.388 秒"
-        ]
-      }
-    ]
-  },
-  "solution": {
-    "summary": "task-triage 负责判断是否需要驾驶舱；task-cockpit 负责从 OpenSpec、代码、验证和外部依赖中核实任务事实，维护 Project knowledge 下的稳定单文件 HTML，并在关键进展回复中把入口交给用户。",
-    "boundaries": {
-      "inScope": [
-        "复杂、长期、跨阶段、跨 change 或有交叉依赖的任务",
-        "Agent 单向维护、用户只读观察",
-        "首页、推进、方案和技术细节的渐进信息层次",
-        "跨 active/archive change 的历史和当前阶段",
-        "本地离线可打开的单文件 HTML"
-      ],
-      "outOfScope": [
-        "浏览器 checkbox 直接修改任务状态",
-        "服务端、数据库和多人实时协作",
-        "用驾驶舱替代 specs、change、代码或验证事实",
-        "为每个简单任务机械生成页面",
-        "新增 Buildr CLI 命令或 runtime adapter"
+      "blockers": [],
+      "flow": [
+        { "title": "理解目标", "text": "确认任务范围" },
+        { "title": "形成方案", "text": "明确整体路径" },
+        { "title": "推进实现", "text": "完成关键任务" },
+        { "title": "验证交付", "text": "形成可信结果" }
       ]
     },
-    "decisions": [
-      {
-        "label": "位置",
-        "title": "放在 Project knowledge",
-        "reason": "稳定路径可以跨 change 生命周期，且比普通 docs 更符合 Agent 持续维护的任务认知。"
-      },
-      {
-        "label": "输入",
-        "title": "只允许 Agent 更新",
-        "reason": "用户继续通过对话参与，避免 HTML 与 OpenSpec、代码形成双输入和状态冲突。"
-      },
-      {
-        "label": "表达",
-        "title": "普通用户优先，技术后置",
-        "reason": "首页只回答核心问题；API、文件、代码和验证证据进入技术细节。"
-      }
-    ]
-  },
-  "technical": {
-    "facts": [
-      {
-        "title": "稳定路径规则",
-        "text": "首次创建日期固定在文件名前缀，后续更新同一文件，不因 change archive 移动。"
-      },
-      {
-        "title": "模板数据模型",
-        "text": "单文件内嵌 #cockpit-data JSON，页面脚本只负责只读渲染和 Tab 切换。"
-      },
-      {
-        "title": "事实边界",
-        "text": "业务契约变化先更新 OpenSpec；普通任务进度、外部等待和验证结果可直接更新驾驶舱。"
-      },
-      {
-        "title": "隔离实现说明",
-        "text": "当前运行环境禁止写主仓 .git，因此使用 canonical 目录下的隔离 Git clone 完成本次候选实现。"
-      }
-    ],
-    "files": [
-      {
-        "title": "OpenSpec change",
-        "path": "projects/product/openspec/changes/add-task-cockpit/"
-      },
-      {
-        "title": "task-cockpit Skill",
-        "path": "projects/product/package/targets/workspace/skills/buildr/task-cockpit/SKILL.md"
-      },
-      {
-        "title": "HTML 模板",
-        "path": "projects/product/package/targets/workspace/skills/buildr/task-cockpit/assets/task-cockpit-template.html"
-      },
-      {
-        "title": "task-triage 路由",
-        "path": "projects/product/package/targets/workspace/skills/buildr/task-triage/SKILL.md"
-      }
-    ],
-    "validations": [
-      {
-        "title": "Skill Creator validation",
-        "text": "Skill is valid；openai.yaml 已生成。"
-      },
-      {
-        "title": "模板结构检查",
-        "text": "内嵌 JSON 与运行脚本语法有效；四个 Tab 和面板匹配；响应式、溢出、只读与自包含检查通过。"
-      },
-      {
-        "title": "视觉验收限制",
-        "text": "系统 Chrome 在沙箱内启动失败，应用内浏览器禁止 file://；未完成浏览器截图级验收，页面可由用户通过本地入口直接审阅。"
-      },
-      {
-        "title": "受影响范围验证",
-        "text": "npm run test:affected -- package openspec 已通过。"
-      },
-      {
-        "title": "契约门禁",
-        "text": "proposal baseline current，conflicts 和 findings 均为空；OpenSpec 全量 strict validation 28 项通过。"
-      },
-      {
-        "title": "随包与差异检查",
-        "text": "Skill validation、Buildr package check 和 git diff --check 均通过。"
-      },
-      {
-        "title": "候选验证结果",
-        "text": "npm run test:candidate 全部通过，包括 temporary workspace end-to-end、package、OpenSpec fixtures、runtime parity、onboarding 和 release smoke。"
-      },
-      {
-        "title": "Timing summary",
-        "text": "总时长 82.316 秒；最慢阶段 temporary workspace end-to-end 65.388 秒；文件：/var/folders/_8/bhpxxm251kj_z4xjqxjj4wsr0000gn/T/buildr-product-verification-timing.json"
-      },
-      {
-        "title": "Workspace runtime",
-        "text": "task-cockpit builtin 已安装并同步到 Codex runtime；最终 Buildr doctor 为 0 warning / 0 error。"
-      }
-    ],
-    "snippets": [
-      {
-        "title": "驾驶舱命名规则",
-        "code": "projects/<project>/openspec/knowledge/task-cockpits/\\nyyyy-MM-dd-<task-id>.html"
-      },
-      {
-        "title": "Agent 回复入口",
-        "code": "任务驾驶舱：[查看 <任务名称>](<absolute-path>)\\n位置：<workspace-relative-path>\\n当前状态：<一句话状态>\\n驾驶舱已更新：<实际时间>"
-      }
-    ]
+    "progress": {
+      "stages": []
+    },
+    "solution": {
+      "summary": "用普通语言说明整体解决方式。",
+      "boundaries": { "inScope": [], "outOfScope": [] },
+      "decisions": []
+    },
+    "technical": {
+      "facts": [],
+      "files": [],
+      "validations": [],
+      "snippets": []
+    }
   }
-}
   </script>
   <script>
     (() => {

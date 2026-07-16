@@ -90,3 +90,12 @@ skills:
     state: "installed"
     runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: "openspec-archive-change"
+  - id: "task-cockpit"
+    source: "buildr"
+    path: "buildr/task-cockpit"
+    description: "为复杂、长期、跨阶段、跨 change、跨服务或团队，或存在交叉依赖和多次用户判断的任务创建、更新和检查只读 HTML 任务驾驶舱；用户明确要求任务可视化、驾驶舱、整体进度、任务全景或长期跟踪时也使用。简单短时任务不机械创建。"
+    enabled: true
+    required: false
+    state: "installed"
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
+    runtimePath: "task-cockpit"
