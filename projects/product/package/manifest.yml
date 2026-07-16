@@ -5,7 +5,6 @@ include:
   - docs/cli-reference.md
   - docs/cli-architecture.md
   - docs/known-limitations.md
-  - examples/minimal-workspace/README.md
   - package/
 
 agentSkills:

@@ -145,7 +145,7 @@ export function createPackageStaticValidator(deps) {
           if (!packageMetadata.keywords?.includes(keyword)) problems.push(`package.json keywords must include ${keyword}.`);
         }
         const packagedFiles = new Set(packageMetadata.files || []);
-        for (const required of ['LICENSE', 'tools/buildr', 'tools/cli/', 'tools/shared/fetch-remote-text.mjs', 'docs/cli-reference.md', 'docs/cli-architecture.md', 'docs/known-limitations.md', 'examples/minimal-workspace/README.md', 'package/']) {
+        for (const required of ['LICENSE', 'tools/buildr', 'tools/cli/', 'tools/shared/fetch-remote-text.mjs', 'docs/cli-reference.md', 'docs/cli-architecture.md', 'docs/known-limitations.md', 'package/']) {
           if (!packagedFiles.has(required)) problems.push(`package.json files must include ${required}.`);
         }
         for (const obsolete of ['tools/check-runtime-skills.mjs', 'tools/render-codex.mjs']) {
@@ -153,7 +153,7 @@ export function createPackageStaticValidator(deps) {
         }
       }
     }
-    for (const required of ['LICENSE', 'docs/cli-reference.md', 'docs/cli-architecture.md', 'docs/known-limitations.md', 'examples/minimal-workspace/README.md']) {
+    for (const required of ['LICENSE', 'docs/cli-reference.md', 'docs/cli-architecture.md', 'docs/known-limitations.md']) {
       if (!fs.existsSync(path.join(root, required))) problems.push(`Open-source product baseline is missing: ${required}`);
     }
     if (existsFile(path.join(root, 'tools', 'install-buildr-cli'))) {

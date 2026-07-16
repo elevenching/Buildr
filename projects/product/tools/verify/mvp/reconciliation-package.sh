@@ -149,7 +149,6 @@ required = {
     'README.md',
     'docs/cli-reference.md',
     'docs/known-limitations.md',
-    'examples/minimal-workspace/README.md',
     'package/README.md',
     'package/manifest.yml',
     'package/bootstrap/guide.md',
