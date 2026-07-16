@@ -622,6 +622,34 @@ export function createPackageStaticValidator(deps) {
         }
         if (skillContent.includes('buildr openspec')) problems.push('task-triage source must not hard-code OpenSpec contract guard commands; installed Components contribute them at render time.');
       }
+      if (skill.id === 'task-cockpit') {
+        for (const requiredText of [
+          'openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html',
+          'Agent 单向维护',
+          '不是 OpenSpec change 的翻译',
+          '首页',
+          '推进',
+          '方案',
+          '技术细节',
+          '不猜测百分比',
+          '可点击入口',
+          'assets/task-cockpit-template.html',
+        ]) {
+          if (!skillContent.includes(requiredText)) problems.push(`task-cockpit Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        const templatePath = path.join(skillDir, 'assets', 'task-cockpit-template.html');
+        const metadataPath = path.join(skillDir, 'agents', 'openai.yaml');
+        if (!existsFile(templatePath)) {
+          problems.push('task-cockpit Skill must include assets/task-cockpit-template.html.');
+        } else {
+          const templateContent = fs.readFileSync(templatePath, 'utf8');
+          for (const requiredText of ['id="cockpit-data"', 'data-tab="overview"', 'data-tab="progress"', 'data-tab="solution"', 'data-tab="technical"', '由 Agent 单向维护 · 页面只读']) {
+            if (!templateContent.includes(requiredText)) problems.push(`task-cockpit template must include ${JSON.stringify(requiredText)}.`);
+          }
+          if (/https?:\/\//.test(templateContent)) problems.push('task-cockpit template must not depend on external HTTP resources.');
+        }
+        if (!existsFile(metadataPath)) problems.push('task-cockpit Skill must include agents/openai.yaml.');
+      }
       if (skill.id === 'openspec-contract-guard') {
         for (const requiredText of ['buildr openspec baseline create', '--stage pre-sync', '--stage post-sync', '不修改外部 `openspec-*` Skills']) {
           if (!skillContent.includes(requiredText)) problems.push(`openspec-contract-guard Skill must include ${JSON.stringify(requiredText)}.`);
@@ -635,6 +663,9 @@ export function createPackageStaticValidator(deps) {
     }
     if (!manifest.builtins.skills.some((skill) => skill.id === 'task-finish' && skill.required === false)) {
       problems.push('builtins.skills must declare optional task-finish.');
+    }
+    if (!manifest.builtins.skills.some((skill) => skill.id === 'task-cockpit' && skill.required === false)) {
+      problems.push('builtins.skills must declare optional task-cockpit.');
     }
 
     for (const command of manifest.builtins.commands) {
@@ -677,6 +708,10 @@ export function createPackageStaticValidator(deps) {
         const taskFinish = baselineSkills.find((entry) => entry.id === 'task-finish');
         if (!taskFinish || taskFinish.source !== 'buildr' || taskFinish.state !== 'installed' || taskFinish.enabled !== true) {
           problems.push('Workspace skills baseline must declare enabled installed Buildr task-finish.');
+        }
+        const taskCockpit = baselineSkills.find((entry) => entry.id === 'task-cockpit');
+        if (!taskCockpit || taskCockpit.source !== 'buildr' || taskCockpit.state !== 'installed' || taskCockpit.enabled !== true) {
+          problems.push('Workspace skills baseline must declare enabled installed Buildr task-cockpit.');
         }
         const gitOps = baselineSkills.find((entry) => entry.id === 'git-ops');
         for (const routedIntent of ['pull', 'checkout', 'switch', 'reset', 'cherry-pick', 'revert', 'stash']) {

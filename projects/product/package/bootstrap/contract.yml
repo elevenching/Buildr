@@ -95,6 +95,7 @@ buildrSkillRequiredText:
   - 请联系 Buildr 作者反馈该 Agent
   - task-worktree
   - task-finish
+  - task-cockpit
   - git-ops
   - components/manifest.yml
   - buildr component install

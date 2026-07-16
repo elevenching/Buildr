@@ -122,7 +122,10 @@ Organization/Root -> Project -> Service
 - resolved `skill-url` 使用有界网络读取；默认 inactivity 和总 timeout 可通过 `BUILDR_REMOTE_SKILL_INACTIVITY_TIMEOUT_MS`、`BUILDR_REMOTE_SKILL_TOTAL_TIMEOUT_MS` 在 `1..120000` 毫秒内调整，超时保持 runtime 目标零写入。
 - `package:<id>` 是 package manifest `skillSources` 与随包 Skill resolver 使用的内部 source identity，不是用户 Skill asset id、通用 source scheme 或 `skills add` 输入格式。
 - Buildr 内置 workspace Skills 现在发布到 `skills/buildr/<skill-id>/`，并在 `skills/manifest.yml` 中以 `source: buildr`、`path`、`runtimePath`、`enabled`、`required` 和 `state` 管理。
-- 当前随包独立 workspace Skills 包括 `task-triage`、`task-worktree`、`task-finish` 和 `git-ops`；OpenSpec workflows 与 `openspec-contract-guard` 由 OpenSpec Component 统一交付，但仍以 Buildr builtin descriptor 提供产品元数据。
+- 当前随包独立 workspace Skills 包括 `task-triage`、`task-cockpit`、`task-worktree`、`task-finish` 和 `git-ops`；OpenSpec workflows 与 `openspec-contract-guard` 由 OpenSpec Component 统一交付，但仍以 Buildr builtin descriptor 提供产品元数据。
+- `task-cockpit` 为复杂、长期、跨阶段或有交叉依赖的任务维护 Agent 单向更新、用户只读的单文件 HTML 驾驶舱；默认路径为 Project `openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html`，稳定入口可以关联多个 active/archive change、code-only 工作和外部依赖。
+- 任务驾驶舱优先展示普通用户可理解的目标、当前结论、阶段、已完成、下一步和阻塞，再逐层展示推进、方案与技术细节。它是 task-scoped working knowledge，不替代 canonical specs、active change、代码和验证证据。
+- `task-triage` 判断驾驶舱是“不需要”“创建”还是“继续维护”；驾驶舱首次创建、实质更新、用户询问进度、任务暂停或完成时，Agent 回复提供可点击绝对路径和 workspace 相对路径。
 - 产品入口 Buildr Skill 仍位于 `package/targets/runtime/skills/buildr/SKILL.md`，不进入 workspace `skills/manifest.yml`，也不硬编码可卸载 Component 所拥有的专用 Skill 路由。
 - `buildr skills render <agent> --scope <scope>` 渲染 workspace/project Skills 和 Skill install plans；它不安装产品内置 Buildr Skill。
 - `buildr skills render codex|cursor` 渲染 workspace/project Skills 到 `.agents/skills/`；其他 adapter 使用 descriptor 声明的 `.claude`、`.qoder`、`.trae` 或 `.codebuddy` root。

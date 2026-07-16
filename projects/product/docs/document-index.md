@@ -27,6 +27,7 @@
 | 产品入口、最小心智模型、快速开始 | `README.md` |
 | 产品定位、为什么、核心概念、协作模型 | `docs/buildr-product.md` |
 | 已经实现的当前事实 | `openspec/knowledge/buildr-current-state.md` |
+| 复杂任务的跨阶段目标、计划、依赖、进度和证据入口 | `openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html` |
 | MUST / SHOULD 级产品行为 | `openspec/specs/` |
 | 计划型产品变更 | `openspec/changes/` |
 | 尚未进入实现的长期产品方向 | `docs/roadmap/` |
@@ -36,7 +37,7 @@
 
 ## Knowledge 规则
 
-进入 `openspec/knowledge/` 的内容必须是当前事实：
+进入 `openspec/knowledge/` 的常规 current-state 文档必须是当前事实：
 
 - 当前已经实现。
 - Agent 或维护者需要据此判断现状。
@@ -44,6 +45,13 @@
 - 未来可能随实现变化而更新。
 
 `knowledge` 不写产品价值主张、愿景、历史原因、采用场景或路线图。
+
+`openspec/knowledge/task-cockpits/` 是明确隔离的 task-scoped working knowledge 子层：
+
+- 由 Agent 单向维护整个任务的目标、当前计划、历史阶段、依赖、风险和验证证据入口。
+- 文件名使用 `yyyy-MM-dd-<task-id>.html`，日期取首次创建时的本地日期，后续保持稳定路径。
+- 可以关联多个 active/archive change、code-only 工作和外部依赖，不随单个 change archive 移动。
+- 不是 current-state facts 全集、canonical specs、active change、代码或验证结果的替代事实源；冲突时必须回到对应权威来源核实并修正驾驶舱。
 
 ## Roadmap 规则
 
@@ -68,6 +76,7 @@
 
 - 新增当前产品说明时，优先更新 `docs/buildr-product.md`。
 - 新增当前实现事实时，优先更新 `openspec/knowledge/buildr-current-state.md`。
+- 复杂任务需要持续可视化认知入口时，使用 `task-cockpit` Skill 维护 `openspec/knowledge/task-cockpits/`，不要把任务进度混入 current-state facts 文档。
 - 新增规范性行为时，更新 `openspec/specs/` 或创建 OpenSpec change。
 - 新增尚未进入实现的详细产品方向时，维护 `docs/roadmap/` 并保持非当前事实声明。
 - 新增 Agent runtime adapter 前，先按 `docs/agent-runtime-adapter-contribution.md` 取得目标 Agent 的版本化证据；进入实现后仍必须创建独立 OpenSpec change。

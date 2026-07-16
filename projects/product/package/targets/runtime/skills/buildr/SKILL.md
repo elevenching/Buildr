@@ -39,6 +39,7 @@ Agent 是 Buildr 功能的默认操作入口。Agent 能在当前工具、权限
 | 更新或同步 workspace，或恢复内置能力 | 内置能力（Builtins）/ Agent runtime 渲染 |
 | 接入业务、产品线、系统或长期工作单元 | 项目（Project） |
 | 接入代码仓、服务仓或可执行资产 | 服务（Service） |
+| 复杂、长期、跨阶段或有交叉依赖的任务可视化与持续进度入口 | `task-cockpit` Skill |
 | 代码开发、实现、构建、测试或任务 worktree 生命周期 | `task-worktree` Skill |
 | 完成已验证任务、自动归档集成并清理 task worktree | `task-finish` Skill |
 | 提交、拉取、合并、rebase、checkout/switch、reset、推送、发布或其他单项 Git 操作 | `git-ops` Skill |
@@ -48,7 +49,6 @@ Agent 是 Buildr 功能的默认操作入口。Agent 能在当前工具、权限
 | 声明组织复用的外部命令行工具 | 命令（Commands） |
 | 当前 Agent 找不到已声明规则或技能 | Agent runtime 渲染 |
 | 为 Buildr 增加新的 Agent runtime adapter | runtime trait intake + OpenSpec change |
-
 Agent 通过 `git-ops`、`task-worktree` 或 `task-finish` 成功改变已检出工作区内容后，由对应 Skill 在已初始化 Buildr workspace 中执行 post-transition doctor。doctor 指出 workspace sync 是合适修复动作时，询问用户是否由 Agent 立即同步，同时提供手动同步命令作为备选；用户确认后由 Agent 执行 `buildr sync <agent> --target <workspace-root>` 并验证最终 doctor。当前 session 是否重新发现新资产由 Agent runtime 决定。
 
 ## 资产维护

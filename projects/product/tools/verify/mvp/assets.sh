@@ -304,9 +304,13 @@ import json, sys
 receipt = json.load(open(sys.argv[1]))
 assert receipt['schemaVersion'] == 'buildr.builtin-receipts/v1'
 assert {f"{item['type']}:{item['id']}" for item in receipt['builtins']} == {
-    'rule:buildr-core', 'skill:task-triage', 'skill:task-worktree', 'skill:task-finish', 'skill:git-ops'
+    'rule:buildr-core', 'skill:task-triage', 'skill:task-cockpit', 'skill:task-worktree', 'skill:task-finish', 'skill:git-ops'
 }
 PY
+test -f "$tmp/skills/buildr/task-cockpit/SKILL.md"
+test -f "$tmp/skills/buildr/task-cockpit/assets/task-cockpit-template.html"
+grep -q 'yyyy-MM-dd-<task-id>.html' "$tmp/skills/buildr/task-cockpit/SKILL.md"
+grep -q 'id="cockpit-data"' "$tmp/skills/buildr/task-cockpit/assets/task-cockpit-template.html"
 if node "$buildr" builtin uninstall openspec-propose --target "$tmp" --reason verify >/tmp/buildr-product-mvp-builtin-uninstall-skill.txt 2>&1; then
   echo "Component-owned builtin uninstall unexpectedly succeeded" >&2
   exit 1

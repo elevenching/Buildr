@@ -33,6 +33,12 @@ builtins:
       description: 用户要求修 bug、实现或调整功能、改需求、重构、优化、补文档、补测试、调整 API/契约/权限/状态流/数据语义，或询问某项改动是否需要更新 spec、创建 change、只改代码时使用。
       required: false
       runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
+    - id: task-cockpit
+      path: package/targets/workspace/skills/buildr/task-cockpit
+      target: skills/buildr/task-cockpit
+      description: 为复杂、长期、跨阶段、跨 change、跨服务或团队，或存在交叉依赖和多次用户判断的任务创建、更新和检查只读 HTML 任务驾驶舱；用户明确要求任务可视化、驾驶舱、整体进度、任务全景或长期跟踪时也使用。简单短时任务不机械创建。
+      required: false
+      runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     - id: task-worktree
       path: package/targets/workspace/skills/buildr/task-worktree
       target: skills/buildr/task-worktree
@@ -126,6 +132,9 @@ workspaceFiles:
   - package/targets/workspace/components/manifest.yml => components/manifest.yml copy
   - package/targets/workspace/skills/manifest.yml => skills/manifest.yml copy
   - package/targets/workspace/skills/buildr/task-triage/SKILL.md => skills/buildr/task-triage/SKILL.md copy
+  - package/targets/workspace/skills/buildr/task-cockpit/SKILL.md => skills/buildr/task-cockpit/SKILL.md copy
+  - package/targets/workspace/skills/buildr/task-cockpit/agents/openai.yaml => skills/buildr/task-cockpit/agents/openai.yaml copy
+  - package/targets/workspace/skills/buildr/task-cockpit/assets/task-cockpit-template.html => skills/buildr/task-cockpit/assets/task-cockpit-template.html copy
   - package/targets/workspace/skills/buildr/task-worktree/SKILL.md => skills/buildr/task-worktree/SKILL.md copy
   - package/targets/workspace/skills/buildr/task-finish/SKILL.md => skills/buildr/task-finish/SKILL.md copy
   - package/targets/workspace/skills/buildr/git-ops/SKILL.md => skills/buildr/git-ops/SKILL.md copy
