@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "buildr.openspec-contract-receipt/v1",
+  "change": "generate-github-release-notes-from-changelog",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-5d4986b25b5deffc690c4474e7651d79a3eff9d52240cdb4ddb4670048084ad5",
+  "baselineHash": "sha256-0a883e51a1ae70f57ca25cfe2c303112a4d938cca489e17ec20e8e4bf897eaca",
+  "capabilities": {
+    "open-source-release-governance": {
+      "Release workflow 必须按版本和渠道受控发布": "### Requirement: Release workflow 必须按版本和渠道受控发布\nBuildr MUST 提供 tag 驱动、GitHub-hosted、Environment 审批且 OIDC-ready 的 release workflow，并 MUST 在发布前校验候选、版本、dist-tag 和 tarball。\n\n#### Scenario: 发布 prerelease tag\n- **WHEN** `v<version>` tag 对应的 package version 包含 prerelease 标识\n- **THEN** workflow MUST 使用 `next` dist-tag\n- **AND** workflow MUST 在 `npm-production` Environment 中执行完整验证和公开候选检查后才允许 publish\n\n#### Scenario: 发布稳定 tag\n- **WHEN** `v<version>` tag 对应稳定 package version\n- **THEN** workflow MUST 使用 `latest` dist-tag\n- **AND** tag version MUST 与 package version 完全一致\n- **AND** workflow MUST NOT 从长期 npm publish token 获得默认写权限\n\n#### Scenario: 第一阶段只准备发布能力\n- **WHEN** 本 change 完成并集成内部 `dev`\n- **THEN** Buildr MUST NOT 因此自动推送公开 GitHub、创建 release tag 或执行 npm publish\n- **AND** 外部发布 MUST 等待后续显式授权和账号侧配置完成\n",
+      "公开 README 必须提供中文入口和英文翻译": "### Requirement: 公开 README 必须提供中文入口和英文翻译\nBuildr MUST 使用根 `README.md` 作为中文产品入口，并 MUST 提供 `README.en.md` 作为 README 的完整英文翻译；其他文档 MUST 继续遵循 Project 管理语言而不要求双语复制。\n\n#### Scenario: 用户从任一 README 开始\n- **WHEN** 用户打开中文或英文 README\n- **THEN** README MUST 在顶部链接另一语言版本\n- **AND** 两份 README MUST 包含一致的 Agent-first 产品定位、问题与价值、工作方式、典型场景、分角色价值、核心模型、快速开始、当前能力与边界和文档导航\n- **AND** 两份 README MUST 使用相同的 canonical repository、npm package、CLI 命令和 supported Agent runtime 事实\n- **AND** 快速开始 MUST 同时提供 registry package 和开发 checkout 两种 Buildr 来源，并汇合到相同的 runtime discovery 与 init onboarding\n- **AND** README MUST 将快速开始的开发 checkout 安装路径与 Buildr 自举 workspace 的仓库结构说明清楚分工，不得在两个章节重复完整 onboarding\n",
+      "公开产品身份必须一致且无占位符": "### Requirement: 公开产品身份必须一致且无占位符\nBuildr MUST 将官方源码仓库声明为 `https://github.com/elevenching/Buildr`，将公开 npm package 声明为 `@buildr-ai/buildr`，并 MUST 在公开 metadata、安装命令、反馈入口和 License 中使用已确认身份而非占位符。\n\n#### Scenario: 检查公开候选 metadata\n- **WHEN** 维护者运行开源候选检查\n- **THEN** repository、homepage 和 bugs MUST 指向 `elevenching/Buildr`\n- **AND** npm package MUST 使用 `@buildr-ai/buildr` 且 bin MUST 继续暴露 `buildr`\n- **AND** License MUST 声明 `Copyright (c) 2025-2026 陈俊`\n- **AND** tracked 公开材料 MUST NOT 包含 repository URL 占位符\n",
+      "开源候选必须通过可重复安全扫描": "### Requirement: 开源候选必须通过可重复安全扫描\nBuildr MUST 提供可在本地和 CI 重复运行的开源候选 verifier，扫描 tracked candidate tree 和 npm tarball inventory，并 MUST 对敏感信息、内部来源、占位符、异常大文件或禁止发布路径 fail closed。\n\n#### Scenario: 扫描安全候选\n- **WHEN** verifier 检查准备公开的最终候选\n- **THEN** verifier MUST 检查常见 secret/private-key 模式、内部 remote/domain、个人绝对路径、公开 URL 占位符和异常大文件\n- **AND** verifier MUST 检查 npm tarball 不包含 `.git`、OpenSpec active/archive、task worktree、Agent runtime 或其他非发布资产\n- **AND** verifier MUST 仅读取 tracked candidate 和生成的 tarball inventory，不得扫描用户 home、登录态或本机 secrets\n\n#### Scenario: 候选包含被禁止内容\n- **WHEN** 任一 tracked 文件或 tarball entry 命中未允许的阻塞规则\n- **THEN** verifier MUST 返回非零状态\n- **AND** 诊断 MUST 包含规则、相对路径和可执行的修复方向，且 MUST NOT 回显 secret 全文\n"
+    }
+  },
+  "postSyncVerified": true,
+  "postSyncDeltaHash": "sha256-5d4986b25b5deffc690c4474e7651d79a3eff9d52240cdb4ddb4670048084ad5",
+  "postSyncSpecIntegrities": {
+    "open-source-release-governance": "sha256-5c35e0c4f52c985405482af7866e4791b4090ea0401473ee1500d0bbd3ba8a70"
+  }
+}

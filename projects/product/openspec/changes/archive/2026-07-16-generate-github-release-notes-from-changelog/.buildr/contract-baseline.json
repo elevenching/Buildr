@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "generate-github-release-notes-from-changelog",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-5d4986b25b5deffc690c4474e7651d79a3eff9d52240cdb4ddb4670048084ad5",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "open-source-release-governance",
+      "title": "GitHub Release 必须使用匹配版本的 changelog",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}
