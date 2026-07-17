@@ -99,3 +99,12 @@ skills:
     state: "installed"
     runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     runtimePath: "task-cockpit"
+  - id: "task-asset-review"
+    source: "buildr"
+    path: "buildr/task-asset-review"
+    description: "用户明确要求复盘任务执行质量、总结可沉淀的 Skill 或 Rule、把本次工作方法留给后续 Agent，Agent 已发现明确长期候选，或 task-finish 的轻量资格判断命中时使用。"
+    enabled: true
+    required: false
+    state: "installed"
+    runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
+    runtimePath: "task-asset-review"
