@@ -55,6 +55,8 @@ assert_help_no_side_effects 'buildr render' render
 assert_help_no_side_effects 'buildr skill install' skill install
 assert_help_no_side_effects 'buildr skills add' skills add
 assert_help_no_side_effects 'buildr skills remove' skills remove
+assert_help_no_side_effects 'buildr skills bind' skills bind
+assert_help_no_side_effects 'buildr skills unbind' skills unbind
 assert_help_no_side_effects 'buildr skills render' skills render
 assert_help_no_side_effects 'buildr commands add' commands add
 assert_help_no_side_effects 'buildr commands remove' commands remove

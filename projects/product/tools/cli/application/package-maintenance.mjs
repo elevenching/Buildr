@@ -24,8 +24,10 @@ import { createPackageSmokeChecks } from './package-maintenance/smoke-checks.mjs
 import { createPackageStaticValidator } from './package-maintenance/static-validation.mjs';
 import { createBuiltinReceipts } from './package-maintenance/builtin-receipts.mjs';
 import { createPackageSyncPlan } from './package-maintenance/sync-plan.mjs';
+import { createBuiltinLifecycle } from './package-maintenance/builtin-lifecycle.mjs';
 
 export function registerApplicationPackageMaintenance(runtime) {
+  const doctor = (...args) => runtime.doctor(...args);
   const parseCommandsManifestYaml = (...args) => runtime.parseCommandsManifestYaml(...args);
   const isPlainObject = (...args) => runtime.isPlainObject(...args);
   const validateCommandsManifest = (...args) => runtime.validateCommandsManifest(...args);
@@ -63,6 +65,7 @@ export function registerApplicationPackageMaintenance(runtime) {
   const parseSkillSourceRef = (...args) => runtime.parseSkillSourceRef(...args);
   const readSkillsManifestForWrite = (...args) => runtime.readSkillsManifestForWrite(...args);
   const writeSkillsManifest = (...args) => runtime.writeSkillsManifest(...args);
+  const manifestDocumentFor = (...args) => runtime.manifestDocumentFor(...args);
   const parseSkillFrontmatter = (...args) => runtime.parseSkillFrontmatter(...args);
   const parseProjectsYaml = (...args) => runtime.parseProjectsYaml(...args);
   const validateProjectsRegistry = (...args) => runtime.validateProjectsRegistry(...args);
@@ -199,7 +202,29 @@ export function registerApplicationPackageMaintenance(runtime) {
     }
 
     const skillsManifest = readSkillsManifestForWrite(targetRoot);
+    const skillsDocument = manifestDocumentFor(skillsManifest);
     const skillsById = new Map(skillsManifest.map((skill, index) => [skill.id, { skill, index }]));
+    if (!checkOnly) {
+      const contracts = [...(skillsDocument.contracts || [])];
+      for (const contract of manifest.capabilityContracts || []) {
+        const sourceFile = path.join(productRoot(), contract.path);
+        const targetFile = path.join(targetRoot, contract.target);
+        if (copyFileIfChanged(sourceFile, targetFile)) changed.push(contract.target);
+        const desired = { id: contract.id, version: contract.version, path: contract.target.replace(/^skills\//, ''), description: contract.description };
+        const index = contracts.findIndex((item) => item.id === contract.id && item.version === contract.version);
+        if (index === -1) contracts.push(desired);
+        else contracts[index] = desired;
+      }
+      if (contracts.length) skillsDocument.contracts = contracts;
+      const bindings = [...(skillsDocument.bindings || [])];
+      for (const binding of manifest.initialSkillBindings || []) {
+        if (bindings.some((item) => item.capability === binding.capability && item.version === binding.version)) continue;
+        const provider = skillsById.get(binding.provider)?.skill;
+        if (provider?.state === 'uninstalled' || provider?.enabled === false) continue;
+        bindings.push({ ...binding });
+      }
+      if (bindings.length) skillsDocument.bindings = bindings;
+    }
     for (const builtin of manifest.builtins.skills) {
       if (builtin.component) {
         findings.push({ type: 'skill', id: builtin.id, required: builtin.required === true, status: componentStatusById.get(builtin.component) || 'missing', path: builtin.target, component: builtin.component, lifecycle: `buildr component check ${builtin.component} --target ${targetRoot} --json` });
@@ -301,114 +326,30 @@ export function registerApplicationPackageMaintenance(runtime) {
     }
   }
 
-  function packageBuiltinComponent(id) {
-    const manifest = readPackageManifest();
-    for (const kind of ['rules', 'skills', 'commands']) {
-      const builtin = manifest.builtins[kind].find((item) => item.id === id);
-      if (builtin?.component) return builtin.component;
-    }
-    return null;
-  }
-
-  function findBuiltinManifestEntry(targetRoot, id) {
-    const rulesManifest = readRulesManifestForWrite(targetRoot);
-    const ruleIndex = rulesManifest.rules.findIndex((rule) => rule.id === id && rule.source === 'buildr');
-    if (ruleIndex !== -1) return { type: 'rule', manifest: rulesManifest, index: ruleIndex, entry: rulesManifest.rules[ruleIndex] };
-
-    const skillsManifest = readSkillsManifestForWrite(targetRoot);
-    const skillIndex = skillsManifest.findIndex((skill) => skill.id === id && skill.source === 'buildr');
-    if (skillIndex !== -1) return { type: 'skill', manifest: skillsManifest, index: skillIndex, entry: skillsManifest[skillIndex] };
-
-    const commandsManifest = readCommandsManifestForWrite(targetRoot);
-    const commandIndex = commandsManifest.commands.findIndex((command) => command.id === id && command.source === 'buildr');
-    if (commandIndex !== -1) return { type: 'command', manifest: commandsManifest, index: commandIndex, entry: commandsManifest.commands[commandIndex] };
-
-    throw new Error(`Buildr builtin not found: ${id}`);
-  }
-
-  function builtinUninstallUnsafe(args) {
-    const allowedFlags = new Set(['--target', '--reason']);
-    assertNoUnknownOptions(args, allowedFlags);
-    const [id] = positionalArgs(args);
-    if (!id) throw new Error('Missing builtin id');
-    const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
-    const reason = optionValue(args, '--reason', null);
-    assertInitializedBuildrWorkspace(targetRoot);
-    const component = packageBuiltinComponent(id);
-    if (component) throw new Error(`Buildr builtin ${id} is managed by Component ${component}. Use buildr component uninstall ${component} --agent <agent> --target ${targetRoot}.`);
-    const found = findBuiltinManifestEntry(targetRoot, id);
-    if (found.entry.required === true) throw new Error(`Required Buildr builtin cannot be uninstalled: ${id}`);
-
-    const updated = { ...found.entry, enabled: false, state: 'uninstalled' };
-    if (reason) updated.reason = reason;
-    const changed = [];
-    const receipts = readBuiltinReceipts(targetRoot);
-    const receiptIndex = receipts.builtins.findIndex((item) => item.type === found.type && item.id === id);
-    if (receiptIndex !== -1) {
-      receipts.builtins.splice(receiptIndex, 1);
-      changed.push(writeBuiltinReceipts(targetRoot, receipts));
-    }
-    if (found.type === 'rule') {
-      found.manifest.rules[found.index] = updated;
-      if (found.entry.path && existsFile(path.join(targetRoot, found.entry.path))) {
-        fs.rmSync(path.join(targetRoot, found.entry.path), { force: true });
-        changed.push(found.entry.path);
-      }
-      changed.push(toPosixRelative(targetRoot, writeRulesManifest(targetRoot, found.manifest)));
-    } else if (found.type === 'skill') {
-      found.manifest[found.index] = updated;
-      const skillDir = path.join(targetRoot, 'skills', found.entry.path || id);
-      if (existsDirectory(skillDir)) {
-        fs.rmSync(skillDir, { recursive: true, force: true });
-        changed.push(toPosixRelative(targetRoot, skillDir));
-      }
-      for (const runtimeRoot of ['.claude', '.agents']) {
-        const runtimeDir = path.join(targetRoot, runtimeRoot, 'skills', found.entry.runtimePath || id);
-        if (existsDirectory(runtimeDir)) {
-          fs.rmSync(runtimeDir, { recursive: true, force: true });
-          changed.push(toPosixRelative(targetRoot, runtimeDir));
-        }
-      }
-      changed.push(toPosixRelative(targetRoot, writeSkillsManifest(targetRoot, found.manifest)));
-    } else {
-      found.manifest.commands[found.index] = updated;
-      changed.push(toPosixRelative(targetRoot, writeCommandsManifest(targetRoot, found.manifest)));
-    }
-    console.log(`已卸载 Buildr builtin：${id}`);
-    for (const file of [...new Set(changed)]) console.log(`  ${file}`);
-  }
-
-  function builtinUninstall(args) {
-    const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
-    return withWorkspaceMutation(targetRoot, 'builtin.uninstall', [
-      path.join(targetRoot, 'rules'),
-      path.join(targetRoot, 'skills'),
-      path.join(targetRoot, 'commands'),
-      path.join(targetRoot, '.claude', 'skills'),
-      path.join(targetRoot, '.agents', 'skills'),
-      path.join(targetRoot, '.buildr', 'builtin-receipts.json'),
-    ], () => builtinUninstallUnsafe(args));
-  }
-
-  function builtinRestoreUnsafe(args) {
-    const allowedFlags = new Set(['--target']);
-    assertNoUnknownOptions(args, allowedFlags);
-    const [id] = positionalArgs(args);
-    if (!id) throw new Error('Missing builtin id');
-    const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
-    assertInitializedBuildrWorkspace(targetRoot);
-    const component = packageBuiltinComponent(id);
-    if (component) throw new Error(`Buildr builtin ${id} is managed by Component ${component}. Use buildr component install ${component} --agent <agent> --target ${targetRoot}.`);
-    const result = syncPackageBuiltins(targetRoot, { restoreId: id });
-    if (!result.findings.some((finding) => finding.id === id)) throw new Error(`Buildr builtin not found in package: ${id}`);
-    console.log(`已恢复 Buildr builtin：${id}`);
-    for (const file of result.changed) console.log(`  ${file}`);
-  }
-
-  function builtinRestore(args) {
-    const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
-    return withWorkspaceMutation(targetRoot, 'builtin.restore', [path.join(targetRoot, 'rules'), path.join(targetRoot, 'skills'), path.join(targetRoot, 'commands'), path.join(targetRoot, 'components'), path.join(targetRoot, '.buildr', 'builtin-receipts.json')], () => builtinRestoreUnsafe(args));
-  }
+  const { packageBuiltinComponent, findBuiltinManifestEntry, builtinUninstallUnsafe, builtinUninstall, builtinRestoreUnsafe, builtinRestore } = createBuiltinLifecycle({
+    assertInitializedBuildrWorkspace,
+    assertNoUnknownOptions,
+    doctor,
+    existsDirectory,
+    existsFile,
+    fs,
+    optionValue,
+    path,
+    positionalArgs,
+    process,
+    readBuiltinReceipts,
+    readCommandsManifestForWrite,
+    readPackageManifest,
+    readRulesManifestForWrite,
+    readSkillsManifestForWrite,
+    syncPackageBuiltins,
+    toPosixRelative,
+    withWorkspaceMutation,
+    writeBuiltinReceipts,
+    writeCommandsManifest,
+    writeRulesManifest,
+    writeSkillsManifest,
+  });
 
   const {
     validateWorkspaceSkillsBaseline,

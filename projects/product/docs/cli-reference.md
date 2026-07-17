@@ -20,7 +20,7 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 
 `init --agent` 是默认首次 onboarding 入口：它先初始化源资产，再复用完整 `sync` 执行 source update、产品 Buildr Skill 安装、workspace/project Skills 投射和最终 doctor。已有 workspace 的产品能力与 runtime 更新继续使用 `sync`。
 
-`buildr update` 只更新 CLI 自身：开发 checkout 使用 Git 安全更新，registry package 使用 npm 更新。它不接收 `--target`，也不读取 workspace。用户要求“更新 Buildr”或“同步 Buildr”时，Agent 在 update 成功后重新解析入口，再执行 `buildr skill install <agent> --target <workspace>`，更新 CLI 与产品入口 Buildr Skill，而不扩大为 workspace sync。用户要求“更新 workspace”或“同步 workspace”时，Agent 先判断 workspace root 是否由 Git 管理：Git workspace 复用 Git Ops 检查当前分支、upstream 和工作区状态并安全更新本地 checkout，成功后执行 `buildr sync <agent> --target <workspace>`；非 Git workspace 直接 sync。Git 决策点会阻止后续 sync，Agent 不自动 stash、rebase 或覆盖；该复合意图不先更新 CLI，且 Git 更新成功后无需再次询问 sync 授权。
+`buildr update` 只更新 CLI 自身：开发 checkout 使用 Git 安全更新，registry package 使用 npm 更新。它不接收 `--target`，也不读取 workspace。用户要求“更新 Buildr”或“同步 Buildr”时，Agent 在 update 成功后重新解析入口，再执行 `buildr skill install <agent> --target <workspace>`，更新 CLI 与产品入口 Buildr Skill，而不扩大为 workspace sync。用户要求“更新 workspace”或“同步 workspace”时，Agent 先判断 workspace root 是否由 Git 管理：Git workspace 解析 `buildr.git-workspace-update/v1` binding 并使用 selected provider 检查当前分支、upstream 和工作区状态，成功后执行 `buildr sync <agent> --target <workspace>`；非 Git workspace 直接 sync。required provider blocked 或 Git 决策点会阻止后续 sync，Agent 不自动 stash、rebase 或覆盖；该复合意图不先更新 CLI，且 Git 更新成功后不重复询问 sync。`buildr sync` 自身不隐式执行 Git 更新。
 
 ## Workspace 与资产
 
@@ -30,7 +30,7 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 | `buildr project create <project>` | 创建或登记 Project；`--repo` 接入 Project 资产 Git repo。 |
 | `buildr service create <project>/<service> <repo-ref>` | 接入本地目录或 Git Service；Git 来源可用 `--branch <branch>` 指定 checkout intent。 |
 | `buildr rules add/remove` | 维护 root Rules manifest 和文件生命周期。 |
-| `buildr skills add/remove/render` | 维护本地或远端 Skills 源资产并投射 runtime。 |
+| `buildr skills add/remove/bind/unbind/render` | 维护 Skills 源资产、capability 声明与显式 provider binding，并投射 runtime。 |
 | `buildr commands add/remove/check` | 声明并诊断外部 CLI；Buildr 不代替用户安装。 |
 | `buildr component list/check/install/uninstall` | 管理 workspace 级 Rules、Skills、Command collections 与声明式 Skill Contribution。 |
 | `buildr builtin list/uninstall/restore` | 查看或维护 Buildr 内置能力；required 能力不能卸载。 |
@@ -51,6 +51,12 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 | `buildr mutation recover <id>` | 从完整 transaction journal/backup 恢复未完成 source mutation。 |
 
 当前支持 `claude-code`、`codex`、`cursor`、`qoder`、`trae`、`trae-work` 和 `workbuddy`。其他 runtime 不使用 fallback adapter；各 adapter 的文件路径、刷新方式和证据状态见 [Agent Runtime Adapters](agent-runtime-adapters.md)。
+
+## Skill capability contracts
+
+`buildr.skills/v2` 支持 versioned contract、provider `provides`、consumer `requires` 和按 scope binding。`skills add` / replace 使用可重复的 `--provides <capability>@<version>` 与 `--requires <capability>@<version>:<required|optional>`；provider 替换使用 `skills bind <capability>@<version> --provider <skill-id>`，取消当前 scope 的显式选择使用 `skills unbind`。安装 provider 本身不会静默改变既有 binding。
+
+Contract 格式、scope 规则、替换示例以及 `ready` 的边界见 [Skill Capability Contracts](skill-capability-contracts.md)。
 
 ## Product maintenance / workflow internal
 

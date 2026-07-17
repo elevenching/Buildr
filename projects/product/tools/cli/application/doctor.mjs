@@ -11,6 +11,7 @@ import {
 import { createRuntimeDiagnostics } from './doctor/runtime-diagnostics.mjs';
 import { createScopeDiagnostics } from './doctor/scope-diagnostics.mjs';
 import { createServiceDiagnostics } from './doctor/service-diagnostics.mjs';
+import { createCapabilityDiagnostics } from './doctor/capability-diagnostics.mjs';
 
 export function registerApplicationDoctor(runtime) {
   const runCommandsCheck = (...args) => runtime.runCommandsCheck(...args);
@@ -113,6 +114,7 @@ export function registerApplicationDoctor(runtime) {
     runtimeImplementation,
     toPosixRelative,
   });
+  const { diagnoseSkillCapabilities, printCapabilityReport } = createCapabilityDiagnostics({ addDoctorFinding, isSupportedAgent, path });
 
   function diagnoseSkillsManifestSchemas(result, targetRoot, scopes) {
     const checked = new Set();
@@ -126,12 +128,16 @@ export function registerApplicationDoctor(runtime) {
       if (checked.has(relative) || !existsFile(manifestPath)) continue;
       checked.add(relative);
       const schemaVersion = readSkillManifestSchemaVersion(manifestPath);
-      if (schemaVersion !== 'buildr.skills/v1') {
-        addDoctorFinding(result, 'warning', 'skills.schema_version_invalid', `Skills manifest schemaVersion 缺失或不支持：${relative}`, {
+      if (schemaVersion === 'buildr.skills/v2') continue;
+      const manifestText = fs.readFileSync(manifestPath, 'utf8');
+      const hasV2OnlyKeys = /^(?:contracts|bindings):/m.test(manifestText);
+      const supportedLegacy = schemaVersion === 'buildr.skills/v1' || (schemaVersion === null && !hasV2OnlyKeys);
+      addDoctorFinding(result, supportedLegacy ? 'warning' : 'error', supportedLegacy ? 'skills.schema_version_legacy' : 'skills.schema_version_invalid', `${supportedLegacy ? 'Skills manifest 等待事务化升级' : 'Skills manifest schemaVersion 不支持'}：${relative}`, {
           path: relative,
-          suggestion: '运行 buildr update 或 buildr sync 补齐 schemaVersion: buildr.skills/v1。',
+          supportedVersions: ['buildr.skills/v1', 'buildr.skills/v2'],
+          suggestion: supportedLegacy ? '运行 buildr update 或 buildr sync 迁移到 schemaVersion: buildr.skills/v2。' : '先更新 Buildr CLI；不要用当前版本重写该 manifest。',
+          userActionRequired: true,
         });
-      }
     }
   }
 
@@ -155,18 +161,19 @@ export function registerApplicationDoctor(runtime) {
 
     if (result.findings.length === 0) {
       console.log('[ok] 未发现问题。');
-      return;
-    }
-
-    for (const finding of result.findings) {
-      const location = finding.path ? ` (${finding.path})` : '';
-      console.log(`[${finding.status}] ${finding.code}${location} - ${finding.message}`);
-      if (finding.suggestion) console.log(`  建议：${finding.suggestion}`);
-      if (finding.command) console.log(`  命令：${finding.command}`);
-      if (finding.commands) {
-        for (const command of finding.commands) console.log(`  命令：${command}`);
+    } else {
+      for (const finding of result.findings) {
+        const location = finding.path ? ` (${finding.path})` : '';
+        console.log(`[${finding.status}] ${finding.code}${location} - ${finding.message}`);
+        if (finding.suggestion) console.log(`  建议：${finding.suggestion}`);
+        if (finding.command) console.log(`  命令：${finding.command}`);
+        if (finding.commands) {
+          for (const command of finding.commands) console.log(`  命令：${command}`);
+        }
       }
     }
+
+    printCapabilityReport(result);
   }
 
   Object.assign(runtime, {
@@ -194,6 +201,7 @@ export function registerApplicationDoctor(runtime) {
     diagnoseCommands,
     diagnoseComponents,
     diagnoseSkillsManifestSchemas,
+    diagnoseSkillCapabilities,
     finalizeDoctorResult,
     printDoctorReport,
   });

@@ -1,3 +1,5 @@
+import { capabilityKey, parseCapabilityContract, validateCapabilityIdentity } from '../../../runtime/skills/manifests.mjs';
+
 export function createPackageStaticValidator(deps) {
   const {
     LEGACY_PACKAGE_PATHS,
@@ -348,28 +350,32 @@ export function createPackageStaticValidator(deps) {
       const skillContent = fs.readFileSync(skillFile, 'utf8');
       if (skill.id === 'buildr') {
         for (const requiredText of [
-          '提交、拉取、合并、rebase、checkout/switch、reset、推送',
-          'post-transition doctor',
+          'buildr.git-single-operation/v1',
+          'buildr.git-workspace-update/v1',
+          'Buildr Capability Bindings',
+          'capabilities` graph',
           'Agent 是 Buildr 功能的默认操作入口',
           '询问用户是否由 Agent 立即同步',
-          'buildr sync <agent> --target <workspace-root>',
-          '手动同步命令作为备选',
+          '准确手动命令作为备选',
           '当前 session 是否重新发现新资产由 Agent runtime 决定',
           '用户要求“更新 Buildr”或“同步 Buildr”时',
           'buildr skill install <agent> --target <dir>',
           '用户要求“更新 workspace”或“同步 workspace”时',
           '用户明确要求“只更新 CLI”时',
-          '复用 Git Ops 检查当前分支、upstream 和工作区状态',
+          '解析 `buildr.git-workspace-update/v1`',
           '不自动 stash、rebase、覆盖，也不继续 sync',
-          '无需再次询问 sync 授权',
-          '非 Git workspace 直接执行 sync',
+          '不重复询问 sync',
+          '不是 Git workspace，直接运行 sync',
+          '先加载 `capability-adaptation` 判断是否触达或产生跨 Skill 稳定依赖边界',
+          '产品入口 Buildr Skill 是能力路由者',
+          '单项 capability blocked 不得阻塞',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`Buildr Agent Skill must include ${JSON.stringify(requiredText)}.`);
         }
         for (const [relativePath, requiredTexts] of [
-          ['package/bootstrap/guide.md', ['复用 Git Ops 检查当前分支、upstream 和工作区状态', '不自动 stash、rebase、覆盖，也不继续 sync', '无需再次询问 sync 授权', '非 Git workspace 跳过 Git 步骤', '不是 `buildr sync` 的隐式行为']],
-          ['docs/cli-reference.md', ['复用 Git Ops 检查当前分支、upstream 和工作区状态', 'Agent 不自动 stash、rebase 或覆盖', '无需再次询问 sync 授权', '非 Git workspace 直接 sync', '不隐式执行 Git 更新']],
-          ['tools/runtime/skills/render-plan.mjs', ['Git 管理的 workspace 先复用 Git Ops 安全更新本地 checkout，再运行 sync', '非 Git workspace 直接运行 sync']],
+          ['package/bootstrap/guide.md', ['解析 `buildr.git-workspace-update/v1` binding', '不自动 stash、rebase、覆盖，也不继续 sync', '不重复询问 sync', '非 Git workspace 跳过 Git provider', '不是 `buildr sync` 的隐式 Git 行为']],
+          ['docs/cli-reference.md', ['解析 `buildr.git-workspace-update/v1` binding', 'Agent 不自动 stash、rebase 或覆盖', '不重复询问 sync', '非 Git workspace 直接 sync', '不隐式执行 Git 更新']],
+          ['tools/runtime/skills/render-plan.mjs', ['解析 `buildr.git-workspace-update/v1` selected provider', '非 Git workspace 直接运行 sync']],
         ]) {
           const contractPath = path.join(root, relativePath);
           if (!existsFile(contractPath)) {
@@ -431,6 +437,36 @@ export function createPackageStaticValidator(deps) {
   function validatePackageBuiltins(context, skillSourceIds) {
     const { root, manifest, files, problems } = context;
     const builtinIds = new Set();
+    const contractIds = new Set();
+    for (const [index, contract] of (manifest.capabilityContracts || []).entries()) {
+      const label = `capabilityContracts[${index}]`;
+      try {
+        validateCapabilityIdentity(contract.id, contract.version, label);
+        if (!contract.path || !contract.target || !contract.description) throw new Error(`${label} must include path, target, and description`);
+        const key = capabilityKey(contract.id, contract.version);
+        if (contractIds.has(key)) throw new Error(`Duplicate package capability contract: ${key}`);
+        contractIds.add(key);
+        const sourceFile = path.resolve(root, contract.path);
+        parseCapabilityContract(sourceFile, contract);
+        files.push(sourceFile);
+      } catch (error) {
+        problems.push(error.message);
+      }
+    }
+    const bindingIds = new Set();
+    for (const [index, binding] of (manifest.initialSkillBindings || []).entries()) {
+      const label = `initialSkillBindings[${index}]`;
+      try {
+        validateCapabilityIdentity(binding.capability, binding.version, label);
+        const key = capabilityKey(binding.capability, binding.version);
+        if (!contractIds.has(key)) throw new Error(`${label} references undeclared contract: ${key}`);
+        if (!binding.provider) throw new Error(`${label}.provider is required`);
+        if (bindingIds.has(key)) throw new Error(`Duplicate initial Skill binding: ${key}`);
+        bindingIds.add(key);
+      } catch (error) {
+        problems.push(error.message);
+      }
+    }
     function validateLegacyIntegrities(builtin, label) {
       if (builtin.legacyIntegrities === undefined) return;
       if (!Array.isArray(builtin.legacyIntegrities)) {
@@ -474,6 +510,8 @@ export function createPackageStaticValidator(deps) {
             '取得所需授权后直接执行',
             '不把命令或操作步骤作为默认结果要求用户代为执行',
             '才提供准确的手动操作作为兜底',
+            '创建、修改、替换或卸载 Skill 前必须检查相关 `provides`、`requires`',
+            '不得绕过已知依赖直接激活',
           ]) {
             if (!coreContent.includes(requiredText)) problems.push(`Buildr Core must include ${JSON.stringify(requiredText)}.`);
           }
@@ -487,6 +525,17 @@ export function createPackageStaticValidator(deps) {
 
     for (const skill of manifest.builtins.skills) {
       const label = `builtins.skills.${skill.id || '<missing>'}`;
+      for (const [field, entries] of [['provides', skill.provides || []], ['requires', skill.requires || []]]) {
+        for (const [index, declaration] of entries.entries()) {
+          try {
+            validateCapabilityIdentity(declaration.capability, declaration.version, `${label}.${field}[${index}]`);
+            if (!contractIds.has(capabilityKey(declaration.capability, declaration.version))) throw new Error(`${label}.${field}[${index}] references undeclared contract`);
+            if (field === 'requires' && !['required', 'optional'].includes(declaration.mode)) throw new Error(`${label}.${field}[${index}].mode must be required or optional`);
+          } catch (error) {
+            problems.push(error.message);
+          }
+        }
+      }
       validateLegacyIntegrities(skill, label);
       if (!skill.id || !skill.path || !skill.target || !skill.description || typeof skill.required !== 'boolean') {
         problems.push(`${label} must include id, path, target, description, and required.`);
@@ -523,6 +572,23 @@ export function createPackageStaticValidator(deps) {
         problems.push(error.message);
       }
       const skillContent = fs.readFileSync(skillFile, 'utf8');
+      if (skill.id === 'capability-adaptation') {
+        for (const requiredText of [
+          'Agent 工作能力适配',
+          '用户无需知道这些资产名称',
+          '判断的是稳定协作边界，不是用户是否说出 capability 名字',
+          '先开发候选，再改变当前实现',
+          '候选不满足 contract、组合验证失败',
+          '在新 binding ready 之前不卸载旧 provider',
+          '使用记录的旧 binding 恢复选择',
+          '不让产品入口的某项 route blocked 扩大为整个 Buildr Skill blocked',
+        ]) {
+          if (!skillContent.includes(requiredText)) problems.push(`capability-adaptation Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        if ((skill.provides || []).length > 0 || (skill.requires || []).length > 0) {
+          problems.push('capability-adaptation is a management Skill and must not declare provides/requires.');
+        }
+      }
       if (skill.id === 'task-worktree') {
         for (const requiredText of [
           '<workspace-root>/.worktrees/<task-id>',
@@ -544,10 +610,10 @@ export function createPackageStaticValidator(deps) {
           '候选 tree 已改变时沿用旧验证结果',
           '不从未合并 task checkout 更新主自举 workspace',
           '新 worktree checkout 完成后',
-          '复用 Git Ops 的“工作区转换后的 Buildr 环境检查”',
-          '复用既有 worktree 且没有发生 tree 转换时，不重复运行该检查',
-          '复用同步询问、Agent 执行和手动兜底边界',
-          '用户确认前不执行 sync',
+          'required Core workspace-transition invariant',
+          '复用既有 worktree且没有发生 tree 转换时不重复检查',
+          '产品入口 Buildr Skill 完成具体 doctor、sync 询问、Agent 执行和手动兜底边界',
+          '不依赖 `git-ops`',
           '不把手动命令作为默认处理方式',
           '不沿用普通开发任务的保守保留策略',
           '远端 ref 与本地候选提交一致',
@@ -565,26 +631,11 @@ export function createPackageStaticValidator(deps) {
           '改变已验证 tree 时，原验证结果失效',
           '相同 tree',
           '不因 checkout、commit hash 或分支名称改变而重复运行相同验证',
-          '工作区转换后的 Buildr 环境检查',
-          '`pull`、`merge`、`rebase`、`checkout`、`switch`、`reset`、`cherry-pick`、`revert`、`stash apply` 和 `stash pop`',
+          'Workspace tree transition result',
+          '`treeChanged` 结果证据',
           '`fetch`、`push` 和普通 `commit`',
-          '.buildr/workspace.yml',
-          'buildr doctor --agent <agent> --target <workspace-root> --json',
-          'doctor 无需用户处理时，不提醒用户执行 `render` 或 `sync`',
-          'Rules、Skills、Commands、Components、Contributions 和 Agent runtime',
-          '询问用户是否由 Agent 立即同步当前 workspace 和 Agent runtime',
-          'buildr sync <agent> --target <workspace-root>',
-          '把占位符替换为已解析的实际值并正确引用路径',
-          '用户确认前不得执行 sync',
-          '用户确认后，调用 Buildr Skill',
-          '不得把手动命令作为默认处理方式',
-          '按对应 Buildr 生命周期询问并在取得授权后由 Agent 执行可完成的动作',
-          '只有用户选择手动方式，或 Agent 因工具不可用、权限、登录态、外部环境等原因无法完成时',
-          '用户选择手动后不假设操作成功',
-          '再次验证',
-          '当前 session 是否重新发现新资产由 Agent runtime 决定',
-          'Git hook、daemon、文件 watcher 或定时任务',
-          '后续进入 Buildr 工作流时由基线 doctor 兜底',
+          'required Core workspace-transition invariant',
+          '本 provider 不拥有或复制该 Buildr 操作手册',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`git-ops Skill must include ${JSON.stringify(requiredText)}.`);
         }
@@ -614,18 +665,20 @@ export function createPackageStaticValidator(deps) {
           '任务范围内仍有未记录语义、实现偏差或验证缺口时',
           'OpenSpec contract sidebar 只证明已记录契约',
           '任务资产审查门控',
-          '不得调用工具、重新读取任务文件或加载完整 `task-asset-review`',
+          '不得调用工具、重新读取任务文件或加载完整 selected asset-review provider',
           '用户纠正过 Agent 的工作边界、资产职责、scope 或授权范围',
           '初始假设被代码、命令、测试或用户反馈推翻',
           '无效重复或明显 token 浪费',
           '静默跳过完整审查',
           '复用当前候选 tree 已有的有效审查结果',
-          '审查成功不是 archive、commit、rebase、merge、push 或 cleanup 的新增前置条件',
+          '审查成功不是 archive、commit、integration、push 或 cleanup 的新增前置条件',
           '“收尾”不构成 Rule 或 Skill 写入授权',
           'new blank line at EOF',
           '恰好以一个换行结束',
           'git rev-parse HEAD^{tree}',
-          'fast-forward-only',
+          'selected task-integration provider',
+          'selected worktree-lifecycle provider',
+          'required dependency 为 `blocked`',
           '不删除远端任务分支',
           '工作目录切换到主 workspace',
           '修复期间已经优先重跑失败项和受影响专项检查',
@@ -633,24 +686,23 @@ export function createPackageStaticValidator(deps) {
           'wait、poll 或 resume 同一进程',
           '暂时无输出不得启动第二个相同验证',
           '停止尚未执行的 archive、commit、rebase、merge、push 或 cleanup',
-          '成功 rebase 后若最终已检出内容实际变化',
-          'fast-forward-only 集成完成后',
-          '复用 Git Ops 的“工作区转换后的 Buildr 环境检查”',
-          '复用同步询问、Agent 执行和手动兜底边界',
-          '用户确认前不执行 sync',
-          '确认后由 Agent 执行并验证',
-          '手动命令只作备选',
+          'provider 返回 `treeChanged: true`',
+          '本 Skill 不复制这些策略',
+          'placement、retention、cleanup preconditions 和删除顺序由该 provider',
           '<!-- buildr:skill-contributions pre-spec-sync -->',
           '<!-- buildr:skill-contributions post-spec-sync -->',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`task-finish Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        for (const forbiddenPolicy of ['fast-forward-only', '默认 rebase 到最新目标分支', '不创建 merge commit']) {
+          if (skillContent.includes(forbiddenPolicy)) problems.push(`task-finish must not copy Git provider policy: ${forbiddenPolicy}`);
         }
         if (skillContent.includes('buildr openspec')) problems.push('task-finish source must not hard-code OpenSpec contract guard commands; installed Components contribute them at render time.');
       }
       if (skill.id === 'task-asset-review') {
         for (const requiredText of [
           '用户明确要求复盘',
-          '`task-finish` 只在自身轻量资格判断命中后调用本 Skill',
+          'Finish consumer 只在自身轻量资格判断命中后调用 selected provider',
           '用户原始目标、纠正和明确决策',
           'subagent 的任务划分、证据和最终报告',
           '不得声称读取模型隐藏推理、chain-of-thought 或内部 deliberation',

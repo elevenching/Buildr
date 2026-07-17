@@ -67,10 +67,10 @@ test('task-finish fixture 覆盖轻量门控、复用、降级和写回授权', 
     'candidate-capsule',
     'finish-does-not-authorize-write',
   ]);
-  assert.match(finishSkill, /不得调用工具、重新读取任务文件或加载完整 `task-asset-review`/);
+  assert.match(finishSkill, /不得调用工具、重新读取任务文件或加载完整 selected asset-review provider/);
   assert.match(finishSkill, /静默跳过完整审查/);
   assert.match(finishSkill, /复用当前候选 tree 已有的有效审查结果/);
-  assert.match(finishSkill, /审查成功不是 archive、commit、rebase、merge、push 或 cleanup 的新增前置条件/);
+  assert.match(finishSkill, /审查成功不是 archive、commit、integration、push 或 cleanup 的新增前置条件/);
   assert.match(finishSkill, /“收尾”不构成 Rule 或 Skill 写入授权/);
   const preSync = finishSkill.indexOf('buildr:skill-contributions pre-spec-sync');
   const postSync = finishSkill.indexOf('buildr:skill-contributions post-spec-sync');
@@ -93,11 +93,11 @@ test('证据胶囊支持 worktree 清理后继续核查并标记 session 限制'
 });
 
 test('产品入口、optional builtin 和 workspace baseline 路由一致', () => {
-  assert.match(buildrSkill, /`task-asset-review` Skill/);
-  assert.match(buildrSkill, /已显式卸载则尊重该状态/);
-  assert.match(packageManifest, /id: task-asset-review[\s\S]*required: false/);
+  assert.match(buildrSkill, /`buildr\.task-asset-review\/v1` selected provider/);
+  assert.match(buildrSkill, /optional 不可用时按 consumer 声明降级/);
+  assert.match(packageManifest, /id: task-asset-review[\s\S]*required: false[\s\S]*capability: buildr\.task-asset-review/);
   assert.match(packageManifest, /task-asset-review\/agents\/openai\.yaml/);
-  assert.match(workspaceSkills, /id: task-asset-review[\s\S]*state: installed[\s\S]*runtimePath: task-asset-review/);
+  assert.match(workspaceSkills, /id: task-asset-review[\s\S]*state: installed[\s\S]*runtimePath: task-asset-review[\s\S]*capability: buildr\.task-asset-review/);
 });
 
 test('任务审查明确拒绝隐藏推理、完整轨迹和自动资产写入', () => {

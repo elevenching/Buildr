@@ -58,6 +58,7 @@ test('candidate verification retains every release gate and one shared package b
     'runtime adapter contract',
     'runtime adapter parity',
     'runtime adapter smoke workspace generator',
+    'capability CLI integration',
     'Service branch contract',
     'remote Skill timeout contract',
     'temporary workspace end-to-end',
@@ -67,4 +68,5 @@ test('candidate verification retains every release gate and one shared package b
   ]) assert.ok(candidate.includes(`'${stage}'`), `candidate verifier must retain ${stage}`);
   assert.equal((candidate.match(/createCandidatePackage\(/g) || []).length, 1);
   assert.equal((candidate.match(/runBatch\(\[/g) || []).length, 3);
+  assert.ok(candidate.includes("test/capability-cli.integration.mjs"));
 });

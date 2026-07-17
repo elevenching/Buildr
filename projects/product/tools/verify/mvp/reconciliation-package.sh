@@ -175,6 +175,8 @@ required = {
     'package/targets/workspace/skills/buildr/task-cockpit/SKILL.md',
     'package/targets/workspace/skills/buildr/task-cockpit/agents/openai.yaml',
     'package/targets/workspace/skills/buildr/task-cockpit/assets/task-cockpit-template.html',
+    'package/targets/workspace/skills/buildr/capability-adaptation/SKILL.md',
+    'package/targets/workspace/skills/buildr/capability-adaptation/agents/openai.yaml',
     'package/targets/workspace/skills/buildr/task-asset-review/SKILL.md',
     'package/targets/workspace/skills/buildr/task-asset-review/agents/openai.yaml',
     'package/targets/workspace/skills/buildr/task-worktree/SKILL.md',

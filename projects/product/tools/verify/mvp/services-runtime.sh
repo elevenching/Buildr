@@ -97,6 +97,19 @@ assert 'projects.legacy_registry_present' in codes
 assert 'projects.registry_invalid' in codes
 assert 'skills.schema_version_invalid' in codes
 PY
+node --input-type=module - "$tmp/skills/manifest.yml" <<'NODE'
+import fs from 'node:fs';
+import YAML from 'yaml';
+const file = process.argv[2];
+const current = YAML.parse(fs.readFileSync(file, 'utf8'));
+fs.writeFileSync(file, YAML.stringify({ schemaVersion: 'buildr.skills/v1', skills: current.skills }, { lineWidth: 0 }));
+NODE
+node "$buildr" doctor --target "$tmp" --scope projects/demo --json >/tmp/buildr-product-mvp-registry-doctor-legacy.json || true
+python3 - <<'PY'
+import json
+result = json.load(open('/tmp/buildr-product-mvp-registry-doctor-legacy.json'))
+assert any(f['code'] == 'skills.schema_version_legacy' for f in result['findings'])
+PY
 if node "$buildr" sync codex --target "$tmp" >/tmp/buildr-product-mvp-registry-update.txt 2>&1; then
   echo "sync unexpectedly passed final doctor with an intentionally missing registered Project" >&2
   exit 1
@@ -114,7 +127,7 @@ if grep -q 'rules:' "$tmp/projects/legacy-only/services/manifest.yml" || grep -q
   echo "legacy service manifest migration kept unsupported fields" >&2
   exit 1
 fi
-grep -q 'schemaVersion: buildr.skills/v1' "$tmp/skills/manifest.yml"
+grep -q 'schemaVersion: buildr.skills/v2' "$tmp/skills/manifest.yml"
 grep -q 'description: "TODO:' "$tmp/projects/manifest.yml"
 node "$buildr" doctor --target "$tmp" --scope projects/legacy-only --json >/tmp/buildr-product-mvp-registry-doctor-after.json
 python3 - <<'PY'

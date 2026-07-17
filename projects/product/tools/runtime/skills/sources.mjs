@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fetchRemoteText } from '../../shared/fetch-remote-text.mjs';
 import { resolveSkillContributions } from './contributions.mjs';
-import { isSourceLabel, parseSkillsManifest } from './manifests.mjs';
+import { isSourceLabel, parseSkillsManifestDocument } from './manifests.mjs';
 import { ensureFile, normalizeRelativePath, packageRoot, parseSkillFrontmatterName, parseSkillFrontmatterNameFromContent, productRoot, unquoteYamlScalar } from './primitives.mjs';
 
 function readPackageSkillEntries(section, runtime) {
@@ -149,6 +149,18 @@ function resolveSkillUrl(skill, layerOrigin) {
   };
 }
 
+function describeSkillUrl(skill, layerOrigin) {
+  return {
+    id: skill.id,
+    origin: layerOrigin,
+    sourceKind: 'resolved',
+    resolved: skill.resolved,
+    source: skill.source,
+    displaySource: skill.resolved.url,
+    runtimePath: skill.id,
+  };
+}
+
 function resolveAgentInstallSkill(skill, layerOrigin, manifestPath) {
   return {
     id: skill.id,
@@ -186,7 +198,8 @@ function loadLayer(manifestPath, options = {}) {
   const layerOrigin = options.origin ?? 'workspace';
   const packageSourcesById = options.packageSourcesById ?? new Map();
   const seen = new Set();
-  return parseSkillsManifest(manifestPath).map((skill) => {
+  const document = parseSkillsManifestDocument(manifestPath);
+  return document.skills.map((skill) => {
     if (seen.has(skill.id)) {
       throw new Error(`Duplicate skill id in same manifest: ${skill.id} (${manifestPath})`);
     }
@@ -201,15 +214,18 @@ function loadLayer(manifestPath, options = {}) {
       if (skill.path !== undefined && isSourceLabel(skill.source)) {
         // source is an ownership label; resolve the local path below.
       } else {
-      return resolveReferencedSkill(skill, packageSourcesById, runtime);
+      return decorateResolvedSkill(resolveReferencedSkill(skill, packageSourcesById, runtime), skill, manifestPath, options.scope);
       }
     }
     const hasLocalSourceLabel = skill.path !== undefined && typeof skill.source === 'string' && isSourceLabel(skill.source);
     if (skill.install?.mode === 'agent' || (skill.source !== undefined && skill.resolved === undefined && !hasLocalSourceLabel)) {
-      return resolveAgentInstallSkill(skill, layerOrigin, manifestPath);
+      return decorateResolvedSkill(resolveAgentInstallSkill(skill, layerOrigin, manifestPath), skill, manifestPath, options.scope);
     }
     if (skill.resolved !== undefined) {
-      return resolveSkillUrl(skill, layerOrigin);
+      const resolved = options.resolveRemote === false
+        ? describeSkillUrl(skill, layerOrigin)
+        : resolveSkillUrl(skill, layerOrigin);
+      return decorateResolvedSkill(resolved, skill, manifestPath, options.scope);
     }
     const skillPath = normalizeRelativePath(skill.path);
     const sourceDir = path.join(manifestDir, skillPath);
@@ -220,14 +236,24 @@ function loadLayer(manifestPath, options = {}) {
       throw new Error(`Skill id does not match SKILL.md frontmatter name: ${skill.id} != ${sourceName}`);
     }
     const runtimePath = skill.runtimePath !== undefined ? normalizeRelativePath(skill.runtimePath) : skillPath;
-    return {
+    return decorateResolvedSkill({
       id: skill.id,
       sourceFile,
       origin: isSourceLabel(skill.source) ? skill.source : layerOrigin,
       sourceKind: 'path',
       runtimePath: runtimePath.split(path.sep).join('/'),
-    };
+    }, skill, manifestPath, options.scope);
   }).filter(Boolean);
+}
+
+function decorateResolvedSkill(resolved, manifestEntry, manifestPath, declaredScope) {
+  return {
+    ...resolved,
+    provides: manifestEntry.provides || [],
+    requires: manifestEntry.requires || [],
+    manifestPath,
+    declaredScope: declaredScope || (path.dirname(path.dirname(manifestPath)).endsWith(`${path.sep}skills`) ? '.' : undefined),
+  };
 }
 
 export function resolveSkills(organizationRoot, projectRoot, options = {}) {
@@ -249,7 +275,14 @@ export function resolveSkills(organizationRoot, projectRoot, options = {}) {
   const resolved = new Map();
   for (const manifestPath of layers) {
     const layerOrigin = projectRoot && manifestPath.startsWith(projectRoot) ? 'project' : 'workspace';
-    for (const skill of loadLayer(manifestPath, { runtime, layerOrigin, packageSourcesById })) {
+    const scope = layerOrigin === 'project' ? options.projectScope || `projects/${path.basename(projectRoot)}` : '.';
+    for (const skill of loadLayer(manifestPath, {
+      runtime,
+      layerOrigin,
+      packageSourcesById,
+      scope,
+      resolveRemote: options.resolveRemote,
+    })) {
       const productSkill = productSkillsById.get(skill.id);
       if (productSkill) {
         const displaySource = skill.sourceFile ?? skill.displaySource ?? skill.resolved?.url ?? skill.source?.url ?? 'skills/manifest.yml';
@@ -258,7 +291,7 @@ export function resolveSkills(organizationRoot, projectRoot, options = {}) {
       resolved.set(skill.id, skill);
     }
   }
-  for (const contribution of resolveSkillContributions(organizationRoot)) {
+  for (const contribution of options.includeContributions === false ? [] : resolveSkillContributions(organizationRoot)) {
     const target = resolved.get(contribution.skillId);
     if (!target) continue;
     if (contribution.placement === 'slot') {

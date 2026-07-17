@@ -131,6 +131,7 @@ async function main() {
 
   if (!await runBatch([
     commandStep('temporary workspace end-to-end', path.join(productRoot, 'tools', 'verify-buildr-product-mvp'), [], { ...sharedEnv, BUILDR_MVP_TIMING_FILE: mvpTimingFile, BUILDR_MVP_DIAGNOSTICS_DIR: diagnosticsOutput }),
+    nodeStep('capability CLI integration', 'test/capability-cli.integration.mjs'),
     nodeStep('OpenSpec contract fixtures', 'tools/verification/openspec/contract.mjs'),
     commandStep('package check', process.execPath, [buildr, 'package', 'check']),
     nodeStep('runtime adapter parity', 'tools/verification/runtime/adapter-parity.mjs'),

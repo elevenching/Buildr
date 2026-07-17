@@ -28,7 +28,7 @@ const helpTopics = [
   ['builtin', 'list'], ['builtin', 'uninstall'], ['builtin', 'restore'],
   ['update'], ['update', 'check'], ['package', 'check'], ['package', 'build'],
   ['bootstrap', 'guide'], ['render'], ['sync'], ['skill', 'install'],
-  ['skills', 'add'], ['skills', 'remove'], ['skills', 'render'],
+  ['skills', 'add'], ['skills', 'remove'], ['skills', 'bind'], ['skills', 'unbind'], ['skills', 'render'],
 ];
 
 for (const topic of helpTopics) {

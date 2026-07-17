@@ -1,4 +1,13 @@
 import { fs, path, process, YAML } from '../shared/platform.mjs';
+import {
+  SKILLS_SCHEMA_V2,
+  capabilityKey,
+  migrateSkillsManifestDocument,
+  parseSkillsManifestDocument,
+  validateCapabilityIdentity,
+  validateSkillsManifestDocument,
+} from '../../runtime/skills/manifests.mjs';
+import { selectedProviderImpacts } from '../../runtime/skills/capabilities.mjs';
 
 export function registerDomainsSkills(runtime) {
   const doctor = (...args) => runtime.doctor(...args);
@@ -24,106 +33,33 @@ export function registerDomainsSkills(runtime) {
   const existsFile = (...args) => runtime.existsFile(...args);
   const assertInitializedBuildrWorkspace = (...args) => runtime.assertInitializedBuildrWorkspace(...args);
 
-  function readSkillManifest(file) {
-    {
-      const parsed = parseYamlDocument(fs.readFileSync(file, 'utf8'), toPosixRelative(process.cwd(), file));
-      return Array.isArray(parsed.skills) ? parsed.skills : [];
-    }
-    const skills = [];
-    let currentSkill = null;
-    let currentObject = null;
+  function runMutationDoctor(targetRoot, scope, options = {}) {
+    const previousExitCode = process.exitCode;
+    doctor(['--target', targetRoot, '--scope', scope, '--json'], options);
+    process.exitCode = previousExitCode;
+  }
 
-    function finishSkill() {
-      if (!currentSkill) return;
-      skills.push(currentSkill);
-      currentSkill = null;
-      currentObject = null;
-    }
+  function manifestDocumentFor(skills) {
+    return skills?.__buildrManifestDocument || { schemaVersion: SKILLS_SCHEMA_V2, skills: skills || [] };
+  }
 
-    for (const rawLine of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
-      const line = rawLine.trimEnd();
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-
-      const idMatch = trimmed.match(/^-\s+id:\s*(.+)$/);
-      if (idMatch) {
-        finishSkill();
-        currentSkill = { id: parseYamlValue(idMatch[1].trim()) };
-        currentObject = null;
-        continue;
-      }
-
-      if (!currentSkill) continue;
-
-      const objectStartMatch = trimmed.match(/^(source|resolved|install):\s*$/);
-      if (objectStartMatch) {
-        currentObject = objectStartMatch[1];
-        currentSkill[currentObject] = {};
-        continue;
-      }
-
-      const nestedMatch = rawLine.match(/^\s{6}([A-Za-z][A-Za-z0-9_-]*):\s*(.+)$/);
-      if (nestedMatch && currentObject) {
-        currentSkill[currentObject][nestedMatch[1]] = parseYamlValue(nestedMatch[2].trim());
-        continue;
-      }
-
-      currentObject = null;
-
-      const pathMatch = trimmed.match(/^path:\s*(.+)$/);
-      if (pathMatch) {
-        currentSkill.path = parseYamlValue(pathMatch[1].trim());
-        continue;
-      }
-      const sourceMatch = trimmed.match(/^source:\s*(.+)$/);
-      if (sourceMatch) {
-        currentSkill.source = parseYamlValue(sourceMatch[1].trim());
-        continue;
-      }
-      const resolvedMatch = trimmed.match(/^resolved:\s*(.+)$/);
-      if (resolvedMatch) {
-        currentSkill.resolved = parseYamlValue(resolvedMatch[1].trim());
-        continue;
-      }
-      const installMatch = trimmed.match(/^install:\s*(.+)$/);
-      if (installMatch) {
-        currentSkill.install = parseYamlValue(installMatch[1].trim());
-        continue;
-      }
-      const descriptionMatch = trimmed.match(/^description:\s*(.+)$/);
-      if (descriptionMatch) {
-        currentSkill.description = parseYamlValue(descriptionMatch[1].trim());
-        continue;
-      }
-      const enabledMatch = trimmed.match(/^enabled:\s*(.+)$/);
-      if (enabledMatch) {
-        currentSkill.enabled = parseYamlValue(enabledMatch[1].trim());
-        continue;
-      }
-      const requiredMatch = trimmed.match(/^required:\s*(.+)$/);
-      if (requiredMatch) {
-        currentSkill.required = parseYamlValue(requiredMatch[1].trim());
-        continue;
-      }
-      const stateMatch = trimmed.match(/^state:\s*(.+)$/);
-      if (stateMatch) {
-        currentSkill.state = parseYamlValue(stateMatch[1].trim());
-        continue;
-      }
-      const runtimesMatch = trimmed.match(/^runtimes:\s*(.+)$/);
-      if (runtimesMatch) {
-        currentSkill.runtimes = parseYamlValue(runtimesMatch[1].trim());
-        continue;
-      }
-      const runtimePathMatch = trimmed.match(/^runtimePath:\s*(.+)$/);
-      if (runtimePathMatch) {
-        currentSkill.runtimePath = parseYamlValue(runtimePathMatch[1].trim());
-        continue;
-      }
-    }
-
-    finishSkill();
+  function attachManifestDocument(document) {
+    const skills = Array.isArray(document.skills) ? document.skills : [];
+    Object.defineProperty(skills, '__buildrManifestDocument', {
+      configurable: true,
+      enumerable: false,
+      writable: true,
+      value: document,
+    });
     return skills;
+  }
+
+  function readSkillManifestDocument(file, options = {}) {
+    return parseSkillsManifestDocument(file, { migrate: options.migrate !== false, validateContracts: options.validateContracts !== false });
+  }
+
+  function readSkillManifest(file) {
+    return attachManifestDocument(readSkillManifestDocument(file));
   }
 
   function readSkillManifestSchemaVersion(file) {
@@ -144,34 +80,9 @@ export function registerDomainsSkills(runtime) {
   }
 
   function renderSkillsManifestYaml(skills) {
-    const lines = ['schemaVersion: buildr.skills/v1'];
-    if (!skills || skills.length === 0) {
-      lines.push('skills: []');
-      return `${lines.join('\n')}\n`;
-    }
-    lines.push('skills:');
-    for (const skill of skills) {
-      lines.push(`  - id: ${quoteYaml(skill.id)}`);
-      if (skill.source !== undefined && skill.path !== undefined && typeof skill.source === 'string' && isManifestSourceLabel(skill.source)) {
-        lines.push(`    source: ${quoteYaml(skill.source)}`);
-      }
-      if (skill.path !== undefined) {
-        lines.push(`    path: ${quoteYaml(skill.path)}`);
-      } else {
-        renderYamlObject(lines, '    ', 'source', skill.source);
-        renderYamlObject(lines, '    ', 'resolved', skill.resolved);
-        renderYamlObject(lines, '    ', 'install', skill.install);
-      }
-      if (skill.description !== undefined) {
-        lines.push(`    description: ${quoteYaml(skill.description)}`);
-      }
-      if (skill.enabled !== undefined) lines.push(`    enabled: ${quoteYaml(Boolean(skill.enabled))}`);
-      if (skill.required !== undefined) lines.push(`    required: ${quoteYaml(Boolean(skill.required))}`);
-      if (skill.state !== undefined) lines.push(`    state: ${quoteYaml(skill.state)}`);
-      if (skill.runtimes !== undefined) lines.push(`    runtimes: ${quoteYaml(skill.runtimes)}`);
-      if (skill.runtimePath !== undefined) lines.push(`    runtimePath: ${quoteYaml(skill.runtimePath)}`);
-    }
-    return `${lines.join('\n')}\n`;
+    const source = Array.isArray(skills) ? manifestDocumentFor(skills) : skills;
+    const document = migrateSkillsManifestDocument({ ...source, skills: Array.isArray(skills) ? skills : (source.skills || []) });
+    return YAML.stringify(document, { lineWidth: 0 });
   }
 
   function validateSkillManifestEntries(skills, manifestPath) {
@@ -348,14 +259,18 @@ export function registerDomainsSkills(runtime) {
 
   function readSkillsManifestForWrite(scopeRoot) {
     const manifestPath = skillsManifestPath(scopeRoot);
-    if (!existsFile(manifestPath)) return [];
+    if (!existsFile(manifestPath)) return attachManifestDocument({ schemaVersion: SKILLS_SCHEMA_V2, skills: [] });
     const skills = readSkillManifest(manifestPath);
     validateSkillManifestEntries(skills, manifestPath);
+    validateSkillsManifestDocument(manifestDocumentFor(skills), manifestPath);
     return skills;
   }
 
   function writeSkillsManifest(scopeRoot, skills) {
     const manifestPath = skillsManifestPath(scopeRoot);
+    const document = manifestDocumentFor(skills);
+    document.skills = skills;
+    validateSkillsManifestDocument(document, manifestPath);
     atomicWriteFile(manifestPath, renderSkillsManifestYaml(skills));
     return manifestPath;
   }
@@ -441,6 +356,70 @@ export function registerDomainsSkills(runtime) {
     console.log(`  ${nextAction}`);
   }
 
+  function optionValues(args, name) {
+    const values = [];
+    for (let index = 0; index < args.length; index += 1) {
+      if (args[index] !== name) continue;
+      const value = args[index + 1];
+      if (!value || value.startsWith('--')) throw new Error(`Missing value for ${name}`);
+      values.push(value);
+    }
+    return values;
+  }
+
+  function parseCapabilityArgument(value, label, withMode = false) {
+    const match = withMode
+      ? value.match(/^(.+)@(\d+):(required|optional)$/)
+      : value.match(/^(.+)@(\d+)$/);
+    if (!match) throw new Error(`${label} must use ${withMode ? '<capability>@<version>:<required|optional>' : '<capability>@<version>'}: ${value}`);
+    const result = { capability: match[1], version: Number(match[2]) };
+    validateCapabilityIdentity(result.capability, result.version, label);
+    if (withMode) result.mode = match[3];
+    return result;
+  }
+
+  function capabilityDeclarations(args) {
+    const provides = optionValues(args, '--provides').map((value) => parseCapabilityArgument(value, '--provides'));
+    const requires = optionValues(args, '--requires').map((value) => parseCapabilityArgument(value, '--requires', true));
+    for (const [label, entries] of [['--provides', provides], ['--requires', requires]]) {
+      const seen = new Set();
+      for (const entry of entries) {
+        const key = capabilityKey(entry.capability, entry.version);
+        if (seen.has(key)) throw new Error(`Duplicate ${label} declaration: ${key}`);
+        seen.add(key);
+      }
+    }
+    return { provides, requires };
+  }
+
+  function applyCapabilityDeclarations(entry, existing, declarations) {
+    if (declarations.provides.length) entry.provides = declarations.provides;
+    else if (existing?.provides) entry.provides = existing.provides;
+    if (declarations.requires.length) entry.requires = declarations.requires;
+    else if (existing?.requires) entry.requires = existing.requires;
+    return entry;
+  }
+
+  function validateDeclaredCapabilities(targetRoot, scopeRoot, declarations) {
+    const layers = visibleSkillManifestDocuments(targetRoot, scopeRoot);
+    for (const declaration of [...declarations.provides, ...declarations.requires]) {
+      const definitions = layers.flatMap((layer) => (layer.document.contracts || []).filter((contract) => contract.id === declaration.capability && contract.version === declaration.version));
+      const identity = capabilityKey(declaration.capability, declaration.version);
+      if (definitions.length === 0) throw new Error(`Capability contract is not visible in this scope: ${identity}`);
+      if (definitions.length > 1) throw new Error(`Capability contract identity conflict in this scope: ${identity}`);
+    }
+  }
+
+  function discloseReplacedProviderDeclarations(targetRoot, scope, existing, declarations) {
+    if (!existing || declarations.provides.length === 0) return;
+    const next = new Set(declarations.provides.map((item) => capabilityKey(item.capability, item.version)));
+    for (const previous of existing.provides || []) {
+      if (!next.has(capabilityKey(previous.capability, previous.version))) {
+        discloseSelectedProviderImpact(targetRoot, scope, existing.id, previous, '替换 provider 声明，影响');
+      }
+    }
+  }
+
   function skillsAddUnsafe(args) {
     const allowedFlags = new Set([
       '--target',
@@ -455,6 +434,8 @@ export function registerDomainsSkills(runtime) {
       '--description',
       '--replace',
       '--ignore-unsupported',
+      '--provides',
+      '--requires',
     ]);
     assertNoUnknownOptions(args, allowedFlags, new Set(['--replace', '--ignore-unsupported']));
     const [explicitId] = positionalArgs(args);
@@ -468,6 +449,7 @@ export function registerDomainsSkills(runtime) {
     const versionInput = optionValue(args, '--version', null);
     const integrityInput = optionValue(args, '--integrity', null);
     const descriptionInput = optionValue(args, '--description', null);
+    const declarations = capabilityDeclarations(args);
     if (!scopeInput) throw new Error('Missing required option: --scope');
     if (sourceInput && (remoteSourceInput || resolvedSourceInput)) {
       throw new Error('--source cannot be combined with --remote-source or --resolved-source.');
@@ -477,10 +459,11 @@ export function registerDomainsSkills(runtime) {
     }
     assertInitializedBuildrWorkspace(targetRoot);
 
-    const { scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
+    const { scope, scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
     const manifest = readSkillsManifestForWrite(scopeRoot);
     const replace = hasFlag(args, '--replace');
     const ignoreUnsupported = hasFlag(args, '--ignore-unsupported');
+    validateDeclaredCapabilities(targetRoot, scopeRoot, declarations);
 
     if (remoteSourceInput || resolvedSourceInput) {
       if (!explicitId) throw new Error('Missing skill id for remote Skill registration.');
@@ -495,6 +478,8 @@ export function registerDomainsSkills(runtime) {
       if (existingIndex !== -1 && !replace) {
         throw new Error(`Skill already exists in skills/manifest.yml: ${explicitId}. Use --replace to replace the whole entry.`);
       }
+      const existing = existingIndex === -1 ? null : manifest[existingIndex];
+      discloseReplacedProviderDeclarations(targetRoot, scope, existing, declarations);
       const manifestEntry = { id: explicitId };
       if (remoteSourceInput) {
         manifestEntry.source = { kind: sourceKindInput, url: remoteSourceInput };
@@ -508,6 +493,7 @@ export function registerDomainsSkills(runtime) {
         manifestEntry.install = { mode: 'agent' };
       }
       if (descriptionInput) manifestEntry.description = descriptionInput;
+      applyCapabilityDeclarations(manifestEntry, existing, declarations);
       if (existingIndex === -1) {
         manifest.push(manifestEntry);
       } else {
@@ -546,9 +532,12 @@ export function registerDomainsSkills(runtime) {
       throw new Error(`Skill already exists in skills/manifest.yml: ${skillId}. Use --replace to replace the whole entry.`);
     }
 
+    const existing = existingIndex === -1 ? null : manifest[existingIndex];
+    discloseReplacedProviderDeclarations(targetRoot, scope, existing, declarations);
     copySupportedSkillSource(sourceDir, targetDir, source.entries, { replace });
     const manifestEntry = { id: skillId, path: skillId };
     if (source.metadata.description) manifestEntry.description = source.metadata.description;
+    applyCapabilityDeclarations(manifestEntry, existing, declarations);
     if (existingIndex === -1) {
       manifest.push(manifestEntry);
     } else {
@@ -570,7 +559,19 @@ export function registerDomainsSkills(runtime) {
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
     const scopeInput = optionValue(args, '--scope', '.');
     const { scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
-    return withWorkspaceMutation(targetRoot, 'skills.add', [path.join(scopeRoot, 'skills')], () => skillsAddUnsafe(args));
+    const result = withWorkspaceMutation(targetRoot, 'skills.add', [path.join(scopeRoot, 'skills')], () => skillsAddUnsafe(args));
+    runMutationDoctor(targetRoot, scopeInput, { skipRuntime: Boolean(optionValue(args, '--resolved-source', null)) });
+    return result;
+  }
+
+  function discloseSelectedProviderImpact(targetRoot, scope, providerId, capability = null, action = '移除') {
+    const impacts = selectedProviderImpacts(targetRoot, providerId, { scope, capability });
+    if (impacts.length === 0) return;
+    console.log(`Capability dependency impact（写入前）：${action} selected provider ${providerId}`);
+    for (const impact of impacts) {
+      const next = impact.mode === 'required' ? 'blocked' : 'degraded';
+      console.log(`  [${impact.mode}] ${impact.scope}:${impact.consumer} -> ${impact.capability}@${impact.version}; 写入后可能 ${next}`);
+    }
   }
 
   function safeSkillSourceDir(scopeRoot, skillPath) {
@@ -595,13 +596,14 @@ export function registerDomainsSkills(runtime) {
     if (!scopeInput) throw new Error('Missing required option: --scope');
     assertInitializedBuildrWorkspace(targetRoot);
 
-    const { scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
+    const { scope, scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
     const manifest = readSkillsManifestForWrite(scopeRoot);
     const existingIndex = manifest.findIndex((skill) => skill.id === id);
     if (existingIndex === -1) {
       throw new Error(`Skill not found in skills/manifest.yml: ${id}`);
     }
     const removed = manifest[existingIndex];
+    if ((removed.provides || []).length > 0) discloseSelectedProviderImpact(targetRoot, scope, id);
     if (scopeRoot === targetRoot && removed.path) {
       const owner = componentOwnerForMember(targetRoot, `skills/${removed.path}`);
       if (owner) throw new Error(`Skill is managed by Component ${owner}: skills/${removed.path}. Use buildr component lifecycle commands.`);
@@ -639,9 +641,89 @@ export function registerDomainsSkills(runtime) {
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
     const scopeInput = optionValue(args, '--scope', '.');
     const { scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
-    return withWorkspaceMutation(targetRoot, 'skills.remove', [path.join(scopeRoot, 'skills')], () => skillsRemoveUnsafe(args));
+    const result = withWorkspaceMutation(targetRoot, 'skills.remove', [path.join(scopeRoot, 'skills')], () => skillsRemoveUnsafe(args));
+    runMutationDoctor(targetRoot, scopeInput);
+    return result;
   }
 
-  Object.assign(runtime, { readSkillManifest, readSkillManifestSchemaVersion, renderYamlObject, renderSkillsManifestYaml, validateSkillManifestEntries, isManifestSourceLabel, validateSkillUrlObject, validateResolvedSkillSource, normalizeRelativePathForBuildr, parseSkillSourceRef, assertHttpUrl, resolvePackageSkillSourceRef, scopeRootForSkills, skillsManifestPath, readSkillsManifestForWrite, writeSkillsManifest, parseSkillFrontmatter, supportedSkillSourceEntries, inspectSkillSource, samePath, copySupportedSkillSource, printSkillsMutationReceipt, skillsAddUnsafe, skillsAdd, safeSkillSourceDir, skillsRemoveUnsafe, skillsRemove });
+  function visibleSkillManifestDocuments(targetRoot, scopeRoot) {
+    const roots = scopeRoot === targetRoot ? [targetRoot] : [targetRoot, scopeRoot];
+    return roots.map((root) => {
+      const file = skillsManifestPath(root);
+      return existsFile(file) ? { root, file, document: readSkillManifestDocument(file) } : { root, file, document: { schemaVersion: SKILLS_SCHEMA_V2, skills: [] } };
+    });
+  }
+
+  function skillsBindUnsafe(args, remove = false) {
+    const allowedFlags = remove ? new Set(['--target', '--scope']) : new Set(['--target', '--scope', '--provider']);
+    assertNoUnknownOptions(args, allowedFlags);
+    const [rawCapability] = positionalArgs(args);
+    if (!rawCapability) throw new Error('Missing capability identity.');
+    const requested = parseCapabilityArgument(rawCapability, 'capability');
+    const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
+    const scopeInput = optionValue(args, '--scope', null);
+    if (!scopeInput) throw new Error('Missing required option: --scope');
+    assertInitializedBuildrWorkspace(targetRoot);
+    const { scope, scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
+    const provider = remove ? null : optionValue(args, '--provider', null);
+    if (!remove && !provider) throw new Error('Missing required option: --provider');
+    if (provider) assertName(provider, 'Provider Skill id');
+
+    const layers = visibleSkillManifestDocuments(targetRoot, scopeRoot);
+    const definitions = layers.flatMap((layer) => (layer.document.contracts || []).filter((contract) => contract.id === requested.capability && contract.version === requested.version));
+    if (definitions.length !== 1) {
+      throw new Error(definitions.length === 0
+        ? `Capability contract is not visible in scope ${scope}: ${rawCapability}`
+        : `Capability contract identity conflict in scope ${scope}: ${rawCapability}`);
+    }
+    if (!remove) {
+      const candidates = layers.flatMap((layer) => (layer.document.skills || []).filter((skill) => skill.id === provider && skill.enabled !== false && skill.state !== 'uninstalled' && (skill.provides || []).some((item) => item.capability === requested.capability && item.version === requested.version)));
+      if (candidates.length === 0) throw new Error(`Provider is not visible or does not provide ${rawCapability}: ${provider}`);
+    }
+
+    const localFile = skillsManifestPath(scopeRoot);
+    const skills = existsFile(localFile) ? readSkillManifest(localFile) : attachManifestDocument({ schemaVersion: SKILLS_SCHEMA_V2, skills: [] });
+    const document = manifestDocumentFor(skills);
+    const bindings = [...(document.bindings || [])];
+    const index = bindings.findIndex((binding) => binding.capability === requested.capability && binding.version === requested.version);
+    const previousProvider = index === -1 ? null : bindings[index].provider;
+    if (previousProvider && (remove || previousProvider !== provider)) {
+      discloseSelectedProviderImpact(targetRoot, scope, previousProvider, requested, remove ? '取消 binding，影响' : `改绑到 ${provider}，影响`);
+    }
+    if (remove) {
+      if (index === -1) throw new Error(`Capability binding not found in scope ${scope}: ${rawCapability}`);
+      bindings.splice(index, 1);
+    } else {
+      const binding = { capability: requested.capability, version: requested.version, provider };
+      if (index === -1) bindings.push(binding);
+      else bindings[index] = binding;
+    }
+    if (bindings.length) document.bindings = bindings;
+    else delete document.bindings;
+    document.skills = skills;
+    writeSkillsManifest(scopeRoot, skills);
+    console.log(`${remove ? '已删除' : '已写入'} capability binding：${rawCapability}${remove ? '' : ` -> ${provider}`} (${scope})`);
+    return { targetRoot, scope };
+  }
+
+  function skillsBind(args) {
+    const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
+    const scopeInput = optionValue(args, '--scope', '.');
+    const { scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
+    const result = withWorkspaceMutation(targetRoot, 'skills.bind', [path.join(scopeRoot, 'skills', 'manifest.yml')], () => skillsBindUnsafe(args, false));
+    runMutationDoctor(result.targetRoot, result.scope);
+    return result;
+  }
+
+  function skillsUnbind(args) {
+    const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
+    const scopeInput = optionValue(args, '--scope', '.');
+    const { scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
+    const result = withWorkspaceMutation(targetRoot, 'skills.unbind', [path.join(scopeRoot, 'skills', 'manifest.yml')], () => skillsBindUnsafe(args, true));
+    runMutationDoctor(result.targetRoot, result.scope);
+    return result;
+  }
+
+  Object.assign(runtime, { manifestDocumentFor, attachManifestDocument, readSkillManifestDocument, readSkillManifest, readSkillManifestSchemaVersion, renderYamlObject, renderSkillsManifestYaml, validateSkillManifestEntries, isManifestSourceLabel, validateSkillUrlObject, validateResolvedSkillSource, normalizeRelativePathForBuildr, parseSkillSourceRef, assertHttpUrl, resolvePackageSkillSourceRef, scopeRootForSkills, skillsManifestPath, readSkillsManifestForWrite, writeSkillsManifest, parseSkillFrontmatter, supportedSkillSourceEntries, inspectSkillSource, samePath, copySupportedSkillSource, printSkillsMutationReceipt, skillsAddUnsafe, skillsAdd, safeSkillSourceDir, skillsRemoveUnsafe, skillsRemove, skillsBindUnsafe, skillsBind, skillsUnbind });
   return runtime;
 }

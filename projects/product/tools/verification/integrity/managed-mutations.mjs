@@ -36,9 +36,8 @@ const allowed = new Map([
   ['tools/cli/domains/skills.mjs', new Set(['copySupportedSkillSource', 'skillsRemoveUnsafe'])],
   ['tools/cli/domains/components.mjs', new Set(['removeComponentMember', 'installComponentMember'])],
   ['tools/cli/domains/package-assets.mjs', new Set(['convergeServiceManifest', 'convergeRegistryManifests'])],
-  ['tools/cli/application/package-maintenance.mjs', new Set([
-    'syncPackageBuiltins', 'builtinUninstallUnsafe',
-  ])],
+  ['tools/cli/application/package-maintenance.mjs', new Set(['syncPackageBuiltins'])],
+  ['tools/cli/application/package-maintenance/builtin-lifecycle.mjs', new Set(['builtinUninstallUnsafe'])],
   ['tools/cli/application/package-maintenance/output.mjs', new Set(['buildPackageOutput', 'packageBuild'])],
   ['tools/cli/application/package-maintenance/smoke-checks.mjs', new Set([
     'verifyRecursiveRules', 'verifyWorkspaceAssetLifecycle', 'verifyInitializedWorkspace',

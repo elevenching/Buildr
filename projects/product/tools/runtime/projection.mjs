@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import {
   createRuntimeContext,
+  createRuntimePlan,
   getRuntimeAdapter,
   assertRuntimeTargetPath,
   reconcileRuntimePlan,
@@ -14,6 +15,7 @@ import {
   resolvePackageAgentSkill,
   resolveRenderSkills,
 } from './render-claude-code.mjs';
+import { resolveCapabilityRoutingEvidence } from './skills/capabilities.mjs';
 import {
   buildRuleDiscoveryPlan,
   hasManagedRulesMarker,
@@ -321,10 +323,12 @@ export function assembleRuntimeProjection(options) {
   const scopeInfo = resolveRuleScope(repoRoot, options.scope ?? '.');
   const skillScope = runtimeSkillScope(scopeInfo.scope);
   const skillConflicts = [];
-  const productWrites = selection.productSkill
-    ? decorateSkillWrites(buildSkillRenderPlan(repoRoot, targetRoot, [resolvePackageAgentSkill(adapter.id, 'buildr')], adapter.id, { deferConflicts: true, conflicts: skillConflicts }), true)
-    : [];
   const workspaceSkills = selection.workspaceSkills ? resolveRenderSkills(repoRoot, skillScope, adapter.id) : [];
+  const productSkill = selection.productSkill ? resolvePackageAgentSkill(adapter.id, 'buildr') : null;
+  if (productSkill && selection.workspaceSkills) productSkill.capabilityRoutingEvidence = resolveCapabilityRoutingEvidence(repoRoot, adapter.id);
+  const productWrites = productSkill
+    ? decorateSkillWrites(buildSkillRenderPlan(repoRoot, targetRoot, [productSkill], adapter.id, { deferConflicts: true, conflicts: skillConflicts }), true)
+    : [];
   const workspaceWrites = decorateSkillWrites(buildSkillRenderPlan(repoRoot, targetRoot, workspaceSkills, adapter.id, { deferConflicts: true, conflicts: skillConflicts }));
   const rules = selection.rules ? assembleRules(repoRoot, targetRoot, scopeInfo, adapter) : { writes: [], removals: [], nativeAssets: [], actions: [], findings: [], discovery: { boundaries: [], warnings: [] } };
   const warnings = workspaceSkills.filter((skill) => skill.resolved && !skill.resolved.integrity)
@@ -355,7 +359,18 @@ export function repairCommands(result, adapterId) {
 
 export function checkRuntimeProjection(options) {
   const assembled = assembleRuntimeProjection({ ...options, selection: { productSkill: true, rules: true, workspaceSkills: true } });
-  const reconciled = reconcileRuntimePlan(assembled.plan, { compareOnly: true });
+  const fallback = assembleRuntimeProjection({ ...options, selection: { productSkill: true } });
+  const fallbackProductWrites = new Map(fallback.plan.writes
+    .filter((item) => item.capability === 'product-buildr-skill')
+    .map((item) => [item.targetFile, item.content]));
+  const writes = assembled.plan.writes.map((item) => {
+    if (item.capability !== 'product-buildr-skill') return item;
+    const fallbackContent = fallbackProductWrites.get(item.targetFile);
+    return fallbackContent && fs.existsSync(item.targetFile) && fs.readFileSync(item.targetFile, 'utf8') === fallbackContent
+      ? { ...item, content: fallbackContent }
+      : item;
+  });
+  const reconciled = reconcileRuntimePlan(createRuntimePlan({ ...assembled.plan, writes }), { compareOnly: true });
   const counts = summarize(reconciled.findings);
   const result = { ...reconciled, counts, exitCode: counts.conflict ? 2 : counts.missing || counts.stale || counts.orphan ? 1 : 0, requestedScope: assembled.scopeInfo.requestedScope, discoveryBoundaries: assembled.discovery.boundaries };
   result.repairCommands = repairCommands(result, options.adapterId);

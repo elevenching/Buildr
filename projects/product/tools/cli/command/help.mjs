@@ -36,10 +36,12 @@ export function registerCommandHelp(runtime) {
     console.error('  buildr package check');
     console.error('  buildr package build [--out <dir>]');
     console.error(`  buildr skill install <${runtimeIds}> --target <dir>`);
-    console.error('  buildr skills add [<id>] --source <skill-dir> --scope <.|projects/project> [--target <dir>] [--replace] [--ignore-unsupported]');
+    console.error('  buildr skills add [<id>] --source <skill-dir> --scope <.|projects/project> [--target <dir>] [--replace] [--ignore-unsupported] [--provides <capability>@<version>] [--requires <capability>@<version>:<required|optional>]');
     console.error('  buildr skills add <id> --remote-source <url> --scope <.|projects/project> [--target <dir>] [--source-kind <kind>] [--description <text>] [--replace]');
     console.error('  buildr skills add <id> --resolved-source <url> --scope <.|projects/project> [--target <dir>] [--resolved-kind <kind>] [--remote-source <url>] [--source-kind <kind>] [--version <version>] [--integrity <hash>] [--description <text>] [--replace]');
     console.error('  buildr skills remove <id> --scope <.|projects/project> [--target <dir>]');
+    console.error('  buildr skills bind <capability>@<version> --provider <skill-id> --scope <.|projects/project> [--target <dir>]');
+    console.error('  buildr skills unbind <capability>@<version> --scope <.|projects/project> [--target <dir>]');
     console.error(`  buildr skills render <${runtimeIds}> --scope <.|projects/project> --target <dir>`);
     console.error('  buildr rules add <id> [--path <rules/file.md>] --description <text> [--target <dir>] [--replace]');
     console.error('  buildr rules remove <id> [--target <dir>] [--keep-file]');
@@ -63,7 +65,7 @@ export function registerCommandHelp(runtime) {
       '  render               渲染指定 Agent 的 rules entry 和 workspace/project Skills。',
       '  sync                 同步 Buildr 产品能力并准备当前 Agent 的 workspace 入口 runtime。',
       '  skill install        安装产品入口 Buildr Skill。',
-      '  skills add/remove/render',
+      '  skills add/remove/bind/unbind/render',
       '  commands add/remove/check',
       '  component list/check/install/uninstall',
       '  rules add/remove/render',
@@ -136,7 +138,7 @@ export function registerCommandHelp(runtime) {
       '只安装或修复产品入口 Buildr Skill。',
     ],
     'skills add': [
-      'Usage: buildr skills add [<id>] --source <skill-dir> --scope <.|projects/project> [--target <dir>] [--replace] [--ignore-unsupported]',
+      'Usage: buildr skills add [<id>] --source <skill-dir> --scope <.|projects/project> [--target <dir>] [--replace] [--ignore-unsupported] [--provides <capability>@<version>] [--requires <capability>@<version>:<required|optional>]',
       'Usage: buildr skills add <id> --remote-source <url> --scope <.|projects/project> [--target <dir>] [--source-kind <kind>] [--description <text>] [--replace]',
       'Usage: buildr skills add <id> --resolved-source <url> --scope <.|projects/project> [--target <dir>] [--resolved-kind <kind>] [--remote-source <url>] [--source-kind <kind>] [--version <version>] [--integrity <hash>] [--description <text>] [--replace]',
       '',
@@ -146,6 +148,16 @@ export function registerCommandHelp(runtime) {
       'Usage: buildr skills remove <id> --scope <.|projects/project> [--target <dir>]',
       '',
       '删除 workspace/project Skills 源资产登记。',
+    ],
+    'skills bind': [
+      'Usage: buildr skills bind <capability>@<version> --provider <skill-id> --scope <.|projects/project> [--target <dir>]',
+      '',
+      '显式选择当前 scope 的 capability provider；不会安装 Skill 或证明其行为正确。',
+    ],
+    'skills unbind': [
+      'Usage: buildr skills unbind <capability>@<version> --scope <.|projects/project> [--target <dir>]',
+      '',
+      '删除当前 scope 的显式 binding，由 resolver 重新判断唯一 provider、歧义或缺失。',
     ],
     'skills render': [
       `Usage: buildr skills render <${SUPPORTED_AGENT_IDS.join('|')}> --scope <.|projects/project> --target <dir>`,
@@ -260,7 +272,7 @@ export function registerCommandHelp(runtime) {
     if (domain === 'mutation' && action === 'recover') return 'mutation recover';
     if (domain === 'runtime' && action === 'check') return 'runtime check';
     if (domain === 'skill' && action === 'install') return 'skill install';
-    if (domain === 'skills' && ['add', 'remove'].includes(action)) return `skills ${action}`;
+    if (domain === 'skills' && ['add', 'remove', 'bind', 'unbind'].includes(action)) return `skills ${action}`;
     if (domain === 'skills' && action === 'render') return 'skills render';
     if (domain === 'commands' && ['add', 'remove', 'check'].includes(action)) return `commands ${action}`;
     if (domain === 'openspec' && action === 'baseline' && runtime === 'create') return 'openspec baseline create';

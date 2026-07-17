@@ -40,6 +40,8 @@ export const COMMAND_REGISTRY = [
   { key: 'sync', match: ({ domain }) => domain === 'sync', run: (r, c) => r.syncRuntime(c.action, c.argv.slice(4)) },
   { key: 'skills add', match: ({ domain, action }) => domain === 'skills' && action === 'add', run: (r, c) => r.skillsAdd(c.argv.slice(4)) },
   { key: 'skills remove', match: ({ domain, action }) => domain === 'skills' && action === 'remove', run: (r, c) => r.skillsRemove(c.argv.slice(4)) },
+  { key: 'skills bind', match: ({ domain, action }) => domain === 'skills' && action === 'bind', run: (r, c) => r.skillsBind(c.argv.slice(4)) },
+  { key: 'skills unbind', match: ({ domain, action }) => domain === 'skills' && action === 'unbind', run: (r, c) => r.skillsUnbind(c.argv.slice(4)) },
   { key: 'skill install', requiresAgent: true, match: ({ domain, action }) => domain === 'skill' && action === 'install', run: (r, c) => {
     const command = r.withResolvedTarget(c.args);
     const adapter = r.getRuntimeAdapter(c.runtimeId);

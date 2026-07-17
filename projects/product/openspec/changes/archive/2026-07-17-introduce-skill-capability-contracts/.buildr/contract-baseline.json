@@ -1,0 +1,150 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "introduce-skill-capability-contracts",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-7e1f0ad12e0d95d6c96c804b826f6606f63980155b2e6b0388af8f397181ab4f",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "内置任务 Skills 按 capability contract 协作",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "Task Finish 自动编排已验证任务收尾",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Task Finish 自动编排已验证任务收尾\nBuildr MUST 提供 `task-finish` workspace Skill，将用户当前轮次明确的“收尾”意图作为受限的一次性授权，自动完成可安全确定的剩余任务动作。\n\n#### Scenario: 收尾前置检查\n- **WHEN** 用户在 canonical task worktree 中要求收尾\n- **THEN** Agent MUST 解析当前 task/change、仓库边界、目标分支、远端、工作区改动和验证状态\n- **AND** 存在无关 dirty changes、多个无法消歧的 change/目标分支或不可信验证状态时，Agent MUST 在破坏性动作前停止或补齐验证\n\n#### Scenario: 完成 OpenSpec 归档\n- **WHEN** 当前任务包含 artifacts 和 tasks 均完成的 active OpenSpec change\n- **THEN** Task Finish MUST 默认同步 delta specs 并归档 change\n- **AND** Task Finish MUST 通过外部可用的 OpenSpec CLI/Skills 完成该步骤，不修改外部 `openspec-*` Skill 源\n\n#### Scenario: 归档后规范 EOF 空白行\n- **WHEN** OpenSpec archive 或 specs sync 后 `git diff --check` 仅报告本次修改的 OpenSpec Markdown 文件存在 `new blank line at EOF`\n- **THEN** Task Finish MUST 将这些文件规范为恰好一个结尾换行\n- **AND** Task Finish MUST 重新运行 `git diff --check` 和 OpenSpec strict validation\n\n#### Scenario: 归档后存在其他格式问题\n- **WHEN** `git diff --check` 报告非 EOF 空白行、非 OpenSpec 文件或无法确认来源的问题\n- **THEN** Task Finish MUST 停止自动修复\n- **AND** Agent MUST 报告问题并等待用户决定\n\n#### Scenario: 收尾授权覆盖常规动作\n- **WHEN** 前置检查、所需验证和归档相关检查通过\n- **THEN** 用户的“收尾” MUST 授权提交当前任务范围、fetch、对本地未推送分支执行无语义冲突的必要 rebase、fast-forward-only 集成、推送已确认目标分支，以及删除已安全合入的本地 worktree 和本地任务分支\n- **AND** Agent MUST 在执行 Git 写操作前报告提交范围、目标分支、远端和清理范围\n\n#### Scenario: Tree 未改变时复用验证\n- **WHEN** commit、rebase、fast-forward、push 或 cleanup 后的候选 Git tree 与已验证 tree 相同\n- **THEN** Task Finish MUST 复用已有验证证据\n- **AND** Task Finish MUST NOT 在主开发分支重复运行相同产品 E2E\n\n#### Scenario: Tree 改变时重新验证\n- **WHEN** rebase、冲突解决或其他步骤使候选 Git tree 不同于已验证 tree\n- **THEN** Task Finish MUST 在集成前重新运行受影响的验证\n- **AND** 新验证失败时 MUST 停止 merge、push 和 cleanup\n\n#### Scenario: 默认收尾授权的排除项\n- **WHEN** 收尾需要 force push、merge commit、删除远端任务分支、丢弃改动、改写共享分支历史或解决语义冲突\n- **THEN** “收尾” MUST NOT 授权这些动作\n- **AND** Agent MUST 停止并取得用户对具体动作的明确授权或决策\n\n#### Scenario: 安全清理 task worktree\n- **WHEN** 目标分支已包含任务提交、远端目标分支已推送且 task worktree 干净\n- **THEN** Task Finish MUST 先迁移仍指向待删 worktree 的本机入口\n- **AND** Task Finish MUST 从保留的 workspace 执行本地 worktree 和本地任务分支清理\n- **AND** Task Finish MUST 检查清理后的 worktree 列表和仓库状态\n"
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "Git 工作区转换后诊断 Buildr Agent 环境",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Git 工作区转换后诊断 Buildr Agent 环境\nBuildr 的 Git 和任务工作流 Skills MUST 在 Agent 成功改变已检出工作区内容后检查当前 Buildr workspace 的 Agent 环境状态，并由 Agent 在取得必要授权后优先执行可完成的修复。\n\n#### Scenario: Git 操作成功改变已检出内容\n- **WHEN** Agent 通过 Git Ops Skill 成功完成 `pull`、`merge`、`rebase`、切换 tree 的 `checkout` 或 `switch`、改变工作区的 `reset`、`cherry-pick`、`revert`、`stash apply` 或 `stash pop`\n- **AND** 当前仓库位于包含 `.buildr/workspace.yml` 的已初始化 Buildr workspace 中\n- **THEN** Agent MUST 针对当前 Agent 和 Buildr workspace root 运行 `buildr doctor --agent <agent> --target <workspace-root> --json`\n- **AND** 检查 MUST 发生在 Git 操作成功且工作区不存在未解决冲突之后\n\n#### Scenario: Git 操作不改变已检出内容\n- **WHEN** Agent 只执行 `fetch`、`push`、普通 `commit`，或复用未发生 tree 转换的既有 worktree\n- **THEN** Agent MUST NOT 仅因该操作运行 Git 工作区转换后的 Buildr 环境检查\n\n#### Scenario: 当前环境无需处理\n- **WHEN** 工作区转换后的 doctor 没有报告需要用户处理的环境问题\n- **THEN** Agent MUST NOT 提醒用户执行无必要的 `render` 或 `sync`\n\n#### Scenario: 当前环境存在漂移或依赖问题\n- **WHEN** 工作区转换后的 doctor 报告 Rules、Skills、Commands、Components、Contributions 或当前 Agent runtime 存在需要处理的问题\n- **THEN** Agent MUST 向用户汇总当前环境问题及 doctor 指向的可执行下一步\n- **AND** Agent MUST NOT 将全部问题笼统解释为 runtime 渲染问题\n- **AND** Agent MUST 说明当前 session 是否重新发现新资产由 Agent runtime 决定\n\n#### Scenario: 环境漂移可由 workspace sync 修复\n- **WHEN** 工作区转换后的 doctor 指出当前 Agent 的 workspace sync 是合适修复动作\n- **THEN** Agent MUST 询问用户是否由 Agent 立即同步当前 workspace 和 Agent runtime\n- **AND** Agent MUST 同时提供 `buildr sync <agent> --target <workspace-root>` 作为手动同步备选\n- **AND** 面向用户的手动命令 MUST 使用已解析的实际 Agent 和 workspace root，不得保留占位符\n- **AND** Agent MUST NOT 在用户确认前执行 sync\n- **AND** Agent MUST NOT 把要求用户自行运行命令作为默认处理方式\n\n#### Scenario: 用户确认由 Agent 同步\n- **WHEN** 用户确认由 Agent 处理 workspace sync\n- **THEN** Agent MUST 调用 Buildr Skill 执行 `buildr sync <agent> --target <workspace-root>`\n- **AND** Agent MUST 使用 sync 的最终 doctor 或追加 doctor 确认当前环境结果\n- **AND** Agent MUST 报告实际同步与诊断结果，而不是仅重复手动命令\n\n#### Scenario: 用户选择手动同步或 Agent 无法执行\n- **WHEN** 用户明确选择手动同步，或 Agent 因工具不可用、权限、登录态或外部环境无法完成同步\n- **THEN** Agent MUST 提供准确的手动同步命令\n- **AND** Agent MUST 在无法执行时说明具体原因\n- **AND** 用户选择手动同步后，Agent MUST NOT 在缺少诊断证据时假设同步成功\n- **AND** 用户报告完成且 Agent 能运行 doctor 时，Agent MUST 再次验证当前环境\n\n#### Scenario: 诊断问题不应由 sync 修复\n- **WHEN** doctor 报告 Commands、Components、CLI 或其他不能由 workspace sync 正确修复的问题\n- **THEN** Agent MUST 按对应 Buildr 生命周期询问并在取得授权后执行可完成的动作\n- **AND** Agent MUST 仅在自身无法完成或用户选择手动方式时要求用户操作\n\n#### Scenario: 无法确认当前 Agent 环境\n- **WHEN** Agent 无法匹配受支持的 runtime adapter，或 post-transition doctor 无法执行\n- **THEN** Agent MUST 报告环境状态尚未确认及具体原因\n- **AND** Agent MUST NOT 猜测本地 Agent runtime 已经同步\n\n#### Scenario: 任务 Skill 内部发生工作区转换\n- **WHEN** `task-worktree` 创建新的 worktree checkout，或 `task-finish` 成功 rebase 或 fast-forward 集成目标 workspace\n- **THEN** 对应任务 Skill MUST 复用 Git Ops 的 Buildr 环境检查、同步询问、Agent 执行和手动兜底边界\n- **AND** 检查 MUST NOT 改变既有验证证据、Git 授权或 worktree 清理契约\n\n#### Scenario: Git 操作由 Agent 之外执行\n- **WHEN** 用户或其他程序绕过 Agent Skill 直接改变 Git 工作区\n- **THEN** Buildr MUST NOT 声称能够即时感知该操作\n- **AND** 后续 Buildr 工作流 MUST 继续通过执行循环中的基线 doctor 检查当前环境\n"
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "产品验证覆盖 capability provider replacement",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "package manifest 声明内置能力",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: package manifest 声明内置能力\nBuildr package manifest MUST 声明可同步到用户 workspace 的产品内置 Rules、Skills 和 Commands，并提供旧 workspace 安全采用所需的官方完整性证据。\n\n#### Scenario: 声明内置 Rules\n- **WHEN** Buildr package 包含产品内置 Rules\n- **THEN** `package/manifest.yml` MUST 声明每个内置 Rule 的 id、源路径、目标路径、description 和 required 状态\n- **AND** version 或 hash 元数据 MAY 声明，但不是必填\n\n#### Scenario: 声明内置 Skills\n- **WHEN** Buildr package 包含产品内置 Skills\n- **THEN** `package/manifest.yml` MUST 声明每个内置 Skill 的 id、源路径、目标路径、适用 runtimes 和 required 状态\n- **AND** version 或 hash 元数据 MAY 声明，但不是必填\n\n#### Scenario: 未声明版本的内置能力\n- **WHEN** 某个内置能力未声明 version 或 hash\n- **THEN** Buildr doctor MUST 仍使用安装回执检查该内置能力的精确 live 状态\n- **AND** Buildr MUST NOT 仅因为没有独立 assets version 输出 warning\n\n#### Scenario: 声明内置 Commands\n- **WHEN** Buildr package 包含产品内置 Commands\n- **THEN** `package/manifest.yml` MUST 声明每个内置 Command 在 `commands/manifest.yml` 中需要写入的 manifest entry\n- **AND** 内置 Commands MUST 保持为声明和安装提示，不得变成自动本机安装\n\n#### Scenario: 声明 legacy 官方完整性\n- **WHEN** Buildr 需要让无回执 workspace 从受支持的旧版 Builtin 自动升级\n- **THEN** package MUST 按 Builtin 身份声明对应 legacy SHA-256 完整性\n- **AND** legacy 完整性 MUST 只用于证明随既有 CLI package 发布过的官方内容\n\n#### Scenario: package check 校验内置能力\n- **WHEN** Agent 运行 `buildr package check`\n- **THEN** Buildr MUST 校验已声明的内置能力源路径\n- **AND** Buildr MUST 校验 forbidden patterns、必需 Skill 文件、manifest entry 结构、目标路径安全性和 legacy integrity 格式及身份唯一性\n\n#### Scenario: Rules 和 Skills manifest-first\n- **WHEN** Buildr package 发布内置 Rules 或 Skills\n- **THEN** sync MUST 将它们登记到 `rules/manifest.yml` 或 `skills/manifest.yml`\n- **AND** Buildr MUST NOT 依赖扫描裸文件决定规则或技能是否生效\n\n#### Scenario: Rule manifest metadata\n- **WHEN** Buildr 创建、安装或更新 Rule manifest entry\n- **THEN** entry MUST 声明 `id`、`source`、`path`、`description`、`enabled` 和 `required`\n- **AND** `description` MUST 描述适用场景和用途，供 Agent 判断何时读取该规则\n- **AND** `description` MUST NOT 用来承载规则正文\n\n#### Scenario: package baseline 排除未声明内置能力\n- **WHEN** Buildr 打包或校验产品资产\n- **THEN** builtin package 源目录下的文件 MUST 只有在 package manifest 声明或被 package include 边界覆盖时才能进入发布包\n"
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "产品验证覆盖 Task Finish 收尾契约",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品验证覆盖 Task Finish 收尾契约\nBuildr package verification MUST 确保 `task-finish` 作为独立内置 workspace Skill 发布、路由并保留安全收尾契约。\n\n#### Scenario: 校验 Task Finish 随包发布\n- **WHEN** Buildr 执行 package check\n- **THEN** workspace Skill manifests MUST 声明 enabled、installed 的 `task-finish`\n- **AND** 产品入口 Buildr Skill MUST 将完整任务收尾意图路由到 `task-finish`\n- **AND** Git Ops Skill description MUST NOT 继续声明完整“收尾”意图\n\n#### Scenario: 校验收尾状态机\n- **WHEN** Buildr 验证随包 `task-finish` Skill\n- **THEN** 验证 MUST 覆盖前置检查、OpenSpec 归档、EOF 空白行处理、验证证据复用、提交、fetch/rebase、fast-forward、push、入口迁移和本地清理\n- **AND** 验证 MUST 确认 tree 改变后重验、tree 相同时不重复 E2E\n\n#### Scenario: 校验收尾授权边界\n- **WHEN** Buildr 验证随包 `task-finish` Skill\n- **THEN** 验证 MUST 确认“收尾”不授权 force push、merge commit、远端任务分支删除、丢弃改动、共享分支历史改写或语义冲突决策\n- **AND** 验证 MUST 确认任何失败会停止尚未执行的 merge、push 或 cleanup\n\n#### Scenario: Core 不复制收尾流程\n- **WHEN** Buildr 验证 required Core 和 Task Finish Skill\n- **THEN** 完整 task closeout 操作手册 MUST 只存在于 Skills\n- **AND** required Core MUST NOT 包含 OpenSpec archive EOF 修复或 Git 收尾步骤\n"
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Skill 生命周期保留 capability declarations",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Skills CLI 提供最小 capability 声明与 binding 写入口",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Skills manifest schemaVersion",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Skills manifest schemaVersion\nBuildr MUST 要求 workspace/project `skills/manifest.yml` 声明 Skill manifest schema version。\n\n#### Scenario: 新建 Skills manifest\n- **WHEN** Buildr creates a workspace or project `skills/manifest.yml`\n- **THEN** Buildr MUST write `schemaVersion: buildr.skills/v1`\n\n#### Scenario: 旧 Skills manifest 缺 schemaVersion\n- **WHEN** an existing `skills/manifest.yml` has valid Skill entries but no `schemaVersion`\n- **THEN** Buildr update or sync MUST add `schemaVersion: buildr.skills/v1`\n- **AND** Buildr doctor MUST report a warning before the file is repaired\n\n#### Scenario: Skills manifest schemaVersion 错误\n- **WHEN** `skills/manifest.yml` declares an unsupported `schemaVersion`\n- **THEN** Buildr doctor MUST report a warning\n"
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "产品入口识别工作能力适配意图",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "产品入口按 capability 路由用户意图",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "产品内置 Agent Skills",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品内置 Agent Skills\nBuildr MUST 支持面向支持 runtime 的产品内置 Agent Skills，并将其作为 workspace sync 的一部分进行同步。\n\n#### Scenario: 产品内置 Buildr Skill\n- **WHEN** Buildr 产品包包含 Buildr 使用 Skill\n- **THEN** 该 Skill MUST 由 package 的产品入口 Skill 声明管理\n- **AND** `buildr skill install <agent>`、`buildr sync <agent>` 和首次 `buildr init --agent <agent>` MUST 能够为支持的 Agent runtime 安装或修复该 Skill\n- **AND** 该 Skill MUST NOT 写入 workspace 的 `skills/manifest.yml`\n\n#### Scenario: Buildr Skill 感知 Buildr 产品入口更新意图\n- **WHEN** 用户要求 Agent“更新 Buildr”“同步 Buildr”或表达明确等价意图，且没有限定只更新 CLI\n- **THEN** 产品内置 Buildr Skill 的 description 和正文 MUST 将这些表达统一识别为更新 Buildr CLI 与产品入口 Buildr Skill\n- **AND** Buildr Skill MUST 引导 Agent 先运行 `buildr update`\n- **AND** update 成功后 Agent MUST 重新解析当前 `buildr` 入口，再运行 `buildr skill install <agent> --target <dir>`\n- **AND** Agent MUST NOT 因该意图同步其他 workspace 产品能力或执行完整 workspace sync\n\n#### Scenario: Buildr Skill 感知只更新 CLI 意图\n- **WHEN** 用户明确要求“只更新 CLI”、不要安装或修复 Buildr Skill，或表达明确等价限制\n- **THEN** Buildr Skill MUST 引导 Agent 只运行 `buildr update`\n- **AND** Agent MUST NOT 追加 Skill install、sync、runtime render 或 workspace doctor\n\n#### Scenario: Buildr Skill 感知 Git 管理的 workspace 同步意图\n- **WHEN** 用户要求 Agent“更新 workspace”“同步 workspace”或表达明确等价意图，且 workspace root 由 Git 管理\n- **THEN** Buildr Skill MUST 引导 Agent 先复用 Git Ops 检查当前分支、upstream 和工作区状态，并安全更新本地 workspace checkout\n- **AND** Git 更新成功后 Agent MUST 直接运行 `buildr sync <agent> --target <dir>`，不得因 sync 再次询问授权\n- **AND** Agent MUST NOT 先运行 `buildr update`\n- **AND** Agent MUST 使用 sync 的最终 doctor 结果判断 workspace 同步是否完成\n\n#### Scenario: Git workspace 无法安全更新\n- **WHEN** workspace Git 更新遇到本地改动、分叉、冲突、缺少 upstream 或其他需要用户决策的状态\n- **THEN** Agent MUST 停止并说明实际状态和可执行选项\n- **AND** Agent MUST NOT 自动 stash、rebase、覆盖或继续执行 `buildr sync`\n\n#### Scenario: Buildr Skill 感知非 Git workspace 同步意图\n- **WHEN** 用户要求 Agent“更新 workspace”“同步 workspace”或表达明确等价意图，且 workspace root 不由 Git 管理\n- **THEN** Buildr Skill MUST 直接运行 `buildr sync <agent> --target <dir>`\n- **AND** Agent MUST NOT 先运行 `buildr update`\n- **AND** Agent MUST 使用 sync 的最终 doctor 结果判断 workspace 同步是否完成\n\n#### Scenario: CLI update 受阻时停止 Buildr 产品入口更新\n- **WHEN** `buildr update` 返回 Git、registry、权限或来源决策点\n- **THEN** Buildr Skill MUST 向用户说明阻塞事实和可执行选项\n- **AND** Agent MUST NOT 使用旧 CLI 继续安装 Buildr Skill\n\n#### Scenario: Buildr Skill 感知首次初始化意图\n- **WHEN** 用户要求 Agent 首次使用 Buildr 管理尚未初始化的目录，且 runtime adapter 已确认\n- **THEN** Buildr Skill MUST 引导 Agent 使用 `buildr init --agent <agent>` 完成源资产初始化、产品 Buildr Skill 安装、runtime render 和 doctor\n- **AND** Buildr Skill MUST NOT 把独立 `skill install` 或 `sync` 列为完成首次 onboarding 的额外必需步骤\n\n#### Scenario: Buildr Skill 与用户 Skills 保持区分\n- **WHEN** Buildr 同步产品内置 Skills\n- **THEN** Buildr MUST 将产品入口 Buildr Skill 与 `skills/buildr/*` 能力 Skills 区分开\n- **AND** 用户 workspace/project Skill 维护 MUST 继续使用 `skills/manifest.yml` 和源目录，而不是编辑 runtime 目录\n\n#### Scenario: 内置能力 Skills 默认 optional\n- **WHEN** Buildr 提供 `skills/buildr/*` 能力 Skills\n- **THEN** 这些 Skills MUST 默认为 optional\n- **AND** 用户 MUST 能够卸载 optional 内置 Skill，卸载时删除源目录和 runtime 投射，并在 `skills/manifest.yml` 保留卸载状态\n"
+    },
+    {
+      "capability": "skill-capability-contracts",
+      "title": "Agent 根据工作意图执行工作能力适配",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "skill-capability-contracts",
+      "title": "Skill capability contract 使用独立身份和版本",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "skill-capability-contracts",
+      "title": "Skill 声明 provides 和 requires",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "skill-capability-contracts",
+      "title": "Provider 通过 scope binding 确定性解析",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "skill-capability-contracts",
+      "title": "Required 和 optional dependency 产生不同运行状态",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "skill-capability-contracts",
+      "title": "Runtime 投射包含 capability binding evidence",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "skill-capability-contracts",
+      "title": "Skill 生命周期展示 capability 影响范围",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "skill-capability-contracts",
+      "title": "Capability conformance 不伪装为行为证明",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

@@ -118,6 +118,7 @@ for (const agent of supportedAdapters) {
   run(['render', agent, '--scope', '.', '--target', workspace]);
   const root = adapterSkillRoots.get(agent);
   assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-asset-review', 'SKILL.md')), `${agent} must render task-asset-review`);
+  assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'capability-adaptation', 'SKILL.md')), `${agent} must render capability-adaptation`);
   const adapterDoctor = JSON.parse(run(['doctor', '--agent', agent, '--target', workspace, '--json']).stdout);
   assert.equal(adapterDoctor.agentRuntime.requested, agent, `${agent} doctor must inspect the requested adapter`);
   assert.equal(adapterDoctor.agentRuntime.supported, true, `${agent} doctor must recognize a supported adapter`);

@@ -149,7 +149,7 @@ if (fs.existsSync(registry)) {
     'doctor', 'mutation recover', 'runtime list', 'commands check', 'commands add', 'commands remove',
     'openspec baseline create', 'openspec check', 'component list', 'component check', 'component install',
     'component uninstall', 'rules add', 'rules remove', 'builtin list', 'builtin uninstall', 'builtin restore',
-    'update check', 'update', 'render', 'sync', 'skills add', 'skills remove', 'skill install',
+    'update check', 'update', 'render', 'sync', 'skills add', 'skills remove', 'skills bind', 'skills unbind', 'skill install',
     'runtime check', 'skills render', 'rules render',
   ];
   if (JSON.stringify(keys) !== JSON.stringify(expectedKeys)) problems.push('command registry keys differ from the supported CLI surface');

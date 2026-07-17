@@ -20,6 +20,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
   const diagnoseCommands = (...args) => runtime.diagnoseCommands(...args);
   const diagnoseComponents = (...args) => runtime.diagnoseComponents(...args);
   const diagnoseSkillsManifestSchemas = (...args) => runtime.diagnoseSkillsManifestSchemas(...args);
+  const diagnoseSkillCapabilities = (...args) => runtime.diagnoseSkillCapabilities(...args);
   const syncPackageBuiltins = (...args) => runtime.syncPackageBuiltins(...args);
   const finalizeDoctorResult = (...args) => runtime.finalizeDoctorResult(...args);
   const printDoctorReport = (...args) => runtime.printDoctorReport(...args);
@@ -153,7 +154,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
     console.log(`已恢复 Buildr source mutation：${id}`);
   }
 
-  function doctor(args) {
+  function doctor(args, internalOptions = {}) {
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
     const requestedScope = optionValue(args, '--scope', null);
     const requestedAgent = optionValue(args, '--agent', null);
@@ -186,6 +187,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
       projects: [],
       services: [],
       components: { items: [], ownership: {}, findings: [] },
+      capabilities: { structurallyRoutableOnly: true, graphs: [], items: [] },
       builtins: { items: [] },
       commandLineTools: null,
       runtime: Object.fromEntries(SUPPORTED_AGENT_IDS.map((agent) => [RUNTIME_ADAPTERS[agent].traits.checker.resultKey ?? agent.replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase()), []])),
@@ -209,6 +211,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
     diagnoseHierarchy(result, targetRoot, scopes, registry);
     diagnoseServices(result, targetRoot, scopes);
     diagnoseSkillsManifestSchemas(result, targetRoot, scopes);
+    if (result.workspace?.initialized) diagnoseSkillCapabilities(result, targetRoot, scopes, requestedAgent);
     if (result.workspace?.initialized) {
       try {
         const builtinStatus = syncPackageBuiltins(targetRoot, { checkOnly: true });
@@ -233,7 +236,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
     }
     diagnoseComponents(result, targetRoot, includeInfo, requestedAgent);
     diagnoseCommands(result, targetRoot);
-    diagnoseRuntime(result, targetRoot, scopes, { includeInfo, agent: requestedAgent });
+    if (internalOptions.skipRuntime !== true) diagnoseRuntime(result, targetRoot, scopes, { includeInfo, agent: requestedAgent });
     finalizeDoctorResult(result);
 
     if (json) {

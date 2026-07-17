@@ -261,6 +261,9 @@ python3 - "$tmp/skills/buildr/task-worktree/SKILL.md" "$tmp/.buildr/builtin-rece
 import json, pathlib, sys
 skill = pathlib.Path(sys.argv[1])
 content = skill.read_text()
+content = content.replace('本 Skill 是 `buildr.task-worktree-lifecycle/v1` 的默认 provider，管理任务 worktree 生命周期：是否创建、如何隔离开发、何时保留，以及何时进入清理检查。它不判断业务语义是否需要 OpenSpec change，也不提供 Git 命令教程。', '本 Skill 管理任务 worktree 生命周期：是否创建、如何隔离开发、何时保留，以及何时进入清理检查。它不判断业务语义是否需要 OpenSpec change，也不提供 Git 命令教程。')
+content = content.replace('用户要求完整“收尾”或自动完成归档、集成、推送和清理时，由 `buildr.task-finish/v1` selected provider 编排；本 Skill 只提供 worktree placement、retention 和 cleanup 条件。', '用户要求完整“收尾”或自动完成归档、集成、推送和清理时，由 `task-finish` Skill 编排；本 Skill 只提供 worktree placement、retention 和 cleanup 条件。')
+content = content.replace('新 worktree checkout 完成后，直接遵守 required Core workspace-transition invariant，并通过产品入口 Buildr Skill 完成具体 doctor、sync 询问、Agent 执行和手动兜底边界。只有新 checkout 实际位于包含 `.buildr/workspace.yml` 的已初始化 Buildr workspace 中才触发；复用既有 worktree且没有发生 tree 转换时不重复检查。本 Skill 不依赖 `git-ops` 或 `buildr.git-single-operation/v1` 来获得该不变量。', '新 worktree checkout 完成后，复用 Git Ops 的“工作区转换后的 Buildr 环境检查”：只有新 checkout 实际位于包含 `.buildr/workspace.yml` 的已初始化 Buildr workspace 中，才针对当前 Agent 和该 workspace root 运行 doctor。doctor 无需处理时不询问同步；发现可由 sync 修复的环境问题时，复用同步询问、Agent 执行和手动兜底边界，用户确认前不执行 sync。复用既有 worktree 且没有发生 tree 转换时，不重复运行该检查。')
 content = content.replace('- 普通开发任务未上线、未归档或未明确收尾前，默认保留 task worktree 和任务分支。\n', '- 任务未上线、未归档或未明确收尾前，默认保留 task worktree 和任务分支。\n')
 content = content.replace('\n新 worktree checkout 完成后，复用 Git Ops 的“工作区转换后的 Buildr 环境检查”：只有新 checkout 实际位于包含 `.buildr/workspace.yml` 的已初始化 Buildr workspace 中，才针对当前 Agent 和该 workspace root 运行 doctor。doctor 无需处理时不询问同步；发现可由 sync 修复的环境问题时，复用同步询问、Agent 执行和手动兜底边界，用户确认前不执行 sync。复用既有 worktree 且没有发生 tree 转换时，不重复运行该检查。\n', '')
 content = content.replace('- 不在用户确认前同步新 worktree runtime，也不把手动命令作为默认处理方式；不为未发生 tree 转换的 worktree 复用重复检查。\n', '')
@@ -304,7 +307,7 @@ import json, sys
 receipt = json.load(open(sys.argv[1]))
 assert receipt['schemaVersion'] == 'buildr.builtin-receipts/v1'
 assert {f"{item['type']}:{item['id']}" for item in receipt['builtins']} == {
-    'rule:buildr-core', 'skill:task-triage', 'skill:task-cockpit', 'skill:task-asset-review',
+    'rule:buildr-core', 'skill:task-triage', 'skill:task-cockpit', 'skill:capability-adaptation', 'skill:task-asset-review',
     'skill:task-worktree', 'skill:task-finish', 'skill:git-ops'
 }
 PY
@@ -312,6 +315,9 @@ test -f "$tmp/skills/buildr/task-cockpit/SKILL.md"
 test -f "$tmp/skills/buildr/task-cockpit/assets/task-cockpit-template.html"
 grep -q 'yyyy-MM-dd-<task-id>.html' "$tmp/skills/buildr/task-cockpit/SKILL.md"
 grep -q 'id="cockpit-data"' "$tmp/skills/buildr/task-cockpit/assets/task-cockpit-template.html"
+test -f "$tmp/skills/buildr/capability-adaptation/SKILL.md"
+test -f "$tmp/skills/buildr/capability-adaptation/agents/openai.yaml"
+grep -q '判断的是稳定协作边界，不是用户是否说出 capability 名字' "$tmp/skills/buildr/capability-adaptation/SKILL.md"
 test -f "$tmp/skills/buildr/task-asset-review/SKILL.md"
 test -f "$tmp/skills/buildr/task-asset-review/agents/openai.yaml"
 grep -q '证据胶囊' "$tmp/skills/buildr/task-asset-review/SKILL.md"
@@ -590,7 +596,7 @@ printf 'echo loaded\n' > "$skill_source/scripts/run.sh"
 node "$buildr" skills add --source "$skill_source" --scope . --target "$tmp" >/tmp/buildr-product-mvp-skills-add.txt
 grep -q '已添加 Skill 源资产：loaded-skill' /tmp/buildr-product-mvp-skills-add.txt
 grep -q '下一步：' /tmp/buildr-product-mvp-skills-add.txt
-grep -q 'description: "Loaded skill summary"' "$tmp/skills/manifest.yml"
+grep -Eq 'description: ("Loaded skill summary"|Loaded skill summary)' "$tmp/skills/manifest.yml"
 test -f "$tmp/skills/loaded-skill/SKILL.md"
 test -f "$tmp/skills/loaded-skill/scripts/run.sh"
 test ! -d "$tmp/.claude/skills/loaded-skill"
@@ -625,8 +631,8 @@ grep -q '已删除 Skill 源资产：loaded-skill' /tmp/buildr-product-mvp-skill
 test ! -d "$tmp/skills/loaded-skill"
 node "$buildr" skills add remote-info --remote-source https://example.com/review --scope . --target "$tmp" --description "Remote info source" >/tmp/buildr-product-mvp-skills-remote-add.txt
 grep -q '已添加 Skill 远端信息源：remote-info' /tmp/buildr-product-mvp-skills-remote-add.txt
-grep -q 'id: "remote-info"' "$tmp/skills/manifest.yml"
-grep -q 'mode: "agent"' "$tmp/skills/manifest.yml"
+grep -Eq 'id: "?remote-info"?' "$tmp/skills/manifest.yml"
+grep -Eq 'mode: "?agent"?' "$tmp/skills/manifest.yml"
 node "$buildr" skills remove remote-info --scope . --target "$tmp" >/tmp/buildr-product-mvp-skills-remote-remove.txt
 grep -q '已删除 Skill 远端资产：remote-info' /tmp/buildr-product-mvp-skills-remote-remove.txt
 node "$buildr" skills add remote-review \

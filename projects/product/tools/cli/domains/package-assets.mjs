@@ -421,6 +421,8 @@ export function registerDomainsPackageAssets(runtime) {
       state: 'installed',
       runtimes: builtin.runtimes || [...SUPPORTED_AGENT_IDS],
       runtimePath: builtin.id,
+      ...(builtin.provides ? { provides: builtin.provides } : {}),
+      ...(builtin.requires ? { requires: builtin.requires } : {}),
     };
   }
 
@@ -549,7 +551,7 @@ export function registerDomainsPackageAssets(runtime) {
     const file = skillsManifestPath(scopeRoot);
     if (!existsFile(file)) return;
     const schemaVersion = readSkillManifestSchemaVersion(file);
-    if (schemaVersion === 'buildr.skills/v1') return;
+    if (schemaVersion === 'buildr.skills/v2') return;
     const skills = readSkillManifest(file);
     atomicWriteFile(file, renderSkillsManifestYaml(skills));
     changed.push(toPosixRelative(targetRoot, file));

@@ -45,6 +45,10 @@ test -f "$tmp/skills/buildr/task-cockpit/SKILL.md"
 test -f "$tmp/skills/buildr/task-cockpit/assets/task-cockpit-template.html"
 grep -q 'openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html' "$tmp/skills/buildr/task-cockpit/SKILL.md"
 grep -q 'data-tab="technical"' "$tmp/skills/buildr/task-cockpit/assets/task-cockpit-template.html"
+grep -q 'capability-adaptation' "$tmp/skills/manifest.yml"
+test -f "$tmp/skills/buildr/capability-adaptation/SKILL.md"
+test -f "$tmp/skills/buildr/capability-adaptation/agents/openai.yaml"
+grep -q '用户无需知道这些资产名称' "$tmp/skills/buildr/capability-adaptation/SKILL.md"
 grep -q 'task-asset-review' "$tmp/skills/manifest.yml"
 test -f "$tmp/skills/buildr/task-asset-review/SKILL.md"
 test -f "$tmp/skills/buildr/task-asset-review/agents/openai.yaml"
@@ -59,11 +63,10 @@ for required_text in \
   'new blank line at EOF' \
   '恰好以一个换行结束' \
   'git rev-parse HEAD^{tree}' \
-  'fast-forward-only' \
   '不删除远端任务分支' \
   '工作目录切换到主 workspace' \
   '任务资产审查门控' \
-  '不得调用工具、重新读取任务文件或加载完整 `task-asset-review`' \
+  '不得调用工具、重新读取任务文件或加载完整 selected asset-review provider' \
   '“收尾”不构成 Rule 或 Skill 写入授权'; do
   grep -q "$required_text" "$task_finish_skill"
 done
@@ -109,7 +112,7 @@ test -f "$tmp/projects/demo/services/manifest.yml"
 test -f "$tmp/projects/demo/skills/manifest.yml"
 grep -q 'schemaVersion: buildr.services/v1' "$tmp/projects/demo/services/manifest.yml"
 grep -q 'project: "demo"' "$tmp/projects/demo/services/manifest.yml"
-grep -q 'schemaVersion: buildr.skills/v1' "$tmp/projects/demo/skills/manifest.yml"
+grep -q 'schemaVersion: buildr.skills/v2' "$tmp/projects/demo/skills/manifest.yml"
 grep -q 'demo:' "$tmp/projects/manifest.yml"
 grep -q 'title: "demo"' "$tmp/projects/manifest.yml"
 grep -q 'kind: "workspace"' "$tmp/projects/manifest.yml"
