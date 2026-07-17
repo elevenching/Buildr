@@ -53,6 +53,7 @@ export function registerCommandHelp(runtime) {
       '',
       'Public workspace commands:',
       '  init                 初始化 Buildr workspace；传入 --agent 时一次完成 runtime 与最终 doctor。',
+      '  version              输出当前 Buildr CLI package version；支持 --json。',
       '  project create       创建或登记 Project。',
       '  service create       创建或登记 Service。',
       '  doctor               诊断 workspace、源资产和 Agent runtime render 状态。',
@@ -82,6 +83,11 @@ export function registerCommandHelp(runtime) {
       '首次 onboarding 推荐传入 --agent：初始化源资产后复用完整 sync，并以最终 doctor 通过作为完成条件。',
       '不传 --agent 时只初始化源资产；已有 workspace 的日常更新继续使用 buildr sync <agent>。',
       '--help 只输出帮助，不会写入文件。',
+    ],
+    version: [
+      'Usage: buildr version [--json]',
+      '',
+      '输出当前实际执行的 Buildr CLI package identity。也可使用 buildr --version 或 buildr -V。',
     ],
     'project create': [
       'Usage: buildr project create <project> [--target <dir>] [--repo <git-url>] [--title <text>] [--description <text>]',
@@ -246,7 +252,8 @@ export function registerCommandHelp(runtime) {
 
   function commandTopic(rawArgs) {
     const [domain, action, runtime] = rawArgs.filter((arg) => !['--help', '-h'].includes(arg));
-    if (!domain || domain === 'help') return 'root';
+    if (!domain) return 'root';
+    if (domain === 'version') return 'version';
     if (domain === 'project' && action === 'create') return 'project create';
     if (domain === 'service' && action === 'create') return 'service create';
     if (domain === 'runtime' && action === 'list') return 'runtime list';
@@ -272,7 +279,7 @@ export function registerCommandHelp(runtime) {
     if (domain === 'rules' && action === 'render') {
       return 'rules render';
     }
-    return 'root';
+    return null;
   }
 
   HELP_TOPICS['rules render'] = [
@@ -283,12 +290,14 @@ export function registerCommandHelp(runtime) {
 
   function printHelp(rawArgs) {
     const topic = commandTopic(rawArgs);
-    const lines = HELP_TOPICS[topic] ?? HELP_TOPICS.root;
+    if (!topic) return false;
+    const lines = HELP_TOPICS[topic];
     console.log(lines.join('\n'));
+    return true;
   }
 
   function isHelpRequest(rawArgs) {
-    return rawArgs.length === 0 || rawArgs.some((arg) => arg === '--help' || arg === '-h') || (rawArgs.length === 1 && rawArgs[0] === 'help');
+    return rawArgs.length === 0 || rawArgs.some((arg) => arg === '--help' || arg === '-h') || rawArgs[0] === 'help';
   }
 
   Object.assign(runtime, { usage, commandTopic, printHelp, isHelpRequest });

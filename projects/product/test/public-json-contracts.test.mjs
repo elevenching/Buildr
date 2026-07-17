@@ -33,6 +33,8 @@ test('全部 workspace JSON command family 输出登记的 schemaVersion', (t) =
   run(['init', '--target', root, '--name', 'json-contracts', '--profile', 'team'], { json: false });
 
   const cases = [
+    [['version', '--json'], PUBLIC_JSON_SCHEMAS.version],
+    [['unknown-command', '--json'], PUBLIC_JSON_SCHEMAS.cliError, 2],
     [['runtime', 'list', '--json'], PUBLIC_JSON_SCHEMAS.runtimeList],
     [['doctor', '--target', root, '--json'], PUBLIC_JSON_SCHEMAS.doctor],
     [['commands', 'check', '--target', root, '--json'], PUBLIC_JSON_SCHEMAS.commandsCheck],
@@ -48,6 +50,7 @@ test('全部 workspace JSON command family 输出登记的 schemaVersion', (t) =
 test('schema registry 覆盖全部当前公开 JSON family', () => {
   assert.deepEqual(Object.keys(PUBLIC_JSON_SCHEMAS).sort(), [
     'builtinList',
+    'cliError',
     'commandsCheck',
     'componentCheck',
     'componentList',
@@ -57,5 +60,6 @@ test('schema registry 覆盖全部当前公开 JSON family', () => {
     'runtimeList',
     'update',
     'updateCheck',
+    'version',
   ]);
 });

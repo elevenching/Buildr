@@ -1,5 +1,6 @@
 export const PUBLIC_JSON_SCHEMAS = Object.freeze({
   builtinList: 'buildr.builtin-list/v1',
+  cliError: 'buildr.cli-error/v1',
   commandsCheck: 'buildr.commands-check/v1',
   componentCheck: 'buildr.component-check/v1',
   componentList: 'buildr.component-list/v1',
@@ -9,6 +10,7 @@ export const PUBLIC_JSON_SCHEMAS = Object.freeze({
   runtimeList: 'buildr.runtime-list/v1',
   update: 'buildr.update/v1',
   updateCheck: 'buildr.update-check/v1',
+  version: 'buildr.version/v1',
 });
 
 export function withJsonSchema(schemaVersion, payload) {

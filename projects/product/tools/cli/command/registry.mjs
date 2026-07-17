@@ -1,6 +1,8 @@
 import process from 'node:process';
 import { createRuntime } from '../application/compose-runtime.mjs';
 import { registerCommandHelp } from './help.mjs';
+import { isVersionRequest, printVersion } from './identity.mjs';
+import { printCliError } from './diagnostics.mjs';
 
 export const COMMAND_REGISTRY = [
   { key: 'init', match: ({ domain }) => domain === 'init', run: (r, c) => r.initBuildr(c.argv.slice(3)) },
@@ -84,14 +86,21 @@ export function dispatch(argv = process.argv) {
   const runtime = createRuntime();
   registerCommandHelp(runtime);
   const rawArgs = argv.slice(2);
-  if (runtime.isHelpRequest(rawArgs)) { runtime.printHelp(rawArgs); return; }
+  const commandCandidates = ['version', 'help', ...COMMAND_REGISTRY.map((item) => item.key)];
+  if (isVersionRequest(rawArgs)) { printVersion(rawArgs); return; }
+  if (runtime.isHelpRequest(rawArgs)) {
+    const helpArgs = rawArgs[0] === 'help' ? rawArgs.slice(1) : rawArgs;
+    if (runtime.printHelp(helpArgs)) return;
+    process.exit(printCliError(rawArgs, { candidates: commandCandidates, helpTopic: rawArgs[0] === 'help' }));
+  }
   const [domain, action, runtimeId, ...args] = rawArgs;
   const context = { argv, rawArgs, domain, action, runtimeId, args };
   const direct = COMMAND_REGISTRY.find((item) => !item.requiresAgent && item.match(context));
   if (direct) return direct.run(runtime, context);
-  if (!runtime.isSupportedAgent(runtimeId)) { runtime.usage(); process.exit(2); }
+  if (!runtime.isSupportedAgent(runtimeId)) {
+    process.exit(printCliError(rawArgs, { candidates: commandCandidates }));
+  }
   const agent = COMMAND_REGISTRY.find((item) => item.requiresAgent && item.match(context));
   if (agent) return agent.run(runtime, context);
-  runtime.usage();
-  process.exit(2);
+  process.exit(printCliError(rawArgs, { candidates: commandCandidates }));
 }

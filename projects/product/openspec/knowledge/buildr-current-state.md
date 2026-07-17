@@ -210,10 +210,12 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 
 当前可执行命令按产品表面分类如下。分类是 help/docs 中的用途事实，不是权限或安全限制；maintenance/workflow 命令仍可执行并可查看主题帮助。
 
+CLI identity 可通过 `buildr --version`、`buildr -V`、`buildr version` 或 `buildr version --json` 读取，事实来自当前实际执行 package metadata。`buildr help <command...>` 与 flag help 共用 canonical topic；未知路由使用简洁 stderr diagnostics，或在请求 `--json` 时输出 `buildr.cli-error/v1` 单对象并以 2 退出。`-v` 和 Shell completion 当前不属于公开版本入口。
+
 | 分类 | 命令 |
 |---|---|
 | public onboarding / daily | `buildr init --agent <agent>`、纯源资产 `buildr init`、`buildr project create`、`buildr service create`、`buildr doctor`、`buildr runtime list`、`buildr sync <agent>` |
-| public CLI lifecycle | `buildr update/check` |
+| public CLI lifecycle | `buildr version`、`buildr update/check` |
 | public asset lifecycle | `buildr commands add/remove/check`、`buildr component list/check/install/uninstall`、`buildr rules add/remove`、`buildr skills add/remove`、`buildr builtin list/uninstall/restore` |
 | public advanced / repair | `buildr mutation recover`、`buildr runtime check <agent>`、`buildr render <agent>`、`buildr rules render <agent>`（仅 Rules writesFiles adapters）、`buildr skills render <agent>`、`buildr skill install <agent>`、`buildr bootstrap guide` |
 | internal workflow | `buildr openspec baseline create`、`buildr openspec check` |

@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "improve-cli-global-interface",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-f220a068994e14f195e409ff20054032f5d7ec7cf03a08bac3fe22998bd6766f",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "cli-product-surface",
+      "title": "CLI 必须公开自身版本 identity",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-product-surface",
+      "title": "CLI 帮助入口必须支持命令式主题查询",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-product-surface",
+      "title": "未知命令必须返回简洁可操作诊断",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "public-json-contracts",
+      "title": "CLI version JSON 必须声明稳定 identity",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "public-json-contracts",
+      "title": "CLI 路由错误必须提供机器可读 envelope",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}
