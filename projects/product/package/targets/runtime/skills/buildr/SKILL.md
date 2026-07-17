@@ -25,7 +25,7 @@ Agent 是 Buildr 功能的默认操作入口。Agent 能在当前工具、权限
 3. 如果当前 Agent 无法和支持列表对齐，停止 Buildr 操作，并请联系 Buildr 作者反馈该 Agent。
 4. 判断 workspace 是否已初始化。未初始化时运行 `buildr init --agent <agent> --target <dir> --name <name> --profile <personal|team|company>`，并使用命令内置的最终 doctor 结果；已有 workspace 运行 `buildr doctor --agent <agent> --target <dir> --json` 建立事实基线。不要省略 `--agent`。
 5. 根据用户目标和 doctor 结果选择资产类型：组织（Organization/Root）、项目（Project）、服务（Service）、组件（Components）、规则（Rules）、命令（Commands）、技能（Skills）、内置能力（Builtins）或 Agent runtime 渲染。
-6. 执行对应维护动作。用户要求“更新 Buildr”或“同步 Buildr”时，先运行 `buildr update`；成功后重新解析当前 `buildr` 入口，再运行 `buildr skill install <agent> --target <dir>`，不因此同步整个 workspace。用户明确要求“只更新 CLI”时只运行 `update`。用户要求“更新 workspace”或“同步 workspace”时运行 `buildr sync <agent> --target <dir>`，不先更新 CLI。update 受阻时不得继续用旧 CLI 安装 Buildr Skill。
+6. 执行对应维护动作。用户要求“更新 Buildr”或“同步 Buildr”时，先运行 `buildr update`；成功后重新解析当前 `buildr` 入口，再运行 `buildr skill install <agent> --target <dir>`，不因此同步整个 workspace。用户明确要求“只更新 CLI”时只运行 `update`。用户要求“更新 workspace”或“同步 workspace”时，先判断 workspace root 是否由 Git 管理：如果是，复用 Git Ops 检查当前分支、upstream 和工作区状态并安全更新本地 checkout，成功后直接运行 `buildr sync <agent> --target <dir>`；如果不是 Git workspace，直接运行 sync。该意图不先更新 CLI。update 受阻时不得继续用旧 CLI 安装 Buildr Skill。
 7. 状态变更后确认最新 doctor 结果；`init --agent`、`sync` 和 Component install/uninstall 已包含最终 doctor，其他变更再运行 `buildr doctor --agent <agent> --target <dir> --json`。只有 doctor 指向专项问题，或用户明确要求细查时，才运行 `commands check` 或 `runtime check`。
 8. 优先使用 Buildr CLI；复杂参数以当前 manifest、CLI 帮助和 CLI 错误输出为准。
 
@@ -49,7 +49,7 @@ Agent 是 Buildr 功能的默认操作入口。Agent 能在当前工具、权限
 | 声明组织复用的外部命令行工具 | 命令（Commands） |
 | 当前 Agent 找不到已声明规则或技能 | Agent runtime 渲染 |
 | 为 Buildr 增加新的 Agent runtime adapter | runtime trait intake + OpenSpec change |
-Agent 通过 `git-ops`、`task-worktree` 或 `task-finish` 成功改变已检出工作区内容后，由对应 Skill 在已初始化 Buildr workspace 中执行 post-transition doctor。doctor 指出 workspace sync 是合适修复动作时，询问用户是否由 Agent 立即同步，同时提供手动同步命令作为备选；用户确认后由 Agent 执行 `buildr sync <agent> --target <workspace-root>` 并验证最终 doctor。当前 session 是否重新发现新资产由 Agent runtime 决定。
+Agent 通过 `git-ops`、`task-worktree` 或 `task-finish` 成功改变已检出工作区内容后，由对应 Skill 在已初始化 Buildr workspace 中执行 post-transition doctor。doctor 指出 workspace sync 是合适修复动作时，询问用户是否由 Agent 立即同步，同时提供手动同步命令作为备选；用户确认后由 Agent 执行 `buildr sync <agent> --target <workspace-root>` 并验证最终 doctor。当前 session 是否重新发现新资产由 Agent runtime 决定。“更新 workspace”或“同步 workspace”是包含 Git 更新与 Buildr sync 的显式复合意图，不走上述单项 Git 操作后的同步询问：Agent 先确认 workspace root 的 Git ownership；Git 管理的 workspace 复用 Git Ops 检查当前分支、upstream 和工作区状态，并仅在能够安全更新时更新本地 checkout。遇到本地改动、分叉、冲突、缺少 upstream 或其他需要用户决策的状态时，停止并说明实际状态与可执行选项，不自动 stash、rebase、覆盖，也不继续 sync。Git 更新成功后直接执行 `buildr sync <agent> --target <workspace-root>`，无需再次询问 sync 授权；非 Git workspace 直接执行 sync，并以 sync 的最终 doctor 判断完成。
 
 ## 资产维护
 
@@ -141,7 +141,7 @@ Agent 通过 `git-ops`、`task-worktree` 或 `task-finish` 成功改变已检出
 - Adapter 只生成 runtime-specific 声明式计划；Buildr 通用 core 统一负责 Component 完整性后的 source assembly、计划验证、冲突预检、写入、清理和诊断。
 - 用户要求增加新 adapter 时，先从目标 Agent 收集能直接映射到 trait descriptor 的最小 intake：identity/surface、Rules kind、Skills root、activation、安装/版本 checker 和最小黑盒证据；不要调查与 adapter 无关的产品功能。
 - 新 adapter 属于 Buildr 产品 change-flow：每个 runtime 使用独立 descriptor、capability evidence 和 tests；只在现有 primitive 无法表达时增加新的静态 implementation，不能 alias 或 fallback 到其他 adapter。
-- 用户说“更新 Buildr”或“同步 Buildr”时，依次运行 `buildr update` 与新入口的 `buildr skill install <agent> --target <dir>`；用户说“只更新 CLI”时不追加 Skill install；用户说“更新 workspace”或“同步 workspace”时运行 `buildr sync <agent> --target <dir>`，不先更新 CLI。sync 默认从 `.` 递归 reconcile workspace Rules，并同步 Root/Project Skills。
+- 用户说“更新 Buildr”或“同步 Buildr”时，依次运行 `buildr update` 与新入口的 `buildr skill install <agent> --target <dir>`；用户说“只更新 CLI”时不追加 Skill install；用户说“更新 workspace”或“同步 workspace”时，Git 管理的 workspace 先复用 Git Ops 安全更新本地 checkout，再运行 `buildr sync <agent> --target <dir>`，非 Git workspace 直接 sync，且两者都不先更新 CLI。sync 默认从 `.` 递归 reconcile workspace Rules，并同步 Root/Project Skills。
 - doctor 指出特定 scope runtime 问题时，按 canonical workspace 相对 scope 运行 `render`、`rules render` 或 `runtime check`；组合 `render` 会把 Skills scope 折叠到所属 Root/Project。
 - `runtime check` 是专项 runtime 细查入口；只有 doctor 指向具体 runtime 问题，或用户明确要求细查时运行。
 

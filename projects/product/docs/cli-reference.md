@@ -13,7 +13,7 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 
 `init --agent` 是默认首次 onboarding 入口：它先初始化源资产，再复用完整 `sync` 执行 source update、产品 Buildr Skill 安装、workspace/project Skills 投射和最终 doctor。已有 workspace 的产品能力与 runtime 更新继续使用 `sync`。
 
-`buildr update` 只更新 CLI 自身：开发 checkout 使用 Git 安全更新，registry package 使用 npm 更新。它不接收 `--target`，也不读取 workspace。用户要求“更新 Buildr”或“同步 Buildr”时，Agent 在 update 成功后重新解析入口，再执行 `buildr skill install <agent> --target <workspace>`，更新 CLI 与产品入口 Buildr Skill，而不扩大为 workspace sync。用户要求“更新 workspace”或“同步 workspace”时，Agent 直接执行 `buildr sync <agent> --target <workspace>`，不先更新 CLI。
+`buildr update` 只更新 CLI 自身：开发 checkout 使用 Git 安全更新，registry package 使用 npm 更新。它不接收 `--target`，也不读取 workspace。用户要求“更新 Buildr”或“同步 Buildr”时，Agent 在 update 成功后重新解析入口，再执行 `buildr skill install <agent> --target <workspace>`，更新 CLI 与产品入口 Buildr Skill，而不扩大为 workspace sync。用户要求“更新 workspace”或“同步 workspace”时，Agent 先判断 workspace root 是否由 Git 管理：Git workspace 复用 Git Ops 检查当前分支、upstream 和工作区状态并安全更新本地 checkout，成功后执行 `buildr sync <agent> --target <workspace>`；非 Git workspace 直接 sync。Git 决策点会阻止后续 sync，Agent 不自动 stash、rebase 或覆盖；该复合意图不先更新 CLI，且 Git 更新成功后无需再次询问 sync 授权。
 
 ## Workspace 与资产
 
@@ -38,7 +38,7 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 | `buildr runtime list` | 查看 supported adapters、capabilities 和推荐命令。 |
 | `buildr doctor` | 聚合 workspace、registries、Components、Commands 和 runtime 状态。Agent 默认传 `--agent` 与 `--json`。 |
 | `buildr render <agent>` | 组合投射 Rules entry 与 workspace/project Skills，不安装产品入口 Skill。 |
-| `buildr sync <agent>` | 同步 workspace 产品源能力并准备完整当前 Agent runtime；不更新 CLI。 |
+| `buildr sync <agent>` | 同步当前本地 workspace checkout 中的产品源能力并准备完整当前 Agent runtime；不更新 CLI，也不隐式执行 Git 更新。 |
 | `buildr runtime check <agent>` | 专项比较某个 scope 的 runtime 期望状态。 |
 | `buildr skill install <agent>` | 只安装产品入口 Buildr Skill。 |
 | `buildr mutation recover <id>` | 从完整 transaction journal/backup 恢复未完成 source mutation。 |

@@ -359,8 +359,27 @@ export function createPackageStaticValidator(deps) {
           'buildr skill install <agent> --target <dir>',
           '用户要求“更新 workspace”或“同步 workspace”时',
           '用户明确要求“只更新 CLI”时',
+          '复用 Git Ops 检查当前分支、upstream 和工作区状态',
+          '不自动 stash、rebase、覆盖，也不继续 sync',
+          '无需再次询问 sync 授权',
+          '非 Git workspace 直接执行 sync',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`Buildr Agent Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        for (const [relativePath, requiredTexts] of [
+          ['package/bootstrap/guide.md', ['复用 Git Ops 检查当前分支、upstream 和工作区状态', '不自动 stash、rebase、覆盖，也不继续 sync', '无需再次询问 sync 授权', '非 Git workspace 跳过 Git 步骤', '不是 `buildr sync` 的隐式行为']],
+          ['docs/cli-reference.md', ['复用 Git Ops 检查当前分支、upstream 和工作区状态', 'Agent 不自动 stash、rebase 或覆盖', '无需再次询问 sync 授权', '非 Git workspace 直接 sync', '不隐式执行 Git 更新']],
+          ['tools/runtime/skills/render-plan.mjs', ['Git 管理的 workspace 先复用 Git Ops 安全更新本地 checkout，再运行 sync', '非 Git workspace 直接运行 sync']],
+        ]) {
+          const contractPath = path.join(root, relativePath);
+          if (!existsFile(contractPath)) {
+            problems.push(`Workspace update intent contract file is missing: ${relativePath}`);
+            continue;
+          }
+          const contractContent = fs.readFileSync(contractPath, 'utf8');
+          for (const requiredText of requiredTexts) {
+            if (!contractContent.includes(requiredText)) problems.push(`${relativePath} must include ${JSON.stringify(requiredText)}.`);
+          }
         }
       }
       files.push(skillFile);

@@ -24,13 +24,13 @@ command -v buildr
 buildr skill install <agent> --target <workspace-root>
 ```
 
-用户要求“更新 workspace”或“同步 workspace”时直接使用当前 CLI 执行 sync，不先更新 CLI：
+用户要求“更新 workspace”或“同步 workspace”时，先确认 workspace root 是否由 Git 管理。Git 管理的 workspace 先复用 Git Ops 检查当前分支、upstream 和工作区状态并安全更新本地 checkout；遇到本地改动、分叉、冲突、缺少 upstream 或其他决策点时停止说明，不自动 stash、rebase、覆盖，也不继续 sync。Git 更新成功后无需再次询问 sync 授权；非 Git workspace 跳过 Git 步骤。然后使用当前 CLI 执行 sync，不先更新 CLI：
 
 ```bash
 buildr sync <agent> --target <dir>
 ```
 
-用户明确只更新 CLI 时只运行 `buildr update`，不追加 Skill install 或 workspace sync。`sync` 包含产品能力同步、产品入口 Buildr Skill 安装、从 `.` 递归投射各层 `AGENTS.md` 的当前 Agent runtime render 和 doctor 复查。
+用户明确只更新 CLI 时只运行 `buildr update`，不追加 Skill install 或 workspace sync。Git 更新属于 Agent 对 workspace 更新意图的编排，不是 `buildr sync` 的隐式行为；`sync` 包含产品能力同步、产品入口 Buildr Skill 安装、从 `.` 递归投射各层 `AGENTS.md` 的当前 Agent runtime render 和 doctor 复查。
 只需要在未初始化目录单独恢复产品入口 Skill 时使用专项入口：
 
 ```bash
