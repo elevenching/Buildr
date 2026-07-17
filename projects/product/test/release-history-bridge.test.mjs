@@ -15,7 +15,9 @@ function git(cwd, ...args) {
 
 function commit(cwd, message, content) {
   fs.writeFileSync(path.join(cwd, 'candidate.txt'), `${content}\n`);
-  git(cwd, 'add', 'candidate.txt');
+  fs.mkdirSync(path.join(cwd, 'projects', 'product'), { recursive: true });
+  fs.writeFileSync(path.join(cwd, 'projects', 'product', 'package.json'), '{"name":"@buildr-ai/buildr","version":"0.1.0-rc.5"}\n');
+  git(cwd, 'add', 'candidate.txt', 'projects/product/package.json');
   git(cwd, 'commit', '-m', message);
 }
 
@@ -47,7 +49,7 @@ function fixture() {
 test('tree-identical squash main is bridged to dev without changing the candidate tree', (t) => {
   const data = fixture();
   t.after(() => fs.rmSync(data.root, { recursive: true, force: true }));
-  const result = bridgeMainToDev({ repo: data.work, candidateTree: data.candidateTree });
+  const result = bridgeMainToDev({ repo: data.work, candidateTree: data.candidateTree, version: '0.1.0-rc.5' });
   assert.equal(result.action, 'bridged');
   assert.equal(git(data.work, 'rev-parse', 'HEAD^{tree}'), data.candidateTree);
   assert.equal(git(data.work, 'merge-base', '--is-ancestor', 'origin/main', 'origin/dev'), '');
@@ -56,9 +58,9 @@ test('tree-identical squash main is bridged to dev without changing the candidat
 test('already-bridged main/dev history is an idempotent no-op', (t) => {
   const data = fixture();
   t.after(() => fs.rmSync(data.root, { recursive: true, force: true }));
-  bridgeMainToDev({ repo: data.work, candidateTree: data.candidateTree });
+  bridgeMainToDev({ repo: data.work, candidateTree: data.candidateTree, version: '0.1.0-rc.5' });
   const head = git(data.work, 'rev-parse', 'HEAD');
-  const result = bridgeMainToDev({ repo: data.work, candidateTree: data.candidateTree });
+  const result = bridgeMainToDev({ repo: data.work, candidateTree: data.candidateTree, version: '0.1.0-rc.5' });
   assert.equal(result.action, 'already-bridged');
   assert.equal(git(data.work, 'rev-parse', 'HEAD'), head);
 });
@@ -68,7 +70,7 @@ test('tree mismatch fails closed before creating a history bridge', (t) => {
   t.after(() => fs.rmSync(data.root, { recursive: true, force: true }));
   const head = git(data.work, 'rev-parse', 'HEAD');
   assert.throws(
-    () => bridgeMainToDev({ repo: data.work, candidateTree: `${data.candidateTree.slice(0, -1)}0` }),
+    () => bridgeMainToDev({ repo: data.work, candidateTree: `${data.candidateTree.slice(0, -1)}0`, version: '0.1.0-rc.5' }),
     /does not match the verified candidate tree/,
   );
   assert.equal(git(data.work, 'rev-parse', 'HEAD'), head);
@@ -81,11 +83,23 @@ test('remote ref race fails closed and preserves the local candidate', (t) => {
   assert.throws(() => bridgeMainToDev({
     repo: data.work,
     candidateTree: data.candidateTree,
+    version: '0.1.0-rc.5',
     beforeRemoteRecheck: () => {
       git(data.seed, 'checkout', 'dev');
       commit(data.seed, 'concurrent update', 'concurrent');
       git(data.seed, 'push', 'origin', 'dev');
     },
   }), /Remote refs changed/);
+  assert.equal(git(data.work, 'rev-parse', 'HEAD'), head);
+});
+
+test('package version mismatch fails closed before creating a history bridge', (t) => {
+  const data = fixture();
+  t.after(() => fs.rmSync(data.root, { recursive: true, force: true }));
+  const head = git(data.work, 'rev-parse', 'HEAD');
+  assert.throws(
+    () => bridgeMainToDev({ repo: data.work, candidateTree: data.candidateTree, version: '0.1.0-rc.6' }),
+    /package version does not match/,
+  );
   assert.equal(git(data.work, 'rev-parse', 'HEAD'), head);
 });

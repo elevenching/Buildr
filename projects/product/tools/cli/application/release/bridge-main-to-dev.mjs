@@ -32,6 +32,7 @@ function parseArgs(argv) {
   }
   if (!options.repo) fail('Missing required --repo');
   if (!options['candidate-tree']) fail('Missing required --candidate-tree');
+  if (!options.version) fail('Missing required --version');
   return { ...options, candidateTree: options['candidate-tree'] };
 }
 
@@ -57,9 +58,14 @@ function assertExpected(label, actual, expected) {
   });
 }
 
+function packageVersion(repo, ref) {
+  const result = git(repo, ['show', `${ref}:projects/product/package.json`]);
+  try { return JSON.parse(result.stdout).version || null; } catch { return null; }
+}
+
 export function bridgeMainToDev(options) {
   const {
-    repo, remote = 'origin', main = 'main', dev = 'dev', candidateTree, beforeRemoteRecheck,
+    repo, remote = 'origin', main = 'main', dev = 'dev', candidateTree, version, beforeRemoteRecheck,
   } = options;
   const root = rev(repo, '--show-toplevel');
   const status = git(root, ['status', '--porcelain']).stdout.trim();
@@ -78,6 +84,8 @@ export function bridgeMainToDev(options) {
   };
   assertExpected(mainRef, trees.main, candidateTree);
   assertExpected(devRef, trees.dev, candidateTree);
+  assertExpected(`${mainRef} package version`, packageVersion(root, mainRef), version);
+  assertExpected(`${devRef} package version`, packageVersion(root, devRef), version);
 
   const ancestor = git(root, ['merge-base', '--is-ancestor', mainRef, devRef], { allowFailure: true });
   if (ancestor.status === 0) {

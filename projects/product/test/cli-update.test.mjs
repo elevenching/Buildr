@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 
-import { buildCliUpdatePlan, executeCliUpdatePlan, identifyCliSource } from '../tools/cli/application/cli-update.mjs';
+import { buildCliUpdatePlan, compareVersions, executeCliUpdatePlan, identifyCliSource } from '../tools/cli/application/cli-update.mjs';
 
 function git(cwd, ...args) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
@@ -49,10 +49,10 @@ test('开发 checkout 缺少 upstream 时 check 返回稳定阻塞结构', (t) =
   git(root, 'config', 'user.name', 'Buildr Test');
   git(root, 'add', '.');
   git(root, 'commit', '-qm', 'initial');
-  const plan = buildCliUpdatePlan(productRoot, { fetch: false });
+  const plan = buildCliUpdatePlan(productRoot, { fetch: false, registryLookup: () => '1.0.0' });
   assert.equal(plan.mode, 'development-checkout');
   assert.equal(plan.status, 'blocked');
-  assert.deepEqual(Object.keys(plan).sort(), ['available', 'blockingReasons', 'current', 'mode', 'nextActions', 'status', 'strategy']);
+  assert.deepEqual(Object.keys(plan).sort(), ['available', 'blockingReasons', 'current', 'mode', 'nextActions', 'sourceStatus', 'status', 'strategy', 'versionStatus']);
   assert.match(plan.blockingReasons.join('\n'), /upstream/);
 });
 
@@ -89,7 +89,7 @@ test('开发者模式自动 fast-forward 到 upstream', (t) => {
   git(seed, 'add', '.');
   git(seed, 'commit', '-qm', 'remote');
   git(seed, 'push', '-q');
-  const plan = buildCliUpdatePlan(path.join(client, 'projects', 'product'));
+  const plan = buildCliUpdatePlan(path.join(client, 'projects', 'product'), { registryLookup: () => '1.0.0' });
   assert.equal(plan.strategy, 'fast-forward');
   assert.equal(executeCliUpdatePlan(plan).ok, true);
   assert.equal(git(client, 'rev-parse', 'HEAD'), git(seed, 'rev-parse', 'HEAD'));
@@ -122,7 +122,7 @@ test('开发者模式只对本地未发布提交执行 rebase', (t) => {
   git(seed, 'add', '.');
   git(seed, 'commit', '-qm', 'remote');
   git(seed, 'push', '-q');
-  const plan = buildCliUpdatePlan(path.join(client, 'projects', 'product'));
+  const plan = buildCliUpdatePlan(path.join(client, 'projects', 'product'), { registryLookup: () => '1.0.0' });
   assert.equal(plan.strategy, 'rebase');
   assert.equal(executeCliUpdatePlan(plan).ok, true);
   assert.equal(fs.readFileSync(path.join(client, 'local.txt'), 'utf8').replace(/\r\n/g, '\n'), 'local\n');
@@ -151,4 +151,52 @@ test('发布模式更新保持 package identity 与安装 prefix', (t) => {
   const result = executeCliUpdatePlan(plan, { env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}` } });
   assert.equal(result.ok, true);
   assert.equal(fs.readFileSync(log, 'utf8').trim(), 'install --global --prefix /safe/prefix @buildr-ai/buildr@2.0.0');
+});
+
+test('开发 checkout 区分 Git source 与 prerelease version 漂移', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-cli-update-version-drift-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const productRoot = writePackage(root);
+  fs.writeFileSync(path.join(productRoot, 'package.json'), '{"name":"@buildr-ai/buildr","version":"0.1.0-rc.3"}\n');
+  git(root, 'init', '-q');
+  git(root, 'config', 'user.email', 'buildr@example.com');
+  git(root, 'config', 'user.name', 'Buildr Test');
+  git(root, 'add', '.');
+  git(root, 'commit', '-qm', 'initial');
+  const branch = git(root, 'branch', '--show-current');
+  git(root, 'remote', 'add', 'origin', root);
+  git(root, 'update-ref', `refs/remotes/origin/${branch}`, 'HEAD');
+  git(root, 'branch', '--set-upstream-to', `origin/${branch}`, branch);
+  const plan = buildCliUpdatePlan(productRoot, { fetch: false, registryLookup: () => '0.1.0-rc.5' });
+  assert.equal(plan.sourceStatus, 'up-to-date');
+  assert.equal(plan.versionStatus, 'stale');
+  assert.equal(plan.status, 'version-stale');
+  assert.equal(plan.available.releasedVersion, '0.1.0-rc.5');
+  assert.equal(plan.strategy, 'none');
+  assert.equal(executeCliUpdatePlan(plan).ok, true);
+});
+
+test('开发 checkout registry 不可用时保留 Git source 结论', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-cli-update-version-unknown-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const productRoot = writePackage(root);
+  git(root, 'init', '-q');
+  git(root, 'config', 'user.email', 'buildr@example.com');
+  git(root, 'config', 'user.name', 'Buildr Test');
+  git(root, 'add', '.');
+  git(root, 'commit', '-qm', 'initial');
+  const branch = git(root, 'branch', '--show-current');
+  git(root, 'remote', 'add', 'origin', root);
+  git(root, 'update-ref', `refs/remotes/origin/${branch}`, 'HEAD');
+  git(root, 'branch', '--set-upstream-to', `origin/${branch}`, branch);
+  const plan = buildCliUpdatePlan(productRoot, { fetch: false, registryLookup: () => { throw new Error('offline'); } });
+  assert.equal(plan.sourceStatus, 'up-to-date');
+  assert.equal(plan.versionStatus, 'unknown');
+  assert.equal(plan.status, 'up-to-date');
+});
+
+test('prerelease version comparison distinguishes RC sequence', () => {
+  assert.equal(compareVersions('0.1.0-rc.3', '0.1.0-rc.5') < 0, true);
+  assert.equal(compareVersions('0.1.0-rc.5', '0.1.0-rc.5'), 0);
+  assert.equal(compareVersions('0.1.0', '0.1.0-rc.5') > 0, true);
 });

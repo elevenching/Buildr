@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import {
   inspectCandidateFile,
   inspectPackageMetadata,
+  inspectPackageVersionConsistency,
   inspectTarballFiles,
 } from '../tools/verification/release/open-source-candidate.mjs';
 import { resolveReleaseContract } from '../tools/verification/release/release-contract.mjs';
@@ -39,6 +40,14 @@ test('open-source metadata and tarball contracts enforce public identity and inv
   const files = ['LICENSE', 'README.md', 'package.json', 'tools/buildr', 'package/manifest.yml'].map((path) => ({ path }));
   assert.deepEqual(inspectTarballFiles(files), []);
   assert.equal(inspectTarballFiles([...files, { path: 'openspec/spec.md' }]).at(-1).rule, 'tarball.forbidden');
+});
+
+test('package and lockfile versions remain identical', () => {
+  const metadata = { version: '0.1.0-rc.5' };
+  const lockfile = { version: '0.1.0-rc.5', packages: { '': { version: '0.1.0-rc.5' } } };
+  assert.deepEqual(inspectPackageVersionConsistency(metadata, lockfile), []);
+  assert.equal(inspectPackageVersionConsistency(metadata, { ...lockfile, version: '0.1.0-rc.3' })[0].rule, 'package.version-lock');
+  assert.equal(inspectPackageVersionConsistency(metadata, { ...lockfile, packages: { '': { version: '0.1.0-rc.3' } } })[0].rule, 'package.root-version-lock');
 });
 
 test('shared candidate package requires a matching immutable tarball and metadata pair', () => {

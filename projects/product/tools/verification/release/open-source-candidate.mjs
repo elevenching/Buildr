@@ -57,6 +57,13 @@ export function inspectPackageMetadata(metadata) {
   return findings;
 }
 
+export function inspectPackageVersionConsistency(metadata, lockfile) {
+  const findings = [];
+  if (lockfile?.version !== metadata?.version) findings.push(finding('package.version-lock', 'projects/product/package-lock.json', 'top-level lockfile version must match package.json'));
+  if (lockfile?.packages?.['']?.version !== metadata?.version) findings.push(finding('package.root-version-lock', 'projects/product/package-lock.json', 'root package lock version must match package.json'));
+  return findings;
+}
+
 export function inspectTarballFiles(files) {
   const findings = [];
   const paths = new Set(files.map((entry) => entry.path));
@@ -128,9 +135,11 @@ function inspectReadmes() {
 
 export function runOpenSourceCandidateCheck() {
   const metadata = JSON.parse(fs.readFileSync(path.join(productRoot, 'package.json'), 'utf8'));
+  const lockfile = JSON.parse(fs.readFileSync(path.join(productRoot, 'package-lock.json'), 'utf8'));
   return [
     ...inspectTrackedCandidate(),
     ...inspectPackageMetadata(metadata),
+    ...inspectPackageVersionConsistency(metadata, lockfile),
     ...inspectReadmes(),
     ...packAndInspect(),
   ];

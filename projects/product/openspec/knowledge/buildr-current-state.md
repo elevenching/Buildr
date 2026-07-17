@@ -57,7 +57,7 @@ Organization/Root -> Project -> Service
 - `package/targets/runtime/` 只放直接安装到 Agent runtime 的产品交付源。
 - `buildr init` 按 `workspaceDirectories` 和 `workspaceFiles` 生成 root baseline；可选 `--agent` 在此后复用现有 sync，不复制 update/render/doctor 实现。
 - `buildr project create` 按 `projectDirectories` 和 `projectFiles` 生成 Project baseline。
-- npm package 当前版本为 `0.1.0`，使用 MIT License 且允许本地或后续 registry 打包安装；开发 checkout installer 会在依赖缺失时使用 lockfile 执行 `npm ci --omit=dev`。
+- npm package 当前发布基线为 `0.1.0-rc.5`，使用 MIT License 且允许本地或 registry 打包安装；开发 checkout installer 会在依赖缺失时使用 lockfile 执行 `npm ci --omit=dev`。
 - canonical Agent 首次路径为 `runtime list -> init --agent <agent>`；高层 init 已包含完整 sync 和最终 doctor。repository onboarding verifier 会在不含 `node_modules` 和 Agent runtime 的候选树中验证该单命令闭环，并独立读取 doctor JSON。
 - root `AGENTS.md` 现在只作为规则入口，必须包含 Buildr required block 并引用 `rules/buildr/core.md`。
 - 目标 workspace 已存在 root `AGENTS.md` 时，Buildr 只补齐或修复 Buildr required block，不覆盖用户正文，也不再写入 `AGENTS.workspace.md`。
@@ -190,7 +190,7 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 ## CLI Update / Workspace Sync / Builtin
 
 - `buildr update` 根据 executable 来源更新 Buildr CLI 自身：开发 checkout 使用 Git fetch 与安全 fast-forward/rebase，registry package 使用 npm 更新同一 package identity；它不接收 workspace target，不执行 sync、render 或 doctor。
-- `buildr update check --json` 输出 mode、current、available、status、blockingReasons 和 nextActions；来源无法证明、Git dirty/shared/conflict 或 registry/prefix 受阻时 fail closed。
+- `buildr update check --json` 输出 mode、current、available、status、blockingReasons 和 nextActions；development checkout 还分别报告 Git `sourceStatus` 与 registry `versionStatus`，upstream 一致但 package version 落后于对应发布渠道时报告 `version-stale` 且不自动修改 checkout。来源无法证明、Git dirty/shared/conflict 或 registry/prefix 受阻时 fail closed。
 - `buildr builtin list --target <dir> --json` 查看内置能力状态。
 - `buildr builtin uninstall <id> --target <dir>` 卸载 optional 内置能力；required 能力会被拒绝。
 - 当前随包 optional Skills 卸载会删除源文件，并删除 `.claude/skills/` 和 `.agents/skills/` 下的 runtime 渲染结果。
@@ -248,7 +248,7 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 
 - 官方公开源码 identity 是 `https://github.com/elevenching/Buildr`，中文 `README.md` 是 canonical 产品入口，`README.en.md` 是唯一要求维护的英文翻译；其他文档继续按 Project 管理语言维护。
 - 官方 npm package identity 是 `@buildr-ai/buildr`，executable 仍是 `buildr`。prerelease 映射 `next`，稳定版本映射 `latest`，release tag 必须与 package version 一致。
-- Buildr Product Project 发布任务从目标 package version 派生 `release-<version>` task id、`tasks/release-<version>` 分支和 canonical worktree；新建 worktree 先运行 Product Project `npm ci`。`dev -> main` squash merge 后只有 `main`、`dev` 与已验证 candidate tree identity 完全一致时，才使用不改变 tree 的发布专用 merge commit 幂等衔接 `main -> dev`；该特例不扩展通用 Git Ops/Task Finish 授权。
+- Buildr Product Project 发布任务从准备时最新 `origin/dev` 记录 immutable candidate base，再从目标 package version 派生 `release-<version>` task id、`tasks/release-<version>` 分支和 canonical worktree；新建 worktree 先运行 Product Project `npm ci`。版本和发布材料必须先 fast-forward 回 dev；需要排除 dev 内容时先独立撤销，不能从旧 ancestor 发布。pre-main/post-main convergence checker验证 base、version、main/dev tree、ancestry 与 release task hygiene 后，才允许 PR、history bridge 和 tag；该特例不扩展通用 Git Ops/Task Finish 授权。
 - `.github/workflows/publish.yml` 使用 GitHub-hosted Node、`npm-production` Environment 和 OIDC 权限准备受控发布；第一阶段不自动 push 公开 GitHub、不创建 tag、不执行首次 npm publish。
 
 ## Current Limits
