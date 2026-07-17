@@ -304,18 +304,13 @@ import json, sys
 receipt = json.load(open(sys.argv[1]))
 assert receipt['schemaVersion'] == 'buildr.builtin-receipts/v1'
 assert {f"{item['type']}:{item['id']}" for item in receipt['builtins']} == {
-    'rule:buildr-core', 'skill:task-triage', 'skill:task-cockpit', 'skill:task-asset-review',
-    'skill:task-worktree', 'skill:task-finish', 'skill:git-ops'
+    'rule:buildr-core', 'skill:task-triage', 'skill:task-cockpit', 'skill:task-worktree', 'skill:task-finish', 'skill:git-ops'
 }
 PY
 test -f "$tmp/skills/buildr/task-cockpit/SKILL.md"
 test -f "$tmp/skills/buildr/task-cockpit/assets/task-cockpit-template.html"
 grep -q 'yyyy-MM-dd-<task-id>.html' "$tmp/skills/buildr/task-cockpit/SKILL.md"
 grep -q 'id="cockpit-data"' "$tmp/skills/buildr/task-cockpit/assets/task-cockpit-template.html"
-test -f "$tmp/skills/buildr/task-asset-review/SKILL.md"
-test -f "$tmp/skills/buildr/task-asset-review/agents/openai.yaml"
-grep -q '证据胶囊' "$tmp/skills/buildr/task-asset-review/SKILL.md"
-grep -q '不得输出 Specs 候选' "$tmp/skills/buildr/task-asset-review/SKILL.md"
 if node "$buildr" builtin uninstall openspec-propose --target "$tmp" --reason verify >/tmp/buildr-product-mvp-builtin-uninstall-skill.txt 2>&1; then
   echo "Component-owned builtin uninstall unexpectedly succeeded" >&2
   exit 1

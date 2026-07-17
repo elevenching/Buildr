@@ -96,7 +96,6 @@ buildrSkillRequiredText:
   - task-worktree
   - task-finish
   - task-cockpit
-  - task-asset-review
   - git-ops
   - components/manifest.yml
   - buildr component install

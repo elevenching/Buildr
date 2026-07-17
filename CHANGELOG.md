@@ -2,13 +2,13 @@
 
 本项目遵循语义化版本。正式发布前的变更可以在 `0.1.x` 内调整，但会在 release notes 中说明用户可观察差异。
 
-## 0.1.0-rc.4 - 2026-07-17
+## 0.1.0-rc.5 - 2026-07-17
 
 - 统一 Buildr 更新与 workspace 同步意图：Agent 能明确区分 CLI/Skill 更新和 `buildr sync`，并在 Git tree 变化后用 doctor 判断是否需要同步当前工作环境。
-- 加固候选版发布流程：发布准备绑定 canonical worktree、最终候选 tree 和 `dev -> main` 历史衔接门禁，GitHub Release 说明改为从对应 CHANGELOG 章节生成。
+- 加固候选版发布流程：发布准备绑定 canonical worktree、最终候选 tree 和历史衔接门禁，GitHub Release 说明改为从对应 CHANGELOG 章节生成。
 - 新增任务驾驶舱：复杂、长期或跨阶段任务可维护稳定的只读 HTML 全景，持续呈现目标、进度、结论、下一步和阻塞。
-- 新增任务资产审查：Agent 可基于当前任务证据复盘执行质量、筛选 Rule/Skill 候选并生成可独立引用的证据胶囊。
 - 移除随包最小 workspace 示例，减少与公开文档重复的维护入口。
+- 修正 `0.1.0-rc.4` 的发布范围，暂不发布任务资产审查能力。
 
 ## 0.1.0-rc.3 - 2026-07-15
 

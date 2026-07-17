@@ -75,7 +75,6 @@ assert.equal(scopedRender.status, 0, 'Project-scoped render must not fail becaus
 assert.ok(fs.existsSync(betaPlan), 'Project-scoped render must not remove an unrelated Project install plan');
 fs.writeFileSync(betaManifest, betaManifestContent, 'utf8');
 
-const supportedAdapters = ['claude-code', 'codex', 'cursor', 'qoder', 'trae', 'trae-work', 'workbuddy'];
 const lifecycleAdapters = ['cursor', 'qoder', 'workbuddy', 'claude-code', 'codex'];
 for (const agent of lifecycleAdapters) {
   run(['skill', 'install', agent, '--target', workspace]);
@@ -104,44 +103,10 @@ assert.ok(fs.existsSync(path.join(workspace, '.codebuddy', 'skills', 'buildr', '
 assert.ok(fs.readFileSync(path.join(workspace, 'CLAUDE.md'), 'utf8').includes('@AGENTS.md'));
 assert.ok(!fs.existsSync(path.join(workspace, '.agents', 'CLAUDE.md')));
 
-const adapterSkillRoots = new Map([
-  ['claude-code', '.claude'],
-  ['codex', '.agents'],
-  ['cursor', '.agents'],
-  ['qoder', '.qoder'],
-  ['trae', '.agents'],
-  ['trae-work', '.trae'],
-  ['workbuddy', '.codebuddy'],
-]);
-for (const agent of supportedAdapters) {
-  run(['skill', 'install', agent, '--target', workspace]);
-  run(['render', agent, '--scope', '.', '--target', workspace]);
-  const root = adapterSkillRoots.get(agent);
-  assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-asset-review', 'SKILL.md')), `${agent} must render task-asset-review`);
-  const adapterDoctor = JSON.parse(run(['doctor', '--agent', agent, '--target', workspace, '--json']).stdout);
-  assert.equal(adapterDoctor.agentRuntime.requested, agent, `${agent} doctor must inspect the requested adapter`);
-  assert.equal(adapterDoctor.agentRuntime.supported, true, `${agent} doctor must recognize a supported adapter`);
-}
-
-run(['builtin', 'uninstall', 'task-asset-review', '--target', workspace, '--reason', 'runtime lifecycle fixture']);
-for (const agent of supportedAdapters) run(['render', agent, '--scope', '.', '--target', workspace]);
-for (const [agent, root] of adapterSkillRoots) {
-  assert.equal(fs.existsSync(path.join(workspace, root, 'skills', 'task-asset-review')), false, `${agent} must remove uninstalled task-asset-review`);
-  assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-finish', 'SKILL.md')), `${agent} task-finish must remain after review uninstall`);
-}
-
-run(['builtin', 'restore', 'task-asset-review', '--target', workspace]);
-for (const agent of supportedAdapters) run(['render', agent, '--scope', '.', '--target', workspace]);
-for (const [agent, root] of adapterSkillRoots) {
-  assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-asset-review', 'SKILL.md')), `${agent} must restore task-asset-review`);
-}
-
 const codexBuildr = fs.readFileSync(path.join(workspace, '.agents', 'skills', 'task-finish', 'SKILL.md'), 'utf8');
 const claudeBuildr = fs.readFileSync(path.join(workspace, '.claude', 'skills', 'task-finish', 'SKILL.md'), 'utf8');
 assert.ok(codexBuildr.includes('buildr:contribution openspec#pre-spec-sync'));
 assert.ok(claudeBuildr.includes('buildr:contribution openspec#pre-spec-sync'));
-assert.ok(codexBuildr.includes('任务资产审查门控'));
-assert.ok(claudeBuildr.includes('任务资产审查门控'));
 
 const betaCursorRule = path.join(workspace, 'projects', 'scope-beta', '.cursor', 'rules', 'buildr.mdc');
 const qoderDirectory = path.join(workspace, '.qoder', 'rules', 'buildr');

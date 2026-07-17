@@ -591,18 +591,6 @@ export function createPackageStaticValidator(deps) {
         for (const requiredText of [
           '一次性授权',
           'openspec status --change <id> --json',
-          '用户已经确认的目标、纠正和决策',
-          '任务范围内仍有未记录语义、实现偏差或验证缺口时',
-          'OpenSpec contract sidebar 只证明已记录契约',
-          '任务资产审查门控',
-          '不得调用工具、重新读取任务文件或加载完整 `task-asset-review`',
-          '用户纠正过 Agent 的工作边界、资产职责、scope 或授权范围',
-          '初始假设被代码、命令、测试或用户反馈推翻',
-          '无效重复或明显 token 浪费',
-          '静默跳过完整审查',
-          '复用当前候选 tree 已有的有效审查结果',
-          '审查成功不是 archive、commit、rebase、merge、push 或 cleanup 的新增前置条件',
-          '“收尾”不构成 Rule 或 Skill 写入授权',
           'new blank line at EOF',
           '恰好以一个换行结束',
           'git rev-parse HEAD^{tree}',
@@ -627,43 +615,6 @@ export function createPackageStaticValidator(deps) {
           if (!skillContent.includes(requiredText)) problems.push(`task-finish Skill must include ${JSON.stringify(requiredText)}.`);
         }
         if (skillContent.includes('buildr openspec')) problems.push('task-finish source must not hard-code OpenSpec contract guard commands; installed Components contribute them at render time.');
-      }
-      if (skill.id === 'task-asset-review') {
-        for (const requiredText of [
-          '用户明确要求复盘',
-          '`task-finish` 只在自身轻量资格判断命中后调用本 Skill',
-          '用户原始目标、纠正和明确决策',
-          'subagent 的任务划分、证据和最终报告',
-          '不得声称读取模型隐藏推理、chain-of-thought 或内部 deliberation',
-          '不得为了审查采集或保存完整原始对话、完整工具日志、逐节点回放或完整任务轨迹',
-          '重建简短执行轮廓',
-          '目标一致性',
-          '路径效率',
-          '证据质量',
-          '边界质量',
-          '成本质量',
-          '复用机会',
-          '无效全量搜索、重复工具、重复完整验证、过度 subagent',
-          '必要成本',
-          '执行质量反馈',
-          '资产沉淀建议',
-          '与现有 OpenSpec、Rule、`AGENTS.md` 或 Skill 没有未解决的重复或冲突',
-          '不得输出 Specs 候选',
-          '普通 follow-up',
-          '证据胶囊',
-          '最终 commit / diff',
-          '归档 OpenSpec change',
-          '稳定文件或任务驾驶舱',
-          '证据耐久性较弱',
-          '“收尾”不授权写入 Rule、Skill 或其他组织资产',
-        ]) {
-          if (!skillContent.includes(requiredText)) problems.push(`task-asset-review Skill must include ${JSON.stringify(requiredText)}.`);
-        }
-        const metadataPath = path.join(skillDir, 'agents', 'openai.yaml');
-        if (!existsFile(metadataPath)) problems.push('task-asset-review Skill must include agents/openai.yaml.');
-        for (const forbiddenText of ['安装 runtime Hook', '启动 daemon', '启动 watcher', '接入事件总线']) {
-          if (skillContent.includes(forbiddenText)) problems.push(`task-asset-review Skill must not instruct Agents to ${JSON.stringify(forbiddenText)}.`);
-        }
       }
       if (skill.id === 'task-triage') {
         for (const requiredText of ['OpenSpec change 状态', 'artifact 或 task 进度', '下一步或阻塞原因', 'openspec status --change <id> --json', '文档正文使用中文', 'openspec-*` Skills', '实现型任务的验证编排', '有语义的任务组', '完整候选验证放在全部实现', '不得把 Buildr 产品仓的 package check', '<!-- buildr:skill-contributions change-ready -->']) {
@@ -716,9 +667,6 @@ export function createPackageStaticValidator(deps) {
     if (!manifest.builtins.skills.some((skill) => skill.id === 'task-cockpit' && skill.required === false)) {
       problems.push('builtins.skills must declare optional task-cockpit.');
     }
-    if (!manifest.builtins.skills.some((skill) => skill.id === 'task-asset-review' && skill.required === false)) {
-      problems.push('builtins.skills must declare optional task-asset-review.');
-    }
 
     for (const command of manifest.builtins.commands) {
       validateLegacyIntegrities(command, `builtins.commands.${command.id || '<missing>'}`);
@@ -764,10 +712,6 @@ export function createPackageStaticValidator(deps) {
         const taskCockpit = baselineSkills.find((entry) => entry.id === 'task-cockpit');
         if (!taskCockpit || taskCockpit.source !== 'buildr' || taskCockpit.state !== 'installed' || taskCockpit.enabled !== true) {
           problems.push('Workspace skills baseline must declare enabled installed Buildr task-cockpit.');
-        }
-        const taskAssetReview = baselineSkills.find((entry) => entry.id === 'task-asset-review');
-        if (!taskAssetReview || taskAssetReview.source !== 'buildr' || taskAssetReview.state !== 'installed' || taskAssetReview.enabled !== true) {
-          problems.push('Workspace skills baseline must declare enabled installed Buildr task-asset-review.');
         }
         const gitOps = baselineSkills.find((entry) => entry.id === 'git-ops');
         for (const routedIntent of ['pull', 'checkout', 'switch', 'reset', 'cherry-pick', 'revert', 'stash']) {

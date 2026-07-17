@@ -1,4 +1,0 @@
-interface:
-  display_name: "任务资产审查"
-  short_description: "复盘任务执行质量并筛选可沉淀为 Rule 或 Skill 的长期成果"
-  default_prompt: "Use $task-asset-review to review this task and identify durable Rule or Skill candidates."
