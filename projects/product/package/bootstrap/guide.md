@@ -16,21 +16,21 @@ workspace 尚未初始化时，用一个高层命令完成源资产、Buildr Ski
 ```bash
 buildr init --agent <agent> --target <dir> --name <name> --profile <personal|team|company>
 ```
-已有 workspace 中，用户要求“更新 Buildr”时先更新 CLI，再用新入口同步 workspace：
+已有 workspace 中，用户要求“更新 Buildr”或“同步 Buildr”时先更新 CLI，再用新入口安装最新产品入口 Buildr Skill，不同步整个 workspace：
 
 ```bash
 buildr update
 command -v buildr
-buildr sync <agent> --target <workspace-root>
+buildr skill install <agent> --target <workspace-root>
 ```
 
-用户明确只同步 workspace 时直接使用 sync：
+用户要求“更新 workspace”或“同步 workspace”时直接使用当前 CLI 执行 sync，不先更新 CLI：
 
 ```bash
 buildr sync <agent> --target <dir>
 ```
 
-`sync` 包含产品能力同步、产品入口 Buildr Skill 安装、从 `.` 递归投射各层 `AGENTS.md` 的当前 Agent runtime render 和 doctor 复查。
+用户明确只更新 CLI 时只运行 `buildr update`，不追加 Skill install 或 workspace sync。`sync` 包含产品能力同步、产品入口 Buildr Skill 安装、从 `.` 递归投射各层 `AGENTS.md` 的当前 Agent runtime render 和 doctor 复查。
 只需要在未初始化目录单独恢复产品入口 Skill 时使用专项入口：
 
 ```bash

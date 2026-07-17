@@ -145,7 +145,7 @@ export function createPackageStaticValidator(deps) {
           if (!packageMetadata.keywords?.includes(keyword)) problems.push(`package.json keywords must include ${keyword}.`);
         }
         const packagedFiles = new Set(packageMetadata.files || []);
-        for (const required of ['LICENSE', 'tools/buildr', 'tools/cli/', 'tools/shared/fetch-remote-text.mjs', 'docs/cli-reference.md', 'docs/cli-architecture.md', 'docs/known-limitations.md', 'examples/minimal-workspace/README.md', 'package/']) {
+        for (const required of ['LICENSE', 'tools/buildr', 'tools/cli/', 'tools/shared/fetch-remote-text.mjs', 'docs/cli-reference.md', 'docs/cli-architecture.md', 'docs/known-limitations.md', 'package/']) {
           if (!packagedFiles.has(required)) problems.push(`package.json files must include ${required}.`);
         }
         for (const obsolete of ['tools/check-runtime-skills.mjs', 'tools/render-codex.mjs']) {
@@ -153,7 +153,7 @@ export function createPackageStaticValidator(deps) {
         }
       }
     }
-    for (const required of ['LICENSE', 'docs/cli-reference.md', 'docs/cli-architecture.md', 'docs/known-limitations.md', 'examples/minimal-workspace/README.md']) {
+    for (const required of ['LICENSE', 'docs/cli-reference.md', 'docs/cli-architecture.md', 'docs/known-limitations.md']) {
       if (!fs.existsSync(path.join(root, required))) problems.push(`Open-source product baseline is missing: ${required}`);
     }
     if (existsFile(path.join(root, 'tools', 'install-buildr-cli'))) {
@@ -355,6 +355,10 @@ export function createPackageStaticValidator(deps) {
           'buildr sync <agent> --target <workspace-root>',
           '手动同步命令作为备选',
           '当前 session 是否重新发现新资产由 Agent runtime 决定',
+          '用户要求“更新 Buildr”或“同步 Buildr”时',
+          'buildr skill install <agent> --target <dir>',
+          '用户要求“更新 workspace”或“同步 workspace”时',
+          '用户明确要求“只更新 CLI”时',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`Buildr Agent Skill must include ${JSON.stringify(requiredText)}.`);
         }
@@ -587,6 +591,18 @@ export function createPackageStaticValidator(deps) {
         for (const requiredText of [
           '一次性授权',
           'openspec status --change <id> --json',
+          '用户已经确认的目标、纠正和决策',
+          '任务范围内仍有未记录语义、实现偏差或验证缺口时',
+          'OpenSpec contract sidebar 只证明已记录契约',
+          '任务资产审查门控',
+          '不得调用工具、重新读取任务文件或加载完整 `task-asset-review`',
+          '用户纠正过 Agent 的工作边界、资产职责、scope 或授权范围',
+          '初始假设被代码、命令、测试或用户反馈推翻',
+          '无效重复或明显 token 浪费',
+          '静默跳过完整审查',
+          '复用当前候选 tree 已有的有效审查结果',
+          '审查成功不是 archive、commit、rebase、merge、push 或 cleanup 的新增前置条件',
+          '“收尾”不构成 Rule 或 Skill 写入授权',
           'new blank line at EOF',
           '恰好以一个换行结束',
           'git rev-parse HEAD^{tree}',
@@ -612,11 +628,76 @@ export function createPackageStaticValidator(deps) {
         }
         if (skillContent.includes('buildr openspec')) problems.push('task-finish source must not hard-code OpenSpec contract guard commands; installed Components contribute them at render time.');
       }
+      if (skill.id === 'task-asset-review') {
+        for (const requiredText of [
+          '用户明确要求复盘',
+          '`task-finish` 只在自身轻量资格判断命中后调用本 Skill',
+          '用户原始目标、纠正和明确决策',
+          'subagent 的任务划分、证据和最终报告',
+          '不得声称读取模型隐藏推理、chain-of-thought 或内部 deliberation',
+          '不得为了审查采集或保存完整原始对话、完整工具日志、逐节点回放或完整任务轨迹',
+          '重建简短执行轮廓',
+          '目标一致性',
+          '路径效率',
+          '证据质量',
+          '边界质量',
+          '成本质量',
+          '复用机会',
+          '无效全量搜索、重复工具、重复完整验证、过度 subagent',
+          '必要成本',
+          '执行质量反馈',
+          '资产沉淀建议',
+          '与现有 OpenSpec、Rule、`AGENTS.md` 或 Skill 没有未解决的重复或冲突',
+          '不得输出 Specs 候选',
+          '普通 follow-up',
+          '证据胶囊',
+          '最终 commit / diff',
+          '归档 OpenSpec change',
+          '稳定文件或任务驾驶舱',
+          '证据耐久性较弱',
+          '“收尾”不授权写入 Rule、Skill 或其他组织资产',
+        ]) {
+          if (!skillContent.includes(requiredText)) problems.push(`task-asset-review Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        const metadataPath = path.join(skillDir, 'agents', 'openai.yaml');
+        if (!existsFile(metadataPath)) problems.push('task-asset-review Skill must include agents/openai.yaml.');
+        for (const forbiddenText of ['安装 runtime Hook', '启动 daemon', '启动 watcher', '接入事件总线']) {
+          if (skillContent.includes(forbiddenText)) problems.push(`task-asset-review Skill must not instruct Agents to ${JSON.stringify(forbiddenText)}.`);
+        }
+      }
       if (skill.id === 'task-triage') {
         for (const requiredText of ['OpenSpec change 状态', 'artifact 或 task 进度', '下一步或阻塞原因', 'openspec status --change <id> --json', '文档正文使用中文', 'openspec-*` Skills', '实现型任务的验证编排', '有语义的任务组', '完整候选验证放在全部实现', '不得把 Buildr 产品仓的 package check', '<!-- buildr:skill-contributions change-ready -->']) {
           if (!skillContent.includes(requiredText)) problems.push(`task-triage Skill must include ${JSON.stringify(requiredText)}.`);
         }
         if (skillContent.includes('buildr openspec')) problems.push('task-triage source must not hard-code OpenSpec contract guard commands; installed Components contribute them at render time.');
+      }
+      if (skill.id === 'task-cockpit') {
+        for (const requiredText of [
+          'openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html',
+          'Agent 单向维护',
+          '不是 OpenSpec change 的翻译',
+          '首页',
+          '推进',
+          '方案',
+          '技术细节',
+          '不猜测百分比',
+          '可点击入口',
+          'assets/task-cockpit-template.html',
+        ]) {
+          if (!skillContent.includes(requiredText)) problems.push(`task-cockpit Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        const templatePath = path.join(skillDir, 'assets', 'task-cockpit-template.html');
+        const metadataPath = path.join(skillDir, 'agents', 'openai.yaml');
+        if (!existsFile(templatePath)) {
+          problems.push('task-cockpit Skill must include assets/task-cockpit-template.html.');
+        } else {
+          const templateContent = fs.readFileSync(templatePath, 'utf8');
+          for (const requiredText of ['id="cockpit-data"', 'data-tab="overview"', 'data-tab="progress"', 'data-tab="solution"', 'data-tab="technical"', '由 Agent 单向维护 · 页面只读']) {
+            if (!templateContent.includes(requiredText)) problems.push(`task-cockpit template must include ${JSON.stringify(requiredText)}.`);
+          }
+          if (/https?:\/\//.test(templateContent)) problems.push('task-cockpit template must not depend on external HTTP resources.');
+        }
+        if (!existsFile(metadataPath)) problems.push('task-cockpit Skill must include agents/openai.yaml.');
       }
       if (skill.id === 'openspec-contract-guard') {
         for (const requiredText of ['buildr openspec baseline create', '--stage pre-sync', '--stage post-sync', '不修改外部 `openspec-*` Skills']) {
@@ -631,6 +712,12 @@ export function createPackageStaticValidator(deps) {
     }
     if (!manifest.builtins.skills.some((skill) => skill.id === 'task-finish' && skill.required === false)) {
       problems.push('builtins.skills must declare optional task-finish.');
+    }
+    if (!manifest.builtins.skills.some((skill) => skill.id === 'task-cockpit' && skill.required === false)) {
+      problems.push('builtins.skills must declare optional task-cockpit.');
+    }
+    if (!manifest.builtins.skills.some((skill) => skill.id === 'task-asset-review' && skill.required === false)) {
+      problems.push('builtins.skills must declare optional task-asset-review.');
     }
 
     for (const command of manifest.builtins.commands) {
@@ -673,6 +760,14 @@ export function createPackageStaticValidator(deps) {
         const taskFinish = baselineSkills.find((entry) => entry.id === 'task-finish');
         if (!taskFinish || taskFinish.source !== 'buildr' || taskFinish.state !== 'installed' || taskFinish.enabled !== true) {
           problems.push('Workspace skills baseline must declare enabled installed Buildr task-finish.');
+        }
+        const taskCockpit = baselineSkills.find((entry) => entry.id === 'task-cockpit');
+        if (!taskCockpit || taskCockpit.source !== 'buildr' || taskCockpit.state !== 'installed' || taskCockpit.enabled !== true) {
+          problems.push('Workspace skills baseline must declare enabled installed Buildr task-cockpit.');
+        }
+        const taskAssetReview = baselineSkills.find((entry) => entry.id === 'task-asset-review');
+        if (!taskAssetReview || taskAssetReview.source !== 'buildr' || taskAssetReview.state !== 'installed' || taskAssetReview.enabled !== true) {
+          problems.push('Workspace skills baseline must declare enabled installed Buildr task-asset-review.');
         }
         const gitOps = baselineSkills.find((entry) => entry.id === 'git-ops');
         for (const routedIntent of ['pull', 'checkout', 'switch', 'reset', 'cherry-pick', 'revert', 'stash']) {

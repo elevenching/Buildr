@@ -1,0 +1,4 @@
+interface:
+  display_name: "任务驾驶舱"
+  short_description: "创建并持续维护复杂任务的可视化进度、方案、依赖与风险驾驶舱"
+  default_prompt: "Use $task-cockpit to create or update a visual cockpit for this task."

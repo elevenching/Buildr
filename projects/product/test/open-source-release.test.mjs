@@ -11,6 +11,7 @@ import {
   inspectTarballFiles,
 } from '../tools/verification/release/open-source-candidate.mjs';
 import { resolveReleaseContract } from '../tools/verification/release/release-contract.mjs';
+import { extractReleaseNotes } from '../tools/verification/release/release-notes.mjs';
 import { registryVersionState } from '../tools/verification/release/registry-version-state.mjs';
 import { readSharedCandidatePackage } from '../tools/verification/release/candidate-package.mjs';
 
@@ -83,12 +84,89 @@ test('release contract maps prerelease to next and stable to latest', () => {
   assert.throws(() => resolveReleaseContract('0.1.0', 'v0.1.1'), /does not match/);
 });
 
+test('release notes extract the exact target changelog section', () => {
+  const changelog = `# Changelog
+
+## 0.1.0-rc.2 - 2026-07-14
+
+- Added release notes.
+- Fixed projection cleanup.
+
+## 0.1.0-rc.1 - 2026-07-13
+
+- Initial candidate.
+`;
+  const notes = extractReleaseNotes(changelog, '0.1.0-rc.2');
+  assert.equal(notes, `## 0.1.0-rc.2 - 2026-07-14
+
+- Added release notes.
+- Fixed projection cleanup.
+`);
+  assert.equal(notes.includes('Initial candidate'), false);
+});
+
+test('release notes fail closed for missing, duplicate, or empty target sections', () => {
+  assert.throws(
+    () => extractReleaseNotes('# Changelog\n', '0.1.0-rc.2'),
+    /missing release section ## 0\.1\.0-rc\.2 - <YYYY-MM-DD>/,
+  );
+  assert.throws(
+    () => extractReleaseNotes(`## 0.1.0-rc.2 - 2026-07-14
+
+- First
+
+## 0.1.0-rc.2 - 2026-07-15
+
+- Second
+`, '0.1.0-rc.2'),
+    /duplicate release sections/,
+  );
+  assert.throws(
+    () => extractReleaseNotes(`## 0.1.0-rc.2 - 2026-07-14
+
+<!-- pending -->
+
+## 0.1.0-rc.1 - 2026-07-13
+
+- Initial
+`, '0.1.0-rc.2'),
+    /has no content/,
+  );
+});
+
 test('publish workflow is tag-gated, OIDC-ready, and token-free', () => {
   const workflow = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../.github/workflows/publish.yml'), 'utf8');
   for (const required of [
     'tags:', 'id-token: write', 'environment: npm-production', 'release-contract.mjs',
-    './tools/verify-buildr-product', 'registry-version-state.mjs',
+    'release-notes.mjs', './tools/verify-buildr-product', 'registry-version-state.mjs',
     "steps.registry.outputs.published != 'true'", 'npm publish --access public', 'gh release create',
+    '--notes-file', '--verify-tag', '--latest=false',
   ]) assert.equal(workflow.includes(required), true, required);
   assert.equal(workflow.includes('NODE_AUTH_TOKEN'), false);
+  assert.equal(workflow.includes('--generate-notes'), false);
+  const releaseNotes = workflow.indexOf('Generate GitHub release notes');
+  const registryCheck = workflow.indexOf('Check official registry version');
+  const npmPublish = workflow.indexOf('Publish public npm package');
+  assert.equal(releaseNotes < registryCheck, true);
+  assert.equal(releaseNotes < npmPublish, true);
+});
+
+test('Buildr release Skill fixes release identity, dependency preparation, and tree-gated history bridging', () => {
+  const skill = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../skills/buildr-release/SKILL.md'), 'utf8');
+  const identity = skill.indexOf('tasks/release-<version>');
+  const npmCi = skill.indexOf('`npm ci`');
+  const versionMutation = skill.indexOf('`package.json`');
+  const candidateTree = skill.indexOf('candidate tree identity');
+  const bridge = skill.indexOf('bridge-main-to-dev.mjs');
+  for (const [name, value] of Object.entries({ identity, npmCi, versionMutation, candidateTree, bridge })) {
+    assert.notEqual(value, -1, name);
+  }
+  assert.equal(identity < npmCi, true);
+  assert.equal(npmCi < versionMutation, true);
+  assert.equal(candidateTree < bridge, true);
+  for (const required of [
+    'release-<version>', '<workspace-root>/.worktrees/release-<version>',
+    'origin/main^{tree}', 'origin/dev^{tree}', 'force push', 'tree gate',
+    'release-notes.mjs', 'GitHub Release body', '不是 Latest',
+  ]) assert.equal(skill.includes(required), true, required);
 });

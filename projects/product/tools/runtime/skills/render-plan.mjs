@@ -75,8 +75,8 @@ function buildAdapterRuntimeContext(skill) {
     ? `${adapter.displayName} 原生读取 scope \`AGENTS.md\``
     : `${adapter.displayName} 使用 ${adapter.renderCapabilities['rules-entry'].projection.targetPattern} Rule bridge`;
   const maintenanceCommands = adapter.renderCapabilities['rules-entry'].writesFiles
-    ? [commands.installProductSkill, commands.runtimeCheckScope.replace('<workspace-relative-path>', '<scope>'), commands.renderRulesScope, commands.renderSkillsScope, commands.syncWorkspaceEntry]
-    : [commands.syncWorkspaceEntry];
+    ? ['buildr update', commands.installProductSkill, commands.runtimeCheckScope.replace('<workspace-relative-path>', '<scope>'), commands.renderRulesScope, commands.renderSkillsScope, commands.syncWorkspaceEntry]
+    : ['buildr update', commands.installProductSkill, commands.syncWorkspaceEntry];
   return [
     '## 当前 Agent Adapter',
     '',
@@ -90,8 +90,8 @@ function buildAdapterRuntimeContext(skill) {
     '```',
     '',
     adapter.renderCapabilities['rules-entry'].writesFiles
-      ? 'doctor 指向具体 runtime 问题后，再使用专项维护命令：'
-      : '用户要求同步 workspace 时运行；用户要求更新 Buildr 时先运行 buildr update，再使用新入口运行：',
+      ? '用户要求更新或同步 Buildr 时依次运行 update 与 Skill install；更新或同步 workspace 时只运行 sync。doctor 指向具体 runtime 问题后，再使用其余专项维护命令：'
+      : '用户要求更新或同步 Buildr 时依次运行 update 与 Skill install；更新或同步 workspace 时只运行 sync：',
     '',
     '```bash',
     ...maintenanceCommands,

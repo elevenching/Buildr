@@ -86,14 +86,16 @@ npm run test:candidate
 
 ## npm Release 流程
 
-1. 日常改动集成到 `dev`；准备发布时通过 PR 将已验证候选合入 `main`。
-2. package version 与 Git tag 必须完全一致。当前 `0.1.0-rc.3` 对应 `v0.1.0-rc.3` 和 `next`，稳定版 `0.1.0` 对应 `v0.1.0` 和 `latest`。
-3. 首个 `@buildr-ai/buildr` package 已由 npm Organization owner `elevenching2` 使用 2FA 执行 `npm publish --access public --tag next`，于 2026-07-13 完成。
-4. npm trusted publisher 已配置为 GitHub user `elevenching`、repository `Buildr`、workflow `publish.yml`、Environment `npm-production`、allowed action `npm publish`。
-5. 后续发布只由 release tag 触发 GitHub-hosted workflow；Environment 人工批准后运行完整验证、候选安全检查、publish 和 GitHub Release 创建。
-6. 已发布版本不覆盖。RC 问题发布新的 prerelease；正式版本问题优先发布 patch，必要时 deprecate 或移动 dist-tag，不把 unpublish 当作常规回滚。
+1. 日常改动集成到 `dev`；准备 `<version>` 时使用 `release-<version>` task id、`tasks/release-<version>` 分支和 `<workspace-root>/.worktrees/release-<version>` canonical worktree。新建发布 worktree 后先在 `projects/product` 执行 `npm ci`，成功后才修改版本和发布材料。
+2. 根 `CHANGELOG.md` 必须包含唯一的 `## <version> - <YYYY-MM-DD>` 章节和非空正文。冻结候选前从 workspace root 运行 `node projects/product/tools/verification/release/release-notes.mjs <version> CHANGELOG.md`，预览 GitHub Release 将使用的最终 Markdown。
+3. 对冻结候选完成完整验证并记录 candidate tree identity；通过 PR 将 `dev` squash merge 到 `main`后，只有 `origin/main^{tree}` 和 `origin/dev^{tree}` 都与该 candidate tree 一致时，才使用发布专用历史衔接将 squash `main` 幂等收敛回 `dev`。tree mismatch、远端竞争或 push 拒绝时停止 tag 动作。
+4. package version 与 Git tag 必须完全一致。当前 `0.1.0-rc.4` 对应 `v0.1.0-rc.4` 和 `next`，稳定版 `0.1.0` 对应 `v0.1.0` 和 `latest`。
+5. 首个 `@buildr-ai/buildr` package 已由 npm Organization owner `elevenching2` 使用 2FA 执行 `npm publish --access public --tag next`，于 2026-07-13 完成。
+6. npm trusted publisher 已配置为 GitHub user `elevenching`、repository `Buildr`、workflow `publish.yml`、Environment `npm-production`、allowed action `npm publish`。
+7. 后续发布只由 release tag 触发 GitHub-hosted workflow；workflow 在 registry write 和 npm publish 前使用同一提取器生成临时 notes file，缺失、重复或空的目标版本章节会 fail closed。Environment 人工批准后运行完整验证、候选安全检查、publish，并使用该 notes file、已有远端 tag 和正确 prerelease/Latest 状态创建 GitHub Release。
+8. 已发布版本不覆盖。RC 问题发布新的 prerelease；正式版本问题优先发布 patch，必要时 deprecate 或移动 dist-tag，不把 unpublish 当作常规回滚。
 
-`0.1.0-rc.1` 和 `0.1.0-rc.2` 已完成 npm 发布和 GitHub prerelease 创建；`0.1.0-rc.3` 继续使用同一 trusted publishing 流程，发布事实以 npm 官方 registry 和对应 GitHub prerelease 为准。后续发布仍需每次具有明确发布意图。
+`0.1.0-rc.1`、`0.1.0-rc.2` 和 `0.1.0-rc.3` 已完成 npm 发布和 GitHub prerelease 创建；`0.1.0-rc.4` 继续使用同一 trusted publishing 流程，发布事实以 npm 官方 registry 和对应 GitHub prerelease 为准。后续发布仍需每次具有明确发布意图。
 
 实际自举 workspace 如需消费新版产品资产，可独立执行 sync，并在状态变更后运行当前 Agent doctor；CLI update 只更新当前 Product checkout 或 registry package。这不是第二轮产品 E2E。上述验证只证明当前本地产品包和 MVP 主路径成立；公开发布仍需要完成上面的发布材料和分发流程。
 
