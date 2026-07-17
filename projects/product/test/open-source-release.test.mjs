@@ -157,16 +157,21 @@ test('Buildr release Skill fixes release identity, dependency preparation, and t
   const npmCi = skill.indexOf('`npm ci`');
   const versionMutation = skill.indexOf('`package.json`');
   const candidateTree = skill.indexOf('candidate tree identity');
+  const localCliInstall = skill.indexOf('tools/install-buildr-cli');
   const bridge = skill.indexOf('bridge-main-to-dev.mjs');
-  for (const [name, value] of Object.entries({ identity, npmCi, versionMutation, candidateTree, bridge })) {
+  for (const [name, value] of Object.entries({ identity, npmCi, versionMutation, candidateTree, localCliInstall, bridge })) {
     assert.notEqual(value, -1, name);
   }
   assert.equal(identity < npmCi, true);
   assert.equal(npmCi < versionMutation, true);
   assert.equal(candidateTree < bridge, true);
+  assert.equal(localCliInstall < bridge, true);
   for (const required of [
     'release-<version>', '<workspace-root>/.worktrees/release-<version>',
     'origin/main^{tree}', 'origin/dev^{tree}', 'force push', 'tree gate',
     'release-notes.mjs', 'GitHub Release body', '不是 Latest',
+    'command -v buildr', 'buildr --help', 'buildr doctor --agent <agent>',
+    '不得要求维护者去其他 workspace', '不等同于 registry `buildr update`',
+    '不触发其他 workspace 的 `buildr sync`',
   ]) assert.equal(skill.includes(required), true, required);
 });
