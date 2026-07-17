@@ -20,6 +20,7 @@ export function registerDomainsPackageAssets(runtime) {
   const gitDefaultBranch = (...args) => runtime.gitDefaultBranch(...args);
   const defaultAssetDescription = (...args) => runtime.defaultAssetDescription(...args);
   const inferRepoKind = (...args) => runtime.inferRepoKind(...args);
+  const gitBoundaryFor = (...args) => runtime.gitBoundaryFor(...args);
   const ensureGitBoundaries = (...args) => runtime.ensureGitBoundaries(...args);
   const ensureDirectory = (...args) => runtime.ensureDirectory(...args);
   const atomicWriteFile = (...args) => runtime.atomicWriteFile(...args);
@@ -598,6 +599,84 @@ export function registerDomainsPackageAssets(runtime) {
     return manifest;
   }
 
+  function missingAncestorForMutation(targetRoot, target) {
+    const root = path.resolve(targetRoot);
+    let current = path.resolve(target);
+    let missing = null;
+    while (current !== root) {
+      if (existsDirectory(current) || existsFile(current)) break;
+      missing = current;
+      current = path.dirname(current);
+    }
+    return missing;
+  }
+
+  function packageRegistryMutationPaths(targetRoot) {
+    const manifest = readPackageManifest();
+    const projectsRoot = path.join(targetRoot, 'projects');
+    const affected = new Set([
+      path.join(targetRoot, 'projects.yml'),
+      projectsManifestPath(targetRoot),
+      skillsManifestPath(targetRoot),
+      path.join(targetRoot, '.gitignore'),
+    ]);
+    const projectsMissing = missingAncestorForMutation(targetRoot, projectsRoot);
+    if (projectsMissing) affected.add(projectsMissing);
+
+    const boundaryItems = [];
+    for (const projectName of listManagedDirectories(projectsRoot)) {
+      const projectRoot = path.join(projectsRoot, projectName);
+      boundaryItems.push({ type: 'project', project: projectName, assetRoot: projectRoot });
+      for (const relativeDir of manifest.projectDirectories) {
+        const missing = missingAncestorForMutation(targetRoot, path.join(projectRoot, relativeDir));
+        if (missing) affected.add(missing);
+      }
+      for (const rawEntry of manifest.projectFiles) {
+        const entry = parseManifestFileEntry(rawEntry, 'projectFiles');
+        affected.add(path.join(projectRoot, entry.target));
+      }
+      affected.add(path.join(projectRoot, 'services.yml'));
+      affected.add(skillsManifestPath(projectRoot));
+      affected.add(servicesManifestPath(projectRoot));
+
+      const servicesRoot = path.join(projectRoot, 'services');
+      for (const serviceName of listManagedDirectories(servicesRoot)) {
+        boundaryItems.push({ type: 'service', project: projectName, service: serviceName, assetRoot: path.join(servicesRoot, serviceName) });
+      }
+    }
+    for (const item of boundaryItems) {
+      const boundary = gitBoundaryFor(targetRoot, item);
+      if (boundary) affected.add(path.join(boundary.repoRoot, '.gitignore'));
+    }
+    return [...affected].map((item) => path.resolve(item)).sort();
+  }
+
+  function assertSafeSyncMutationPaths(targetRoot, affectedPaths) {
+    const root = path.resolve(targetRoot);
+    const protectedRoots = new Set([root]);
+    for (const collection of ['projects', 'rules', 'skills', 'commands', 'components']) {
+      const collectionRoot = path.join(root, collection);
+      if (existsDirectory(collectionRoot)) protectedRoots.add(collectionRoot);
+    }
+    const projectsRoot = path.join(root, 'projects');
+    for (const projectName of listManagedDirectories(projectsRoot)) {
+      const projectRoot = path.join(projectsRoot, projectName);
+      protectedRoots.add(projectRoot);
+      const servicesRoot = path.join(projectRoot, 'services');
+      if (existsDirectory(servicesRoot)) protectedRoots.add(servicesRoot);
+      if (existsDirectory(path.join(projectRoot, '.git'))) protectedRoots.add(projectRoot);
+      for (const serviceName of listManagedDirectories(servicesRoot)) {
+        const serviceRoot = path.join(servicesRoot, serviceName);
+        if (existsDirectory(path.join(serviceRoot, '.git'))) protectedRoots.add(serviceRoot);
+      }
+    }
+    for (const affectedPath of affectedPaths) {
+      const resolved = path.resolve(affectedPath);
+      if (protectedRoots.has(resolved)) throw new Error(`Unsafe sync mutation path must be a precise managed member: ${toPosixRelative(root, resolved)}`);
+    }
+    return [...new Set(affectedPaths.map((item) => path.resolve(item)))].sort();
+  }
+
   function convergeRegistryManifests(targetRoot) {
     const changed = [];
     const legacyProjectsFile = path.join(targetRoot, 'projects.yml');
@@ -647,6 +726,6 @@ export function registerDomainsPackageAssets(runtime) {
     return [...new Set(changed)];
   }
 
-  Object.assign(runtime, { readPackageManifest, readPackageComponentsManifest, readPackageBuiltinsManifest, parseManifestFileEntry, collectFiles, readSimpleYaml, validateBootstrapContract, builtinRuleEntry, builtinSkillEntry, builtinCommandEntry, sourcePathFromBuiltin, targetPathFromBuiltin, fileDiffStatus, directoryDiffStatus, isValidAssetId, listManagedDirectories, normalizeProjectEntry, normalizeServiceEntry, repairProjectBaseline, convergeSkillsManifestSchema, convergeServiceManifest, convergeRegistryManifests });
+  Object.assign(runtime, { readPackageManifest, readPackageComponentsManifest, readPackageBuiltinsManifest, parseManifestFileEntry, collectFiles, readSimpleYaml, validateBootstrapContract, builtinRuleEntry, builtinSkillEntry, builtinCommandEntry, sourcePathFromBuiltin, targetPathFromBuiltin, fileDiffStatus, directoryDiffStatus, isValidAssetId, listManagedDirectories, normalizeProjectEntry, normalizeServiceEntry, repairProjectBaseline, convergeSkillsManifestSchema, convergeServiceManifest, missingAncestorForMutation, packageRegistryMutationPaths, assertSafeSyncMutationPaths, convergeRegistryManifests });
   return runtime;
 }

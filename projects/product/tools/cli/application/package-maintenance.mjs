@@ -23,6 +23,7 @@ import { createPackageOutput } from './package-maintenance/output.mjs';
 import { createPackageSmokeChecks } from './package-maintenance/smoke-checks.mjs';
 import { createPackageStaticValidator } from './package-maintenance/static-validation.mjs';
 import { createBuiltinReceipts } from './package-maintenance/builtin-receipts.mjs';
+import { createPackageSyncPlan } from './package-maintenance/sync-plan.mjs';
 
 export function registerApplicationPackageMaintenance(runtime) {
   const parseCommandsManifestYaml = (...args) => runtime.parseCommandsManifestYaml(...args);
@@ -47,6 +48,10 @@ export function registerApplicationPackageMaintenance(runtime) {
   const builtinCommandEntry = (...args) => runtime.builtinCommandEntry(...args);
   const sourcePathFromBuiltin = (...args) => runtime.sourcePathFromBuiltin(...args);
   const targetPathFromBuiltin = (...args) => runtime.targetPathFromBuiltin(...args);
+  const missingAncestorForMutation = (...args) => runtime.missingAncestorForMutation(...args);
+  const mutationPathFingerprint = (...args) => runtime.mutationPathFingerprint(...args);
+  const packageRegistryMutationPaths = (...args) => runtime.packageRegistryMutationPaths(...args);
+  const assertSafeSyncMutationPaths = (...args) => runtime.assertSafeSyncMutationPaths(...args);
   const convergeRegistryManifests = (...args) => runtime.convergeRegistryManifests(...args);
   const parseRulesManifestYaml = (...args) => runtime.parseRulesManifestYaml(...args);
   const readRulesManifestForWrite = (...args) => runtime.readRulesManifestForWrite(...args);
@@ -89,6 +94,8 @@ export function registerApplicationPackageMaintenance(runtime) {
     fromSnapshot: receiptFromSnapshot,
     resolveState: resolveBuiltinState,
   } = createBuiltinReceipts({ atomicWriteJson, collectFiles, crypto, ensureDirectory, existsDirectory, existsFile, fs, isPlainObject, path, toPosixRelative });
+
+  const { packageBuiltinMutationPaths, builtinSyncPlanSignature } = createPackageSyncPlan({ assertSafeSyncMutationPaths, missingAncestorForMutation, mutationPathFingerprint, packageRegistryMutationPaths, path, readPackageManifest, targetPathFromBuiltin, toPosixRelative });
 
   function syncPackageBuiltins(targetRoot, options = {}) {
     const manifest = readPackageManifest();
@@ -275,7 +282,8 @@ export function registerApplicationPackageMaintenance(runtime) {
       if (receiptsChanged) changed.push(writeBuiltinReceipts(targetRoot, receipts));
     }
 
-    return { targetRoot, changed: [...new Set(changed)], findings };
+    const affectedPaths = checkOnly ? packageBuiltinMutationPaths(targetRoot, manifest) : [];
+    return { targetRoot, changed: [...new Set(changed)], findings, affectedPaths, signature: checkOnly ? builtinSyncPlanSignature(targetRoot, findings, affectedPaths) : null };
   }
 
   function builtinList(args) {
@@ -517,6 +525,8 @@ export function registerApplicationPackageMaintenance(runtime) {
   });
 
   Object.assign(runtime, {
+    packageBuiltinMutationPaths,
+    builtinSyncPlanSignature,
     syncPackageBuiltins,
     builtinList,
     packageBuiltinComponent,

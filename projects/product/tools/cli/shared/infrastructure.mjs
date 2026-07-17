@@ -115,6 +115,10 @@ export function registerSharedInfrastructure(runtime) {
     return path.join(mutationStateRoot(targetRoot), 'lock.json');
   }
 
+  function mutationRecoveryReceiptPath(targetRoot, transactionId) {
+    return path.join(mutationStateRoot(targetRoot), `recovered-${transactionId}.json`);
+  }
+
   function pathIsEqualOrInside(candidate, root) {
     const relative = path.relative(root, candidate);
     return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
@@ -167,17 +171,52 @@ export function registerSharedInfrastructure(runtime) {
     return { target: resolved, relative, backup, existed };
   }
 
+  let injectedRestoreRemovalFaults = 0;
+
+  function removeMutationRestoreTarget(target) {
+    if (!fs.existsSync(target)) return;
+    const faultLimit = Number(process.env.BUILDR_FAULT_MUTATION_RESTORE_REMOVE || 0);
+    if (faultLimit > injectedRestoreRemovalFaults) {
+      injectedRestoreRemovalFaults += 1;
+      const error = new Error(`Injected Buildr mutation restore removal failure for ${target}.`);
+      error.code = 'EBUSY';
+      throw error;
+    }
+    fs.rmSync(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
+    if (fs.existsSync(target)) throw new Error(`Mutation restore could not remove target: ${target}`);
+  }
+
+  function mutationPathFingerprint(target) {
+    if (!fs.existsSync(target)) return null;
+    const visit = (current, relative = '') => {
+      const stat = fs.lstatSync(current);
+      if (stat.isSymbolicLink()) return [{ path: relative, type: 'symlink', target: fs.readlinkSync(current) }];
+      if (stat.isFile()) return [{ path: relative, type: 'file', integrity: crypto.createHash('sha256').update(fs.readFileSync(current)).digest('hex') }];
+      if (!stat.isDirectory()) return [{ path: relative, type: 'other', mode: stat.mode }];
+      const entries = [{ path: relative, type: 'directory' }];
+      for (const name of fs.readdirSync(current).sort()) entries.push(...visit(path.join(current, name), relative ? `${relative}/${name}` : name));
+      return entries;
+    };
+    return JSON.stringify(visit(target));
+  }
+
   function restoreMutationSnapshot(snapshot) {
-    if (fs.existsSync(snapshot.target)) fs.rmSync(snapshot.target, { recursive: true, force: true });
+    removeMutationRestoreTarget(snapshot.target);
     if (snapshot.existed) {
+      if (!fs.existsSync(snapshot.backup)) throw new Error(`Mutation backup is missing for ${snapshot.relative || snapshot.target}`);
       ensureDirectory(path.dirname(snapshot.target));
       fs.cpSync(snapshot.backup, snapshot.target, { recursive: true, preserveTimestamps: true });
+      if (mutationPathFingerprint(snapshot.target) !== mutationPathFingerprint(snapshot.backup)) {
+        throw new Error(`Mutation restore verification failed for ${snapshot.relative || snapshot.target}`);
+      }
+    } else if (fs.existsSync(snapshot.target)) {
+      throw new Error(`Mutation restore expected target to remain absent: ${snapshot.relative || snapshot.target}`);
     }
   }
 
   let activeWorkspaceMutation = null;
 
-  function withWorkspaceMutation(targetRoot, operation, affectedPaths, callback) {
+  function withWorkspaceMutation(targetRoot, operation, affectedPaths, callback, options = {}) {
     const root = path.resolve(targetRoot);
     if (activeWorkspaceMutation?.targetRoot === root) return callback(activeWorkspaceMutation);
     for (const affectedPath of affectedPaths) {
@@ -193,6 +232,9 @@ export function registerSharedInfrastructure(runtime) {
       try { existing = JSON.parse(fs.readFileSync(lockFile, 'utf8')); } catch {}
       throw new Error(`Workspace source mutation is blocked by incomplete transaction ${existing.transactionId || '<unknown>'} (${existing.operation || 'unknown operation'}). Run buildr doctor --target ${root} --json.`);
     }
+    if (process.env.BUILDR_FAIL_IF_MUTATION_STARTED === '1' || process.env.BUILDR_FAIL_IF_MUTATION_STARTED === operation) {
+      throw new Error(`Injected failure because workspace mutation started: ${operation}`);
+    }
     const transactionId = `${Date.now()}-${process.pid}-${crypto.randomUUID()}`;
     const transactionRoot = path.join(mutationStateRoot(root), transactionId);
     ensureDirectory(transactionRoot);
@@ -205,6 +247,7 @@ export function registerSharedInfrastructure(runtime) {
     }
     let snapshots;
     try {
+      if (options.preSnapshot) options.preSnapshot({ targetRoot: root, transactionId, transactionRoot, record });
       snapshots = [...new Set(affectedPaths.map((item) => path.resolve(item)))].map((item, index) => snapshotMutationPath(transactionRoot, root, item, index));
     } catch (error) {
       fs.rmSync(transactionRoot, { recursive: true, force: true });
@@ -406,6 +449,6 @@ export function registerSharedInfrastructure(runtime) {
     result.findings.push({ status, code, message, ...extra });
   }
 
-  Object.assign(runtime, { optionValue, optionValueRaw, withResolvedTarget, withOption, skillScopeForRuleScope, ensureDirectory, atomicWriteFile, atomicWriteJson, parseYamlDocument, mutationStateRoot, mutationLockPath, pathIsEqualOrInside, assertSafeAssetTarget, normalizedGitIdentity, sameGitIdentity, snapshotMutationPath, restoreMutationSnapshot, withWorkspaceMutation, productRoot, packageRoot, packageWorkspaceTargetRoot, packageBootstrapContractPath, developmentWorkspaceRoot, renderTemplate, writeIfMissing, writeMappedFileIfMissing, appendGitignoreEntries, hasFlag, toPosixRelative, existsDirectory, existsFile, ensureRootRequiredBlock, rootRequiredBlockStatus, writeFileIfChanged, copyFileIfChanged, copyDirectoryIfChanged, isInitializedBuildrWorkspace, assertInitializedBuildrWorkspace, addDoctorFinding });
+  Object.assign(runtime, { optionValue, optionValueRaw, withResolvedTarget, withOption, skillScopeForRuleScope, ensureDirectory, atomicWriteFile, atomicWriteJson, parseYamlDocument, mutationStateRoot, mutationLockPath, mutationRecoveryReceiptPath, pathIsEqualOrInside, assertSafeAssetTarget, normalizedGitIdentity, sameGitIdentity, snapshotMutationPath, removeMutationRestoreTarget, mutationPathFingerprint, restoreMutationSnapshot, withWorkspaceMutation, productRoot, packageRoot, packageWorkspaceTargetRoot, packageBootstrapContractPath, developmentWorkspaceRoot, renderTemplate, writeIfMissing, writeMappedFileIfMissing, appendGitignoreEntries, hasFlag, toPosixRelative, existsDirectory, existsFile, ensureRootRequiredBlock, rootRequiredBlockStatus, writeFileIfChanged, copyFileIfChanged, copyDirectoryIfChanged, isInitializedBuildrWorkspace, assertInitializedBuildrWorkspace, addDoctorFinding });
   return runtime;
 }

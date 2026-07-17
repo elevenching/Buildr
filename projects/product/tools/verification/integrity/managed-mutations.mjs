@@ -29,7 +29,7 @@ for (const entry of packageManifest.files.filter((file) => file.startsWith('tool
 productionFiles.sort();
 const allowed = new Map([
   ['tools/cli/shared/infrastructure.mjs', new Set([
-    'atomicWriteFile', 'snapshotMutationPath', 'restoreMutationSnapshot', 'withWorkspaceMutation',
+    'atomicWriteFile', 'snapshotMutationPath', 'removeMutationRestoreTarget', 'restoreMutationSnapshot', 'withWorkspaceMutation',
   ])],
   ['tools/cli/domains/workspace.mjs', new Set(['createProject', 'createService'])],
   ['tools/cli/domains/rules.mjs', new Set(['rulesRemoveUnsafe'])],

@@ -17,6 +17,7 @@ export function registerApplicationRuntime(runtime) {
   const withResolvedTarget = (...args) => runtime.withResolvedTarget(...args);
   const skillScopeForRuleScope = (...args) => runtime.skillScopeForRuleScope(...args);
   const withWorkspaceMutation = (...args) => runtime.withWorkspaceMutation(...args);
+  const assertSafeSyncMutationPaths = (...args) => runtime.assertSafeSyncMutationPaths(...args);
   const productRoot = (...args) => runtime.productRoot(...args);
   const toPosixRelative = (...args) => runtime.toPosixRelative(...args);
   const assertInitializedBuildrWorkspace = (...args) => runtime.assertInitializedBuildrWorkspace(...args);
@@ -57,24 +58,41 @@ export function registerApplicationRuntime(runtime) {
     return { targetRoot: renderCommand.targetRoot, files: plan.writes.map((item) => item.targetFile), actions: plan.ruleActions, warnings: plan.warnings };
   }
 
+  function buildSyncSourcePlan(targetRoot) {
+    const builtins = syncPackageBuiltins(targetRoot, { checkOnly: true });
+    const components = syncPackageComponents(targetRoot, { checkOnly: true });
+    const affectedPaths = assertSafeSyncMutationPaths(targetRoot, [...builtins.affectedPaths, ...components.affectedPaths]);
+    const needsDecision = builtins.findings.filter((finding) => !finding.component && !finding.required && ['modified', 'missing'].includes(finding.status));
+    return {
+      builtins,
+      components,
+      affectedPaths,
+      needsDecision,
+      signature: JSON.stringify({ builtins: builtins.signature, components: components.signature }),
+    };
+  }
+
+  function assertSyncSourcePlanReady(plan) {
+    if (plan.components.errors.length) {
+      throw new Error(`sync 暂停：Component 源资产存在冲突。\n- ${plan.components.errors.map((item) => item.error).join('\n- ')}`);
+    }
+    if (plan.needsDecision.length) {
+      throw new Error(`sync 暂停：以下 optional Buildr 内置能力需要用户决策。\n- ${plan.needsDecision.map((item) => `${item.type}:${item.id} (${item.status})`).join('\n- ')}`);
+    }
+  }
+
   function syncRuntime(agent, args) {
     const adapter = getRuntimeAdapter(agent);
     const syncArgs = [...args];
     if (!syncArgs.includes('--scope')) syncArgs.push('--scope', '.');
     const targetRoot = path.resolve(optionValue(syncArgs, '--target', process.cwd()));
     assertInitializedBuildrWorkspace(targetRoot);
-    const updated = withWorkspaceMutation(targetRoot, `buildr.sync:${agent}`, [
-      path.join(targetRoot, 'AGENTS.md'),
-      path.join(targetRoot, '.gitignore'),
-      path.join(targetRoot, 'projects'),
-      path.join(targetRoot, 'rules'),
-      path.join(targetRoot, 'skills'),
-      path.join(targetRoot, 'commands'),
-      path.join(targetRoot, 'components'),
-      path.join(targetRoot, '.buildr', 'builtin-receipts.json'),
-    ], () => {
+    const preflight = buildSyncSourcePlan(targetRoot);
+    assertSyncSourcePlanReady(preflight);
+    let lockedPlan = null;
+    const updated = withWorkspaceMutation(targetRoot, `buildr.sync:${agent}`, preflight.affectedPaths, () => {
       const sourceUpdate = syncPackageBuiltins(targetRoot);
-      const components = syncPackageComponents(targetRoot);
+      const components = syncPackageComponents(targetRoot, { plans: lockedPlan.components.plans });
       if (components.errors.length) {
         throw new Error(`sync 暂停：Component 源资产存在冲突。\n- ${components.errors.map((item) => item.error).join('\n- ')}`);
       }
@@ -84,6 +102,12 @@ export function registerApplicationRuntime(runtime) {
       }
       sourceUpdate.changed.push(...components.changed);
       return sourceUpdate;
+    }, {
+      preSnapshot() {
+        lockedPlan = buildSyncSourcePlan(targetRoot);
+        assertSyncSourcePlanReady(lockedPlan);
+        if (lockedPlan.signature !== preflight.signature) throw new Error('sync source plan changed after preflight; rerun sync against the current workspace state.');
+      },
     });
     const rendered = renderRuntime(agent, syncArgs, { productSkill: true });
     const doctorResult = spawnSync(process.execPath, [path.join(productRoot(), 'tools', 'buildr'), 'doctor', '--agent', agent, '--target', targetRoot, '--json'], {
@@ -113,6 +137,6 @@ export function registerApplicationRuntime(runtime) {
     console.log('doctor 通过。');
   }
 
-  Object.assign(runtime, { renderRuntime, renderSkillsRuntime, renderRulesRuntime, syncRuntime });
+  Object.assign(runtime, { renderRuntime, renderSkillsRuntime, renderRulesRuntime, buildSyncSourcePlan, assertSyncSourcePlanReady, syncRuntime });
   return runtime;
 }

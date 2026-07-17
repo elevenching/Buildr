@@ -76,16 +76,16 @@ Organization/Root -> Project -> Service
 - Sidebar 是 Buildr 对外部能力的独立、可卸载增强模式；`openspec-contract-guard` 是 OpenSpec sidebar 的能力主体，Contributions 是接入上游 actions 与 Buildr task workflows 的连接点。
 - Skill Contribution 由 Component definition 声明目标 Skill、placement 和 fragment；Buildr 自有 Skill 可使用稳定 slot，外部 Skill 使用 prepend/append boundary composition。fragment 纳入 integrity，只在 enabled installed Component 的 runtime render 中组合，不修改 workspace Skill 源。可选目标 Skill未安装时跳过，无效 placement、缺失 slot 或 fragment integrity 不一致时 fail closed。
 - Skill Contribution 是自然语言内容组合，不执行命令；当前不支持 Project/Service Component、远程 registry、依赖求解、权限或可执行 Hook。
-- Component 集合预检通过后，成员、Rules/Skills manifests、Component registry 和安装 definition 通过统一 source transaction 提交；中途失败回滚，definition 仍是最后成功物化回执。runtime reconcile 保持在 source commit 之后。
+- `buildr sync` 在创建 mutation lock、transaction 或 backup 前完成 Builtin 与 Component 的只读集合预检；optional Builtin 或 Component 冲突需要用户决策时保持 workspace 与 Git 状态不变。Component 集合预检复用真实 reconcile plan，通过后成员、Rules/Skills manifests、Component registry 和安装 definition 才进入统一 source transaction；中途失败回滚，definition 仍是最后成功物化回执。runtime reconcile 保持在 source commit 之后。
 
 ## Managed Data Integrity
 
 - `.`、`..`、路径分隔符和控制字符不能作为 Buildr 资产 identity；普通 id 中的点只作为字符，不参与路径导航。
 - Buildr 只删除经过 scope、ownership 和 symlink 验证的精确受管成员；workspace 根、Product 根、当前目录、home、文件系统根和 Rules/Skills/Commands/Components 等集合根受保护。该保护不阻止正常 Rule、Skill、Builtin 或 Component 卸载。
 - manifest 和 OpenSpec contract sidecar 使用 atomic writer；Buildr YAML 由成熟 parser 按真实 YAML 语义读取，再执行封闭 schema 校验和 canonical render。
-- workspace source mutation 使用 `.buildr/mutations/` 保存单写者 lock、journal、staging 和 backup。普通失败恢复操作前状态；异常残留阻塞后续 source mutation。
+- workspace source mutation 使用 `.buildr/mutations/` 保存单写者 lock、journal、staging 和 backup。sync transaction 只 snapshot plan 声明的精确受管文件、成员和原本缺失的目录，不把整个 `projects/`、已有 Project/Services 根或独立 Service repo 根纳入递归恢复。普通失败通过有限删除重试和恢复结果校验恢复操作前状态；异常残留阻塞后续 source mutation。
 - init/sync 幂等确保 root `.gitignore` 包含 `/.buildr/mutations/`，避免事务临时状态进入 Git 变更视图，但不忽略 `.buildr/workspace.yml`。
-- doctor 使用 `mutation.transaction_incomplete` 或 `mutation.lock_orphaned` 报告 operation、phase、affected paths 和 next action；可证明 journal 完整时使用 `buildr mutation recover <transaction-id> --target <workspace>` 恢复旧状态。
+- doctor 使用 `mutation.transaction_incomplete` 或 `mutation.lock_orphaned` 报告 operation、phase、affected paths 和 next action；可证明 journal 完整时使用 `buildr mutation recover <transaction-id> --target <workspace>` 恢复旧状态。失败 recover 保留完整材料并可再次执行；成功后写入轻量 recovery receipt，同一 transaction ID 再次 recover 是不修改 workspace 的成功 no-op。
 - runtime 仍是可重建结果：source transaction 成功后 runtime reconcile 失败不会回滚源资产，而是返回失败并要求 render、sync 或 doctor 修复。
 
 ## Builtins / Rules
