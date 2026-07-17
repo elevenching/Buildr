@@ -173,17 +173,17 @@
     "meta": {
       "title": "Agent 工作能力适配",
       "taskId": "introduce-skill-capability-contracts",
-      "status": "实现验证完成，待集成自举",
-      "phase": "阶段 5 / 6",
-      "taskProgress": "任务 34 / 35",
-      "updatedAt": "2026-07-17 23:06",
+      "status": "已完成并完成自举交付",
+      "phase": "阶段 6 / 6",
+      "taskProgress": "任务 35 / 35",
+      "updatedAt": "2026-07-18 02:25",
       "relativePath": "projects/product/openspec/knowledge/task-cockpits/2026-07-17-introduce-skill-capability-contracts.html"
     },
     "overview": {
       "purpose": "用户只表达工作方式变化，由 Agent 发现跨 Skill 依赖、开发候选能力并在验证后安全激活。",
       "conclusion": "“Agent 工作能力适配”入口、Core 边界、新管理 Skill、package/runtime 和最终候选均已通过；用户只需表达工作方式变化。",
-      "currentFocus": "保留 task worktree 和当前候选 CLI，等待后续集成到产品 checkout 后执行主 workspace 自举 sync/doctor。",
-      "userAttention": "当前没有需要用户立即判断的事项；不会从未合并 task checkout 同步主 workspace。",
+      "currentFocus": "change 已归档并集成到 dev；主 workspace 已从保留 checkout 完成 sync/render/doctor。",
+      "userAttention": "当前没有需要用户立即判断的事项。",
       "highlights": {
         "done": {
           "title": "已经完成",
@@ -191,11 +191,11 @@
         },
         "current": {
           "title": "当前状态",
-          "text": "Core、Buildr 意图路由和 capability-adaptation 已通过 package、CLI、OpenSpec、七个 runtime adapter 和最终 candidate。"
+          "text": "Core、Buildr 意图路由和 capability-adaptation 已通过 package、CLI、OpenSpec、七个 runtime adapter、最终 candidate 和主 workspace 自举。"
         },
         "next": {
-          "title": "下一步",
-          "text": "后续集成到保留产品 checkout 后执行主 workspace 自举 sync/doctor，再迁移 CLI 入口并清理 task worktree。"
+          "title": "交付结果",
+          "text": "保留 checkout 已成为本机 CLI 来源，Codex runtime 与 capability graph 均已同步且 doctor 无 warning/error。"
         }
       },
       "blockers": [],
@@ -278,12 +278,14 @@
           ]
         },
         {
-          "status": "next",
-          "label": "下一阶段",
+          "status": "done",
+          "label": "已完成",
           "title": "集成后自举交付",
-          "summary": "候选 CLI 已安装并通过隔离验证；只剩集成后从保留 checkout 同步主 workspace。",
+          "summary": "已从保留 checkout 重装 CLI，并完成主 workspace sync、Codex runtime render 和最终 doctor。",
           "items": [
-            "集成后自举 sync/render/doctor"
+            "capability-adaptation builtin 已显式恢复",
+            "六个 capability bindings 与两个 consumer graphs ready",
+            "最终 doctor 0 warning / 0 error"
           ]
         }
       ]
@@ -303,7 +305,7 @@
           "自动证明用户 Skill 的自然语言行为正确",
           "强制所有 builtin 都 capability 化",
           "通用自然语言行为认证平台",
-          "当前任务直接集成、推送或同步主 workspace"
+          "自动替用户决定需要语义判断的 provider 冲突"
         ]
       },
       "decisions": [
@@ -393,11 +395,11 @@
         },
         {
           "title": "Final candidate",
-          "text": "扩展后的 npm run test:candidate 全部通过，用时 120.41 秒；单元层 60/60、4.50 秒，capability CLI 真实替换场景作为 24.70 秒独立并行集成测试保留；最慢子任务仍是临时 workspace E2E 96.48 秒。相较此前 139.29 秒减少 18.88 秒。"
+          "text": "rebase 后最终 tree 的 npm run test:candidate 全部通过，用时 115.31 秒；单元层 60/60、4.21 秒，capability CLI 真实替换场景作为 24.13 秒独立并行集成测试保留；最慢子任务仍是临时 workspace E2E 92.10 秒。"
         },
         {
           "title": "候选 CLI",
-          "text": "tools/install-buildr-cli 已重新安装到 /Users/chenjun/.local/bin/buildr，当前指向 task Product checkout；全新隔离 workspace 的 capability-adaptation 源资产、Codex runtime 投射、init 和 doctor 全部通过。"
+          "text": "projects/product/tools/install-buildr-cli 已将 /Users/chenjun/.local/bin/buildr 迁移到保留 Product checkout；全新隔离 workspace 与主自举 workspace 的 capability-adaptation、Codex runtime 和 doctor 全部通过。"
         },
         {
           "title": "耗时与自动化",
@@ -405,7 +407,7 @@
         },
         {
           "title": "剩余风险",
-          "text": "结构 ready 不证明用户 provider 的自然语言行为正确；首批仅迁移六个 capabilities；集成后主 workspace 自举 sync/doctor 仍待收尾阶段执行。"
+          "text": "结构 ready 不证明用户 provider 的自然语言行为正确；首批仅迁移六个 capabilities，其他 builtin 仍使用 identity routing。"
         },
         {
           "title": "工作能力适配专项",
@@ -413,7 +415,7 @@
         },
         {
           "title": "HTML 目视检查",
-          "text": "未执行：in-app browser 拒绝本地 file URL 自动导航；已保留为明确证据限制，后续只做 source-level JSON/offline 检查。"
+          "text": "已通过本地 HTTP 入口检查桌面与窄屏布局、tab 导航、JSON 数据与离线资产边界。"
         }
       ],
       "snippets": []

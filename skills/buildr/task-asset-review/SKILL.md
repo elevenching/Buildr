@@ -1,18 +1,18 @@
 ---
 name: task-asset-review
-description: 用户明确要求复盘任务执行质量、总结可沉淀的 Skill 或 Rule、把本次工作方法留给后续 Agent，Agent 已发现明确长期候选，或 task-finish 的轻量资格判断命中时使用。基于可观察任务节点和最终证据反思执行质量，只提出 Rule 或 Skill 候选，不读取隐藏推理、不保存完整轨迹、不自动写入组织资产。
+description: 用户明确要求复盘任务执行质量、总结可沉淀的 Skill 或 Rule、把本次工作方法留给后续 Agent，Agent 已发现明确长期候选，或 finish consumer 的轻量资格判断命中时使用。基于可观察任务节点和最终证据反思执行质量，只提出 Rule 或 Skill 候选，不读取隐藏推理、不保存完整轨迹、不自动写入组织资产。
 ---
 
 # Task Asset Review Skill
 
-本 Skill 在任务结果稳定后执行只读审查：先反馈本次任务的执行质量，再筛选值得长期复用的 Rule 或 Skill 候选。它不判断当前任务是否需要 OpenSpec change，不替代 `task-finish` 的完成检查，也不把审查结论直接写入 Buildr 源资产。
+本 Skill 是 `buildr.task-asset-review/v1` 的默认 provider，在任务结果稳定后执行只读审查：先反馈本次任务的执行质量，再筛选值得长期复用的 Rule 或 Skill 候选。它不判断当前任务是否需要 OpenSpec change，不替代 finish consumer 的完成检查，也不把审查结论直接写入 Buildr 源资产。
 
 ## 调用边界
 
 - 用户明确要求复盘、总结技能或规则、沉淀经验或把工作方法留给后续 Agent 时，执行完整审查。
 - Agent 已发现具体、可验证、可能长期复用的候选时，可以主动执行完整审查；不要为形式完整机械复盘简单任务。
-- `task-finish` 只在自身轻量资格判断命中后调用本 Skill；本 Skill 不重复资格判断。
-- 条件调用保持只读和非阻塞。证据不足、Skill 不可用或审查失败时，向 `task-finish` 返回降级原因，不把沉淀能力作为收尾成功条件。
+- Finish consumer 只在自身轻量资格判断命中后调用 selected provider；本 Skill 不重复资格判断。
+- 条件调用保持只读和非阻塞。证据不足、provider 不可用或审查失败时，向 finish consumer 返回降级原因，不把沉淀能力作为收尾成功条件。
 - 当前候选 Git tree 已有同一轮有效审查结果时复用结果，不重复扫描、读取或验证。
 
 ## 证据边界
@@ -32,7 +32,7 @@ description: 用户明确要求复盘任务执行质量、总结可沉淀的 Ski
 
 ## 审查流程
 
-1. 确认任务结果已经稳定，记录任务/change identity、候选 tree 和最终验证证据；如果由 `task-finish` 调用，直接复用其完成检查和 contract sidebar 结论。
+1. 确认任务结果已经稳定，记录任务/change identity、候选 tree 和最终验证证据；如果由 finish consumer 调用，直接复用其完成检查和 contract sidebar 结论。
 2. 重建简短执行轮廓：主要阶段、关键转折、失败回退和最终验证。不要逐条复述全部节点，也不要用最终总结代替过程审查。
 3. 选择高信息量转折点，优先检查：
    - 用户纠正了对象边界、产品语义、scope 或授权；
@@ -81,7 +81,7 @@ description: 用户明确要求复盘任务执行质量、总结可沉淀的 Ski
 3. 资产沉淀建议：只列通过门槛的 Rule/Skill 候选；
 4. 普通 follow-up：仅在发现非 Rule/Skill 线索时列出。
 
-`task-finish` 条件调用时，没有重要质量发现或合格候选则静默返回；有发现时只返回可放入最终收尾报告的简短摘要，不中断收尾等待确认。
+Finish consumer 条件调用时，没有重要质量发现或合格候选则静默返回；有发现时只返回可放入最终收尾报告的简短摘要，不中断收尾等待确认。
 
 每个候选使用以下确认格式：
 

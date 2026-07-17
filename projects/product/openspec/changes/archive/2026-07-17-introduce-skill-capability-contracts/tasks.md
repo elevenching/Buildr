@@ -49,4 +49,4 @@
 
 - [x] 6.1 冻结扩展后的最终候选 tree，运行一次 `npm run test:candidate` 并记录新的 timing summary；只针对失败项迭代
 - [x] 6.2 CLI/Skill 变更验证通过后重新安装当前候选 Buildr CLI，并确认隔离 workspace 的能力适配资产与 doctor
-- [ ] 6.3 集成到保留的产品 checkout 后执行自举 sync/render/doctor，确认当前 workspace 使用已集成资产而不是 task checkout
+- [x] 6.3 集成到保留的产品 checkout 后执行自举 sync/render/doctor，确认当前 workspace 使用已集成资产而不是 task checkout
