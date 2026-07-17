@@ -1,8 +1,7 @@
 ---
 name: buildr
-description: 在 Buildr workspace 中安装、更新或同步 Buildr、更新或同步 workspace、诊断和维护组织工作资产时使用，覆盖 Buildr CLI 与产品入口 Skill、组织（Organization/Root）、项目（Project）、服务（Service）、组件（Components）、规则（Rules）、技能（Skills）、命令（Commands）、内置能力（Builtins）和 Agent runtime 渲染。
+description: 在 Buildr workspace 中安装、更新或同步 Buildr、更新或同步 workspace、诊断和维护组织工作资产，或用户要求复盘任务、总结可沉淀的 Skill/Rule、把工作方法留给后续 Agent 时使用；覆盖 Buildr CLI 与产品入口 Skill、组织（Organization/Root）、项目（Project）、服务（Service）、组件（Components）、规则（Rules）、技能（Skills）、命令（Commands）、内置能力（Builtins）和 Agent runtime 渲染。
 ---
-
 # Buildr Skill
 
 ## Buildr 是什么
@@ -40,6 +39,7 @@ Agent 是 Buildr 功能的默认操作入口。Agent 能在当前工具、权限
 | 接入业务、产品线、系统或长期工作单元 | 项目（Project） |
 | 接入代码仓、服务仓或可执行资产 | 服务（Service） |
 | 复杂、长期、跨阶段或有交叉依赖的任务可视化与持续进度入口 | `task-cockpit` Skill |
+| 复盘任务执行质量、总结可沉淀的 Skill/Rule、把工作方法留给后续 Agent | `task-asset-review` Skill；找不到时检查 builtin、workspace Skill 源和 runtime 投射，doctor 指向修复时优先 sync/render/restore；已显式卸载则尊重该状态 |
 | 代码开发、实现、构建、测试或任务 worktree 生命周期 | `task-worktree` Skill |
 | 完成已验证任务、自动归档集成并清理 task worktree | `task-finish` Skill |
 | 提交、拉取、合并、rebase、checkout/switch、reset、推送、发布或其他单项 Git 操作 | `git-ops` Skill |

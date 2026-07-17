@@ -22,6 +22,7 @@ Organization/Root -> Project -> Service
 - 未合并候选产品只验证临时 workspace 或 task worktree 自身，不更新主自举 workspace。完整验证绑定最终候选 Git tree；commit、相同 tree 集成、push 和 worktree 清理复用该结果，tree 改变后才在集成前重验受影响部分。
 - 当前内置 `task-finish` workspace Skill 独占完整“收尾”意图：在当前轮次授权常规 OpenSpec 同步归档、相关校验、提交、必要的本地未推送 rebase、fast-forward 集成、目标分支 push 和本地 worktree/任务分支清理；高风险或语义不确定动作仍停止确认。
 - `task-finish` 是 Buildr 自有收尾编排 Skill，不修改外部 `openspec-*` Skills；OpenSpec Component 已安装时，runtime renderer 向其稳定 slots 贡献 canonical sync 前的 pre-sync check 和 sync 后 archive 前的 post-sync check。Component 卸载后这些说明消失，通用 `task-finish` 仍保留其余职责。
+- `task-finish` 在任务资产审查前先对齐用户已确认目标和决策、change artifacts、最终实现、Git diff 与验证结果，再复用 OpenSpec contract sidebar 证明已记录契约一致性；任务确认完成后只根据当前上下文执行无工具轻量资格判断，命中强信号时才条件调用 optional `task-asset-review`，审查不可用或失败不会阻塞正常收尾。
 - 实际自举 workspace 的 sync 是独立状态变更，执行后按 Buildr Core 运行 doctor，不作为相同 tree 的第二轮产品 E2E；CLI update 只更新当前 Product checkout 或 registry package，不读取 workspace。
 - Agent 采用 OpenSpec workflow 时，必须在动作前说明 change id、change 路径和 create/explore/apply/sync/archive 动作。
 
@@ -122,8 +123,9 @@ Organization/Root -> Project -> Service
 - resolved `skill-url` 使用有界网络读取；默认 inactivity 和总 timeout 可通过 `BUILDR_REMOTE_SKILL_INACTIVITY_TIMEOUT_MS`、`BUILDR_REMOTE_SKILL_TOTAL_TIMEOUT_MS` 在 `1..120000` 毫秒内调整，超时保持 runtime 目标零写入。
 - `package:<id>` 是 package manifest `skillSources` 与随包 Skill resolver 使用的内部 source identity，不是用户 Skill asset id、通用 source scheme 或 `skills add` 输入格式。
 - Buildr 内置 workspace Skills 现在发布到 `skills/buildr/<skill-id>/`，并在 `skills/manifest.yml` 中以 `source: buildr`、`path`、`runtimePath`、`enabled`、`required` 和 `state` 管理。
-- 当前随包独立 workspace Skills 包括 `task-triage`、`task-cockpit`、`task-worktree`、`task-finish` 和 `git-ops`；OpenSpec workflows 与 `openspec-contract-guard` 由 OpenSpec Component 统一交付，但仍以 Buildr builtin descriptor 提供产品元数据。
+- 当前随包独立 workspace Skills 包括 `task-triage`、`task-cockpit`、`task-asset-review`、`task-worktree`、`task-finish` 和 `git-ops`；OpenSpec workflows 与 `openspec-contract-guard` 由 OpenSpec Component 统一交付，但仍以 Buildr builtin descriptor 提供产品元数据。
 - `task-cockpit` 为复杂、长期、跨阶段或有交叉依赖的任务维护 Agent 单向更新、用户只读的单文件 HTML 驾驶舱；默认路径为 Project `openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html`，稳定入口可以关联多个 active/archive change、code-only 工作和外部依赖。
+- `task-asset-review` 基于当前 session 可观察节点和最终 Git/OpenSpec/验证证据反思目标一致性、路径、证据、scope/授权、token/工具成本与复用机会；执行质量反馈与 Rule/Skill 候选分层，OpenSpec 只作证据，合格候选生成可在 worktree 清理后继续核查的证据胶囊。它不读取隐藏推理、不保存完整任务轨迹、不依赖 Hook，也不自动写入组织资产。
 - 任务驾驶舱优先展示普通用户可理解的目标、当前结论、阶段、已完成、下一步和阻塞，再逐层展示推进、方案与技术细节。它是 task-scoped working knowledge，不替代 canonical specs、active change、代码和验证证据。
 - `task-triage` 判断驾驶舱是“不需要”“创建”还是“继续维护”；驾驶舱首次创建、实质更新、用户询问进度、任务暂停或完成时，Agent 回复提供可点击绝对路径和 workspace 相对路径。
 - 产品入口 Buildr Skill 仍位于 `package/targets/runtime/skills/buildr/SKILL.md`，不进入 workspace `skills/manifest.yml`，也不硬编码可卸载 Component 所拥有的专用 Skill 路由。

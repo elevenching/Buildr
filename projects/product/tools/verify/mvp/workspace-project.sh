@@ -45,6 +45,11 @@ test -f "$tmp/skills/buildr/task-cockpit/SKILL.md"
 test -f "$tmp/skills/buildr/task-cockpit/assets/task-cockpit-template.html"
 grep -q 'openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html' "$tmp/skills/buildr/task-cockpit/SKILL.md"
 grep -q 'data-tab="technical"' "$tmp/skills/buildr/task-cockpit/assets/task-cockpit-template.html"
+grep -q 'task-asset-review' "$tmp/skills/manifest.yml"
+test -f "$tmp/skills/buildr/task-asset-review/SKILL.md"
+test -f "$tmp/skills/buildr/task-asset-review/agents/openai.yaml"
+grep -q '执行质量反馈' "$tmp/skills/buildr/task-asset-review/SKILL.md"
+grep -q '资产沉淀建议' "$tmp/skills/buildr/task-asset-review/SKILL.md"
 grep -q 'task-finish' "$tmp/skills/manifest.yml"
 test -f "$tmp/skills/buildr/task-finish/SKILL.md"
 task_finish_skill="$product_root/package/targets/workspace/skills/buildr/task-finish/SKILL.md"
@@ -56,7 +61,10 @@ for required_text in \
   'git rev-parse HEAD^{tree}' \
   'fast-forward-only' \
   '不删除远端任务分支' \
-  '工作目录切换到主 workspace'; do
+  '工作目录切换到主 workspace' \
+  '任务资产审查门控' \
+  '不得调用工具、重新读取任务文件或加载完整 `task-asset-review`' \
+  '“收尾”不构成 Rule 或 Skill 写入授权'; do
   grep -q "$required_text" "$task_finish_skill"
 done
 grep -q '修复期间已经优先重跑失败项和受影响专项检查' "$task_finish_skill"
