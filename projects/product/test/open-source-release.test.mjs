@@ -182,5 +182,7 @@ test('Buildr release Skill fixes release identity, dependency preparation, and t
     'command -v buildr', 'buildr --help', 'buildr doctor --agent <agent>',
     '不得要求维护者去其他 workspace', '不等同于 registry `buildr update`',
     '不触发其他 workspace 的 `buildr sync`',
+    '展示待删除 ref、commit', '请求用户明确授权删除',
+    '重新查询远端确认 ref 不存在', '清理 follow-up',
   ]) assert.equal(skill.includes(required), true, required);
 });
