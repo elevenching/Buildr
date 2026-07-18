@@ -31,7 +31,9 @@ Agent 是 Buildr 功能的默认操作入口。Agent 能在当前工具、权限
 
 ## 任务路由
 
-完整 sync 生成的 `Buildr Capability Bindings` 是当前 scope 的受管路由证据。证据缺失、不适用或 runtime check 显示 stale 时，在已初始化 workspace 先运行当前 Agent doctor 读取 `capabilities` graph；`ready` 只表示结构可路由。调用 provider 前读取 contract 和 selected provider。不得根据 Skill id、description 或安装顺序猜测 provider，也不需要 capability dispatch 命令。
+Agent runtime 先根据 Skill description 和用户目标发现入口 Skill。本 Skill 只有在 Buildr 管理意图与自身 description 匹配后才会被加载；它不是所有用户意图之前的全局 dispatcher，也不拦截 prompt。“收尾”等专业意图通常由 Agent 直接命中对应入口 Skill，再由该 Skill 读取自身的受管 capability bindings。
+
+本 Skill 已加载后，完整 sync 生成的 `Buildr Capability Bindings` 是当前 scope 的受管路由证据。证据缺失、不适用或 runtime check 显示 stale 时，在已初始化 workspace 先运行当前 Agent doctor 读取 `capabilities` graph；`ready` 只表示结构可路由。调用 provider 前读取 contract 和 selected provider。不得根据 Skill id、description 或安装顺序猜测 provider conformance，也不需要 capability dispatch 命令。
 
 | 用户意图 | 资产类型 |
 |---|---|
@@ -54,7 +56,7 @@ Agent 是 Buildr 功能的默认操作入口。Agent 能在当前工具、权限
 | 为 Buildr 增加新的 Agent runtime adapter | runtime trait intake + OpenSpec change |
 | 采用内部流程、调整工作方式、修改或替换 Skill 行为 | `capability-adaptation` Skill；先识别跨 Skill 稳定依赖边界，再开发、验证和激活 |
 
-产品入口 Buildr Skill 是能力路由者，不是同时 required 依赖全部 capabilities 的 workspace consumer。只有某类用户意图命中时，才把对应 capability 作为本次动作的 required dependency；单项 capability blocked 不得阻塞 init、doctor、Project/Service 或其他无关 Buildr 管理动作。
+产品入口 Buildr Skill 只对自身已命中的 Buildr 管理意图执行内部能力路由，不是同时 required 依赖全部 capabilities 的 workspace consumer。只有某类 Buildr 管理意图命中本 Skill 后，才把对应 capability 作为本次动作的 required dependency；单项 capability blocked 不得阻塞 init、doctor、Project/Service 或其他无关 Buildr 管理动作。顶层 capability 的 binding 只选择 provider，不自动产生 Agent 意图命中；替换顶层入口时必须由能力适配同时验证 selected provider 的 runtime 可发现性、description 覆盖和触发歧义。
 任一 provider 返回 `treeChanged: true` 后，遵守 required Core workspace-transition invariant：在已初始化 Buildr workspace 中针对当前 Agent 和 workspace root 运行 doctor。doctor 指出 workspace sync 是合适修复动作时，询问用户是否由 Agent 立即同步，同时提供准确手动命令作为备选；确认后由 Agent 执行 sync 并验证。当前 session 是否重新发现新资产由 Agent runtime 决定。“更新 workspace”或“同步 workspace”已包含 Git 更新与 Buildr sync 授权，不重复询问 sync；遇到本地改动、分叉、冲突、缺少 upstream 或其他需要用户决策的状态时停止，不自动 stash、rebase、覆盖，也不继续 sync。
 
 ## 资产维护

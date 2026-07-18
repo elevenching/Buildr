@@ -367,7 +367,8 @@ export function createPackageStaticValidator(deps) {
           '不重复询问 sync',
           '不是 Git workspace，直接运行 sync',
           '先加载 `capability-adaptation` 判断是否触达或产生跨 Skill 稳定依赖边界',
-          '产品入口 Buildr Skill 是能力路由者',
+          '产品入口 Buildr Skill 只对自身已命中的 Buildr 管理意图执行内部能力路由',
+          '顶层 capability 的 binding 只选择 provider，不自动产生 Agent 意图命中',
           '单项 capability blocked 不得阻塞',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`Buildr Agent Skill must include ${JSON.stringify(requiredText)}.`);
