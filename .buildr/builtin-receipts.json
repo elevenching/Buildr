@@ -17,11 +17,11 @@
       "type": "skill",
       "id": "capability-adaptation",
       "target": "skills/buildr/capability-adaptation",
-      "integrity": "sha256-51fd074de8bd784faef1e061bfaa3290dfef05e0e850dfb32ba70462d7ce3924",
+      "integrity": "sha256-f7bfb68beaf8e1093f06bf1918cef221b9e530bc8f794cbb2d4a5e9b03ff1f92",
       "files": [
         {
           "path": "SKILL.md",
-          "integrity": "sha256-f2c66f904ef605f2584923fbc01df2428ae663ddc1a57bc9615b97ddcb2999aa"
+          "integrity": "sha256-97de3f4aa27d744e0c701f218be57361a5c1f742fd8a6a9e2491ce3beb8d910d"
         },
         {
           "path": "agents/openai.yaml",
