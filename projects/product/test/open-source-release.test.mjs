@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   inspectCandidateFile,
+  inspectCandidatePaths,
   inspectPackageMetadata,
   inspectPackageVersionConsistency,
   inspectTarballFiles,
@@ -24,6 +25,16 @@ test('open-source candidate content rules block secrets without echoing values',
   assert.equal(inspectCandidateFile('README.md', 'https://github.com/elevenching/Buildr').length, 0);
   assert.equal(inspectCandidateFile('fixture.md', 'buildr@example.com').length, 0);
   assert.equal(inspectCandidateFile('fixture.md', ['person', 'private.test'].join('@'))[0].rule, 'private.email-address');
+});
+
+test('open-source candidate ignores tracked paths deleted from the frozen worktree', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-open-source-deletion-'));
+  try {
+    fs.writeFileSync(path.join(root, 'kept.md'), 'public candidate\n');
+    assert.deepEqual(inspectCandidatePaths(root, ['kept.md', 'deleted.md']), []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('open-source metadata and tarball contracts enforce public identity and inventory', () => {

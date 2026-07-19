@@ -21,7 +21,7 @@
 projects/product/buildr package check
 projects/product/tools/verification/onboarding/init.mjs
 projects/product/tools/verification/onboarding/repository.mjs
-projects/product/tools/verify-buildr-product-mvp
+(cd projects/product && npm run test:workspace)
 (cd projects/product && openspec validate --all --strict)
 ```
 

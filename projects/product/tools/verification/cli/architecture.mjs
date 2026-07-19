@@ -18,11 +18,9 @@ const allowedTopLevelEntries = new Set([
   'shared',
   'uninstall-buildr-cli',
   'verification',
-  'verify',
   'verify-buildr-product',
   'verify-buildr-product-affected',
   'verify-buildr-product-fast',
-  'verify-buildr-product-mvp',
 ]);
 for (const entry of fs.readdirSync(path.join(productRoot, 'tools'))) {
   if (!allowedTopLevelEntries.has(entry)) problems.push(`unexpected top-level tools entry: tools/${entry}`);
@@ -113,7 +111,6 @@ const facadeLimits = new Map([
   ['tools/cli/application/doctor.mjs', 250],
   ['tools/cli/application/package-maintenance.mjs', 550],
   ['tools/verify-buildr-product-affected', 100],
-  ['tools/verify-buildr-product-mvp', 30],
 ]);
 for (const [relative, limit] of facadeLimits) {
   const file = path.join(productRoot, relative);
@@ -125,16 +122,28 @@ const rendererModules = ['arguments.mjs', 'manifests.mjs', 'contributions.mjs', 
 for (const module of rendererModules) {
   if (!fs.existsSync(path.join(productRoot, 'tools', 'runtime', 'skills', module))) problems.push(`missing runtime Skill renderer module: ${module}`);
 }
-const mvpScenarios = ['setup.sh', 'runtime-help.sh', 'workspace-project.sh', 'assets.sh', 'services-runtime.sh', 'reconciliation-package.sh'];
-const mvpEntryContent = fs.readFileSync(path.join(productRoot, 'tools', 'verify-buildr-product-mvp'), 'utf8');
-for (const scenario of mvpScenarios) {
-  if (!fs.existsSync(path.join(productRoot, 'tools', 'verify', 'mvp', scenario))) problems.push(`missing MVP verifier scenario: ${scenario}`);
-  if (!mvpEntryContent.includes(`source "$scenario_root/${scenario}"`)) problems.push(`MVP verifier entry does not compose scenario: ${scenario}`);
+const workspaceVerificationRoot = path.join(productRoot, 'tools', 'verification', 'workspace');
+const workspaceVerificationFiles = ['fixture.mjs', 'suites.mjs', 'run.mjs', 'workspace-lifecycle.mjs', 'ownership-recovery.mjs', 'runtime-reconciliation.mjs'];
+for (const file of workspaceVerificationFiles) {
+  if (!fs.existsSync(path.join(workspaceVerificationRoot, file))) problems.push(`missing Workspace E2E module: ${file}`);
+}
+const workspaceSuiteSource = fs.readFileSync(path.join(workspaceVerificationRoot, 'suites.mjs'), 'utf8');
+for (const suite of ['workspace-lifecycle', 'ownership-recovery', 'runtime-reconciliation']) {
+  if (!workspaceSuiteSource.includes(`id: '${suite}'`)) problems.push(`Workspace E2E registry is missing suite: ${suite}`);
+}
+const candidateSource = fs.readFileSync(path.join(productRoot, 'tools', 'verification', 'candidate.mjs'), 'utf8');
+if (!candidateSource.includes('workspaceSuiteSteps({ productRoot')) problems.push('candidate verifier must compose every Workspace E2E suite from the registry');
+if (fs.existsSync(path.join(productRoot, 'tools', 'verify-buildr-product-mvp'))) problems.push('legacy MVP verification entry must be removed');
+if (fs.existsSync(path.join(productRoot, 'tools', 'verify', 'mvp'))) problems.push('legacy MVP verification scenarios must be removed');
+for (const file of workspaceVerificationFiles) {
+  const source = fs.readFileSync(path.join(workspaceVerificationRoot, file), 'utf8');
+  if (source.includes('/tmp/buildr-product-mvp-')) problems.push(`Workspace E2E module uses a shared legacy diagnostic path: ${file}`);
 }
 
 const packageJson = JSON.parse(fs.readFileSync(path.join(productRoot, 'package.json'), 'utf8'));
 if (!(packageJson.files || []).includes('tools/cli/')) problems.push('package.json files must publish tools/cli/');
 if (!(packageJson.files || []).includes('tools/runtime/skills')) problems.push('package.json files must publish tools/runtime/skills');
+if (packageJson.scripts?.['test:workspace'] !== 'node tools/verification/workspace/run.mjs') problems.push('package.json must expose the Workspace E2E selector');
 if (packageJson.exports) problems.push('internal CLI modules must not be declared through package exports');
 
 const registry = path.join(cliRoot, 'command', 'registry.mjs');

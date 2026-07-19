@@ -12,6 +12,8 @@ import {
   createCandidatePackage,
 } from './release/candidate-package.mjs';
 import { runVerificationBatch, runVerificationStep } from './timing/parallel-runner.mjs';
+import { CANDIDATE_TOTAL_BUDGET_MS, candidateStepBudget } from './timing/budgets.mjs';
+import { workspaceSuiteSteps } from './workspace/suites.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const nodeModulesBin = path.join(productRoot, 'node_modules', '.bin');
@@ -20,7 +22,6 @@ const openspecExecutable = path.join(nodeModulesBin, process.platform === 'win32
 const buildr = path.join(productRoot, 'tools', 'buildr');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-candidate-verification-'));
 const timingFile = path.join(root, 'timing.tsv');
-const mvpTimingFile = path.join(root, 'mvp-timing.tsv');
 const candidatePackageDirectory = path.join(root, 'candidate-package');
 const timingOutput = process.env.BUILDR_TIMING_OUTPUT || path.join(os.tmpdir(), 'buildr-product-verification-timing.json');
 const diagnosticsOutput = process.env.BUILDR_DIAGNOSTICS_OUTPUT || timingOutput.replace(/\.json$/, '') + '-diagnostics';
@@ -30,15 +31,15 @@ const results = [];
 const baseEnv = { ...process.env, PATH: `${nodeModulesBin}${path.delimiter}${process.env.PATH || ''}` };
 
 fs.writeFileSync(timingFile, '');
-fs.writeFileSync(mvpTimingFile, '');
 fs.rmSync(diagnosticsOutput, { recursive: true, force: true });
+fs.mkdirSync(diagnosticsOutput, { recursive: true });
 
 function nodeStep(name, relative, args = [], env = {}) {
-  return { name, command: process.execPath, args: [path.join(productRoot, relative), ...args], cwd: productRoot, env: { ...baseEnv, ...env } };
+  return { name, command: process.execPath, args: [path.join(productRoot, relative), ...args], cwd: productRoot, env: { ...baseEnv, ...env }, diagnosticsDirectory: diagnosticsOutput, budgetMs: candidateStepBudget(name) };
 }
 
 function commandStep(name, command, args = [], env = {}, options = {}) {
-  return { name, command, args, cwd: productRoot, env: { ...baseEnv, ...env }, shell: options.shell ?? false };
+  return { name, command, args, cwd: productRoot, env: { ...baseEnv, ...env }, shell: options.shell ?? false, diagnosticsDirectory: diagnosticsOutput, budgetMs: candidateStepBudget(name) };
 }
 
 function printStart(step) {
@@ -67,6 +68,11 @@ async function runBatch(steps) {
 }
 
 function recordInlineResult(name, startedAt, error = null) {
+  const diagnosticBase = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const stdoutPath = path.join(diagnosticsOutput, `${diagnosticBase}.stdout.log`);
+  const stderrPath = path.join(diagnosticsOutput, `${diagnosticBase}.stderr.log`);
+  fs.writeFileSync(stdoutPath, '', 'utf8');
+  fs.writeFileSync(stderrPath, error ? `${error.message}\n` : '', 'utf8');
   const result = {
     name,
     status: error ? 'failed' : 'passed',
@@ -74,6 +80,8 @@ function recordInlineResult(name, startedAt, error = null) {
     durationMs: Date.now() - startedAt,
     stdout: '',
     stderr: error ? `${error.message}\n` : '',
+    stdoutPath,
+    stderrPath,
   };
   results.push(result);
   printResult(result);
@@ -81,7 +89,7 @@ function recordInlineResult(name, startedAt, error = null) {
 }
 
 function writeSummary(status) {
-  const rows = results.map((result) => `${result.name}\t${result.status}\t${result.exitCode}\t${result.durationMs}`).join('\n');
+  const rows = results.map((result) => `${result.name}\t${result.status}\t${result.exitCode}\t${result.durationMs}\t${result.budgetMs ?? ''}\t${result.stdoutPath ?? ''}\t${result.stderrPath ?? ''}`).join('\n');
   fs.writeFileSync(timingFile, rows ? `${rows}\n` : '');
   const report = spawnSync(process.execPath, [
     reporter,
@@ -89,8 +97,8 @@ function writeSummary(status) {
     timingOutput,
     status,
     String(Date.now() - totalStartedAt),
-    mvpTimingFile,
     diagnosticsOutput,
+    String(CANDIDATE_TOTAL_BUDGET_MS),
   ], { cwd: productRoot, encoding: 'utf8', env: baseEnv });
   if (report.stdout) process.stdout.write(report.stdout);
   if (report.stderr) process.stderr.write(report.stderr);
@@ -130,12 +138,13 @@ async function main() {
   ]) if (!await runSerial(step)) return false;
 
   if (!await runBatch([
-    commandStep('temporary workspace end-to-end', path.join(productRoot, 'tools', 'verify-buildr-product-mvp'), [], { ...sharedEnv, BUILDR_MVP_TIMING_FILE: mvpTimingFile, BUILDR_MVP_DIAGNOSTICS_DIR: diagnosticsOutput }),
     nodeStep('capability CLI integration', 'test/capability-cli.integration.mjs'),
     nodeStep('OpenSpec contract fixtures', 'tools/verification/openspec/contract.mjs'),
     commandStep('package check', process.execPath, [buildr, 'package', 'check']),
     nodeStep('runtime adapter parity', 'tools/verification/runtime/adapter-parity.mjs'),
   ])) return false;
+
+  if (!await runBatch(workspaceSuiteSteps({ productRoot, env: baseEnv }).map((step) => ({ ...step, diagnosticsDirectory: diagnosticsOutput })))) return false;
 
   if (!await runBatch([
     nodeStep('repository onboarding from a clean checkout', 'tools/verification/onboarding/repository.mjs'),

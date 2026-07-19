@@ -14,7 +14,6 @@ test('兼容 facade 保持薄入口', () => {
   assert.ok(lines('tools/runtime/render-claude-code.mjs').length <= 100);
   assert.ok(lines('tools/cli/application/doctor.mjs').length <= 250);
   assert.ok(lines('tools/cli/application/package-maintenance.mjs').length <= 550);
-  assert.ok(lines('tools/verify-buildr-product-mvp').length <= 30);
   assert.ok(lines('tools/verify-buildr-product-affected').length <= 100);
 });
 

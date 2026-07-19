@@ -235,7 +235,7 @@ CLI identity 可通过 `buildr --version`、`buildr -V`、`buildr version` 或 `
 - `projects/product/tools/verification/cli/architecture.mjs`
 - `projects/product/tools/verification/cli/compatibility.mjs`
 - `projects/product/tools/verification/cli/package-parity.mjs`
-- `projects/product/tools/verify-buildr-product-mvp`
+- `cd projects/product && npm run test:workspace`（可用稳定 suite id 定点重跑；完整 Candidate 强制运行全部 suites）
 - `projects/product/tools/verification/openspec/contract.mjs`
 - `projects/product/tools/verification/openspec/contract-audit.mjs`
 - `projects/product/tools/verification/release/open-source-candidate.mjs`

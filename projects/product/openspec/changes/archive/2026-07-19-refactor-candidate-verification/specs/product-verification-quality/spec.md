@@ -1,43 +1,4 @@
-# Buildr 产品验证质量
-
-## Purpose
-
-定义 Buildr 候选版本的 Node/操作系统验证范围、正式 tarball 生命周期 smoke，以及可观察但不阻塞的验证耗时记录。
-
-## Requirements
-### Requirement: CI 必须覆盖最低 Node、当前 Node 和目标桌面平台
-Buildr CI MUST 在 Linux Node 20 和 Node 22 上运行完整产品候选验证，并 MUST 在 macOS、Windows Node 22 上运行可移植 release smoke；CI MUST NOT 为已经由 Linux Node 22 完整验证覆盖的相同 release lifecycle 建立独立 Linux smoke job。
-
-#### Scenario: 验证最低 Node 版本
-- **WHEN** push 或 pull request 触发产品 CI
-- **THEN** Linux Node 20 job MUST 安装锁定依赖和支持的 OpenSpec CLI
-- **AND** job MUST 运行完整产品候选验证
-
-#### Scenario: 验证当前 Node 与桌面平台
-- **WHEN** push 或 pull request 触发产品 CI
-- **THEN** Linux Node 22 MUST 运行完整产品候选验证
-- **AND** macOS、Windows Node 22 MUST 运行 standalone release smoke
-- **AND** 桌面平台 job MUST NOT 重复运行只依赖 Node 和产品源码的 unit tests
-
-### Requirement: release smoke 必须验证安装后生命周期
-Buildr MUST 提供不依赖 development checkout runtime 的跨平台 release smoke，使用 standalone npm pack 或同一候选 run 提供的不可变正式 tarball，并使用安装后的 `buildr` 完成初始化、同步、诊断、optional Component 卸载和最终诊断。
-
-#### Scenario: standalone verifier 从候选生成 tarball
-- **WHEN** 维护者或跨平台 CI 独立运行 release smoke
-- **THEN** verifier MUST 执行 `npm pack` 并将 tarball 安装到隔离 prefix
-- **AND** 安装后的 CLI MUST 完成 `init --agent`、独立 `sync` 和 `doctor --json`
-- **AND** 安装后的 CLI MUST 卸载一个 optional Component 并再次运行 `doctor --json`
-- **AND** 两次 doctor MUST 没有 error
-
-#### Scenario: candidate verifier 提供共享 tarball
-- **WHEN** release smoke 收到同一冻结候选 run 生成的 tarball
-- **THEN** verifier MUST 直接安装该 tarball，而不是再次执行 npm pack
-- **AND** verifier MUST 完成与 standalone 模式相同的安装后生命周期
-
-#### Scenario: release smoke 跨平台运行
-- **WHEN** verifier 在 Linux、macOS 或 Windows Node 22 运行
-- **THEN** verifier MUST 使用平台对应的 npm executable 和 installed bin 路径
-- **AND** verifier MUST NOT 依赖 Bash、Unix-only 临时目录命令或固定 `/tmp` 路径
+## MODIFIED Requirements
 
 ### Requirement: 产品验证必须提供分层入口
 Buildr 产品验证 MUST 提供 fast、affected、workspace 和 candidate 分层入口，使普通任务不默认执行候选版系统级验证、开发者可定点重跑 Workspace E2E，同时保证最终候选仍经过完整门禁。
@@ -92,23 +53,6 @@ Buildr candidate verifier MUST 在同一冻结候选 run 内复用不可变 npm 
 - **THEN** candidate verifier MUST 以非零状态失败
 - **AND** timing summary MUST 保留失败 step 的名称、exitCode、durationMs 以及该批次已完成 step 的结果
 
-### Requirement: runtime adapter 验证必须按契约和实现族分层
-Buildr 产品验证 MUST 对全部 supported runtime adapter 执行低成本 descriptor/plan/evidence 契约，并 MUST 仅按不同投射、skills root、checker 或 cleanup 实现语义选择代表执行昂贵 CLI 生命周期。
-
-#### Scenario: 验证全部 supported adapter
-- **WHEN** fast 或 candidate verifier 运行 runtime adapter contract
-- **THEN** contract MUST 遍历全部 supported adapter 的 traits、target、activation、capability evidence 和 RuntimePlan 安全边界
-
-#### Scenario: 验证昂贵 adapter 生命周期
-- **WHEN** affected CLI 或 candidate verifier 运行 runtime adapter parity
-- **THEN** verifier MUST 覆盖 native recursive、per-source reference、same-directory vendor、central vendor 和 root-index bridge 等不同实现族
-- **AND** verifier MUST NOT 仅因多个 adapter 品牌复用同一实现而重复完整 install/render/check/idempotency 生命周期
-
-#### Scenario: scoped render 隔离无关 Project
-- **WHEN** verifier 对某个 Project 执行 scoped render 和 cleanup
-- **THEN** verifier MUST 验证无关 Project 的受管投射仍然存在且内容不变
-- **AND** 该回归 MUST 覆盖 same-directory vendor、central vendor 和 root-index bridge cleanup 模型
-
 ### Requirement: 产品验证必须记录阶段耗时
 Buildr 产品总验证 MUST 记录每个阶段和整体 wall-clock elapsed milliseconds，MUST 为 Candidate 总耗时和 Workspace E2E suites 声明目标预算，并 MUST 在成功或失败时生成可供 CI 保存的机器可读 timing summary。
 
@@ -140,26 +84,7 @@ Buildr 产品总验证 MUST 记录每个阶段和整体 wall-clock elapsed milli
 - **WHEN** 有预算的阶段耗时不超过声明预算
 - **THEN** timing summary MUST 将对应 `budgetStatus` 记录为 `within`
 
-### Requirement: 产品总验证必须包含开源候选门禁
-Buildr 产品总验证 MUST 运行开源候选安全 verifier，并 MUST 在公开 metadata、tracked candidate 或 npm tarball inventory 不满足发布边界时失败。
-
-#### Scenario: 验证最终产品候选
-- **WHEN** 维护者运行 `tools/verify-buildr-product`
-- **THEN** verifier MUST 在最终成功前运行开源候选安全检查
-- **AND** timing summary MUST 将该检查记录为独立阶段
-
-### Requirement: Timing summary 必须支持开发完成报告
-Buildr verification timing summary MUST 提供总耗时、每阶段名称/状态/耗时和失败退出状态，使 Agent 能确定最慢阶段、失败阶段和 summary 路径。
-
-#### Scenario: Agent 汇报成功验证
-- **WHEN** 产品完整验证成功并生成 timing summary
-- **THEN** summary MUST 足以确定 totalDurationMs 和耗时最长的 step
-- **AND** 产品验证输出 MUST 显示 summary 的绝对路径
-
-#### Scenario: Agent 汇报失败验证
-- **WHEN** 产品完整验证失败并生成 timing summary
-- **THEN** summary MUST 标记整体失败状态和失败 step
-- **AND** 失败 step MUST 保留非零 exitCode 与 durationMs
+## ADDED Requirements
 
 ### Requirement: 验证覆盖必须具有可追踪 owner
 Buildr 产品验证 MUST 维护面向维护者的覆盖职责矩阵，使被删除的聚合 E2E 类别可以追溯到当前 focused verifier 或 Workspace E2E owner。

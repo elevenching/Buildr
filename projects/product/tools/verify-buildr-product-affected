@@ -7,10 +7,12 @@ export PATH="$product_root/node_modules/.bin:$PATH"
 usage() {
   cat <<'EOF'
 Usage: tools/verify-buildr-product-affected <group> [group...]
+       tools/verify-buildr-product-affected --help
 
 Groups:
   public    Public metadata, bilingual README, and npm tarball inventory
-  cli       CLI architecture, compatibility, package parity, and runtime adapters
+  cli       CLI architecture, compatibility, and package parity
+  runtime   Runtime adapter contract and implementation-family parity
   package   Package assets, managed mutations, and managed data integrity
   openspec  OpenSpec fixtures, candidate audit, spec quality, and strict validation
   release   Public candidate and packed release lifecycle
@@ -24,6 +26,31 @@ if [[ "$#" -eq 0 ]]; then
   usage >&2
   exit 2
 fi
+
+if [[ "$#" -eq 1 && ( "$1" == "--help" || "$1" == "-h" ) ]]; then
+  usage
+  exit 0
+fi
+
+groups=()
+seen_groups=" "
+for group in "$@"; do
+  case "$group" in
+    public|cli|runtime|package|openspec|release) ;;
+    *)
+      echo "Unknown affected verification group: $group" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  case "$seen_groups" in
+    *" $group "*) ;;
+    *)
+      groups+=("$group")
+      seen_groups="$seen_groups$group "
+      ;;
+  esac
+done
 
 cd "$product_root"
 npm run test:fast
@@ -40,7 +67,7 @@ run_once() {
   "$@"
 }
 
-for group in "$@"; do
+for group in "${groups[@]}"; do
   case "$group" in
     public)
       run_once open-source-candidate node tools/verification/release/open-source-candidate.mjs
@@ -48,6 +75,8 @@ for group in "$@"; do
     cli)
       run_once cli-compatibility node tools/verification/cli/compatibility.mjs
       run_once cli-package-parity node tools/verification/cli/package-parity.mjs
+      ;;
+    runtime)
       run_once runtime-adapter-parity node tools/verification/runtime/adapter-parity.mjs
       ;;
     package)
@@ -63,12 +92,7 @@ for group in "$@"; do
       run_once open-source-candidate node tools/verification/release/open-source-candidate.mjs
       run_once release-smoke node tools/verification/release/release-smoke.mjs
       ;;
-    *)
-      echo "Unknown affected verification group: $group" >&2
-      usage >&2
-      exit 2
-      ;;
   esac
 done
 
-echo "Buildr affected verification passed: $*"
+echo "Buildr affected verification passed: ${groups[*]}"

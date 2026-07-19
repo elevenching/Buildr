@@ -84,14 +84,19 @@ function trackedFiles() {
   return result.stdout.toString('utf8').split('\0').filter(Boolean);
 }
 
-function inspectTrackedCandidate() {
+export function inspectCandidatePaths(root, relativePaths) {
   const findings = [];
-  for (const relativePath of trackedFiles()) {
-    const absolutePath = path.join(workspaceRoot, relativePath);
+  for (const relativePath of relativePaths) {
+    const absolutePath = path.join(root, relativePath);
+    if (!fs.statSync(absolutePath, { throwIfNoEntry: false })?.isFile()) continue;
     const buffer = fs.readFileSync(absolutePath);
     findings.push(...inspectCandidateFile(relativePath, buffer.toString('utf8'), buffer.length));
   }
   return findings;
+}
+
+function inspectTrackedCandidate() {
+  return inspectCandidatePaths(workspaceRoot, trackedFiles());
 }
 
 function packAndInspect() {
