@@ -5,10 +5,10 @@ import process from 'node:process';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { selectWorkspaceSuites, workspaceSuiteSteps, workspaceSuites } from '../tools/verification/workspace/suites.mjs';
-import { createSuiteFixture } from '../tools/verification/workspace/fixture.mjs';
+import { selectWorkspaceSuites, workspaceSuiteSteps, workspaceSuites } from '../../tools/verification/workspace/suites.mjs';
+import { createSuiteFixture } from '../../tools/verification/workspace/fixture.mjs';
 
-const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const runner = path.join(productRoot, 'tools', 'verification', 'workspace', 'run.mjs');
 
 test('Workspace E2E registry exposes stable independent suites', () => {

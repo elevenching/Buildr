@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { execFileSync } from 'node:child_process';
@@ -10,21 +11,21 @@ import {
   matchesInput,
   normalizeProductPath,
   validateVerificationRegistry,
-} from '../tools/verification/planner.mjs';
-import { verificationSteps } from '../tools/verification/registry.mjs';
+} from '../../tools/verification/planner.mjs';
+import { verificationSteps } from '../../tools/verification/registry.mjs';
 
-const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ids = (plan) => plan.steps.map((step) => step.id);
 
-test('统一 registry 固化 fast 与 30-step Candidate 基线', () => {
+test('统一 registry 固化 fast 与 32-step Candidate 基线', () => {
   const validation = validateVerificationRegistry();
   assert.deepEqual(validation, { ok: true, findings: [] });
   assert.equal(new Set(verificationSteps.map((step) => step.id)).size, verificationSteps.length);
   assert.deepEqual(ids(createVerificationPlan({ profiles: ['fast'] })), [
-    'unit', 'cli-architecture', 'openspec-spec-quality', 'openspec-strict', 'runtime-adapter-contract',
+    'unit', 'contract', 'integration-fast', 'cli-architecture', 'openspec-spec-quality', 'openspec-strict', 'runtime-adapter-contract',
   ]);
   const candidate = createVerificationPlan({ profiles: ['candidate'] });
-  assert.equal(candidate.steps.length, 30);
+  assert.equal(candidate.steps.length, 32);
   for (const required of [
     'candidate-tarball', 'capability-cli-integration', 'package-static', 'package-runtime',
     'runtime-adapter-parity', 'workspace-lifecycle', 'runtime-reconciliation',
@@ -49,7 +50,7 @@ test('docs-only changed plan 只选择轻量文档 owner', () => {
 
 test('CLI 与 OpenSpec 路径选择 owner 并展开依赖', () => {
   const cli = ids(createVerificationPlan({ paths: ['tools/cli/domains/rules.mjs'] }));
-  for (const required of ['unit', 'cli-architecture', 'candidate-tarball', 'cli-compatibility', 'cli-package-parity', 'package-rules', 'managed-mutations', 'managed-data-integrity']) {
+  for (const required of ['unit', 'contract', 'integration-fast', 'cli-architecture', 'candidate-tarball', 'cli-compatibility', 'cli-package-parity', 'package-rules', 'managed-mutations', 'managed-data-integrity']) {
     assert.ok(cli.includes(required), `CLI plan must include ${required}`);
   }
   const openspec = ids(createVerificationPlan({ paths: ['openspec/specs/product-verification-quality/spec.md'] }));
@@ -79,9 +80,11 @@ test('registry validation 在启动前拒绝重复、未知依赖、未知 execu
   }
 });
 
-test('tracked Product inventory 每条路径都有 verifier owner 或显式 ignore', () => {
-  const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: productRoot, encoding: 'utf8' }).split('\0').filter(Boolean);
-  const audit = auditVerificationInputCoverage(tracked);
+test('当前 Product inventory 每条路径都有 verifier owner 或显式 ignore', () => {
+  const inventory = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: productRoot, encoding: 'utf8' })
+    .split('\0')
+    .filter((relative) => relative && fs.existsSync(path.join(productRoot, relative)));
+  const audit = auditVerificationInputCoverage(inventory);
   assert.deepEqual(audit.unmapped, []);
   assert.equal(audit.ok, true);
 });

@@ -7,9 +7,9 @@ import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../tools/cli/shared/json-contracts.mjs';
+import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../../tools/cli/shared/json-contracts.mjs';
 
-const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const buildr = path.join(productRoot, 'tools', 'buildr');
 
 function run(args, options = {}) {

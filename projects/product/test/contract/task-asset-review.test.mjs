@@ -4,7 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (relative) => fs.readFileSync(path.join(productRoot, relative), 'utf8');
 const fixtures = JSON.parse(read('test/fixtures/task-asset-review.json'));
 const reviewSkill = read('package/targets/workspace/skills/buildr/task-asset-review/SKILL.md');

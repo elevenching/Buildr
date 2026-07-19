@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { runVerificationDag } from '../tools/verification/dag-scheduler.mjs';
+import { runVerificationDag } from '../../tools/verification/dag-scheduler.mjs';
 
 const step = (id, dependsOn = [], concurrencyClass = 'default') => ({ id, name: id, dependsOn, concurrencyClass });
 const plan = (steps) => ({ steps });

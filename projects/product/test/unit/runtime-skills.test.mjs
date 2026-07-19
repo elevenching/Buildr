@@ -7,17 +7,17 @@ import test from 'node:test';
 import {
   parseInstallClaudeCodeBuildrSkillArgs,
   parseRenderClaudeCodeArgs,
-} from '../tools/runtime/skills/arguments.mjs';
-import { parseSkillsManifest } from '../tools/runtime/skills/manifests.mjs';
+} from '../../tools/runtime/skills/arguments.mjs';
+import { parseSkillsManifest } from '../../tools/runtime/skills/manifests.mjs';
 import {
   normalizeRelativePath,
   resolveSkillScope,
-} from '../tools/runtime/skills/primitives.mjs';
+} from '../../tools/runtime/skills/primitives.mjs';
 import {
   buildAgentInstallPlanContent,
   buildRuntimeSkillTarget,
   hasManagedSkillMarker,
-} from '../tools/runtime/skills/render-plan.mjs';
+} from '../../tools/runtime/skills/render-plan.mjs';
 
 test('render 参数解析拒绝未知和缺失参数', (t) => {
   t.mock.method(console, 'error', () => {});

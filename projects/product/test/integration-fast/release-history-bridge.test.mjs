@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { bridgeMainToDev } from '../tools/cli/application/release/bridge-main-to-dev.mjs';
+import { bridgeMainToDev } from '../../tools/cli/application/release/bridge-main-to-dev.mjs';
 
 function git(cwd, ...args) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' });

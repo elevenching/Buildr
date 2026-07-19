@@ -58,11 +58,20 @@
 
 开发期间只在单任务后做最小反馈检查，在相关任务组完成后做一次受影响范围验证；不要逐任务运行本节的完整验证。验证命令仍在运行或暂时无输出时继续等待同一进程，不重复启动。
 
-普通任务默认运行 fast gate；该入口只包含 unit、架构、canonical spec quality/strict 和全部 runtime adapter 低成本契约，不创建临时用户 workspace，也不执行 npm pack/install 或 Workspace E2E：
+普通任务默认运行 fast gate；该入口并行聚合 unit、静态契约、fast integration、架构、canonical spec quality/strict 和全部 runtime adapter 低成本契约，不创建完整临时用户 workspace，也不执行 npm pack/install 或 Workspace E2E：
 
 ```bash
 npm test
 # 等价于 npm run test:fast
+```
+
+需要定位 Node test 层级或观察真实 unit coverage 时使用独立入口；coverage summary 是观察证据，不是当前 Candidate 的全局百分比硬门禁：
+
+```bash
+npm run test:unit
+npm run test:contract
+npm run test:integration:fast
+npm run test:coverage:unit -- --summary /tmp/buildr-unit-coverage.json
 ```
 
 已知改动路径时优先让统一 planner 自动选择受影响 DAG。无路径时读取当前分支相对 upstream（fallback `origin/dev`）以及 staged、unstaged、untracked 改动；`--plan` 只解释计划，`--json` 输出机器可读计划。普通文档改词通常只运行 docs quality；未映射路径直接失败，要求补 owner，不能静默跳过：

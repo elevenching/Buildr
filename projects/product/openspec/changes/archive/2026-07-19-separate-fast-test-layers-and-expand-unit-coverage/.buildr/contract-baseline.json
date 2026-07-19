@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "separate-fast-test-layers-and-expand-unit-coverage",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-e69ec9c66a742569eb411e7ffc36c8314a04c903cee26ed435bdf58779cda995",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "product-verification-quality",
+      "title": "低成本 Node 验证必须按测试语义分层",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "单元测试覆盖率必须独立可观察",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

@@ -5,8 +5,8 @@ import path from 'node:path';
 import test from 'node:test';
 import YAML from 'yaml';
 
-import { getRuntimeAdapter, SUPPORTED_AGENT_IDS } from '../tools/runtime/adapter-contract.mjs';
-import { buildSkillContent, hasManagedSkillMarker, resolveRenderSkills } from '../tools/runtime/skills/render-plan.mjs';
+import { getRuntimeAdapter, SUPPORTED_AGENT_IDS } from '../../tools/runtime/adapter-contract.mjs';
+import { buildSkillContent, hasManagedSkillMarker, resolveRenderSkills } from '../../tools/runtime/skills/render-plan.mjs';
 
 const sections = ['Purpose', 'Consumer Obligations', 'Minimum Guarantees', 'Effects and Authorization', 'Result Evidence', 'Decision Points', 'Allowed Variations'];
 

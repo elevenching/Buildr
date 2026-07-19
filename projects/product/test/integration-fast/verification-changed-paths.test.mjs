@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { execFileSync } from 'node:child_process';
-import { collectChangedProductPaths, resolveVerificationBase } from '../tools/verification/changed-paths.mjs';
+import { collectChangedProductPaths, resolveVerificationBase } from '../../tools/verification/changed-paths.mjs';
 
 function git(root, args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });

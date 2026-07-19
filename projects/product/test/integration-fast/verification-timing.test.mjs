@@ -6,10 +6,10 @@ import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { runVerificationBatch, runVerificationStep } from '../tools/verification/timing/parallel-runner.mjs';
-import { candidateStepBudget } from '../tools/verification/timing/budgets.mjs';
+import { runVerificationBatch, runVerificationStep } from '../../tools/verification/timing/parallel-runner.mjs';
+import { candidateStepBudget } from '../../tools/verification/timing/budgets.mjs';
 
-const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const reporter = path.join(productRoot, 'tools', 'verification', 'timing', 'report.mjs');
 
 test('verification timing reporter emits a versioned machine-readable summary', () => {

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 import YAML from 'yaml';
 
+// These tests own the static contract between packaged assets, manifests, and public guidance.
 const read = (path) => fs.readFileSync(path, 'utf8');
 const packageManifest = YAML.parse(read('package/manifest.yml'));
 const workspaceManifest = YAML.parse(read('package/targets/workspace/skills/manifest.yml'));

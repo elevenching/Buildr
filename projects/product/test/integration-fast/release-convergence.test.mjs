@@ -5,8 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { bridgeMainToDev } from '../tools/cli/application/release/bridge-main-to-dev.mjs';
-import { checkReleaseConvergence } from '../tools/verification/release/release-convergence.mjs';
+import { bridgeMainToDev } from '../../tools/cli/application/release/bridge-main-to-dev.mjs';
+import { checkReleaseConvergence } from '../../tools/verification/release/release-convergence.mjs';
 
 function git(cwd, ...args) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' });

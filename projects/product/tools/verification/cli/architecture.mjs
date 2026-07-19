@@ -152,7 +152,7 @@ if (/\b(?:nodeStep|commandStep|runBatch|workspaceSuiteSteps|candidateStepBudget)
 for (const module of ['registry.mjs', 'planner.mjs', 'dag-scheduler.mjs', 'executor.mjs', 'plan-runner.mjs', 'changed.mjs']) {
   if (!fs.existsSync(path.join(productRoot, 'tools', 'verification', module))) problems.push(`missing verification planning module: ${module}`);
 }
-if (verificationSteps.filter((step) => step.profiles.includes('candidate')).length !== 30) problems.push('candidate profile must retain exactly 30 gates');
+if (verificationSteps.filter((step) => step.profiles.includes('candidate')).length !== 32) problems.push('candidate profile must retain exactly 32 gates');
 if (verificationSteps.filter((step) => step.executor.type === 'candidate-artifact').length !== 1) problems.push('verification registry must declare exactly one candidate artifact');
 if (fs.existsSync(path.join(productRoot, 'tools', 'verify-buildr-product-mvp'))) problems.push('legacy MVP verification entry must be removed');
 if (fs.existsSync(path.join(productRoot, 'tools', 'verify', 'mvp'))) problems.push('legacy MVP verification scenarios must be removed');

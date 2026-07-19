@@ -11,11 +11,11 @@ import {
   inspectPackageMetadata,
   inspectPackageVersionConsistency,
   inspectTarballFiles,
-} from '../tools/verification/release/open-source-candidate.mjs';
-import { resolveReleaseContract } from '../tools/verification/release/release-contract.mjs';
-import { extractReleaseNotes } from '../tools/verification/release/release-notes.mjs';
-import { registryVersionState } from '../tools/verification/release/registry-version-state.mjs';
-import { readSharedCandidatePackage } from '../tools/verification/release/candidate-package.mjs';
+} from '../../tools/verification/release/open-source-candidate.mjs';
+import { resolveReleaseContract } from '../../tools/verification/release/release-contract.mjs';
+import { extractReleaseNotes } from '../../tools/verification/release/release-notes.mjs';
+import { registryVersionState } from '../../tools/verification/release/registry-version-state.mjs';
+import { readSharedCandidatePackage } from '../../tools/verification/release/candidate-package.mjs';
 
 test('open-source candidate content rules block secrets without echoing values', () => {
   const secret = ['-----BEGIN ', 'PRIVATE KEY-----'].join('');
@@ -155,7 +155,7 @@ test('release notes fail closed for missing, duplicate, or empty target sections
 });
 
 test('publish workflow is tag-gated, OIDC-ready, and token-free', () => {
-  const workflow = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../.github/workflows/publish.yml'), 'utf8');
+  const workflow = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../.github/workflows/publish.yml'), 'utf8');
   for (const required of [
     'tags:', 'id-token: write', 'environment: npm-production', 'release-contract.mjs',
     'release-notes.mjs', './tools/verify-buildr-product', 'registry-version-state.mjs',
@@ -172,7 +172,7 @@ test('publish workflow is tag-gated, OIDC-ready, and token-free', () => {
 });
 
 test('Buildr release Skill fixes release identity, dependency preparation, and tree-gated history bridging', () => {
-  const skill = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../skills/buildr-release/SKILL.md'), 'utf8');
+  const skill = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../skills/buildr-release/SKILL.md'), 'utf8');
   const identity = skill.indexOf('tasks/release-<version>');
   const npmCi = skill.indexOf('`npm ci`');
   const versionMutation = skill.indexOf('`package.json`');

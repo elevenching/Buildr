@@ -6,13 +6,32 @@
 
 | 层级 | 主职责 | 不承担 |
 | --- | --- | --- |
-| test:fast | Node tests、架构、canonical spec quality/strict、runtime adapter 低成本契约 | 临时用户 workspace、npm pack/install、网络和完整生命周期 |
+| test:unit | 同进程直接调用 parser、validator、planner、diagnostics 和 domain 纯逻辑；允许受控小型文件 fixture | 真实 CLI/Git/npm 子进程、静态文档契约和产品生命周期 |
+| test:contract | 源码结构、manifest、docs、Skills、schema 与 entrypoint declaration 的静态一致性 | 把聚合执行覆盖率标记为 unit coverage |
+| test:integration:fast | 真实 CLI/Git 子进程或多模块组合的低成本集成 | 完整用户 workspace、npm pack/install、网络和发布生命周期 |
+| test:fast | 并行聚合 unit、contract、fast integration、架构、canonical spec quality/strict 和 runtime adapter 低成本契约 | 临时用户 workspace、npm pack/install、网络和完整生命周期 |
 | test:affected | 人工选择领域专项，复用一次 fast，并按 step identity 去重 | 根据 Git diff 自动推断范围、证明最终候选完整 |
 | test:changed | 根据 Git diff 或显式 Product 路径从统一 registry 生成最小 DAG，并解释选择原因 | 替代正式 Candidate、猜测未声明路径的影响 |
 | test:workspace | 必须依赖同一真实 workspace 连续状态演进的跨组件黄金路径 | 全量 help、全 adapter parity、onboarding 分支和 tarball inventory |
 | test:candidate | 聚合全部发布、安全、package、runtime、OpenSpec、managed data 和 Workspace E2E 门禁 | 开发期最小反馈 |
 
-所有入口共享 `tools/verification/registry.mjs` 中的 step identity、executor、inputs、依赖、profile/group、预算和并发类别。`test:changed` 对未被任何 input 或显式 ignore 覆盖的 Product 路径 fail closed；`test:candidate` 固定选择完整 30-step profile，不读取 Git diff。
+所有入口共享 `tools/verification/registry.mjs` 中的 step identity、executor、inputs、依赖、profile/group、预算和并发类别。`test:changed` 对未被任何 input 或显式 ignore 覆盖的 Product 路径 fail closed；`test:candidate` 固定选择完整 32-step profile，不读取 Git diff。
+
+## Unit coverage 与核心 owner
+
+`npm run test:coverage:unit -- --summary <path>` 只执行 `test/unit/*.test.mjs`，使用 Node 内置 coverage 输出人类报告和 `buildr.unit-coverage/v1` JSON。分层后的首个 unit-only 基线为 30 tests、25 个实际加载的产品模块，line 46.16%、branch 68.42%、function 48.90%；它与分层前 84 tests 的 fast 聚合 line 53.55% 不可直接比较。
+
+| 核心区域 | 当前直接 unit owner | 其他必要 owner | 后续缺口 |
+| --- | --- | --- | --- |
+| verification planner / DAG / registry | `verification-planner`、`verification-dag-scheduler`、`unit-coverage` | entrypoint contract、Candidate timing | 已具备直接 owner，继续按新分支补测 |
+| runtime Skills / capability resolver | `runtime-skills`、`capability-contracts`、`capability-runtime` | runtime contract/parity、Workspace reconciliation | checker/projection 生命周期保留 focused integration |
+| package validation | package verifier selector unit | package static 与六个 package focused verifiers | `static-validation` 大模块后续按纯 validator 提取再补，不伪造 unit |
+| doctor diagnostics | runtime/scope diagnostics unit | CLI compatibility、Workspace final doctor | capability、service diagnostics 可按风险继续补直接 owner |
+| CLI Commands domain | collection、manifest、version 纯逻辑 unit | package Commands integration、workspace lifecycle | mutation、filesystem ownership 保留 focused integration |
+| 其他 CLI domains | 暂无完整直接 owner | package Rules/Skills/runtime、CLI compatibility、Workspace E2E | 优先提取稳定 parser/validator；不直接把 command handler 生命周期塞入 unit |
+| remote/runtime checker | argument/manifest/render-plan 间接 owner | remote timeout、runtime adapter contract/parity | network 和真实 runtime filesystem 保留专项；纯结果归一化可继续提取 |
+
+当前不设置全局覆盖率发布阈值。先以 unit-only summary 观察趋势和核心 owner；未来阈值应基于新增代码或稳定风险区域，而不是要求所有薄 wrapper、platform adapter 和生命周期编排达到同一百分比。
 
 ## 旧 MVP section 迁移归属
 
@@ -55,4 +74,4 @@
 
 无 selector 的 `buildr package check` 在一个兼容 fixture 中聚合相同断言，避免维护命令因隔离 steps 增加重复初始化；Candidate 使用隔离 fixture 并行执行，保留每步 timing、budget 和 stdout/stderr diagnostics。拆分前基线为 14.77 秒，兼容聚合拆分后为 14.66 秒；隔离 steps 并行实测墙钟约 9.4 秒。
 
-新增测试时先确定主 owner：单函数和错误分支优先 Node unit；单命令/单领域状态变化进入 focused integration；只有跨多个命令和组件、且必须共享连续 workspace 状态时才进入 Workspace E2E。
+新增测试时先确定主 owner：同进程单函数和错误分支优先 `test/unit`；源码/manifest/docs 一致性进入 `test/contract`；真实 CLI/Git 子进程但仍低成本的组合进入 `test/integration:fast`；单领域完整状态变化进入 focused integration；只有跨多个命令和组件、且必须共享连续 workspace 状态时才进入 Workspace E2E。

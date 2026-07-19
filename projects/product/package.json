@@ -57,7 +57,10 @@
   "scripts": {
     "test": "./tools/verify-buildr-product-fast",
     "test:fast": "./tools/verify-buildr-product-fast",
-    "test:unit": "node --test test/*.test.mjs",
+    "test:unit": "node --test test/unit/*.test.mjs",
+    "test:contract": "node --test test/contract/*.test.mjs",
+    "test:integration:fast": "node --test test/integration-fast/*.test.mjs",
+    "test:coverage:unit": "node tools/verification/unit-coverage.mjs",
     "test:affected": "./tools/verify-buildr-product-affected",
     "test:changed": "node tools/verification/changed.mjs",
     "test:package": "node tools/verification/package/run.mjs",

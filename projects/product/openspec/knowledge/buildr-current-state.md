@@ -227,6 +227,10 @@ CLI identity 可通过 `buildr --version`、`buildr -V`、`buildr version` 或 `
 
 当前产品验证入口包括：
 
+- `cd projects/product && npm run test:unit`（同进程直接 unit owner）
+- `cd projects/product && npm run test:contract`（源码、manifest、docs、Skills 与 entrypoint 静态契约）
+- `cd projects/product && npm run test:integration:fast`（真实 CLI/Git 子进程的低成本集成）
+- `cd projects/product && npm run test:coverage:unit -- --summary <path>`（独立 unit-only coverage，不作为当前全局发布阈值）
 - `projects/product/buildr package check`
 - `projects/product/tools/verification/onboarding/repository.mjs`
 - `projects/product/tools/verification/onboarding/init.mjs`

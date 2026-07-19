@@ -5,18 +5,22 @@ import process from 'node:process';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { PACKAGE_VERIFIERS, selectPackageVerifiers } from '../tools/cli/application/package-maintenance/verification-registry.mjs';
-import { createVerificationPlan } from '../tools/verification/planner.mjs';
-import { verificationSteps } from '../tools/verification/registry.mjs';
-import { workspaceSuites } from '../tools/verification/workspace/suites.mjs';
+import { PACKAGE_VERIFIERS, selectPackageVerifiers } from '../../tools/cli/application/package-maintenance/verification-registry.mjs';
+import { createVerificationPlan } from '../../tools/verification/planner.mjs';
+import { verificationSteps } from '../../tools/verification/registry.mjs';
+import { workspaceSuites } from '../../tools/verification/workspace/suites.mjs';
 
-const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (relative) => fs.readFileSync(path.join(productRoot, relative), 'utf8');
 
 test('product verification exposes fast, affected, workspace, and candidate layers', () => {
   const scripts = JSON.parse(read('package.json')).scripts;
   assert.equal(scripts.test, './tools/verify-buildr-product-fast');
   assert.equal(scripts['test:fast'], './tools/verify-buildr-product-fast');
+  assert.equal(scripts['test:unit'], 'node --test test/unit/*.test.mjs');
+  assert.equal(scripts['test:contract'], 'node --test test/contract/*.test.mjs');
+  assert.equal(scripts['test:integration:fast'], 'node --test test/integration-fast/*.test.mjs');
+  assert.equal(scripts['test:coverage:unit'], 'node tools/verification/unit-coverage.mjs');
   assert.equal(scripts['test:affected'], './tools/verify-buildr-product-affected');
   assert.equal(scripts['test:changed'], 'node tools/verification/changed.mjs');
   assert.equal(scripts['test:package'], 'node tools/verification/package/run.mjs');
@@ -26,7 +30,7 @@ test('product verification exposes fast, affected, workspace, and candidate laye
   const fast = read('tools/verify-buildr-product-fast');
   assert.match(fast, /verification\/profile\.mjs" fast/);
   const fastIds = createVerificationPlan({ profiles: ['fast'] }).steps.map((step) => step.id);
-  assert.deepEqual(fastIds, ['unit', 'cli-architecture', 'openspec-spec-quality', 'openspec-strict', 'runtime-adapter-contract']);
+  assert.deepEqual(fastIds, ['unit', 'contract', 'integration-fast', 'cli-architecture', 'openspec-spec-quality', 'openspec-strict', 'runtime-adapter-contract']);
   for (const forbidden of ['npm pack', 'npm install', 'verification/workspace/run.mjs', 'release-smoke.mjs']) {
     assert.equal(fast.includes(forbidden), false, `fast verifier must exclude ${forbidden}`);
   }
@@ -62,9 +66,11 @@ test('candidate verification retains every release gate and split package steps'
   assert.ok(candidate.includes("profiles: ['candidate']"));
   assert.ok(candidate.split(/\r?\n/).length < 100);
   const candidatePlan = createVerificationPlan({ profiles: ['candidate'] });
-  assert.equal(candidatePlan.steps.length, 30);
+  assert.equal(candidatePlan.steps.length, 32);
   for (const stage of [
     'fine-grained unit tests',
+    'static contract tests',
+    'fast integration tests',
     'CLI modular architecture',
     'OpenSpec canonical spec quality',
     'openspec strict validation',

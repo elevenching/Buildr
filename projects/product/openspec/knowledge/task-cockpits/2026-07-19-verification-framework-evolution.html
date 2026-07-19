@@ -173,29 +173,29 @@
     "meta": {
       "title": "Buildr 验证框架演进",
       "taskId": "verification-framework-evolution",
-      "status": "进行中",
-      "phase": "批次 3 / 4 已完成",
-      "taskProgress": "批次 1-3 完成，批次 4 待开始",
-      "updatedAt": "2026-07-19 17:31",
+      "status": "已完成",
+      "phase": "批次 4 / 4 已完成",
+      "taskProgress": "四个批次全部完成",
+      "updatedAt": "2026-07-19 18:28",
       "relativePath": "projects/product/openspec/knowledge/task-cockpits/2026-07-19-verification-framework-evolution.html"
     },
     "overview": {
       "purpose": "把 Buildr 验证框架从已经完成的 Candidate/Workspace 分层，继续演进为职责清晰、可诊断、可按改动规划并可量化单元测试覆盖率的长期体系。",
-      "conclusion": "前三批已完成；验证框架已统一为 registry 驱动的 bounded DAG，并提供 diff-aware test:changed。",
-      "currentFocus": "第三批 26/26 tasks 和完整 Candidate 已通过；下一批将探索 unit 覆盖率事实与测试层级缺口。",
-      "userAttention": "当前无阻塞；test:changed 只优化开发反馈，正式 Candidate 继续忽略 diff 并执行完整 profile。",
+      "conclusion": "第四批已将原 84 个混合 Node tests 拆为 unit、contract、fast integration 三层；test:fast 和 Candidate 保留完整聚合，unit-only coverage 首次成为可信指标。",
+      "currentFocus": "第四批实现、OpenSpec strict、cli/package/openspec affected 和 32-step Candidate 均已通过。",
+      "userAttention": "当前无阻塞；unit-only 基线 line 46.16%、branch 68.42%、function 48.90%，后续按风险补 owner，不设置全局硬阈值。",
       "highlights": {
         "done": {
           "title": "已经完成",
-          "text": "批次一、二均已归档并合入 origin/dev；Candidate/Workspace/package 分层和独立 diagnostics 已稳定。"
+          "text": "批次一至三均已归档并合入 origin/dev；第三批提交 7c46fc8，统一 registry/DAG 与 test:changed 已稳定。"
         },
         "current": {
-          "title": "正在进行",
-          "text": "第三批 26/26 tasks 完成；30-step Candidate 53.842 秒通过，全部预算内并生成 60 份 diagnostics。"
+          "title": "本批完成",
+          "text": "第四批已完成 30 unit、32 contract、29 fast integration tests；Commands domain、doctor diagnostics 和 package selector 新增直接 unit owner。"
         },
         "next": {
-          "title": "下一步",
-          "text": "归档第三批 change；第四批先建立 unit coverage 基线，再按风险决定补测与阈值。"
+          "title": "后续演进",
+          "text": "按新增代码和高风险模块逐步补直接 unit owner；阈值需基于稳定趋势另行决策。"
         }
       },
       "blockers": [],
@@ -258,15 +258,15 @@
           ]
         },
         {
-          "label": "下一批",
-          "status": "current",
+          "label": "已完成",
+          "status": "done",
           "title": "批次四：Unit 覆盖率探索与完善",
-          "summary": "先建立覆盖事实，再决定最值得补齐的单元测试，不以数字达标替代风险判断。",
+          "summary": "测试职责已完成分层并建立 unit-only 覆盖基线，等待最终 Candidate 证据。",
           "items": [
-            "选择 Node 20/22 可维护的覆盖率采集方式并建立稳定基线。",
-            "按核心领域、错误分支和未覆盖高风险模块分析缺口。",
-            "区分 unit、integration 和 E2E，修正 test:unit 的分类与发现规则。",
-            "形成阈值、豁免、趋势和新增代码覆盖策略，并分批补测试。"
+            "test:unit 只发现 30 个同进程 tests；test:contract 32 个、test:integration:fast 29 个，原 84 个测试覆盖没有删除。",
+            "registry 将三层作为独立 step 并行聚合；Candidate profile 从 30 个 gate 增至 32 个 gate。",
+            "新增 buildr.unit-coverage/v1 summary；unit-only 基线为 25 个加载模块，line 46.16%、branch 68.42%、function 48.90%。",
+            "Commands domain、runtime/scope doctor diagnostics 和 package verifier selector 已有直接 unit owner；其他大 domain 继续按可隔离纯逻辑逐步提取。"
           ]
         }
       ]
@@ -327,7 +327,15 @@
         },
         {
           "title": "批次三契约状态",
-          "text": "introduce-verification-planning-dag 4/4 artifacts 完成；统一 registry/planner/DAG 与兼容入口实现完成，等待最终 Candidate。"
+          "text": "introduce-verification-planning-dag 已归档并以 7c46fc8 合入 origin/dev；最终 Candidate 30/30 通过。"
+        },
+        {
+          "title": "批次四覆盖基线",
+          "text": "分层后 test:unit 为 30 tests、25 个加载模块，line 46.16%、branch 68.42%、function 48.90%；旧 84 tests 聚合数字不再称为 unit coverage。"
+        },
+        {
+          "title": "核心领域覆盖差异",
+          "text": "Verification 与 runtime Skills 保持直接 owner；本批新增 Commands domain、doctor runtime/scope diagnostics 和 package selector unit，其他 CLI domains 仍由 focused integration 持有并按风险逐步提取。"
         }
       ],
       "files": [
@@ -344,8 +352,12 @@
           "path": "projects/product/openspec/changes/archive/2026-07-19-split-package-check-verification/"
         },
         {
-          "title": "批次三 active change",
-          "path": "projects/product/openspec/changes/introduce-verification-planning-dag/"
+          "title": "批次三归档 change",
+          "path": "projects/product/openspec/changes/archive/2026-07-19-introduce-verification-planning-dag/"
+        },
+        {
+          "title": "批次四归档 change",
+          "path": "projects/product/openspec/changes/archive/2026-07-19-separate-fast-test-layers-and-expand-unit-coverage/"
         },
         {
           "title": "Workspace suite registry",
@@ -380,6 +392,14 @@
         {
           "title": "第三批完整 Candidate",
           "text": "30 个阶段全部通过，总耗时 53.842 秒，全部目标预算 within；最慢 capability CLI integration 23.876 秒，60 个 stdout/stderr diagnostics 文件已落盘。"
+        },
+        {
+          "title": "第四批分层与 coverage",
+          "text": "30 unit、32 contract、29 fast integration tests 和完整 fast profile 全部通过；buildr.unit-coverage/v1 summary 已验证，unit-only line 46.16%、branch 68.42%、function 48.90%。"
+        },
+        {
+          "title": "第四批完整 Candidate",
+          "text": "最终候选 tree 的 32 个阶段全部通过，总耗时 51.584 秒，Candidate 总预算 within；最慢 capability CLI integration 23.737 秒，其次 runtime adapter parity 23.219 秒，无失败阶段。"
         },
         {
           "title": "驾驶舱静态检查",
