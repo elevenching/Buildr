@@ -6,6 +6,9 @@ import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { PACKAGE_VERIFIERS, selectPackageVerifiers } from '../tools/cli/application/package-maintenance/verification-registry.mjs';
+import { createVerificationPlan } from '../tools/verification/planner.mjs';
+import { verificationSteps } from '../tools/verification/registry.mjs';
+import { workspaceSuites } from '../tools/verification/workspace/suites.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relative) => fs.readFileSync(path.join(productRoot, relative), 'utf8');
@@ -15,18 +18,15 @@ test('product verification exposes fast, affected, workspace, and candidate laye
   assert.equal(scripts.test, './tools/verify-buildr-product-fast');
   assert.equal(scripts['test:fast'], './tools/verify-buildr-product-fast');
   assert.equal(scripts['test:affected'], './tools/verify-buildr-product-affected');
+  assert.equal(scripts['test:changed'], 'node tools/verification/changed.mjs');
   assert.equal(scripts['test:package'], 'node tools/verification/package/run.mjs');
   assert.equal(scripts['test:workspace'], 'node tools/verification/workspace/run.mjs');
   assert.equal(scripts['test:candidate'], './tools/verify-buildr-product');
 
   const fast = read('tools/verify-buildr-product-fast');
-  for (const required of [
-    'npm run test:unit',
-    'verification/cli/architecture.mjs',
-    'verification/openspec/spec-quality.mjs',
-    'openspec validate --all --strict',
-    'verification/runtime/adapter-contract.mjs',
-  ]) assert.ok(fast.includes(required), `fast verifier must include ${required}`);
+  assert.match(fast, /verification\/profile\.mjs" fast/);
+  const fastIds = createVerificationPlan({ profiles: ['fast'] }).steps.map((step) => step.id);
+  assert.deepEqual(fastIds, ['unit', 'cli-architecture', 'openspec-spec-quality', 'openspec-strict', 'runtime-adapter-contract']);
   for (const forbidden of ['npm pack', 'npm install', 'verification/workspace/run.mjs', 'release-smoke.mjs']) {
     assert.equal(fast.includes(forbidden), false, `fast verifier must exclude ${forbidden}`);
   }
@@ -34,13 +34,12 @@ test('product verification exposes fast, affected, workspace, and candidate laye
 
 test('affected verification runs fast once and de-duplicates shared steps', () => {
   const affected = read('tools/verify-buildr-product-affected');
-  assert.equal((affected.match(/npm run test:fast/g) || []).length, 1);
-  assert.ok(affected.includes('run_once()'));
-  assert.equal((affected.match(/run_once open-source-candidate/g) || []).length, 2);
-  assert.ok(affected.includes('*" $step_id "*) return 0'));
-  assert.equal(affected.includes('verification/cli/architecture.mjs'), false);
-  assert.equal(affected.includes('verification/runtime/adapter-contract.mjs'), false);
-  assert.ok(affected.includes('runtime)'));
+  assert.match(affected, /verification\/affected\.mjs/);
+  assert.ok(affected.split(/\r?\n/).length < 15);
+  const plan = createVerificationPlan({ profiles: ['fast'], groups: ['public', 'release', 'public'] });
+  assert.equal(plan.steps.filter((step) => step.id === 'unit').length, 1);
+  assert.equal(plan.steps.filter((step) => step.id === 'open-source-candidate').length, 1);
+  assert.equal(plan.steps.filter((step) => step.id === 'candidate-tarball').length, 1);
 });
 
 test('affected verification validates help and unknown groups before fast', () => {
@@ -60,6 +59,10 @@ test('candidate verification retains every release gate and split package steps'
   const wrapper = read('tools/verify-buildr-product');
   const candidate = read('tools/verification/candidate.mjs');
   assert.ok(wrapper.includes('tools/verification/candidate.mjs'));
+  assert.ok(candidate.includes("profiles: ['candidate']"));
+  assert.ok(candidate.split(/\r?\n/).length < 100);
+  const candidatePlan = createVerificationPlan({ profiles: ['candidate'] });
+  assert.equal(candidatePlan.steps.length, 30);
   for (const stage of [
     'fine-grained unit tests',
     'CLI modular architecture',
@@ -82,17 +85,14 @@ test('candidate verification retains every release gate and split package steps'
     'release tarball smoke',
     'managed data integrity',
     'OpenSpec contract fixtures',
-  ]) assert.ok(candidate.includes(`'${stage}'`), `candidate verifier must retain ${stage}`);
-  assert.ok(candidate.includes('PACKAGE_VERIFIERS.map'));
+  ]) assert.ok(candidatePlan.steps.some((step) => step.name === stage), `candidate verifier must retain ${stage}`);
   assert.deepEqual(PACKAGE_VERIFIERS.map((step) => step.id), ['static', 'workspace', 'commands', 'rules', 'skills', 'runtime']);
-  assert.equal((candidate.match(/createCandidatePackage\(/g) || []).length, 1);
-  assert.equal((candidate.match(/runBatch\(\[/g) || []).length, 3);
-  assert.equal((candidate.match(/workspaceSuiteSteps\(/g) || []).length, 1);
-  const workspaceSuites = read('tools/verification/workspace/suites.mjs');
+  assert.equal(verificationSteps.filter((step) => step.executor.type === 'candidate-artifact').length, 1);
+  assert.equal(candidate.includes('createCandidatePackage'), false);
   for (const suite of ['workspace-lifecycle', 'ownership-recovery', 'runtime-reconciliation']) {
-    assert.ok(workspaceSuites.includes(`id: '${suite}'`), `Workspace E2E registry must retain ${suite}`);
+    assert.ok(workspaceSuites.some((step) => step.id === suite), `Workspace E2E registry must retain ${suite}`);
   }
-  assert.ok(candidate.includes("test/capability-cli.integration.mjs"));
+  assert.ok(candidatePlan.steps.some((step) => step.executor.file === 'test/capability-cli.integration.mjs'));
 });
 
 test('package verifier selectors are stable, focused, and fail closed', () => {
@@ -107,4 +107,19 @@ test('package verifier selectors are stable, focused, and fail closed', () => {
   const unknown = spawnSync(process.execPath, [runner, 'unknown'], { cwd: productRoot, encoding: 'utf8' });
   assert.equal(unknown.status, 2);
   assert.match(unknown.stderr, /Unknown package verifier/);
+});
+
+test('changed verification exposes plan/json and rejects unknown options before execution', () => {
+  const runner = path.join(productRoot, 'tools', 'verification', 'changed.mjs');
+  const json = spawnSync(process.execPath, [runner, '--json', 'docs/buildr-product.md'], { cwd: productRoot, encoding: 'utf8' });
+  assert.equal(json.status, 0, json.stderr);
+  const payload = JSON.parse(json.stdout);
+  assert.equal(payload.schemaVersion, 'buildr.verification-plan/v1');
+  assert.deepEqual(payload.paths, ['docs/buildr-product.md']);
+  assert.deepEqual(payload.steps.map((step) => step.id), ['docs-quality']);
+
+  const unknown = spawnSync(process.execPath, [runner, '--unknown'], { cwd: productRoot, encoding: 'utf8' });
+  assert.equal(unknown.status, 2);
+  assert.match(unknown.stderr, /Unknown test:changed option/);
+  assert.doesNotMatch(unknown.stderr, /\[verify\]/);
 });

@@ -1,22 +1,12 @@
+import { verificationSteps } from '../registry.mjs';
+
 export const CANDIDATE_TOTAL_BUDGET_MS = 120000;
 
-export const CANDIDATE_STEP_BUDGETS_MS = Object.freeze({
-  'capability CLI integration': 30000,
-  'runtime adapter parity': 30000,
-  'package static validation': 5000,
-  'package workspace smoke': 6000,
-  'package Commands integration': 7000,
-  'package Rules integration': 8000,
-  'package Skills integration': 12000,
-  'package runtime integration': 10000,
-  'OpenSpec contract fixtures': 20000,
-  'managed data integrity': 15000,
-  'CLI compatibility': 15000,
-  'repository onboarding from a clean checkout': 15000,
-  'runtime adapter smoke workspace generator': 10000,
-  'CLI package parity': 10000,
-  'release tarball smoke': 10000,
-});
+export const CANDIDATE_STEP_BUDGETS_MS = Object.freeze(Object.fromEntries(
+  verificationSteps
+    .filter((step) => step.profiles.includes('candidate') && step.budgetMs != null)
+    .map((step) => [step.name, step.budgetMs]),
+));
 
 export function candidateStepBudget(name) {
   return CANDIDATE_STEP_BUDGETS_MS[name];

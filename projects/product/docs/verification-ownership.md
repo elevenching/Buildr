@@ -8,8 +8,11 @@
 | --- | --- | --- |
 | test:fast | Node tests、架构、canonical spec quality/strict、runtime adapter 低成本契约 | 临时用户 workspace、npm pack/install、网络和完整生命周期 |
 | test:affected | 人工选择领域专项，复用一次 fast，并按 step identity 去重 | 根据 Git diff 自动推断范围、证明最终候选完整 |
+| test:changed | 根据 Git diff 或显式 Product 路径从统一 registry 生成最小 DAG，并解释选择原因 | 替代正式 Candidate、猜测未声明路径的影响 |
 | test:workspace | 必须依赖同一真实 workspace 连续状态演进的跨组件黄金路径 | 全量 help、全 adapter parity、onboarding 分支和 tarball inventory |
 | test:candidate | 聚合全部发布、安全、package、runtime、OpenSpec、managed data 和 Workspace E2E 门禁 | 开发期最小反馈 |
+
+所有入口共享 `tools/verification/registry.mjs` 中的 step identity、executor、inputs、依赖、profile/group、预算和并发类别。`test:changed` 对未被任何 input 或显式 ignore 覆盖的 Product 路径 fail closed；`test:candidate` 固定选择完整 30-step profile，不读取 Git diff。
 
 ## 旧 MVP section 迁移归属
 

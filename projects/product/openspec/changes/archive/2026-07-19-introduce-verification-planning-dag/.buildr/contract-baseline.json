@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "introduce-verification-planning-dag",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-bb03f6d428df3a57440f1e887c82933c6455863b0ad0a1bd246a9c60b1da51b4",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "cli-modular-architecture",
+      "title": "产品验证入口必须共享声明与薄执行层",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "产品验证步骤必须由统一 registry 声明",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "changed 验证必须从 Git diff 生成可解释计划",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "验证 DAG 必须有界调度并保留失败传播",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "Candidate 必须使用完整 profile 而不依赖 diff",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

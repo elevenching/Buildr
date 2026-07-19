@@ -42,7 +42,9 @@ Workspace E2E 位于 `tools/verification/workspace/`，只保留 `workspace-life
 
 各类契约的主 owner、旧 MVP section 迁移和有意保留的边界交叉记录在 [验证覆盖职责矩阵](verification-ownership.md)。新增断言前先选择主 owner，不把 Workspace E2E 当作所有行为的兜底层。
 
-产品验证采用 fast、affected、workspace 和 candidate 分层调度：`verify-buildr-product-fast` 提供普通任务低成本反馈，`verify-buildr-product-affected` 在运行 fast 前校验并去重人工选择的领域 group，Workspace selector 提供开发期定点 E2E，`verify-buildr-product` 作为稳定 wrapper 委托 `verification/candidate.mjs` 运行完整候选。CLI surface/package parity 与昂贵 runtime parity 使用独立 affected group。candidate orchestrator 从同一 registry 直接取得全部 Workspace E2E suites，不接受 selector 缩小完整门禁；只对使用独立临时状态的 verifier 做有界并行，并为每个 step 保留独立 stdout/stderr 日志、退出状态、timing 和非阻断目标预算。同一候选 run 的 tarball 为只读共享制品，安装 prefix 和 workspace 不共享。
+产品验证采用 fast、changed、affected、workspace 和 candidate 分层调度。`verification/registry.mjs` 是 step identity、executor、inputs、依赖、profile/group、预算、并发类别和 artifact metadata 的唯一规划事实源；planner 负责选择、依赖展开、去重和稳定拓扑，scheduler 按全局/class 容量运行 DAG，并把失败后续标记为 blocked。稳定 wrapper 不得重新内联阶段命令、预算或 group mapping。
+
+`verify-buildr-product-fast` 提供普通任务低成本反馈；`test:changed` 根据 Git diff 或显式 Product 路径规划最小 DAG，未映射路径 fail closed；`verify-buildr-product-affected` 保留人工领域 group；Workspace/package selector 提供定点重跑。`verify-buildr-product` 固定选择完整 30-step Candidate profile，不接受 diff 或 selector 缩小门禁。Candidate 只创建一个共享只读 tarball，并为每个 step 保留独立 stdout/stderr、退出状态、timing 和非阻断目标预算。
 
 `tools/` 顶层只保留 `buildr`、安装/卸载脚本和产品验证聚合入口等稳定可执行表面。内部 runtime、共享 helper 与专项 verifier 必须进入职责子目录；这些内部文件路径不属于公开兼容契约。
 
@@ -58,6 +60,7 @@ Workspace E2E 位于 `tools/verification/workspace/`，只保留 `workspace-life
 ```bash
 node tools/verification/cli/architecture.mjs
 npm test
+npm run test:changed -- --plan
 npm run test:affected -- cli
 npm run test:affected -- runtime
 node tools/verification/cli/compatibility.mjs
@@ -65,6 +68,6 @@ node tools/verification/cli/package-parity.mjs
 node tools/verification/integrity/managed-mutations.mjs
 ```
 
-architecture verifier 检查薄入口、稳定 facade、显式 platform 依赖、完整 runtime inventory、单向 import、command 唯一登记、Workspace E2E registry/Candidate 组合和 npm 边界；默认 `npm test` 聚合 `node:test` 与低成本契约；compatibility verifier 检查全量 help、失败路径、JSON discovery 和 source mutation；package parity verifier 从 tarball 安装，在干净目录比较 checkout/npm 行为；runtime parity 持有各实现族的昂贵 adapter 生命周期；onboarding integration 持有 unsupported、幂等和冲突恢复；release smoke 持有安装后 tarball 生命周期；mutation verifier 递归扫描全部发布 runtime modules 的直接写入白名单。
+architecture verifier 检查薄入口、稳定 facade、显式 platform 依赖、完整 runtime inventory、单向 import、command 唯一登记、统一 verification registry、30-step Candidate 和 npm 边界；默认 `npm test` 聚合 `node:test` 与低成本契约；compatibility verifier 检查全量 help、失败路径、JSON discovery 和 source mutation；package parity verifier 从 tarball 安装，在干净目录比较 checkout/npm 行为；runtime parity 持有各实现族的昂贵 adapter 生命周期；onboarding integration 持有 unsupported、幂等和冲突恢复；release smoke 持有安装后 tarball 生命周期；mutation verifier 递归扫描全部发布 runtime modules 的直接写入白名单。
 
 新增命令时应先在 `command/registry.mjs` 登记唯一 key，把领域逻辑放入对应 domain，并仅在确需跨领域组合时新增 application service。不要把领域 helper 放入 `shared/`，也不要通过 Component 或动态加载扩展 command registry。

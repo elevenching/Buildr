@@ -1,14 +1,18 @@
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { verificationSteps } from '../registry.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 
-export const workspaceSuites = Object.freeze([
-  Object.freeze({ id: 'workspace-lifecycle', name: 'Workspace E2E: workspace lifecycle', file: path.join(directory, 'workspace-lifecycle.mjs'), budgetMs: 20000 }),
-  Object.freeze({ id: 'ownership-recovery', name: 'Workspace E2E: ownership recovery', file: path.join(directory, 'ownership-recovery.mjs'), budgetMs: 20000 }),
-  Object.freeze({ id: 'runtime-reconciliation', name: 'Workspace E2E: runtime reconciliation', file: path.join(directory, 'runtime-reconciliation.mjs'), budgetMs: 30000 }),
-]);
+export const workspaceSuites = Object.freeze(verificationSteps
+  .filter((step) => step.executor.type === 'workspace-suite')
+  .map((step) => Object.freeze({
+    id: step.executor.selector,
+    name: step.name,
+    file: path.join(directory, `${step.executor.selector}.mjs`),
+    budgetMs: step.budgetMs,
+  })));
 
 export function selectWorkspaceSuites(selectors = []) {
   if (selectors.length === 0) return [...workspaceSuites];

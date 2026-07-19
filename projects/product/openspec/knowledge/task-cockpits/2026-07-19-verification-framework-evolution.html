@@ -174,28 +174,28 @@
       "title": "Buildr 验证框架演进",
       "taskId": "verification-framework-evolution",
       "status": "进行中",
-      "phase": "批次 2 / 4 已完成",
-      "taskProgress": "批次 2 / 4 完成",
-      "updatedAt": "2026-07-19 16:19",
+      "phase": "批次 3 / 4 已完成",
+      "taskProgress": "批次 1-3 完成，批次 4 待开始",
+      "updatedAt": "2026-07-19 17:31",
       "relativePath": "projects/product/openspec/knowledge/task-cockpits/2026-07-19-verification-framework-evolution.html"
     },
     "overview": {
       "purpose": "把 Buildr 验证框架从已经完成的 Candidate/Workspace 分层，继续演进为职责清晰、可诊断、可按改动规划并可量化单元测试覆盖率的长期体系。",
-      "conclusion": "前两批已经完成；package check 保持兼容聚合，Candidate 获得六个独立 package steps。",
-      "currentFocus": "批次二已同步 canonical specs 并归档；集成完成后从最新 dev 创建批次三 verification registry/DAG 与 test:changed 情景。",
-      "userAttention": "当前无阻塞；批次三需要统一现有 registry，而不是再增加一套与 Candidate 分离的配置。",
+      "conclusion": "前三批已完成；验证框架已统一为 registry 驱动的 bounded DAG，并提供 diff-aware test:changed。",
+      "currentFocus": "第三批 26/26 tasks 和完整 Candidate 已通过；下一批将探索 unit 覆盖率事实与测试层级缺口。",
+      "userAttention": "当前无阻塞；test:changed 只优化开发反馈，正式 Candidate 继续忽略 diff 并执行完整 profile。",
       "highlights": {
         "done": {
           "title": "已经完成",
-          "text": "批次一已合入 dev；批次二 package verifier registry、六个 selectors、预算和所有权矩阵全部落地。"
+          "text": "批次一、二均已归档并合入 origin/dev；Candidate/Workspace/package 分层和独立 diagnostics 已稳定。"
         },
         "current": {
           "title": "正在进行",
-          "text": "批次二 16/16 tasks 完成；Candidate 53.242 秒、30 steps、无超预算，affected package 通过。"
+          "text": "第三批 26/26 tasks 完成；30-step Candidate 53.842 秒通过，全部预算内并生成 60 份 diagnostics。"
         },
         "next": {
           "title": "下一步",
-          "text": "创建批次三情景，统一 fast、affected、workspace、package、candidate 的 step 声明并设计 test:changed。"
+          "text": "归档第三批 change；第四批先建立 unit coverage 基线，再按风险决定补测与阈值。"
         }
       },
       "blockers": [],
@@ -246,19 +246,20 @@
           ]
         },
         {
-          "label": "下一批",
-          "status": "current",
+          "label": "已完成",
+          "status": "done",
           "title": "批次三：验证注册表与 DAG",
           "summary": "由结构化声明统一生成 fast、affected、candidate 和 diff-aware plan。",
           "items": [
-            "步骤声明 inputs、dependencies、budget、concurrency class 和 artifacts。",
-            "实现有并发上限的 DAG scheduler 和 --plan 解释。",
-            "新增 test:changed，根据 Git diff 选择步骤并说明选择原因。"
+            "31 个步骤统一声明 inputs、dependencies、budget、concurrency class 和 artifacts；Candidate profile 固定 30 个 gate。",
+            "bounded DAG scheduler 已覆盖全局/class 上限、exclusive、failed/blocked 传播和稳定输出。",
+            "test:changed 已覆盖 Git base、staged/unstaged/untracked、显式路径、--plan/--json 与未映射路径 fail closed。",
+            "普通文档计划为 1 步，verification framework 为 2 步，Skill 资产代表计划由 24 步收紧为 10 步。"
           ]
         },
         {
-          "label": "待开始",
-          "status": "next",
+          "label": "下一批",
+          "status": "current",
           "title": "批次四：Unit 覆盖率探索与完善",
           "summary": "先建立覆盖事实，再决定最值得补齐的单元测试，不以数字达标替代风险判断。",
           "items": [
@@ -323,6 +324,10 @@
         {
           "title": "批次二耗时结果",
           "text": "旧聚合基线 14.77 秒，兼容聚合 14.66 秒；Candidate package steps 最慢 Skills 9.901 秒，完整 Candidate 53.242 秒。"
+        },
+        {
+          "title": "批次三契约状态",
+          "text": "introduce-verification-planning-dag 4/4 artifacts 完成；统一 registry/planner/DAG 与兼容入口实现完成，等待最终 Candidate。"
         }
       ],
       "files": [
@@ -337,6 +342,10 @@
         {
           "title": "批次二归档 change",
           "path": "projects/product/openspec/changes/archive/2026-07-19-split-package-check-verification/"
+        },
+        {
+          "title": "批次三 active change",
+          "path": "projects/product/openspec/changes/introduce-verification-planning-dag/"
         },
         {
           "title": "Workspace suite registry",
@@ -363,6 +372,14 @@
         {
           "title": "第二批完整 Candidate",
           "text": "30 个阶段全部通过；六个 package steps 均在预算内；60 个 stdout/stderr diagnostics 文件已落盘。"
+        },
+        {
+          "title": "第三批定向验证",
+          "text": "planner/scheduler/entrypoint/changed-path/workspace/timing 共 24 项测试通过；tracked Product inventory 无未映射路径；docs-only 实际执行只运行 1 步。"
+        },
+        {
+          "title": "第三批完整 Candidate",
+          "text": "30 个阶段全部通过，总耗时 53.842 秒，全部目标预算 within；最慢 capability CLI integration 23.876 秒，60 个 stdout/stderr diagnostics 文件已落盘。"
         },
         {
           "title": "驾驶舱静态检查",

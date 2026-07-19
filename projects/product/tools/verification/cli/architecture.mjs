@@ -3,6 +3,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateVerificationRegistry } from '../planner.mjs';
+import { verificationSteps } from '../registry.mjs';
 
 const reportOnly = process.argv.includes('--report');
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -116,7 +118,9 @@ const facadeLimits = new Map([
   ['tools/runtime/render-claude-code.mjs', 100],
   ['tools/cli/application/doctor.mjs', 250],
   ['tools/cli/application/package-maintenance.mjs', 550],
-  ['tools/verify-buildr-product-affected', 100],
+  ['tools/verify-buildr-product-fast', 20],
+  ['tools/verify-buildr-product-affected', 20],
+  ['tools/verification/candidate.mjs', 100],
 ]);
 for (const [relative, limit] of facadeLimits) {
   const file = path.join(productRoot, relative);
@@ -133,12 +137,23 @@ const workspaceVerificationFiles = ['fixture.mjs', 'suites.mjs', 'run.mjs', 'wor
 for (const file of workspaceVerificationFiles) {
   if (!fs.existsSync(path.join(workspaceVerificationRoot, file))) problems.push(`missing Workspace E2E module: ${file}`);
 }
-const workspaceSuiteSource = fs.readFileSync(path.join(workspaceVerificationRoot, 'suites.mjs'), 'utf8');
+const registryValidation = validateVerificationRegistry();
+if (!registryValidation.ok) problems.push(`invalid verification registry: ${JSON.stringify(registryValidation.findings)}`);
 for (const suite of ['workspace-lifecycle', 'ownership-recovery', 'runtime-reconciliation']) {
-  if (!workspaceSuiteSource.includes(`id: '${suite}'`)) problems.push(`Workspace E2E registry is missing suite: ${suite}`);
+  if (!verificationSteps.some((step) => step.executor.type === 'workspace-suite' && step.executor.selector === suite)) {
+    problems.push(`verification registry is missing Workspace E2E suite: ${suite}`);
+  }
 }
 const candidateSource = fs.readFileSync(path.join(productRoot, 'tools', 'verification', 'candidate.mjs'), 'utf8');
-if (!candidateSource.includes('workspaceSuiteSteps({ productRoot')) problems.push('candidate verifier must compose every Workspace E2E suite from the registry');
+if (!candidateSource.includes("profiles: ['candidate']")) problems.push('candidate verifier must select the complete candidate profile');
+if (/\b(?:nodeStep|commandStep|runBatch|workspaceSuiteSteps|candidateStepBudget)\b/.test(candidateSource)) {
+  problems.push('candidate verifier must not inline step commands, batches, suites, or budgets');
+}
+for (const module of ['registry.mjs', 'planner.mjs', 'dag-scheduler.mjs', 'executor.mjs', 'plan-runner.mjs', 'changed.mjs']) {
+  if (!fs.existsSync(path.join(productRoot, 'tools', 'verification', module))) problems.push(`missing verification planning module: ${module}`);
+}
+if (verificationSteps.filter((step) => step.profiles.includes('candidate')).length !== 30) problems.push('candidate profile must retain exactly 30 gates');
+if (verificationSteps.filter((step) => step.executor.type === 'candidate-artifact').length !== 1) problems.push('verification registry must declare exactly one candidate artifact');
 if (fs.existsSync(path.join(productRoot, 'tools', 'verify-buildr-product-mvp'))) problems.push('legacy MVP verification entry must be removed');
 if (fs.existsSync(path.join(productRoot, 'tools', 'verify', 'mvp'))) problems.push('legacy MVP verification scenarios must be removed');
 for (const file of workspaceVerificationFiles) {

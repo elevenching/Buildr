@@ -65,6 +65,15 @@ npm test
 # 等价于 npm run test:fast
 ```
 
+已知改动路径时优先让统一 planner 自动选择受影响 DAG。无路径时读取当前分支相对 upstream（fallback `origin/dev`）以及 staged、unstaged、untracked 改动；`--plan` 只解释计划，`--json` 输出机器可读计划。普通文档改词通常只运行 docs quality；未映射路径直接失败，要求补 owner，不能静默跳过：
+
+```bash
+npm run test:changed -- --plan
+npm run test:changed -- --base origin/dev
+npm run test:changed -- docs/buildr-product.md
+npm run --silent test:changed -- --json docs/buildr-product.md
+```
+
 受影响范围验证可按改动类型组合执行；该入口始终先运行一次 fast gate，并按 verifier identity 去重多个 group 共享的检查，但不能替代最终候选完整验证：
 
 ```bash

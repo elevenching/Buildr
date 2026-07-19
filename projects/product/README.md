@@ -15,3 +15,5 @@ buildr init --agent <agent> --target . --name <name> --profile <personal|team|co
 完整产品定位、核心模型、快速开始、当前能力和文档导航见仓库根目录的[中文 README](https://github.com/elevenching/Buildr#readme) 或 [English README](https://github.com/elevenching/Buildr/blob/main/README.en.md)。
 
 本目录维护 Buildr 产品源；开发约定见 [AGENTS.md](AGENTS.md)，详细产品事实见 [Buildr 产品说明](docs/buildr-product.md)，当前实现事实见 [Buildr current state](openspec/knowledge/buildr-current-state.md)，规范性契约见 [OpenSpec specs](openspec/specs/)。
+
+产品验证由统一 registry 和 DAG planner 驱动：日常可运行 `npm run test:changed -- --plan` 查看 Git 改动会选择哪些步骤，`npm test` 运行固定 fast gate，正式候选始终运行完整 `npm run test:candidate`。职责边界和 selector 见 [验证覆盖职责矩阵](docs/verification-ownership.md)。
