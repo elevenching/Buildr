@@ -3,9 +3,7 @@
 ## Purpose
 
 定义 Buildr 对外的 Agent-first 用户模型、组织工作资产、共享工作环境、任务上下文责任边界与多层用户价值表达。
-
 ## Requirements
-
 ### Requirement: Buildr 采用 Agent-first 用户模型
 Buildr MUST 将 Agent 视为组织工作资产的主要使用者，并 MUST 将人描述为通过 Agent 表达目标、提供业务判断和确认重要决策的一等参与者。
 
@@ -90,3 +88,25 @@ Buildr MUST 将 Agent 作为产品功能的默认操作入口；人通过 Agent 
 - **WHEN** 用户明确选择手动方式，或 Agent 因工具不可用、权限、登录态、外部环境等原因无法完成动作
 - **THEN** Agent MUST 提供准确、可执行的手动操作方式
 - **AND** Agent 无法执行时 MUST 说明具体阻塞原因
+
+### Requirement: 公开产品模型区分 Workspace、Project 与 Skill destination
+Buildr 公开入口 MUST 将 Workspace 说明为工作目录和 Skill 治理根，将 Project 说明为业务与依赖节点，并将 user/workspace 说明为两种 Agent Skill runtime destination。
+
+#### Scenario: README 解释 Skill 生命周期
+- **WHEN** README 介绍 Skill 创建、复用和安装
+- **THEN** README MUST 说明 Skill 先在 workspace `skills/` 管理
+- **AND** MUST 说明它可显式 render 到用户层或当前 workspace 层
+- **AND** MUST NOT 将 Project 描述为 Buildr 能保证的 Skill 使用范围
+
+#### Scenario: README 解释 Project 专用 Skill
+- **WHEN** README 举例说明只适用于某 Project 的工作流程
+- **THEN** README MUST 将其描述为 workspace Skill 加 Project applicability/capability context
+- **AND** MUST 保留 workspace 的跨 Project registry 和依赖语义
+
+### Requirement: 公开入口准确说明同名 Skill 治理
+Buildr 公开文档 MUST 说明 Agent runtime 可能允许同名 Skill 共存，但 Buildr 对受管候选使用 identity、ownership 和 digest 执行确定性冲突治理。
+
+#### Scenario: 用户比较 Agent 与 Buildr 行为
+- **WHEN** 用户询问同名 Skill 是否覆盖
+- **THEN** 文档 MUST 区分 Agent 自身行为与 Buildr 受管投射保证
+- **AND** MUST NOT 声称 Agent Skills 规范提供全局唯一 ID 或稳定覆盖优先级

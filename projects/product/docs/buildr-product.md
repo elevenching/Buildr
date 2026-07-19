@@ -127,17 +127,17 @@ Buildr 的原则是：
 Install to Buildr, render to Agent runtime.
 ```
 
-Buildr 资产是源头；Agent runtime 是面向当前 Agent 的可重建入口。Rules、OpenSpec、Skills、Components、Commands、registries 和普通 docs 长期保存在 Buildr workspace 或 Project 资产目录中。`.claude/`、`CLAUDE.md`、`.agents/`、`.cursor/`、`.trae/`、`.qoder/` 等 Agent runtime 文件默认可重建。Buildr 在写入前检查冲突，清理已经失去来源的受管结果；源状态不变时，重复同步不会再次改写相同文件。
+Buildr 资产是源头；Agent runtime 是面向当前 Agent 的可重建入口。Workspace 就是 Buildr 治理的工作目录，也是 Skill 唯一 source authority；Project 是业务、依赖、适用性和 capability context，不是 Skill 安装隔离层。Skill 只在 workspace `skills/` 维护，再显式 render 到当前工作目录的 `workspace` destination 或个人的 `user` destination。Buildr 在写入前检查同名 identity、ownership、receipt 与完整目录 digest；冲突会阻止整次写入。
 
 不同 Agent 的处理方式不同：
 
-- Supported adapter 由 Buildr 随产品发布的静态 registry 唯一声明；每个 adapter 通过受约束的 Rules、Skills、surface、activation 和 checker traits 组合，并必须完整实现 `rules-entry`、`product-buildr-skill`、`workspace-project-skills`、`skill-install-plans` 和 `runtime-check`。
+- Supported adapter 由 Buildr 随产品发布的静态 registry 唯一声明；每个 adapter 明确声明 user/workspace destination roots、可观测 discovery roots、inventory evidence 与 activation，并完整实现 Rules entry、产品 Buildr Skill、workspace Skills、install plans 和 runtime check。
 - Adapter 只描述 runtime-specific 投射并生成声明式 RuntimePlan；通用 core 统一完成 source assembly、计划校验、零写入冲突预检、compare/apply、受管 orphan 清理和 findings/repairs 聚合。
 - 不同 adapter 可以复用 native `AGENTS.md`、reference bridge 或 Skills layout 等内置投射原语，但必须保留独立 identity、capability evidence 和测试，不能 alias 或 fallback 到另一个 runtime。
 - `runtime list --json` 输出 trait catalog 和每个 adapter 的组合事实；新增 adapter 前只需向目标 Agent 收集 identity/surface、Rules、Skills、activation、checker 与最小 compatibility evidence，Buildr 的 RuntimePlan 和安全 reconcile 不重复调查。
 - Rules scope 使用真实 workspace 相对路径。adapter 合并 scope 祖先链与 scope 子树中的 `AGENTS.md`，按目录层级由宽到窄投射；它不要求维护 role/path 路由表，也不替 Agent 判断规则语义相关性。
 - Codex 原生读取各层 `AGENTS.md`，不生成规则桥接文件。
-- Claude Code 通过 adapter 在每个已发现 `AGENTS.md` 的同目录维护 `CLAUDE.md` reference bridge，并按 Root/Project scope render `.claude/skills/`。
+- Claude Code 通过 adapter 在每个已发现 `AGENTS.md` 的同目录维护 `CLAUDE.md` reference bridge；Skills 从 workspace source render 到 user 或 workspace 的 `.claude/skills/`。
 - Cursor、Qoder 与 TRAE 将 `AGENTS.md` 投射为各自可检查的 scoped vendor rule files；TRAE Work 与 WorkBuddy 使用受管 root reference bridge。完整路径、activation、限制和证据状态见 [Agent Runtime Adapters](agent-runtime-adapters.md)。
 - 默认 `sync` 从 root `.` 递归 reconcile 整个受管理 workspace；扫描跳过符号链接、依赖/build/runtime 目录和未登记的嵌套 Git repo。
 - 任务代码隔离统一使用当前 workspace 根 `.worktrees/<task-id>`；Agent 在采用 OpenSpec 或创建/复用 task worktree 前，先说明 change、路径、分支和当前动作。

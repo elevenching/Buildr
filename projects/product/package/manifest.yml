@@ -244,13 +244,12 @@ projectDirectories:
   - openspec/specs
   - openspec/knowledge
   - openspec/changes
-  - skills
   - services
 
 projectFiles:
   - package/targets/workspace/projects/AGENTS.project.md => AGENTS.md render
+  - package/targets/workspace/projects/capabilities.yml => capabilities.yml copy
   - package/targets/workspace/projects/services/manifest.yml => services/manifest.yml render
-  - package/targets/workspace/projects/skills/manifest.yml => skills/manifest.yml copy
 
 templateVariables:
   - name

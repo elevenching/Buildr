@@ -2,6 +2,12 @@
 
 本项目遵循语义化版本。正式发布前的变更可以在 `0.1.x` 内调整，但会在 release notes 中说明用户可观察差异。
 
+## Unreleased
+
+- Breaking：Skill source 只在 workspace `skills/` 治理；Project 改用 `capabilities.yml` 表达 requirements、bindings 与 applicability，不再创建或合并 Project Skill source。
+- `skills render` 新增 `--destination workspace|user`；`--target` 始终表示 source workspace，`init`/`sync` 只维护 workspace destination。
+- Skills manifest 升级为 `buildr.skills/v3`，新增稳定 asset/source identity、v2 projection receipts、有效 Skills inventory、同名冲突零写入 preflight，以及 legacy Project assets 的 `--check/--apply` 事务迁移。
+
 ## 0.1.0-rc.5 - 2026-07-17
 
 - 统一 Buildr 更新与 workspace 同步意图：Agent 能明确区分 CLI/Skill 更新和 `buildr sync`，并在 Git tree 变化后用 doctor 判断是否需要同步当前工作环境。

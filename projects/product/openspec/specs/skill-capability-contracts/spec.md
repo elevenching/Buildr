@@ -2,7 +2,6 @@
 
 ## Purpose
 定义 Buildr Skill capability contract、provider/consumer 声明、scope binding、依赖 readiness、runtime 投射和 Agent 工作能力适配的产品契约。
-
 ## Requirements
 ### Requirement: Agent 根据工作意图执行工作能力适配
 Buildr MUST 将用户工作意图作为 Agent 工作能力适配的入口，并 MUST NOT 要求普通用户识别或手动维护 capability contract、provider、consumer 或 binding。
@@ -133,59 +132,6 @@ Buildr Skills manifest MUST 支持 Skill entry 声明其提供和依赖的 capab
 - **THEN** `required` MUST 只控制 builtin 资产是否可卸载
 - **AND** `requires[].mode` MUST 只控制 consumer 在 provider 缺失时是否可用或降级
 
-### Requirement: Provider 通过 scope binding 确定性解析
-Buildr MUST 基于当前 workspace/Project scope、显式 binding、provider 唯一性、version 和 runtime 可用性确定 consumer 的 provider，并 MUST NOT 依赖安装顺序或描述文本猜测。
-
-#### Scenario: 最近 scope 存在显式 binding
-- **WHEN** consumer 的当前 scope 或祖先 scope 为 required capability 声明 binding
-- **THEN** Buildr MUST 使用从当前 scope 向 workspace root 找到的最近 binding
-- **AND** 被绑定 Skill MUST 在该 scope 可见、已启用、未卸载、version 兼容且适用于当前 runtime
-
-#### Scenario: 没有 binding 且 scope 链只有一个 provider
-- **WHEN** 当前 scope 链没有显式 binding
-- **AND** 全部可见 scope 中恰好只有一个兼容且可用的 provider
-- **THEN** Buildr MUST 自动选择该唯一 provider
-- **AND** 该选择 MUST NOT 依赖 provider 的安装顺序
-
-#### Scenario: Scope 链存在多个未绑定 providers
-- **WHEN** 当前 scope 链存在多个兼容且可用的 providers
-- **AND** 没有显式 binding
-- **THEN** consumer readiness MUST 为 `blocked` 且 reason MUST 为 `ambiguous_provider`
-- **AND** Buildr MUST 列出候选 providers 并要求显式 binding，不得选择更具体 scope、builtin、首个条目或最后安装项
-
-#### Scenario: Project 安装 provider 但没有改 binding
-- **WHEN** workspace 已有显式 provider binding
-- **AND** Project 新增了兼容 provider 但没有声明更具体 binding
-- **THEN** workspace binding MUST 继续生效
-- **AND** provider installation MUST NOT 静默改变 Project 的专业流程
-
-#### Scenario: Provider 版本不兼容
-- **WHEN** 可见 provider 只声明了与 consumer 所需 version 不同的 contract version
-- **THEN** consumer readiness MUST 为 `blocked` 且 reason MUST 为 `version_mismatch`
-- **AND** diagnostics MUST 同时报告 required version 和候选 provider versions
-
-#### Scenario: 用户卸载默认 builtin
-- **WHEN** 默认 builtin provider 的 manifest state 为 `uninstalled` 或 enabled 为 false
-- **THEN** Buildr MUST 将其排除在 provider resolution 之外
-- **AND** Buildr MUST NOT 因 consumer 仍依赖该 capability 而静默恢复或使用该 builtin
-
-#### Scenario: 用户 provider 使用自己的 Skill id
-- **WHEN** workspace 或 Project Skill 以不同于 builtin 的 id 声明兼容 capability
-- **THEN** Buildr MUST 允许该 Skill 被 binding 选为 provider
-- **AND** 用户 MUST NOT 通过冒用 builtin id 或覆盖 builtin receipt 才能替换默认实现
-
-#### Scenario: Selected provider 自身缺少 required dependency
-- **WHEN** selected provider 的任一 required dependency readiness 为 `blocked`
-- **THEN** provider MUST NOT 被上层 consumer 视为 ready
-- **AND** 上层 consumer readiness MUST 为 `blocked` 且 reason MUST 为 `provider_not_ready`
-- **AND** diagnostics MUST 保留 selected provider 与下游 root cause chain
-
-#### Scenario: Capability dependency graph 存在环
-- **WHEN** providers/consumers 的 required dependency graph 形成 cycle
-- **THEN** cycle 中的 consumers MUST 为 `blocked` 且 reason MUST 为 `dependency_cycle`
-- **AND** doctor MUST 报告完整 cycle path 和 breaking nextActions
-- **AND** resolver MUST NOT 任意忽略一条 dependency edge
-
 ### Requirement: Required 和 optional dependency 产生不同运行状态
 Buildr MUST 对 installed consumer 的 required 和 optional dependencies 应用不同的可用性、render 和 doctor 语义。
 
@@ -289,3 +235,38 @@ Buildr MUST 将用户 provider 的 `provides` 视为组织声明的 contract con
 - **WHEN** Skill description 或正文提到与某 capability 相似的流程但 manifest 没有 `provides` 声明
 - **THEN** Buildr MUST NOT 将该 Skill 当作 compatible provider
 - **AND** Agent MUST NOT 依靠语义猜测绕过 required dependency diagnostics
+
+### Requirement: Provider 通过 workspace registry 与业务上下文 binding 解析
+Buildr MUST 从唯一 workspace Skill registry 解析 providers，并 MUST 使用明确 Project task context 或 workspace default binding 确定 provider，而不是使用 Project Skill source scope 继承。
+
+#### Scenario: Project context 存在 binding
+- **WHEN** 当前任务明确属于一个 Project，且 Project capability context 为 required capability 声明 binding
+- **THEN** Buildr MUST 选择对应 workspace provider
+- **AND** MUST NOT 将该 binding 解释为 Skill 可见性或安装隔离
+
+#### Scenario: 没有 Project binding 时使用 workspace default
+- **WHEN** 当前任务没有适用的 Project binding且 workspace 声明 default binding
+- **THEN** Buildr MUST 使用 workspace default provider
+- **AND** provider selection MUST NOT 依赖 Skill 安装顺序
+
+#### Scenario: 无 binding 且只有唯一 provider
+- **WHEN** 没有适用 binding 且只有一个兼容、已安装、runtime 可用的 workspace provider
+- **THEN** Buildr MUST 自动选择该 provider
+
+#### Scenario: 多个未绑定 providers
+- **WHEN** 没有适用 binding 且存在多个兼容可用 providers
+- **THEN** consumer readiness MUST 为 `blocked` 且 reason MUST 为 `ambiguous_provider`
+- **AND** Buildr MUST 列出候选 providers，不得根据 Project 路径、builtin 或安装顺序选择
+
+### Requirement: 不同 provider 必须使用不同 Skill ID
+Buildr MUST 要求并行或替代 provider 使用各自 Skill ID，并 MUST NOT 使用同 ID 不同内容表达 capability substitution。
+
+#### Scenario: 用户 provider 替代 builtin
+- **WHEN** 用户创建内部 Skill 提供 builtin 已实现的 capability
+- **THEN** 用户 provider MUST 使用自己的 Skill ID 并声明兼容 capability version
+- **AND** binding MAY 在验证后选择该 provider
+
+#### Scenario: Provider 冒充另一个 Skill ID
+- **WHEN** 候选 provider 试图使用已存在 Skill ID 但具有不同 source identity 或内容
+- **THEN** Buildr MUST 在 runtime binding 前报告 Skill name conflict
+- **AND** MUST NOT 将 capability binding 作为绕过名称冲突的依据

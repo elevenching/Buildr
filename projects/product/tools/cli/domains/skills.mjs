@@ -1,11 +1,13 @@
-import { fs, path, process, YAML } from '../shared/platform.mjs';
+import { fs, crypto, path, process, YAML } from '../shared/platform.mjs';
 import {
-  SKILLS_SCHEMA_V2,
+  SKILLS_SCHEMA_V3,
+  PROJECT_CAPABILITIES_SCHEMA,
   capabilityKey,
   migrateSkillsManifestDocument,
   parseSkillsManifestDocument,
   validateCapabilityIdentity,
   validateSkillsManifestDocument,
+  validateProjectCapabilitiesDocument,
 } from '../../runtime/skills/manifests.mjs';
 import { selectedProviderImpacts } from '../../runtime/skills/capabilities.mjs';
 
@@ -35,12 +37,12 @@ export function registerDomainsSkills(runtime) {
 
   function runMutationDoctor(targetRoot, scope, options = {}) {
     const previousExitCode = process.exitCode;
-    doctor(['--target', targetRoot, '--scope', scope, '--json'], options);
+    doctor(scope ? ['--target', targetRoot, '--scope', scope, '--json'] : ['--target', targetRoot, '--json'], options);
     process.exitCode = previousExitCode;
   }
 
   function manifestDocumentFor(skills) {
-    return skills?.__buildrManifestDocument || { schemaVersion: SKILLS_SCHEMA_V2, skills: skills || [] };
+    return skills?.__buildrManifestDocument || { schemaVersion: SKILLS_SCHEMA_V3, skills: skills || [] };
   }
 
   function attachManifestDocument(document) {
@@ -79,9 +81,9 @@ export function registerDomainsSkills(runtime) {
     }
   }
 
-  function renderSkillsManifestYaml(skills) {
+  function renderSkillsManifestYaml(skills, options = {}) {
     const source = Array.isArray(skills) ? manifestDocumentFor(skills) : skills;
-    const document = migrateSkillsManifestDocument({ ...source, skills: Array.isArray(skills) ? skills : (source.skills || []) });
+    const document = migrateSkillsManifestDocument({ ...source, skills: Array.isArray(skills) ? skills : (source.skills || []) }, options);
     return YAML.stringify(document, { lineWidth: 0 });
   }
 
@@ -242,15 +244,16 @@ export function registerDomainsSkills(runtime) {
   }
 
   function scopeRootForSkills(targetRoot, scope) {
-    const normalizedScope = scope === '.' ? '.' : normalizeRelativePathForBuildr(scope, `Unsupported skills scope: ${scope}`);
-    const parts = normalizedScope === '.' ? ['.'] : normalizedScope.split(path.sep);
-    if (parts[0] === '.') return { scope: '.', scopeRoot: targetRoot };
-    if (parts[0] === 'projects' && parts.length === 2) {
-      const scopeRoot = path.join(targetRoot, 'projects', parts[1]);
-      if (!existsDirectory(scopeRoot)) throw new Error(`Project scope does not exist: ${normalizedScope}`);
-      return { scope: normalizedScope.split(path.sep).join('/'), scopeRoot };
+    if (scope === undefined || scope === null || scope === '.' || scope === 'workspace') return { scope: '.', scopeRoot: targetRoot, deprecatedScope: scope === '.' };
+    const normalizedScope = normalizeRelativePathForBuildr(scope, `Unsupported skills scope: ${scope}`);
+    if (/^projects\/[^/]+$/.test(normalizedScope)) {
+      const error = new Error(`Project Skill source scope is no longer supported: ${normalizedScope}. Project is a capability/applicability context, not an Agent Skill installation boundary. Run \`buildr skills migrate-project-assets --target ${targetRoot} --check\`, then maintain the Skill in workspace skills/.`);
+      error.code = 'skills.project_scope_unsupported';
+      error.reason = 'project_scope_removed';
+      error.nextActions = [`buildr skills migrate-project-assets --target ${targetRoot} --check`, 'Move the Skill source to workspace skills/ and reference it from projects/<project>/capabilities.yml.'];
+      throw error;
     }
-    throw new Error(`Unsupported skills scope. Use . or projects/<project>: ${scope}`);
+    throw new Error(`Unsupported skills scope. Skills source authority is workspace: ${scope}`);
   }
 
   function skillsManifestPath(scopeRoot) {
@@ -259,7 +262,7 @@ export function registerDomainsSkills(runtime) {
 
   function readSkillsManifestForWrite(scopeRoot) {
     const manifestPath = skillsManifestPath(scopeRoot);
-    if (!existsFile(manifestPath)) return attachManifestDocument({ schemaVersion: SKILLS_SCHEMA_V2, skills: [] });
+    if (!existsFile(manifestPath)) return attachManifestDocument(migrateSkillsManifestDocument({ skills: [] }, { manifestPath }));
     const skills = readSkillManifest(manifestPath);
     validateSkillManifestEntries(skills, manifestPath);
     validateSkillsManifestDocument(manifestDocumentFor(skills), manifestPath);
@@ -270,8 +273,10 @@ export function registerDomainsSkills(runtime) {
     const manifestPath = skillsManifestPath(scopeRoot);
     const document = manifestDocumentFor(skills);
     document.skills = skills;
-    validateSkillsManifestDocument(document, manifestPath);
-    atomicWriteFile(manifestPath, renderSkillsManifestYaml(skills));
+    const migrated = migrateSkillsManifestDocument(document, { manifestPath });
+    validateSkillsManifestDocument(migrated, manifestPath);
+    atomicWriteFile(manifestPath, YAML.stringify(migrated, { lineWidth: 0 }));
+    Object.defineProperty(skills, '__buildrManifestDocument', { configurable: true, enumerable: false, writable: true, value: migrated });
     return manifestPath;
   }
 
@@ -450,7 +455,6 @@ export function registerDomainsSkills(runtime) {
     const integrityInput = optionValue(args, '--integrity', null);
     const descriptionInput = optionValue(args, '--description', null);
     const declarations = capabilityDeclarations(args);
-    if (!scopeInput) throw new Error('Missing required option: --scope');
     if (sourceInput && (remoteSourceInput || resolvedSourceInput)) {
       throw new Error('--source cannot be combined with --remote-source or --resolved-source.');
     }
@@ -459,7 +463,8 @@ export function registerDomainsSkills(runtime) {
     }
     assertInitializedBuildrWorkspace(targetRoot);
 
-    const { scope, scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
+    const { scope, scopeRoot, deprecatedScope } = scopeRootForSkills(targetRoot, scopeInput);
+    if (deprecatedScope) console.error('Warning: --scope . is deprecated for skills add; workspace is now the only source authority. Omit --scope.');
     const manifest = readSkillsManifestForWrite(scopeRoot);
     const replace = hasFlag(args, '--replace');
     const ignoreUnsupported = hasFlag(args, '--ignore-unsupported');
@@ -557,7 +562,7 @@ export function registerDomainsSkills(runtime) {
 
   function skillsAdd(args) {
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
-    const scopeInput = optionValue(args, '--scope', '.');
+    const scopeInput = optionValue(args, '--scope', null);
     const { scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
     const result = withWorkspaceMutation(targetRoot, 'skills.add', [path.join(scopeRoot, 'skills')], () => skillsAddUnsafe(args));
     runMutationDoctor(targetRoot, scopeInput, { skipRuntime: Boolean(optionValue(args, '--resolved-source', null)) });
@@ -593,10 +598,10 @@ export function registerDomainsSkills(runtime) {
     assertName(id, 'Skill id');
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
     const scopeInput = optionValue(args, '--scope', null);
-    if (!scopeInput) throw new Error('Missing required option: --scope');
     assertInitializedBuildrWorkspace(targetRoot);
 
-    const { scope, scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
+    const { scope, scopeRoot, deprecatedScope } = scopeRootForSkills(targetRoot, scopeInput);
+    if (deprecatedScope) console.error('Warning: --scope . is deprecated for skills remove; workspace is now the only source authority. Omit --scope.');
     const manifest = readSkillsManifestForWrite(scopeRoot);
     const existingIndex = manifest.findIndex((skill) => skill.id === id);
     if (existingIndex === -1) {
@@ -639,7 +644,7 @@ export function registerDomainsSkills(runtime) {
 
   function skillsRemove(args) {
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
-    const scopeInput = optionValue(args, '--scope', '.');
+    const scopeInput = optionValue(args, '--scope', null);
     const { scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
     const result = withWorkspaceMutation(targetRoot, 'skills.remove', [path.join(scopeRoot, 'skills')], () => skillsRemoveUnsafe(args));
     runMutationDoctor(targetRoot, scopeInput);
@@ -647,11 +652,20 @@ export function registerDomainsSkills(runtime) {
   }
 
   function visibleSkillManifestDocuments(targetRoot, scopeRoot) {
-    const roots = scopeRoot === targetRoot ? [targetRoot] : [targetRoot, scopeRoot];
+    const roots = [targetRoot];
     return roots.map((root) => {
       const file = skillsManifestPath(root);
-      return existsFile(file) ? { root, file, document: readSkillManifestDocument(file) } : { root, file, document: { schemaVersion: SKILLS_SCHEMA_V2, skills: [] } };
+      return existsFile(file) ? { root, file, document: readSkillManifestDocument(file) } : { root, file, document: migrateSkillsManifestDocument({ skills: [] }, { manifestPath: file }) };
     });
+  }
+
+  function capabilityContextForScope(targetRoot, scopeInput) {
+    if (!scopeInput || scopeInput === '.' || scopeInput === 'workspace') return { scope: '.', scopeRoot: targetRoot, file: skillsManifestPath(targetRoot), kind: 'workspace' };
+    const scope = normalizeRelativePathForBuildr(scopeInput, `Unsupported capability context: ${scopeInput}`);
+    if (!/^projects\/[^/]+$/.test(scope)) throw new Error(`Unsupported capability context: ${scopeInput}`);
+    const scopeRoot = path.join(targetRoot, scope);
+    if (!existsDirectory(scopeRoot)) throw new Error(`Project context does not exist: ${scope}`);
+    return { scope, scopeRoot, file: path.join(scopeRoot, 'capabilities.yml'), kind: 'project' };
   }
 
   function skillsBindUnsafe(args, remove = false) {
@@ -662,9 +676,8 @@ export function registerDomainsSkills(runtime) {
     const requested = parseCapabilityArgument(rawCapability, 'capability');
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
     const scopeInput = optionValue(args, '--scope', null);
-    if (!scopeInput) throw new Error('Missing required option: --scope');
     assertInitializedBuildrWorkspace(targetRoot);
-    const { scope, scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
+    const { scope, scopeRoot, file: contextFile, kind } = capabilityContextForScope(targetRoot, scopeInput);
     const provider = remove ? null : optionValue(args, '--provider', null);
     if (!remove && !provider) throw new Error('Missing required option: --provider');
     if (provider) assertName(provider, 'Provider Skill id');
@@ -681,9 +694,11 @@ export function registerDomainsSkills(runtime) {
       if (candidates.length === 0) throw new Error(`Provider is not visible or does not provide ${rawCapability}: ${provider}`);
     }
 
-    const localFile = skillsManifestPath(scopeRoot);
-    const skills = existsFile(localFile) ? readSkillManifest(localFile) : attachManifestDocument({ schemaVersion: SKILLS_SCHEMA_V2, skills: [] });
-    const document = manifestDocumentFor(skills);
+    const localFile = skillsManifestPath(targetRoot);
+    const skills = existsFile(localFile) ? readSkillManifest(localFile) : attachManifestDocument(migrateSkillsManifestDocument({ skills: [] }, { manifestPath: localFile }));
+    const document = kind === 'workspace'
+      ? manifestDocumentFor(skills)
+      : (existsFile(contextFile) ? validateProjectCapabilitiesDocument(parseYamlDocument(fs.readFileSync(contextFile, 'utf8'), contextFile), contextFile) : { schemaVersion: PROJECT_CAPABILITIES_SCHEMA, requires: [], bindings: [], skills: [] });
     const bindings = [...(document.bindings || [])];
     const index = bindings.findIndex((binding) => binding.capability === requested.capability && binding.version === requested.version);
     const previousProvider = index === -1 ? null : bindings[index].provider;
@@ -700,8 +715,13 @@ export function registerDomainsSkills(runtime) {
     }
     if (bindings.length) document.bindings = bindings;
     else delete document.bindings;
-    document.skills = skills;
-    writeSkillsManifest(scopeRoot, skills);
+    if (kind === 'workspace') {
+      document.skills = skills;
+      writeSkillsManifest(targetRoot, skills);
+    } else {
+      validateProjectCapabilitiesDocument(document, contextFile);
+      atomicWriteFile(contextFile, YAML.stringify(document, { lineWidth: 0 }));
+    }
     console.log(`${remove ? '已删除' : '已写入'} capability binding：${rawCapability}${remove ? '' : ` -> ${provider}`} (${scope})`);
     return { targetRoot, scope };
   }
@@ -709,8 +729,8 @@ export function registerDomainsSkills(runtime) {
   function skillsBind(args) {
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
     const scopeInput = optionValue(args, '--scope', '.');
-    const { scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
-    const result = withWorkspaceMutation(targetRoot, 'skills.bind', [path.join(scopeRoot, 'skills', 'manifest.yml')], () => skillsBindUnsafe(args, false));
+    const context = capabilityContextForScope(targetRoot, scopeInput);
+    const result = withWorkspaceMutation(targetRoot, 'skills.bind', [context.file], () => skillsBindUnsafe(args, false));
     runMutationDoctor(result.targetRoot, result.scope);
     return result;
   }
@@ -718,12 +738,175 @@ export function registerDomainsSkills(runtime) {
   function skillsUnbind(args) {
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
     const scopeInput = optionValue(args, '--scope', '.');
-    const { scopeRoot } = scopeRootForSkills(targetRoot, scopeInput);
-    const result = withWorkspaceMutation(targetRoot, 'skills.unbind', [path.join(scopeRoot, 'skills', 'manifest.yml')], () => skillsBindUnsafe(args, true));
+    const context = capabilityContextForScope(targetRoot, scopeInput);
+    const result = withWorkspaceMutation(targetRoot, 'skills.unbind', [context.file], () => skillsBindUnsafe(args, true));
     runMutationDoctor(result.targetRoot, result.scope);
     return result;
   }
 
-  Object.assign(runtime, { manifestDocumentFor, attachManifestDocument, readSkillManifestDocument, readSkillManifest, readSkillManifestSchemaVersion, renderYamlObject, renderSkillsManifestYaml, validateSkillManifestEntries, isManifestSourceLabel, validateSkillUrlObject, validateResolvedSkillSource, normalizeRelativePathForBuildr, parseSkillSourceRef, assertHttpUrl, resolvePackageSkillSourceRef, scopeRootForSkills, skillsManifestPath, readSkillsManifestForWrite, writeSkillsManifest, parseSkillFrontmatter, supportedSkillSourceEntries, inspectSkillSource, samePath, copySupportedSkillSource, printSkillsMutationReceipt, skillsAddUnsafe, skillsAdd, safeSkillSourceDir, skillsRemoveUnsafe, skillsRemove, skillsBindUnsafe, skillsBind, skillsUnbind });
+  function directoryDigest(directory) {
+    const entries = [];
+    function visit(current, relative = '') {
+      for (const name of fs.readdirSync(current).sort()) {
+        const absolute = path.join(current, name);
+        const rel = path.posix.join(relative, name);
+        const stat = fs.lstatSync(absolute);
+        if (stat.isSymbolicLink()) throw new Error(`Legacy Project Skill migration does not accept symlinks: ${absolute}`);
+        if (stat.isDirectory()) visit(absolute, rel);
+        else if (stat.isFile()) entries.push([rel, stat.mode & 0o100, crypto.createHash('sha256').update(fs.readFileSync(absolute)).digest('hex')]);
+      }
+    }
+    visit(directory);
+    return `sha256-${crypto.createHash('sha256').update(JSON.stringify(entries)).digest('hex')}`;
+  }
+
+  function inspectLegacyBoundaries(root) {
+    const boundaries = [];
+    function visit(current) {
+      for (const name of fs.readdirSync(current).sort()) {
+        const absolute = path.join(current, name);
+        const stat = fs.lstatSync(absolute);
+        if (stat.isSymbolicLink()) { boundaries.push({ path: absolute, reason: 'symbolic_link' }); continue; }
+        if (!stat.isDirectory()) continue;
+        if (name === '.git') { boundaries.push({ path: absolute, reason: 'nested_git_repository' }); continue; }
+        visit(absolute);
+      }
+    }
+    visit(root);
+    return boundaries;
+  }
+
+  function projectSkillMigrationPlan(targetRoot) {
+    assertInitializedBuildrWorkspace(targetRoot);
+    const workspaceFile = skillsManifestPath(targetRoot);
+    const workspace = existsFile(workspaceFile) ? readSkillsManifestForWrite(targetRoot) : attachManifestDocument(migrateSkillsManifestDocument({ skills: [] }, { manifestPath: workspaceFile }));
+    const workspaceById = new Map(workspace.map((skill) => [skill.id, { entry: skill, root: path.join(targetRoot, 'skills') }]));
+    const workspaceDocument = manifestDocumentFor(workspace);
+    const contractByKey = new Map((workspaceDocument.contracts || []).map((contract) => {
+      const file = path.join(targetRoot, 'skills', contract.path);
+      return [capabilityKey(contract.id, contract.version), { entry: contract, digest: existsFile(file) ? crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex') : null }];
+    }));
+    const projects = [];
+    const projectsRoot = path.join(targetRoot, 'projects');
+    for (const project of existsDirectory(projectsRoot) ? fs.readdirSync(projectsRoot).sort() : []) {
+      const projectRoot = path.join(projectsRoot, project);
+      const legacyRoot = path.join(projectRoot, 'skills');
+      const legacyFile = path.join(legacyRoot, 'manifest.yml');
+      if (!existsFile(legacyFile)) continue;
+      const document = parseSkillsManifestDocument(legacyFile, { migrate: false, validateContracts: false });
+      const boundaries = inspectLegacyBoundaries(legacyRoot);
+      const declaredTop = new Set(['manifest.yml', 'contracts']);
+      const skills = [];
+      let blocking = false;
+      for (const skill of document.skills || []) {
+        if (skill.path) declaredTop.add(skill.path.split(/[\\/]/)[0]);
+        const workspaceSkill = workspaceById.get(skill.id);
+        let classification = 'project_only';
+        let projectDigest = null;
+        let workspaceDigest = null;
+        if (skill.path && !boundaries.some((boundary) => boundary.path.startsWith(`${path.join(legacyRoot, skill.path)}${path.sep}`))) projectDigest = directoryDigest(path.join(legacyRoot, skill.path));
+        if (workspaceSkill) {
+          if (skill.path && workspaceSkill.entry.path) workspaceDigest = directoryDigest(path.join(workspaceSkill.root, workspaceSkill.entry.path));
+          const equivalent = skill.path && workspaceSkill.entry.path ? projectDigest === workspaceDigest : JSON.stringify(skill.source || skill.resolved) === JSON.stringify(workspaceSkill.entry.source || workspaceSkill.entry.resolved);
+          classification = equivalent ? 'equivalent_duplicate' : 'project_skill_name_conflict';
+          if (!equivalent) blocking = true;
+        }
+        skills.push({ id: skill.id, classification, projectDigest, workspaceDigest, entry: skill });
+        if (!workspaceSkill) workspaceById.set(skill.id, { entry: skill, root: legacyRoot });
+      }
+      const contractPlans = [];
+      for (const contract of document.contracts || []) {
+        const key = capabilityKey(contract.id, contract.version);
+        const source = path.join(legacyRoot, contract.path);
+        const digest = existsFile(source) ? crypto.createHash('sha256').update(fs.readFileSync(source)).digest('hex') : null;
+        const existing = contractByKey.get(key);
+        let classification = 'project_only';
+        if (existing) {
+          const comparable = (value) => JSON.stringify(Object.fromEntries(Object.entries(value).filter(([name]) => name !== 'path')));
+          classification = existing.digest === digest && comparable(existing.entry) === comparable(contract) ? 'equivalent_duplicate' : 'project_contract_conflict';
+          if (classification === 'project_contract_conflict') blocking = true;
+        } else {
+          contractByKey.set(key, { entry: contract, digest });
+        }
+        contractPlans.push({ id: contract.id, version: contract.version, classification, digest, entry: contract });
+      }
+      const unknownFiles = fs.readdirSync(legacyRoot).filter((name) => !declaredTop.has(name));
+      if (unknownFiles.length || boundaries.length) blocking = true;
+      projects.push({ project, legacyRoot, legacyFile, capabilitiesFile: path.join(projectRoot, 'capabilities.yml'), skills, contractPlans, bindings: document.bindings || [], unknownFiles, boundaries, blocking });
+    }
+    return { schemaVersion: 'buildr.project-skill-migration-plan/v1', targetRoot, projects, blocking: projects.some((project) => project.blocking) };
+  }
+
+  function applyProjectSkillMigration(targetRoot, plan) {
+    if (plan.blocking) throw new Error(`Project Skill migration is blocked with zero writes:\n${plan.projects.filter((project) => project.blocking).map((project) => `- projects/${project.project}: resolve name conflicts or unknown files`).join('\n')}`);
+    const workspaceRoot = path.join(targetRoot, 'skills');
+    const affected = [workspaceRoot, ...plan.projects.flatMap((project) => [project.legacyRoot, project.capabilitiesFile])];
+    return withWorkspaceMutation(targetRoot, 'skills.migrate-project-assets', affected, () => {
+      const workspace = readSkillsManifestForWrite(targetRoot);
+      const workspaceDocument = manifestDocumentFor(workspace);
+      for (const project of plan.projects) {
+        const applicability = [];
+        const requirements = [];
+        for (const item of project.skills) {
+          applicability.push(item.id);
+          for (const requirement of item.entry.requires || []) if (!requirements.some((current) => capabilityKey(current.capability, current.version) === capabilityKey(requirement.capability, requirement.version))) requirements.push(requirement);
+          if (item.classification !== 'project_only') continue;
+          const next = { ...item.entry };
+          delete next.assetIdentity;
+          delete next.sourceIdentity;
+          if (next.path) {
+            const sourceDir = path.join(project.legacyRoot, next.path);
+            const targetDir = path.join(workspaceRoot, next.path);
+            if (existsDirectory(targetDir)) throw new Error(`Migration target already exists: ${targetDir}`);
+            fs.cpSync(sourceDir, targetDir, { recursive: true, errorOnExist: true });
+          }
+          workspace.push(next);
+        }
+        for (const item of project.contractPlans) {
+          if (item.classification !== 'project_only') continue;
+          const contract = item.entry;
+          const key = capabilityKey(contract.id, contract.version);
+          if ((workspaceDocument.contracts || []).some((current) => capabilityKey(current.id, current.version) === key)) continue;
+          const source = path.join(project.legacyRoot, contract.path);
+          const target = path.join(workspaceRoot, contract.path);
+          ensureDirectory(path.dirname(target));
+          fs.copyFileSync(source, target);
+          workspaceDocument.contracts = [...(workspaceDocument.contracts || []), contract];
+        }
+        const capabilities = existsFile(project.capabilitiesFile)
+          ? validateProjectCapabilitiesDocument(parseYamlDocument(fs.readFileSync(project.capabilitiesFile, 'utf8'), project.capabilitiesFile), project.capabilitiesFile)
+          : { schemaVersion: PROJECT_CAPABILITIES_SCHEMA, requires: [], bindings: [], skills: [] };
+        capabilities.skills = [...new Set([...(capabilities.skills || []).map((item) => typeof item === 'string' ? item : item.id), ...applicability])].sort();
+        capabilities.requires = [...(capabilities.requires || [])];
+        for (const requirement of requirements) if (!capabilities.requires.some((current) => capabilityKey(current.capability, current.version) === capabilityKey(requirement.capability, requirement.version))) capabilities.requires.push(requirement);
+        capabilities.bindings = project.bindings;
+        validateProjectCapabilitiesDocument(capabilities, project.capabilitiesFile);
+        atomicWriteFile(project.capabilitiesFile, YAML.stringify(capabilities, { lineWidth: 0 }));
+      }
+      workspaceDocument.skills = workspace;
+      writeSkillsManifest(targetRoot, workspace);
+      for (const project of plan.projects) fs.rmSync(project.legacyRoot, { recursive: true, force: true });
+      return plan;
+    });
+  }
+
+  function skillsMigrateProjectAssets(args) {
+    assertNoUnknownOptions(args, new Set(['--target', '--check', '--apply', '--json']), new Set(['--check', '--apply', '--json']));
+    const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
+    const check = hasFlag(args, '--check');
+    const apply = hasFlag(args, '--apply');
+    if (check === apply) throw new Error('Specify exactly one of --check or --apply.');
+    const plan = projectSkillMigrationPlan(targetRoot);
+    if (apply) applyProjectSkillMigration(targetRoot, plan);
+    if (hasFlag(args, '--json')) console.log(JSON.stringify(plan, (key, value) => key === 'entry' ? undefined : value, 2));
+    else {
+      console.log(`Project Skill migration ${apply ? 'applied' : 'check'}: projects=${plan.projects.length} blocking=${plan.blocking}`);
+      for (const project of plan.projects) for (const skill of project.skills) console.log(`  projects/${project.project}: ${skill.id} ${skill.classification}`);
+    }
+    if (check && plan.blocking) process.exitCode = 1;
+    return plan;
+  }
+
+  Object.assign(runtime, { manifestDocumentFor, attachManifestDocument, readSkillManifestDocument, readSkillManifest, readSkillManifestSchemaVersion, renderYamlObject, renderSkillsManifestYaml, validateSkillManifestEntries, isManifestSourceLabel, validateSkillUrlObject, validateResolvedSkillSource, normalizeRelativePathForBuildr, parseSkillSourceRef, assertHttpUrl, resolvePackageSkillSourceRef, scopeRootForSkills, capabilityContextForScope, skillsManifestPath, readSkillsManifestForWrite, writeSkillsManifest, parseSkillFrontmatter, supportedSkillSourceEntries, inspectSkillSource, samePath, copySupportedSkillSource, printSkillsMutationReceipt, skillsAddUnsafe, skillsAdd, safeSkillSourceDir, skillsRemoveUnsafe, skillsRemove, skillsBindUnsafe, skillsBind, skillsUnbind, projectSkillMigrationPlan, applyProjectSkillMigration, skillsMigrateProjectAssets });
   return runtime;
 }

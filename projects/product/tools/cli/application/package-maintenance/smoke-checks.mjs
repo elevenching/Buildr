@@ -369,8 +369,8 @@ export function createPackageSmokeChecks(deps) {
     if (!existsFile(path.join(tempRoot, 'projects', 'demo', 'services', 'manifest.yml'))) {
       problems.push('project create must install services/manifest.yml.');
     }
-    if (!existsFile(path.join(tempRoot, 'projects', 'demo', 'skills', 'manifest.yml'))) {
-      problems.push('project create must install project skills/manifest.yml.');
+    if (!existsFile(path.join(tempRoot, 'projects', 'demo', 'capabilities.yml')) || existsDirectory(path.join(tempRoot, 'projects', 'demo', 'skills'))) {
+      problems.push('project create must install capabilities.yml without creating a Project Skill source scope.');
     }
     const legacyRootPractices = path.join(tempRoot, 'practices');
     const legacyProjectPractices = path.join(tempRoot, 'projects', 'demo', 'practices');

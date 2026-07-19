@@ -20,7 +20,8 @@ import {
   buildRuntimeSkillTarget,
   hasManagedSkillMarker,
 } from '../../tools/runtime/skills/render-plan.mjs';
-import { SUPPORTED_AGENT_IDS, getRuntimeAdapter } from '../../tools/runtime/adapter-contract.mjs';
+import { RUNTIME_ADAPTERS, SUPPORTED_AGENT_IDS, getRuntimeAdapter, skillDestinationRoot } from '../../tools/runtime/adapter-contract.mjs';
+import { buildEffectiveSkillInventory, classifySkillCandidate } from '../../tools/runtime/skills/inventory.mjs';
 
 test('render 参数解析拒绝未知和缺失参数', (t) => {
   t.mock.method(console, 'error', () => {});
@@ -152,4 +153,50 @@ test('完整 Skill 投射拒绝 source symlink 与已修改受管资源', (t) =>
   fs.rmSync(path.join(sourceDir, 'assets', 'template.txt'));
   fs.symlinkSync(sourceFile, path.join(sourceDir, 'assets', 'linked.md'));
   assert.throws(() => buildSkillRenderPlan(root, targetRoot, [skill], 'codex'), /must not contain symbolic links/);
+});
+
+test('adapter 明确声明 user/workspace destination 与 partial inventory evidence', () => {
+  for (const adapter of Object.values(RUNTIME_ADAPTERS)) {
+    const destinations = adapter.traits.skills.destinations;
+    assert.equal(destinations.workspace.supported, true);
+    assert.equal(destinations.user.supported, true);
+    assert.equal(destinations.discovery.evidence, 'partial');
+    assert.ok(skillDestinationRoot(adapter, 'workspace', '/tmp/workspace').endsWith(adapter.traits.skills.root));
+  }
+});
+
+test('effective inventory 只读汇总外部 Skill 并稳定分类', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-skill-inventory-'));
+  const userHome = path.join(root, 'user');
+  const skillDir = path.join(root, '.agents', 'skills', 'demo');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(skillDir, { recursive: true });
+  fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: demo\ndescription: demo\n---\nbody\n');
+  const before = fs.statSync(path.join(skillDir, 'SKILL.md')).mtimeMs;
+  const inventory = buildEffectiveSkillInventory({ adapterId: 'codex', workspaceRoot: root, userHome, candidateIds: ['demo'] });
+  assert.equal(inventory.entries.length, 1);
+  assert.equal(inventory.entries[0].sourceCategory, 'external-filesystem');
+  const equivalent = classifySkillCandidate({ skillId: 'demo', assetIdentity: 'workspace:x:skill:demo', renderDigest: inventory.entries[0].renderDigest }, inventory, 'workspace');
+  assert.equal(equivalent.status, 'equivalent_external');
+  assert.equal(equivalent.blocking, true);
+  const conflict = classifySkillCandidate({ skillId: 'demo', assetIdentity: 'workspace:x:skill:demo', renderDigest: `sha256-${'0'.repeat(64)}` }, inventory, 'workspace');
+  assert.equal(conflict.status, 'name_conflict');
+  const absent = classifySkillCandidate({ skillId: 'other', assetIdentity: 'workspace:x:skill:other', renderDigest: `sha256-${'0'.repeat(64)}` }, inventory, 'workspace');
+  assert.equal(absent.status, 'visibility_partial');
+  assert.equal(fs.statSync(path.join(skillDir, 'SKILL.md')).mtimeMs, before);
+});
+
+test('Skill conflict classifier 覆盖受管、外部、跨 owner 与 user satisfaction 状态', () => {
+  const candidate = { skillId: 'demo', assetIdentity: 'asset:demo', sourceWorkspaceId: 'workspace:a', renderDigest: `sha256-${'1'.repeat(64)}` };
+  const classify = (entries, destination = 'workspace', evidence = 'complete') => classifySkillCandidate(candidate, { entries, evidence }, destination).status;
+  assert.equal(classify([]), 'absent');
+  assert.equal(classify([], 'workspace', 'partial'), 'visibility_partial');
+  assert.equal(classify([{ skillId: 'demo', destination: 'workspace', assetIdentity: 'asset:demo', renderDigest: candidate.renderDigest, receipt: {} }]), 'already_projected');
+  assert.equal(classify([{ skillId: 'demo', destination: 'workspace', assetIdentity: 'asset:demo', renderDigest: `sha256-${'2'.repeat(64)}`, receipt: {} }]), 'update');
+  assert.equal(classify([{ skillId: 'demo', destination: 'workspace', assetIdentity: null, renderDigest: candidate.renderDigest, receipt: null }]), 'equivalent_external');
+  assert.equal(classify([{ skillId: 'demo', destination: 'workspace', assetIdentity: null, renderDigest: `sha256-${'2'.repeat(64)}`, receipt: null }]), 'name_conflict');
+  assert.equal(classify([{ skillId: 'demo', destination: 'workspace', assetIdentity: 'asset:other', renderDigest: candidate.renderDigest, receipt: { schemaVersion: 'buildr.skill-projection/v2' } }]), 'foreign_owner');
+  assert.equal(classify([{ skillId: 'demo', destination: 'user', assetIdentity: 'asset:demo', sourceWorkspaceId: 'workspace:b', renderDigest: `sha256-${'2'.repeat(64)}`, receipt: { schemaVersion: 'buildr.skill-projection/v2' } }], 'user'), 'foreign_owner');
+  assert.equal(classify([{ skillId: 'demo', destination: 'user', assetIdentity: 'asset:demo', sourceWorkspaceId: 'workspace:a', renderDigest: `sha256-${'2'.repeat(64)}`, receipt: { schemaVersion: 'buildr.skill-projection/v2' } }], 'user'), 'update');
+  assert.equal(classify([{ skillId: 'demo', destination: 'user', assetIdentity: 'asset:demo', renderDigest: candidate.renderDigest, receipt: { schemaVersion: 'buildr.skill-projection/v2' } }]), 'satisfied_by_user');
 });

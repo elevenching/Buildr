@@ -100,8 +100,8 @@ render/sync 会在 `task-finish` 的 runtime 派生版本中注入受管 binding
 
 这里有两个不同的版本概念：
 
-- “v1 事务化迁移”指旧的 `buildr.skills/v1` manifest 升级为 `buildr.skills/v2`。Buildr 先完整读取并校验旧数据，再通过 workspace mutation 的临时文件、原子替换和恢复记录一次性提交；失败时不得留下半份 v2，也不得丢失 Skill metadata、远端来源、builtin 卸载状态或用户 binding。
-- contract 路径中的 `v1.md` 和 frontmatter 中的 `version: 1` 表示该 capability contract 的第 1 个主版本。它不会因为 manifest 升级到 v2 而自动变成 `v2.md`；只有 contract 出现不兼容语义变化时才提升主版本。
+- Workspace manifest 会从 v1/v2 兼容读取并在受管 mutation 中升级为 `buildr.skills/v3`，保存 workspace/asset/source identity。legacy Project manifest 必须通过 `skills migrate-project-assets --check/--apply` 显式事务迁移；失败时保留原目录与完整 recovery evidence。
+- contract 路径中的 `v1.md` 和 frontmatter 中的 `version: 1` 表示 capability contract 的第 1 个主版本，不随 manifest schema 升级；只有 contract 出现不兼容语义变化时才提升主版本。
 
 ## Contract 文档
 
@@ -142,10 +142,11 @@ version: 1
 
 Contract 只写 consumer 安全组合所必需的行为信封：前置披露、授权类别、允许的副作用、必须停止的决策点和结果证据。命令、算法、默认 merge/rebase policy、组织分支规则及案例应留在 provider 或 `Examples`，避免把 interface 变成复制的操作手册。
 
-## Manifest v2
+## Workspace Manifest v3
 
 ```yaml
-schemaVersion: buildr.skills/v2
+schemaVersion: buildr.skills/v3
+workspaceId: 7cf5b7af-38cc-5cb4-86f7-6a45a45e9012
 contracts:
   - id: example.git-task-integration
     version: 1
@@ -156,6 +157,8 @@ bindings:
     provider: internal-git
 skills:
   - id: internal-git
+    assetIdentity: workspace:7cf5b7af-38cc-5cb4-86f7-6a45a45e9012:skill:internal-git
+    sourceIdentity: workspace:7cf5b7af-38cc-5cb4-86f7-6a45a45e9012:internal-git
     path: internal-git
     provides:
       - capability: example.git-task-integration
@@ -174,17 +177,17 @@ Skill entry 的 `required` 与 `requires[].mode` 是两件事：
 - `requires[].mode: required` 表示依赖不可用时 consumer 必须 blocked。
 - `requires[].mode: optional` 表示 consumer 保持可用但 degraded，并由正文说明降级行为。
 
-Workspace binding 是默认选择；Project 可以用更近的显式 binding 覆盖。没有显式 binding 时，只有 scope 链上恰好一个兼容 provider 才能自动解析。多个 provider 必须显式选择，安装新 provider 不会静默改绑，卸载 builtin 也不会让 Buildr 偷偷恢复默认实现。
+Workspace manifest 保存全部 provider、consumer、contracts 与默认 binding；Project `capabilities.yml` 只保存业务 context 的 requirements、bindings 和 workspace Skill applicability 引用。解析顺序是明确 Project context、workspace default、唯一兼容 provider。跨 Project 对同一 capability 选择不同 provider 时报告 `cross_project_binding_ambiguous`，不得按当前目录猜测。
 
 ## 声明与替换
 
 Provider 和 consumer 声明可通过重复参数写入：
 
 ```bash
-buildr skills add internal-git --source ./internal-git --scope . --target <workspace> \
+buildr skills add internal-git --source ./internal-git --target <workspace> \
   --provides example.git-task-integration@1
 
-buildr skills add task-finish --source ./task-finish --scope . --target <workspace> --replace \
+buildr skills add task-finish --source ./task-finish --target <workspace> --replace \
   --requires example.git-task-integration@1:required
 ```
 

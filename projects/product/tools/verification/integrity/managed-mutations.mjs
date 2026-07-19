@@ -33,7 +33,7 @@ const allowed = new Map([
   ])],
   ['tools/cli/domains/workspace.mjs', new Set(['createProject', 'createService'])],
   ['tools/cli/domains/rules.mjs', new Set(['rulesRemoveUnsafe'])],
-  ['tools/cli/domains/skills.mjs', new Set(['copySupportedSkillSource', 'skillsRemoveUnsafe'])],
+  ['tools/cli/domains/skills.mjs', new Set(['copySupportedSkillSource', 'skillsRemoveUnsafe', 'applyProjectSkillMigration'])],
   ['tools/cli/domains/components.mjs', new Set(['removeComponentMember', 'installComponentMember'])],
   ['tools/cli/domains/package-assets.mjs', new Set(['convergeServiceManifest', 'convergeRegistryManifests'])],
   ['tools/cli/application/package-maintenance.mjs', new Set(['syncPackageBuiltins'])],

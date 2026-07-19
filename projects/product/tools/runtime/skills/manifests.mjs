@@ -6,6 +6,8 @@ import { ensureFile } from './primitives.mjs';
 
 export const SKILLS_SCHEMA_V1 = 'buildr.skills/v1';
 export const SKILLS_SCHEMA_V2 = 'buildr.skills/v2';
+export const SKILLS_SCHEMA_V3 = 'buildr.skills/v3';
+export const PROJECT_CAPABILITIES_SCHEMA = 'buildr.project-capabilities/v1';
 export const CAPABILITY_CONTRACT_SCHEMA = 'buildr.capability-contract/v1';
 export const CAPABILITY_REASONS = Object.freeze([
   'missing_provider',
@@ -27,6 +29,26 @@ export const CONTRACT_SECTIONS = Object.freeze([
 ]);
 
 const CAPABILITY_ID = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$/;
+const IDENTITY = /^[a-z][a-z0-9+._:-]*$/;
+
+function stableUuid(value) {
+  const hex = crypto.createHash('sha256').update(value).digest('hex').slice(0, 32).split('');
+  hex[12] = '5';
+  hex[16] = ((Number.parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
+  return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20).join('')}`;
+}
+
+export function sourceIdentityForSkill(skill, workspaceId) {
+  if (skill.sourceIdentity) return skill.sourceIdentity;
+  if (skill.resolved?.url) return `resolved:${skill.resolved.kind || 'skill-url'}:${skill.resolved.url}`;
+  if (typeof skill.source === 'string' && !isSourceLabel(skill.source)) return `package:${skill.source.replace(/^package:/, '')}`;
+  if (skill.source?.url) return `remote:${skill.source.kind || 'url'}:${skill.source.url}`;
+  return `workspace:${workspaceId}:${skill.path || skill.id}`;
+}
+
+export function assetIdentityForSkill(skill, workspaceId) {
+  return skill.assetIdentity || `workspace:${workspaceId}:skill:${skill.id}`;
+}
 
 export function capabilityKey(capability, version) {
   return `${capability}@${version}`;
@@ -97,15 +119,16 @@ function validateDeclarations(items, label, modeRequired = false) {
 
 export function validateSkillsManifestDocument(document, manifestPath, options = {}) {
   const schemaVersion = document.schemaVersion ?? null;
-  if (schemaVersion !== null && schemaVersion !== SKILLS_SCHEMA_V1 && schemaVersion !== SKILLS_SCHEMA_V2) {
+  if (schemaVersion !== null && ![SKILLS_SCHEMA_V1, SKILLS_SCHEMA_V2, SKILLS_SCHEMA_V3].includes(schemaVersion)) {
     throw new Error(`Unsupported Skills manifest schemaVersion in ${manifestPath}: ${schemaVersion}`);
   }
   for (const field of ['skills', 'contracts', 'bindings']) {
     if (document[field] !== undefined && !Array.isArray(document[field])) throw new Error(`${field} must be an array in ${manifestPath}`);
   }
-  if (schemaVersion !== SKILLS_SCHEMA_V2 && ((document.contracts?.length ?? 0) || (document.bindings?.length ?? 0))) {
-    throw new Error(`Capability contracts and bindings require ${SKILLS_SCHEMA_V2} in ${manifestPath}`);
+  if (![SKILLS_SCHEMA_V2, SKILLS_SCHEMA_V3].includes(schemaVersion) && ((document.contracts?.length ?? 0) || (document.bindings?.length ?? 0))) {
+    throw new Error(`Capability contracts and bindings require ${SKILLS_SCHEMA_V2} or ${SKILLS_SCHEMA_V3} in ${manifestPath}`);
   }
+  if (schemaVersion === SKILLS_SCHEMA_V3 && (typeof document.workspaceId !== 'string' || !document.workspaceId)) throw new Error(`workspaceId is required for ${SKILLS_SCHEMA_V3} in ${manifestPath}`);
   const skillIds = new Set();
   for (const [index, skill] of (document.skills || []).entries()) {
     if (!isPlainObject(skill) || typeof skill.id !== 'string' || !skill.id) throw new Error(`skills[${index}].id is required in ${manifestPath}`);
@@ -120,6 +143,10 @@ export function validateSkillsManifestDocument(document, manifestPath, options =
     if (skill.enabled !== undefined && typeof skill.enabled !== 'boolean') throw new Error(`skills[${index}].enabled must be boolean in ${manifestPath}`);
     if (skill.required !== undefined && typeof skill.required !== 'boolean') throw new Error(`skills[${index}].required must be boolean in ${manifestPath}`);
     if (skill.runtimes !== undefined && (!Array.isArray(skill.runtimes) || !skill.runtimes.every((item) => typeof item === 'string'))) throw new Error(`skills[${index}].runtimes must be an array of strings in ${manifestPath}`);
+    if (schemaVersion === SKILLS_SCHEMA_V3) {
+      if (typeof skill.assetIdentity !== 'string' || !IDENTITY.test(skill.assetIdentity)) throw new Error(`skills[${index}].assetIdentity is required and must be a stable identity in ${manifestPath}`);
+      if (typeof skill.sourceIdentity !== 'string' || !skill.sourceIdentity) throw new Error(`skills[${index}].sourceIdentity is required in ${manifestPath}`);
+    }
     validateDeclarations(skill.provides, `skills[${index}].provides`);
     validateDeclarations(skill.requires, `skills[${index}].requires`, true);
   }
@@ -152,11 +179,17 @@ export function validateSkillsManifestDocument(document, manifestPath, options =
   return document;
 }
 
-export function migrateSkillsManifestDocument(document) {
+export function migrateSkillsManifestDocument(document, options = {}) {
+  const workspaceId = document.workspaceId || stableUuid(path.resolve(options.manifestPath || 'skills/manifest.yml'));
   return {
     ...document,
-    schemaVersion: SKILLS_SCHEMA_V2,
-    skills: Array.isArray(document.skills) ? document.skills : [],
+    schemaVersion: SKILLS_SCHEMA_V3,
+    workspaceId,
+    skills: (Array.isArray(document.skills) ? document.skills : []).map((skill) => ({
+      ...skill,
+      assetIdentity: assetIdentityForSkill(skill, workspaceId),
+      sourceIdentity: sourceIdentityForSkill(skill, workspaceId),
+    })),
   };
 }
 
@@ -164,7 +197,34 @@ export function parseSkillsManifestDocument(manifestPath, options = {}) {
   ensureFile(manifestPath, `Manifest not found: ${manifestPath}`);
   const original = parseYaml(fs.readFileSync(manifestPath, 'utf8'), manifestPath);
   validateSkillsManifestDocument(original, manifestPath, options);
-  return options.migrate === false ? original : migrateSkillsManifestDocument(original);
+  return options.migrate === false ? original : migrateSkillsManifestDocument(original, { manifestPath });
+}
+
+export function validateProjectCapabilitiesDocument(document, file = 'capabilities.yml') {
+  if (!isPlainObject(document) || document.schemaVersion !== PROJECT_CAPABILITIES_SCHEMA) throw new Error(`Unsupported Project capabilities schemaVersion in ${file}: ${document?.schemaVersion || '<missing>'}`);
+  for (const field of ['requires', 'bindings', 'skills']) if (document[field] !== undefined && !Array.isArray(document[field])) throw new Error(`${field} must be an array in ${file}`);
+  validateDeclarations(document.requires, 'requires', true);
+  const bindings = new Set();
+  for (const [index, binding] of (document.bindings || []).entries()) {
+    validateCapabilityIdentity(binding.capability, binding.version, `bindings[${index}]`);
+    if (typeof binding.provider !== 'string' || !binding.provider) throw new Error(`bindings[${index}].provider is required in ${file}`);
+    const key = capabilityKey(binding.capability, binding.version);
+    if (bindings.has(key)) throw new Error(`Duplicate capability binding in ${file}: ${key}`);
+    bindings.add(key);
+  }
+  const skills = new Set();
+  for (const [index, skill] of (document.skills || []).entries()) {
+    const id = typeof skill === 'string' ? skill : skill?.id;
+    if (typeof id !== 'string' || !id) throw new Error(`skills[${index}] must reference a workspace Skill id in ${file}`);
+    if (skills.has(id)) throw new Error(`Duplicate Skill applicability in ${file}: ${id}`);
+    skills.add(id);
+  }
+  return document;
+}
+
+export function parseProjectCapabilities(file) {
+  ensureFile(file, `Project capabilities not found: ${file}`);
+  return validateProjectCapabilitiesDocument(parseYaml(fs.readFileSync(file, 'utf8'), file), file);
 }
 
 export function parseSkillsManifest(manifestPath, options = {}) {

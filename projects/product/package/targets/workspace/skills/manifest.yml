@@ -1,4 +1,5 @@
-schemaVersion: buildr.skills/v2
+schemaVersion: buildr.skills/v3
+workspaceId: buildr-product-baseline
 contracts:
   - id: buildr.git-single-operation
     version: 1
@@ -45,6 +46,8 @@ bindings:
     provider: task-asset-review
 skills:
   - id: task-triage
+    assetIdentity: buildr:skill:task-triage
+    sourceIdentity: package:workspace:buildr/task-triage
     source: buildr
     path: buildr/task-triage
     description: 用户要求修 bug、实现或调整功能、改需求、重构、优化、补文档、补测试、调整 API/契约/权限/状态流/数据语义，或询问某项改动是否需要更新 spec、创建 change、只改代码时使用。
@@ -54,6 +57,8 @@ skills:
     runtimes: [claude-code, codex, cursor, qoder, trae, trae-work, workbuddy]
     runtimePath: task-triage
   - id: task-cockpit
+    assetIdentity: buildr:skill:task-cockpit
+    sourceIdentity: package:workspace:buildr/task-cockpit
     source: buildr
     path: buildr/task-cockpit
     description: 为复杂、长期、跨批次、跨 change、跨服务或团队的任务维护只读 HTML 任务驾驶舱（任务看板）、change 关联、交付批次和依赖池。
@@ -63,6 +68,8 @@ skills:
     runtimes: [claude-code, codex, cursor, qoder, trae, trae-work, workbuddy]
     runtimePath: task-cockpit
   - id: capability-adaptation
+    assetIdentity: buildr:skill:capability-adaptation
+    sourceIdentity: package:workspace:buildr/capability-adaptation
     source: buildr
     path: buildr/capability-adaptation
     description: 用户要求采用内部流程、调整工作方式、修改默认 Skill 行为、创建或替换专业 Skill、卸载可能被编排的 Skill，或 Agent 准备改变 capability contract 及跨 Skill 协作边界时使用。
@@ -72,6 +79,8 @@ skills:
     runtimes: [claude-code, codex, cursor, qoder, trae, trae-work, workbuddy]
     runtimePath: capability-adaptation
   - id: task-asset-review
+    assetIdentity: buildr:skill:task-asset-review
+    sourceIdentity: package:workspace:buildr/task-asset-review
     source: buildr
     path: buildr/task-asset-review
     description: 用户明确要求复盘任务执行质量、核对现有资产覆盖、总结可沉淀的 Skill 或 Rule，或 finish consumer 的轻量资格判断命中时使用。
@@ -84,6 +93,8 @@ skills:
       - capability: buildr.task-asset-review
         version: 1
   - id: task-worktree
+    assetIdentity: buildr:skill:task-worktree
+    sourceIdentity: package:workspace:buildr/task-worktree
     source: buildr
     path: buildr/task-worktree
     description: 用户要求代码开发、隔离任务分支，或清理任务 worktree/change-id/任务分支时使用。
@@ -96,6 +107,8 @@ skills:
       - capability: buildr.task-worktree-lifecycle
         version: 1
   - id: task-finish
+    assetIdentity: buildr:skill:task-finish
+    sourceIdentity: package:workspace:buildr/task-finish
     source: buildr
     path: buildr/task-finish
     description: 用户要求完整“收尾”，或自动完成已验证 change 的归档、提交、集成、推送和本地清理时使用。
@@ -118,6 +131,8 @@ skills:
         version: 1
         mode: optional
   - id: git-ops
+    assetIdentity: buildr:skill:git-ops
+    sourceIdentity: package:workspace:buildr/git-ops
     source: buildr
     path: buildr/git-ops
     description: 用户表达提交、推送、拉取、pull、合并、merge、rebase、checkout、switch、reset、cherry-pick、revert、stash、发布、删除分支等单项 Git 意图，或 Git 操作存在授权、范围、amend、远端改写、工作区转换、分支删除等歧义时使用。

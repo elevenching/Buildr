@@ -112,9 +112,10 @@ Organization/Root -> Project -> Service
 - `package/bootstrap/guide.md` 是 Buildr Skill 不可用、未安装或损坏时的兜底入口。
 - `package/bootstrap/contract.yml` 校验 Buildr Skill、bootstrap guide 和生成后 runtime Skill 的入口不回退。
 
-## Workspace / Project Skills
+## Workspace Skills 与 Project capability context
 
-- workspace/project Skills 源资产由 `skills/manifest.yml` 维护。
+- Workspace 等同于工作目录，是 Skill 唯一 source authority；`buildr.skills/v3` 在根 `skills/manifest.yml` 保存 workspaceId、assetIdentity、sourceIdentity、contracts、默认 bindings 和全部 Skill entries。
+- Project 不保存 Skill content。固定 `projects/<project>/capabilities.yml` 使用 `buildr.project-capabilities/v1` 表达 requirements、Project bindings 和 workspace Skill applicability；legacy Project manifests 只由 `skills migrate-project-assets --check/--apply` 显式事务迁移。
 - 本地作者型 Skill 使用 `path` 指向完整 Skill 源目录，目录至少包含 `SKILL.md`。
 - 远端发布型 Skill 可先用 `source` 登记信息源，再用 `resolved` 登记已解析安装源。
 - `skills add --source <skill-dir>` 装载或登记完整本地 Skill 源目录。
@@ -129,8 +130,8 @@ Organization/Root -> Project -> Service
 - 任务看板优先展示普通用户可理解的目标、当前结论、当前批次、已完成、下一步和阻塞，再逐层展示 change 关联、交付批次、依赖池、业务/技术方案与已完成复杂任务的技术细节。它是 task-scoped working knowledge，不替代 canonical specs、active change、代码和验证证据。
 - `task-triage` 判断驾驶舱是“不需要”“创建”还是“继续维护”；驾驶舱首次创建、实质更新、用户询问进度、任务暂停或完成时，Agent 回复提供可点击绝对路径和 workspace 相对路径。
 - 产品入口 Buildr Skill 仍位于 `package/targets/runtime/skills/buildr/SKILL.md`，不进入 workspace `skills/manifest.yml`，也不硬编码可卸载 Component 所拥有的专用 Skill 路由。
-- `buildr skills render <agent> --scope <scope>` 渲染 workspace/project Skills 和 Skill install plans；它不安装产品内置 Buildr Skill。
-- `buildr skills render codex|cursor` 渲染 workspace/project Skills 到 `.agents/skills/`；其他 adapter 使用 descriptor 声明的 `.claude`、`.qoder`、`.trae` 或 `.codebuddy` root。
+- `buildr skills render <agent> --destination workspace|user --target <workspace>` 从同一 workspace authority 投射 Skills 和 install plans；默认 workspace，`init`/`sync` 不隐式写 user destination。
+- adapter descriptor 声明两种 destination roots、可观测 discovery roots、inventory evidence 和 activation。Buildr 用 v2 receipt、source/render digest 和有效 inventory 分类幂等、更新、user satisfaction、外部等价、foreign owner 与 name conflict；blocking conflict 整次零写入，`--replace` 不自动 adopt/transfer。
 
 ## Commands
 

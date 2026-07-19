@@ -145,8 +145,7 @@ export function createScopeDiagnostics(deps) {
       openspecSpecs: existsDirectory(path.join(projectRoot, 'openspec', 'specs')),
       openspecKnowledge: existsDirectory(path.join(projectRoot, 'openspec', 'knowledge')),
       openspecChanges: existsDirectory(path.join(projectRoot, 'openspec', 'changes')),
-      skills: existsDirectory(path.join(projectRoot, 'skills')),
-      skillsManifest: existsFile(path.join(projectRoot, 'skills', 'manifest.yml')),
+      capabilities: existsFile(path.join(projectRoot, 'capabilities.yml')),
       servicesMetadata: existsFile(servicesManifestPath(projectRoot)),
       servicesDirectory: existsDirectory(path.join(projectRoot, 'services')),
     };
@@ -158,8 +157,7 @@ export function createScopeDiagnostics(deps) {
       openspecSpecs: 'openspec/specs',
       openspecKnowledge: 'openspec/knowledge',
       openspecChanges: 'openspec/changes',
-      skills: 'skills',
-      skillsManifest: 'skills/manifest.yml',
+      capabilities: 'capabilities.yml',
       servicesMetadata: 'services/manifest.yml',
       servicesDirectory: 'services',
     };

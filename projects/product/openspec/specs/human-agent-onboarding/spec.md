@@ -177,15 +177,6 @@ Buildr onboarding MUST 引导 Agent 在运行 runtime render、sync、skill inst
 - **AND** Agent MUST NOT 使用 supported fallback adapter 代替
 - **AND** Agent MUST 告诉用户联系 Buildr 作者反馈该 Agent
 
-### Requirement: Buildr guidance names runtime render assets
-Buildr onboarding guidance MUST 说明哪些 Buildr assets 参与 Agent runtime render，哪些仍保持为 source assets。
-
-#### Scenario: Runtime render explanation
-- **WHEN** Buildr Skill、bootstrap guide、README、init output 或 doctor unsupported-Agent guidance 描述 runtime render
-- **THEN** guidance MUST 将 rules entry or bridge、product Buildr Skill、workspace/project Skills、Skill install plans 和 runtime check 说明为 adapter render capabilities
-- **AND** guidance MUST 说明 Commands、Project registry、Service registry、OpenSpec、knowledge 和 docs 保持为 Buildr source assets，除非未来 adapter 明确支持 render 它们
-- **AND** guidance MUST NOT 将 Practices 表示为 Buildr source asset
-
 ### Requirement: Buildr Skill uses runtime discovery in its main loop
 Buildr product Skill MUST 将 runtime adapter discovery 作为主执行循环的一部分。
 
@@ -299,3 +290,24 @@ Buildr Skill、bootstrap guide、CLI Reference 和 current-state knowledge MUST 
 - **WHEN** sync 或 render 已完成但 runtime check 报告 reload、新会话、UI toggle 或真实引用读取待确认
 - **THEN** Agent MUST 向用户说明剩余动作及其原因
 - **AND** Agent MUST NOT 把仅完成文件投射描述为当前 Agent 会话已经可用
+
+### Requirement: Onboarding 区分 Skill source authority 与 render destination
+Buildr onboarding guidance MUST 说明 workspace 是唯一 Skill source authority，并 MUST 将 user/workspace destination 解释为 Agent runtime 投射位置而不是 source scope。
+
+#### Scenario: 首次初始化 workspace
+- **WHEN** Agent 为 supported runtime 执行首次 `buildr init --agent <agent>`
+- **THEN** Buildr MUST 初始化 workspace `skills/manifest.yml` 和 workspace runtime
+- **AND** MUST NOT 创建 Project Skill manifests 或隐式投射用户级 Skills
+
+#### Scenario: Agent 询问 Project Skill
+- **WHEN** 用户要求某个 Skill 只适用于一个 Project
+- **THEN** onboarding guidance MUST 说明 Project applicability 是语义路由和 readiness 信息
+- **AND** MUST 说明 Agent runtime 隔离只能由实际工作目录和 Agent discovery mechanism 决定
+
+### Requirement: Runtime guidance 公开 Skills inventory 保证边界
+Buildr guidance MUST 说明 adapter 是否能完整观察当前 Agent Skills 集，并 MUST 区分已证明冲突、未发现冲突和可见性不完整。
+
+#### Scenario: Adapter inventory 为 partial
+- **WHEN** runtime discovery 无法枚举 plugin、system 或其他 Agent 内部 Skill 来源
+- **THEN** onboarding/runtime guidance MUST 报告 `partial` evidence 和受影响边界
+- **AND** MUST NOT 将成功 render 描述为已证明全局唯一

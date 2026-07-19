@@ -2,7 +2,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const RUNTIME_SKILL_PROJECTION_SCHEMA = 'buildr.runtime-skill-projection/v1';
+export const RUNTIME_SKILL_PROJECTION_SCHEMA_V1 = 'buildr.runtime-skill-projection/v1';
+export const RUNTIME_SKILL_PROJECTION_SCHEMA = 'buildr.skill-projection/v2';
 export const SUPPORTED_SKILL_SOURCE_ENTRIES = Object.freeze([
   'SKILL.md',
   'agents',
@@ -108,7 +109,7 @@ function receiptInventoryIntegrity(files) {
   return sha256Integrity(Buffer.from(JSON.stringify(files), 'utf8'));
 }
 
-export function buildSkillProjectionReceipt({ adapterId, runtimePath, sources, files }) {
+export function buildSkillProjectionReceipt({ adapterId, destination = 'workspace', skillId, runtimePath, sources, assetIdentity, sourceIdentity, sourceWorkspaceId, sourceDigest, renderDigest, files }) {
   const inventory = files.map((file) => ({
     path: assertSafeRelativeFile(file.path, 'Skill receipt file'),
     integrity: file.integrity,
@@ -116,8 +117,16 @@ export function buildSkillProjectionReceipt({ adapterId, runtimePath, sources, f
   })).sort((left, right) => left.path.localeCompare(right.path));
   return {
     schemaVersion: RUNTIME_SKILL_PROJECTION_SCHEMA,
+    agent: adapterId,
     adapterId,
+    destination,
+    skillId: skillId || runtimePath,
     runtimePath,
+    assetIdentity,
+    sourceIdentity,
+    sourceWorkspaceId,
+    sourceDigest,
+    renderDigest: renderDigest || receiptInventoryIntegrity(inventory),
     sources: [...new Set(sources)].sort(),
     files: inventory,
     integrity: receiptInventoryIntegrity(inventory),
@@ -132,9 +141,11 @@ export function parseSkillProjectionReceipt(content, label = 'runtime Skill proj
   let receipt;
   try { receipt = JSON.parse(content); }
   catch (error) { throw new Error(`Invalid ${label} JSON: ${error.message}`); }
-  if (!receipt || receipt.schemaVersion !== RUNTIME_SKILL_PROJECTION_SCHEMA || typeof receipt.adapterId !== 'string' || typeof receipt.runtimePath !== 'string' || !Array.isArray(receipt.sources) || !Array.isArray(receipt.files) || !SHA256_PATTERN.test(receipt.integrity || '')) {
+  const supportedSchema = [RUNTIME_SKILL_PROJECTION_SCHEMA_V1, RUNTIME_SKILL_PROJECTION_SCHEMA].includes(receipt?.schemaVersion);
+  if (!receipt || !supportedSchema || typeof receipt.adapterId !== 'string' || typeof receipt.runtimePath !== 'string' || !Array.isArray(receipt.sources) || !Array.isArray(receipt.files) || !SHA256_PATTERN.test(receipt.integrity || '')) {
     throw new Error(`Invalid ${label} schema.`);
   }
+  if (receipt.schemaVersion === RUNTIME_SKILL_PROJECTION_SCHEMA && (!['user', 'workspace'].includes(receipt.destination) || typeof receipt.skillId !== 'string' || typeof receipt.assetIdentity !== 'string' || typeof receipt.sourceIdentity !== 'string' || typeof receipt.sourceWorkspaceId !== 'string' || !SHA256_PATTERN.test(receipt.sourceDigest || '') || !SHA256_PATTERN.test(receipt.renderDigest || ''))) throw new Error(`Invalid ${label} v2 identity or digest evidence.`);
   const seen = new Set();
   const files = receipt.files.map((file) => {
     if (!file || typeof file.path !== 'string' || !SHA256_PATTERN.test(file.integrity || '') || typeof file.executable !== 'boolean') throw new Error(`Invalid ${label} file entry.`);

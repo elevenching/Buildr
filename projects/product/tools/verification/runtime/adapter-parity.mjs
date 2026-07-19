@@ -88,17 +88,16 @@ fs.mkdirSync(path.join(workspace, 'projects', 'scope-alpha', 'services', 'api'),
 fs.mkdirSync(path.join(workspace, 'projects', 'scope-alpha', 'services', 'web'), { recursive: true });
 fs.writeFileSync(path.join(workspace, 'projects', 'scope-alpha', 'services', 'api', 'AGENTS.md'), '# API rules\nAPI_MARKER\n');
 fs.writeFileSync(path.join(workspace, 'projects', 'scope-alpha', 'services', 'web', 'AGENTS.md'), '# Web rules\nWEB_MARKER\n');
-run(['skills', 'add', 'beta-remote', '--remote-source', 'https://example.com/beta-remote', '--scope', 'projects/scope-beta', '--target', workspace, '--description', 'beta remote']);
-run(['skills', 'render', 'codex', '--scope', '.', '--target', workspace]);
+const rejectedProjectAdd = run(['skills', 'add', 'beta-remote', '--remote-source', 'https://example.com/beta-remote', '--scope', 'projects/scope-beta', '--target', workspace, '--description', 'beta remote'], { allowFailure: true });
+assert.notEqual(rejectedProjectAdd.status, 0, 'Project Skill source scope must be rejected');
+run(['skills', 'add', 'beta-remote', '--remote-source', 'https://example.com/beta-remote', '--target', workspace, '--description', 'beta remote']);
+run(['skills', 'render', 'codex', '--destination', 'workspace', '--target', workspace]);
 const betaPlan = path.join(workspace, '.agents', 'buildr', 'skill-install-plans', 'beta-remote.md');
 assert.ok(fs.existsSync(betaPlan));
-const betaManifest = path.join(workspace, 'projects', 'scope-beta', 'skills', 'manifest.yml');
-const betaManifestContent = fs.readFileSync(betaManifest, 'utf8');
-fs.writeFileSync(betaManifest, 'schemaVersion: [invalid\n', 'utf8');
 const scopedRender = run(['skills', 'render', 'codex', '--scope', 'projects/scope-alpha', '--target', workspace], { allowFailure: true });
-assert.equal(scopedRender.status, 0, 'Project-scoped render must not fail because an unrelated Project manifest is invalid');
-assert.ok(fs.existsSync(betaPlan), 'Project-scoped render must not remove an unrelated Project install plan');
-fs.writeFileSync(betaManifest, betaManifestContent, 'utf8');
+assert.notEqual(scopedRender.status, 0, 'Project-scoped Skill render must fail with migration guidance');
+assert.match(scopedRender.stderr, /Project Skill render scope is no longer supported/);
+assert.ok(fs.existsSync(betaPlan), 'rejected Project-scoped render must not remove workspace install plans');
 
 const supportedAdapters = ['claude-code', 'codex', 'cursor', 'qoder', 'trae', 'trae-work', 'workbuddy'];
 const lifecycleAdapters = ['cursor', 'qoder', 'workbuddy', 'claude-code', 'codex'];

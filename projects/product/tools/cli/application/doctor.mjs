@@ -131,14 +131,16 @@ export function registerApplicationDoctor(runtime) {
       if (checked.has(relative) || !existsFile(manifestPath)) continue;
       checked.add(relative);
       const schemaVersion = readSkillManifestSchemaVersion(manifestPath);
-      if (schemaVersion === 'buildr.skills/v2') continue;
+      const isWorkspace = scopeRoot === targetRoot;
+      if (isWorkspace && schemaVersion === 'buildr.skills/v3') continue;
       const manifestText = fs.readFileSync(manifestPath, 'utf8');
       const hasV2OnlyKeys = /^(?:contracts|bindings):/m.test(manifestText);
-      const supportedLegacy = schemaVersion === 'buildr.skills/v1' || (schemaVersion === null && !hasV2OnlyKeys);
-      addDoctorFinding(result, supportedLegacy ? 'warning' : 'error', supportedLegacy ? 'skills.schema_version_legacy' : 'skills.schema_version_invalid', `${supportedLegacy ? 'Skills manifest 等待事务化升级' : 'Skills manifest schemaVersion 不支持'}：${relative}`, {
+      const supportedLegacy = ['buildr.skills/v1', 'buildr.skills/v2'].includes(schemaVersion) || (schemaVersion === null && !hasV2OnlyKeys);
+      const projectLegacy = !isWorkspace && supportedLegacy;
+      addDoctorFinding(result, supportedLegacy ? 'warning' : 'error', projectLegacy ? 'skills.project_assets_legacy' : supportedLegacy ? 'skills.schema_version_legacy' : 'skills.schema_version_invalid', `${projectLegacy ? 'Project Skill source 等待显式迁移' : supportedLegacy ? 'Skills manifest 等待事务化升级' : 'Skills manifest schemaVersion 不支持'}：${relative}`, {
           path: relative,
-          supportedVersions: ['buildr.skills/v1', 'buildr.skills/v2'],
-          suggestion: supportedLegacy ? '运行 buildr update 或 buildr sync 迁移到 schemaVersion: buildr.skills/v2。' : '先更新 Buildr CLI；不要用当前版本重写该 manifest。',
+          supportedVersions: ['buildr.skills/v1', 'buildr.skills/v2', 'buildr.skills/v3'],
+          suggestion: projectLegacy ? '运行 buildr skills migrate-project-assets --check，审阅后再 --apply。' : supportedLegacy ? '运行 buildr update 或 buildr sync 迁移 workspace manifest 到 schemaVersion: buildr.skills/v3。' : '先更新 Buildr CLI；不要用当前版本重写该 manifest。',
           userActionRequired: true,
         });
     }

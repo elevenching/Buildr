@@ -4,6 +4,8 @@
 
 Buildr 是面向人、Agent 和组织的工作资产治理系统。官方源码位于 [elevenching/Buildr](https://github.com/elevenching/Buildr)，公开 npm package 为 `@buildr-ai/buildr`，安装后使用 `buildr` 命令。
 
+Workspace 等同于 Buildr 治理的工作目录，也是 Skill 的唯一 source authority。Project 只表达业务、依赖、applicability 和 capability context，不是 Skill 安装范围。Skill 在 workspace `skills/` 维护后，可显式 render 到当前工作目录的 `workspace` destination，或个人所有工作目录共享的 `user` destination；Buildr 会在可观测 Agent Skills 集上先检查同名 identity、ownership 与内容冲突。
+
 ```bash
 npm install --global @buildr-ai/buildr@next
 buildr runtime list --json

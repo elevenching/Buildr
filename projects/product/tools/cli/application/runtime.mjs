@@ -1,5 +1,7 @@
 import {
+  fs,
   path,
+  os,
   process,
   spawnSync,
   resolveRuleScope,
@@ -7,6 +9,9 @@ import {
   getRuntimeAdapter,
   reconcileRuntimePlan,
 } from '../shared/platform.mjs';
+import { buildEffectiveSkillInventory, classifySkillCandidate } from '../../runtime/skills/inventory.mjs';
+import { parseSkillProjectionReceipt, sha256Integrity } from '../../runtime/skills/projection-files.mjs';
+import { createRuntimePlan } from '../../runtime/adapter-contract.mjs';
 
 export function registerApplicationRuntime(runtime) {
   const syncPackageBuiltins = (...args) => runtime.syncPackageBuiltins(...args);
@@ -41,13 +46,66 @@ export function registerApplicationRuntime(runtime) {
   function renderSkillsRuntime(agent, args) {
     const renderCommand = withResolvedTarget(args);
     const skillScope = optionValue(renderCommand.args, '--scope', '.');
-    const orphanPlan = buildRuntimeOrphanRemovalPlan(renderCommand.targetRoot, agent, skillScope).map((item) => ({ ...item, targetFile: item.path }));
-    const { plan } = assembleRuntimeProjection({ repoRoot: renderCommand.targetRoot, targetRoot: renderCommand.targetRoot, scope: skillScope, adapterId: agent, selection: { workspaceSkills: true }, removals: orphanPlan });
+    const destination = optionValue(renderCommand.args, '--destination', 'workspace');
+    if (!['workspace', 'user'].includes(destination)) throw new Error(`Unsupported Skill destination: ${destination}. Use workspace or user.`);
+    if (skillScope !== '.') {
+      const error = new Error(`Project Skill render scope is no longer supported: ${skillScope}. Run buildr skills migrate-project-assets --target ${renderCommand.targetRoot} --check, then use --destination ${destination}.`);
+      error.code = 'skills.project_scope_unsupported';
+      throw error;
+    }
+    if (args.includes('--scope')) console.error('Warning: --scope . is deprecated for skills render; use --destination workspace or --destination user.');
+    const runtimeTargetRoot = destination === 'workspace' ? renderCommand.targetRoot : os.homedir();
+    if (!runtimeTargetRoot) throw new Error(`Cannot determine user home for Skill destination ${destination}.`);
+    const orphanPlan = destination === 'workspace' ? buildRuntimeOrphanRemovalPlan(renderCommand.targetRoot, agent, '.').map((item) => ({ ...item, targetFile: item.path })) : [];
+    const assembled = assembleRuntimeProjection({ repoRoot: renderCommand.targetRoot, targetRoot: runtimeTargetRoot, scope: '.', adapterId: agent, destination, selection: { workspaceSkills: true }, removals: orphanPlan });
+    let plan = assembled.plan;
+    const candidates = plan.writes.filter((item) => item.kind === 'skill-projection-receipt').map((item) => {
+      const receipt = parseSkillProjectionReceipt(item.content, `candidate receipt ${item.skillId}`);
+      return { skillId: receipt.skillId, assetIdentity: receipt.assetIdentity, sourceIdentity: receipt.sourceIdentity, sourceWorkspaceId: receipt.sourceWorkspaceId, sourceDigest: receipt.sourceDigest, renderDigest: receipt.renderDigest };
+    });
+    const inventory = buildEffectiveSkillInventory({ adapterId: agent, workspaceRoot: renderCommand.targetRoot, candidateIds: candidates.map((item) => item.skillId) });
+    const classifications = candidates.map((candidate) => ({ candidate, ...classifySkillCandidate(candidate, inventory, destination) }));
+    const blocking = classifications.filter((item) => item.blocking);
+    if (blocking.length) {
+      const report = { schemaVersion: 'buildr.skill-conflict-report/v1', destination, inventoryEvidence: inventory.evidence, conflicts: blocking.map((item) => ({
+        skillId: item.candidate.skillId,
+        assetIdentity: item.candidate.assetIdentity,
+        sourceIdentity: item.candidate.sourceIdentity,
+        sourceWorkspaceId: item.candidate.sourceWorkspaceId,
+        sourceDigest: item.candidate.sourceDigest,
+        renderDigest: item.candidate.renderDigest,
+        reason: item.status,
+        provenance: item.observed.map((entry) => ({ destination: entry.destination, sourceCategory: entry.sourceCategory, sourceWorkspaceId: entry.sourceWorkspaceId, path: entry.path, receiptPath: entry.receiptPath })),
+        observed: item.observed,
+        nextActions: ['Rename the candidate Skill.', 'Remove or disable the external Skill explicitly.', 'Skip this projection and keep the current state.'],
+      })) };
+      if (args.includes('--json')) {
+        console.log(JSON.stringify(report, null, 2));
+        process.exitCode = 1;
+        return { targetRoot: runtimeTargetRoot, files: [], plan: [], warnings: [], jsonReported: true };
+      }
+      throw new Error(`Skill render preflight blocked with zero writes:\n${blocking.map((item) => `- ${item.candidate.skillId}: ${item.status}`).join('\n')}`);
+    }
+    const satisfiedIds = new Set(classifications.filter((item) => item.status === 'satisfied_by_user').map((item) => item.candidate.skillId));
+    const adapter = getRuntimeAdapter(agent);
+    const satisfactionFile = (skillId) => path.join(renderCommand.targetRoot, adapter.traits.skills.root, 'buildr', 'skill-satisfaction', agent, `${skillId}.json`);
+    const satisfactionWrites = classifications.filter((item) => item.status === 'satisfied_by_user').map((item) => {
+      const observed = item.observed[0];
+      const evidence = { schemaVersion: 'buildr.skill-satisfaction/v1', agent, destination: 'workspace', skillId: item.candidate.skillId, satisfiedBy: 'user', assetIdentity: item.candidate.assetIdentity, renderDigest: item.candidate.renderDigest, userReceiptPath: observed.receiptPath };
+      return { targetFile: satisfactionFile(item.candidate.skillId), content: `${JSON.stringify(evidence, null, 2)}\n`, source: `user:${item.candidate.skillId}`, skillId: item.candidate.skillId, kind: 'skill-satisfaction-evidence', isManaged: (content) => { try { return JSON.parse(content).schemaVersion === 'buildr.skill-satisfaction/v1'; } catch { return false; } } };
+    });
+    const satisfactionRemovals = classifications.filter((item) => item.status !== 'satisfied_by_user' && fs.existsSync(satisfactionFile(item.candidate.skillId))).map((item) => ({ targetFile: satisfactionFile(item.candidate.skillId), expectedIntegrity: sha256Integrity(fs.readFileSync(satisfactionFile(item.candidate.skillId))), source: `workspace:${item.candidate.skillId}`, skillId: item.candidate.skillId, kind: 'skill-satisfaction-stale' }));
+    plan = createRuntimePlan({
+      ...plan,
+      writes: [...(satisfiedIds.size ? plan.writes.filter((item) => !satisfiedIds.has(item.skillId)) : plan.writes), ...satisfactionWrites],
+      removals: [...(satisfiedIds.size ? plan.removals.filter((item) => !satisfiedIds.has(item.skillId)) : plan.removals), ...satisfactionRemovals],
+      warnings: inventory.evidence === 'partial' ? [...plan.warnings, 'runtime.skill_visibility_incomplete: adapter inventory cannot enumerate every admin/system/plugin Skill source.'] : plan.warnings,
+    });
     reconcileRuntimePlan(plan);
     const files = [...plan.writes.map((item) => item.targetFile), ...plan.removals.map((item) => item.targetFile)];
-    const remaining = buildRuntimeOrphanRemovalPlan(renderCommand.targetRoot, agent, skillScope);
+    const remaining = destination === 'workspace' ? buildRuntimeOrphanRemovalPlan(renderCommand.targetRoot, agent, '.') : [];
     if (remaining.length) throw new Error(`运行时同步未完成，请重新运行 buildr skills render ${agent}。`);
-    return { targetRoot: renderCommand.targetRoot, files, plan: plan.writes };
+    return { targetRoot: runtimeTargetRoot, files, plan: plan.writes, warnings: plan.warnings, classifications };
   }
 
   function renderRulesRuntime(agent, args) {

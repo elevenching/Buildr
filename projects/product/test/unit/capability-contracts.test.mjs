@@ -8,7 +8,7 @@ import {
   parseCapabilityContract,
   parseSkillsManifestDocument,
 } from '../../tools/runtime/skills/manifests.mjs';
-import { resolveSkillCapabilityGraph } from '../../tools/runtime/skills/capabilities.mjs';
+import { resolveCrossProjectCapabilityContext, resolveSkillCapabilityGraph } from '../../tools/runtime/skills/capabilities.mjs';
 
 const sections = ['Purpose', 'Consumer Obligations', 'Minimum Guarantees', 'Effects and Authorization', 'Result Evidence', 'Decision Points', 'Allowed Variations'];
 
@@ -46,13 +46,16 @@ test('contract frontmatter、固定章节与 manifest identity 必须一致', ()
   assert.throws(() => parseCapabilityContract(file), /missing required section "Allowed Variations"/);
 });
 
-test('v1 与无 schemaVersion manifest 迁移为 v2 并保留未知 Skill metadata', () => {
+test('v1 与无 schemaVersion workspace manifest 迁移为 v3、稳定身份并保留未知 Skill metadata', () => {
   const root = workspace();
   const file = path.join(root, 'skills', 'manifest.yml');
   const original = { skills: [{ id: 'remote', source: { kind: 'url', url: 'https://example.com/skill' }, install: { mode: 'agent' }, organizationMetadata: { owner: 'platform' }, state: 'uninstalled' }] };
   fs.writeFileSync(file, YAML.stringify(original));
   const migrated = parseSkillsManifestDocument(file);
-  assert.equal(migrated.schemaVersion, 'buildr.skills/v2');
+  assert.equal(migrated.schemaVersion, 'buildr.skills/v3');
+  assert.ok(migrated.workspaceId);
+  assert.match(migrated.skills[0].assetIdentity, /^workspace:/);
+  assert.equal(migrated.skills[0].sourceIdentity, 'remote:url:https://example.com/skill');
   assert.deepEqual(migrated.skills[0].organizationMetadata, { owner: 'platform' });
   assert.equal(migrated.skills[0].state, 'uninstalled');
   fs.writeFileSync(file, 'schemaVersion: buildr.skills/v9\nskills: []\n');
@@ -87,12 +90,13 @@ test('resolver 不猜测多个 provider，显式 binding 生效且卸载后不�
   assert.equal(graph.consumers[0].dependencies[0].selectedProvider, null);
 });
 
-test('Project binding 显式覆盖 workspace binding，provider 安装本身不改绑', () => {
+test('Project capability context 显式覆盖 workspace binding，provider 仍来自 workspace registry', () => {
   const root = workspace();
   const contractPath = contract(root, 'example.operation');
   for (const id of ['workspace-provider', 'consumer']) skill(root, id);
   const projectRoot = path.join(root, 'projects', 'demo');
-  skill(root, 'project-provider', projectRoot);
+  fs.mkdirSync(projectRoot, { recursive: true });
+  skill(root, 'project-provider');
   manifest(root, {
     schemaVersion: 'buildr.skills/v2',
     contracts: [{ id: 'example.operation', version: 1, path: contractPath, description: 'operation' }],
@@ -100,16 +104,17 @@ test('Project binding 显式覆盖 workspace binding，provider 安装本身不�
     skills: [
       { id: 'workspace-provider', path: 'workspace-provider', provides: [{ capability: 'example.operation', version: 1 }] },
       { id: 'consumer', path: 'consumer', requires: [{ capability: 'example.operation', version: 1, mode: 'required' }] },
+      { id: 'project-provider', path: 'project-provider', provides: [{ capability: 'example.operation', version: 1 }] },
     ],
   });
-  manifest(projectRoot, { schemaVersion: 'buildr.skills/v2', skills: [{ id: 'project-provider', path: 'project-provider', provides: [{ capability: 'example.operation', version: 1 }] }] });
   let graph = resolveSkillCapabilityGraph(root, projectRoot, { runtime: 'codex', scope: 'projects/demo' });
   assert.equal(graph.consumers[0].dependencies[0].selectedProvider.id, 'workspace-provider');
-  manifest(projectRoot, {
-    schemaVersion: 'buildr.skills/v2',
+  fs.writeFileSync(path.join(projectRoot, 'capabilities.yml'), YAML.stringify({
+    schemaVersion: 'buildr.project-capabilities/v1',
     bindings: [{ capability: 'example.operation', version: 1, provider: 'project-provider' }],
-    skills: [{ id: 'project-provider', path: 'project-provider', provides: [{ capability: 'example.operation', version: 1 }] }],
-  });
+    requires: [],
+    skills: ['project-provider'],
+  }));
   graph = resolveSkillCapabilityGraph(root, projectRoot, { runtime: 'codex', scope: 'projects/demo' });
   assert.equal(graph.consumers[0].dependencies[0].selectedProvider.id, 'project-provider');
   assert.equal(graph.consumers[0].dependencies[0].binding.scope, 'projects/demo');
@@ -183,4 +188,22 @@ test('只有不同 major version 的 provider 时报告 version_mismatch 和候�
   const dependency = resolveSkillCapabilityGraph(root, null, { runtime: 'codex' }).consumers[0].dependencies[0];
   assert.equal(dependency.reason, 'version_mismatch');
   assert.deepEqual(dependency.candidateVersions, [{ id: 'provider', versions: [2] }]);
+});
+
+test('跨 Project 不同 binding fail closed 为 cross_project_binding_ambiguous', () => {
+  const root = workspace();
+  const contractPath = contract(root, 'example.operation');
+  for (const id of ['provider-a', 'provider-b']) skill(root, id);
+  manifest(root, { schemaVersion: 'buildr.skills/v2', contracts: [{ id: 'example.operation', version: 1, path: contractPath, description: 'operation' }], skills: [
+    { id: 'provider-a', path: 'provider-a', provides: [{ capability: 'example.operation', version: 1 }] },
+    { id: 'provider-b', path: 'provider-b', provides: [{ capability: 'example.operation', version: 1 }] },
+  ] });
+  for (const [project, provider] of [['a', 'provider-a'], ['b', 'provider-b']]) {
+    const projectRoot = path.join(root, 'projects', project);
+    fs.mkdirSync(projectRoot, { recursive: true });
+    fs.writeFileSync(path.join(projectRoot, 'capabilities.yml'), YAML.stringify({ schemaVersion: 'buildr.project-capabilities/v1', requires: [], skills: [provider], bindings: [{ capability: 'example.operation', version: 1, provider }] }));
+  }
+  const context = resolveCrossProjectCapabilityContext(root, ['a', 'b'], { runtime: 'codex' });
+  assert.equal(context.readiness, 'blocked');
+  assert.equal(context.conflicts[0].reason, 'cross_project_binding_ambiguous');
 });

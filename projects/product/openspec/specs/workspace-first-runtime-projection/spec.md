@@ -439,22 +439,6 @@ Buildr MUST 删除当前命令范围内已经没有来源的 Buildr 受管运行
 - **WHEN** 待清理的受管目录包含不能证明由 Buildr 管理的额外文件
 - **THEN** Buildr MUST 保留该目录并报告需要用户处理
 
-### Requirement: Project render 必须遵守明确范围
-Buildr MUST 根据命令 scope 决定参与 Skill 渲染和冲突检查的 Project。
-
-#### Scenario: 渲染单个 Project
-- **WHEN** 用户明确 render 某个 Project scope
-- **THEN** Buildr MUST 只处理 workspace 和当前 Project 可见的 Skills
-- **AND** Buildr MUST NOT 因其他 Project 的 Skill 声明而报错
-
-#### Scenario: workspace 全量渲染相同 Skill
-- **WHEN** workspace 全量 render 发现多个 Project 引入来源、版本和内容相同的 Skill
-- **THEN** Buildr MUST 将其视为同一个运行时 Skill，且只写入一份
-
-#### Scenario: workspace 全量渲染不同 Skill
-- **WHEN** workspace 全量 render 发现多个 Project 要把不同内容写入同一个 Skill 运行时路径
-- **THEN** Buildr MUST 在写入前报错并列出相关 Project
-
 ### Requirement: 运行时同步必须确认结果
 Buildr MUST 在写入结束后确认本次命令负责的运行时状态已经与源资产一致。
 
@@ -757,3 +741,40 @@ Buildr MUST 让所有 filesystem Skills adapters 保真投射相同 Skill 相对
 - **WHEN** Skill 源目录包含 `agents/openai.yaml` 或其他普通随附文件
 - **THEN** 每个 filesystem Skills adapter MUST 按相同相对路径和内容 identity 投射该文件
 - **AND** 非 OpenAI adapter 对文件的保留 MUST NOT 被解释为支持或消费 OpenAI metadata
+
+### Requirement: Adapter 声明 user 与 workspace Skills discovery inventory
+Supported runtime adapter MUST 声明 user/workspace destination roots、可观测发现 roots、inventory evidence 和 activation 行为，使 Buildr 能在写入前检查候选 Skill 的有效发现集合。
+
+#### Scenario: Adapter 完整声明 destination roots
+- **WHEN** adapter 支持 workspace 和 user Skill render
+- **THEN** descriptor MUST 分别声明两种 destination 的确定性 filesystem root
+- **AND** MUST 声明从当前工作目录、用户、admin、system 或 plugin 中能够检查的发现来源
+
+#### Scenario: Adapter 只能部分观察 Skills 集
+- **WHEN** adapter 无法枚举一个可能参与 Agent 发现的内部来源
+- **THEN** descriptor MUST 将 inventory evidence 标记为 `partial`
+- **AND** render/doctor MUST 报告 `runtime.skill_visibility_incomplete`
+- **AND** Buildr MUST NOT 宣称已经证明当前 Agent 全局无同名 Skill
+
+#### Scenario: Destination root 不可确定
+- **WHEN** adapter 无法确定 user 或 workspace destination root
+- **THEN** Buildr MUST 将对应 destination 标为 unsupported
+- **AND** MUST NOT 猜测目录或写入 runtime
+
+### Requirement: Runtime plan 在统一 preflight 中治理 Skill 名称冲突
+Buildr MUST 在生成任何 Skill mutation 前组合 source plan、capability graph、receipts、destination inventory 和同名候选，并对 blocking conflict 保持整次零写入。
+
+#### Scenario: 候选与可观测外部 Skill 同名
+- **WHEN** runtime plan 发现候选 Skill ID 与外部、plugin、system、人工或其他 workspace Skill 同名且 identity 不等价
+- **THEN** plan MUST 包含冲突来源、路径或可用 provenance、digest 和 nextActions
+- **AND** reconcile MUST NOT 写入任一候选 Skill 或 receipt
+
+#### Scenario: 用户层满足 workspace 投射
+- **WHEN** runtime plan 证明 user destination 已包含同一受管 asset identity 和 render digest
+- **THEN** plan MUST 将 workspace candidate 标记为 `satisfied_by_user`
+- **AND** checker MUST 使用 satisfaction evidence 检测后续 user projection 漂移
+
+#### Scenario: 不透明来源不影响不相关候选
+- **WHEN** adapter inventory 为 partial 但没有发现与候选 ID 相同的可观测 Skill
+- **THEN** Buildr MAY 在披露 partial assurance 后继续投射
+- **AND** MUST NOT 将该结果描述为顶层 Skill 路由无歧义已证明

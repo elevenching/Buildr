@@ -8,8 +8,8 @@ import YAML from 'yaml';
 
 const buildr = path.resolve('tools/buildr');
 
-function run(args, expected = 0) {
-  const result = spawnSync(process.execPath, [buildr, ...args], { encoding: 'utf8' });
+function run(args, expected = 0, options = {}) {
+  const result = spawnSync(process.execPath, [buildr, ...args], { encoding: 'utf8', ...options });
   assert.equal(result.status, expected, `buildr ${args.join(' ')}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
   return result;
 }
@@ -55,7 +55,7 @@ test('CLI 集成验证 provider 替换、卸载影响披露、optional 降级、
     '--provides', 'buildr.git-workspace-update@1',
   ]);
   let workspaceManifest = manifest(root);
-  assert.equal(workspaceManifest.schemaVersion, 'buildr.skills/v2');
+  assert.equal(workspaceManifest.schemaVersion, 'buildr.skills/v3');
   assert.equal(workspaceManifest.bindings.find((item) => item.capability === 'buildr.git-task-integration').provider, 'git-ops', 'provider install must not silently change binding');
 
   for (const capability of ['buildr.git-single-operation@1', 'buildr.git-task-integration@1', 'buildr.git-workspace-update@1']) {
@@ -92,26 +92,94 @@ test('CLI 集成验证 provider 替换、卸载影响披露、optional 降级、
   assert.equal(ambiguous.dependencies.find((item) => item.capability === 'buildr.git-task-integration').reason, 'ambiguous_provider');
 
   run(['project', 'create', 'demo', '--target', root]);
+  assert.equal(fs.existsSync(path.join(root, 'projects', 'demo', 'skills')), false, 'new Project must not create a Skill source scope');
   const projectManifestPath = path.join(root, 'projects', 'demo', 'skills', 'manifest.yml');
+  fs.mkdirSync(path.dirname(projectManifestPath), { recursive: true });
   fs.writeFileSync(projectManifestPath, 'schemaVersion: buildr.skills/v1\nskills: []\n');
-  assert.ok(doctor(root, 'projects/demo', 1).findings.some((finding) => finding.code === 'skills.schema_version_legacy'));
+  assert.ok(doctor(root, 'projects/demo', 1).findings.some((finding) => finding.code === 'skills.project_assets_legacy'));
   const projectSource = writeSkill(root, 'project-git');
   run([
     'skills', 'add', '--source', projectSource, '--scope', 'projects/demo', '--target', root,
     '--provides', 'buildr.git-task-integration@1',
-  ]);
-  assert.equal(manifest(root, 'projects/demo').schemaVersion, 'buildr.skills/v2', 'v1 manifest must migrate on transactional write');
+  ], 1);
+  assert.equal(YAML.parse(fs.readFileSync(projectManifestPath, 'utf8')).schemaVersion, 'buildr.skills/v1', 'rejected Project source mutation must write nothing');
+  run(['skills', 'add', '--source', projectSource, '--target', root, '--provides', 'buildr.git-task-integration@1']);
   run(['skills', 'bind', 'buildr.git-task-integration@1', '--provider', 'project-git', '--scope', 'projects/demo', '--target', root]);
   const projectFinish = consumer(doctor(root, 'projects/demo', 1), 'projects/demo', 'task-finish');
   assert.equal(projectFinish.readiness, 'degraded', 'required provider is ready while optional review remains unavailable');
   assert.equal(projectFinish.dependencies.find((item) => item.capability === 'buildr.git-task-integration').selectedProvider.id, 'project-git');
 
-  const projectDocument = manifest(root, 'projects/demo');
-  const projectContract = path.join(root, 'projects', 'demo', 'skills', 'contracts', 'buildr', 'git-task-integration', 'v1.md');
-  fs.mkdirSync(path.dirname(projectContract), { recursive: true });
-  fs.copyFileSync(path.join(root, 'skills', 'contracts', 'buildr', 'git-task-integration', 'v1.md'), projectContract);
-  projectDocument.contracts = [{ id: 'buildr.git-task-integration', version: 1, path: 'contracts/buildr/git-task-integration/v1.md', description: 'conflicting project registration' }];
-  fs.writeFileSync(projectManifestPath, YAML.stringify(projectDocument, { lineWidth: 0 }));
-  const conflicted = doctor(root, 'projects/demo', 1);
-  assert.ok(conflicted.findings.some((finding) => finding.code === 'capability.graph_invalid' && finding.path === 'projects/demo'));
+  const projectCapabilities = YAML.parse(fs.readFileSync(path.join(root, 'projects', 'demo', 'capabilities.yml'), 'utf8'));
+  assert.equal(projectCapabilities.schemaVersion, 'buildr.project-capabilities/v1');
+  assert.equal(projectCapabilities.bindings[0].provider, 'project-git');
+});
+
+test('skills render 将 source workspace 与 user/workspace destination 分离并复用用户投射', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-skill-destination-'));
+  const userHome = path.join(root, 'user-home');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(userHome, { recursive: true });
+  const env = { ...process.env, HOME: userHome };
+  run(['init', '--target', root, '--name', 'destinations', '--profile', 'personal'], 0, { env });
+  run(['skills', 'render', 'codex', '--destination', 'user', '--target', root], 0, { env });
+  const userSkill = path.join(userHome, '.agents', 'skills', 'task-triage', 'SKILL.md');
+  assert.equal(fs.existsSync(userSkill), true);
+  assert.equal(fs.existsSync(path.join(root, '.agents', 'skills', 'task-triage', 'SKILL.md')), false);
+  const receipt = JSON.parse(fs.readFileSync(path.join(userHome, '.agents', 'buildr', 'skill-projection-receipts', 'codex', 'task-triage.json'), 'utf8'));
+  assert.equal(receipt.schemaVersion, 'buildr.skill-projection/v2');
+  assert.equal(receipt.destination, 'user');
+  assert.ok(receipt.assetIdentity && receipt.sourceIdentity && receipt.sourceDigest && receipt.renderDigest);
+  const local = run(['skills', 'render', 'codex', '--destination', 'workspace', '--target', root], 0, { env });
+  assert.equal(fs.existsSync(path.join(root, '.agents', 'skills', 'task-triage', 'SKILL.md')), false, 'same user asset must satisfy workspace without duplicate projection');
+  assert.equal(fs.existsSync(path.join(root, '.agents', 'buildr', 'skill-satisfaction', 'codex', 'task-triage.json')), true);
+  assert.match(local.stderr, /runtime\.skill_visibility_incomplete/);
+});
+
+test('skills render 对用户层同名外部资产输出稳定 JSON 并整次零写入', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-skill-conflict-'));
+  const userHome = path.join(root, 'user-home');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const external = path.join(userHome, '.agents', 'skills', 'task-triage');
+  fs.mkdirSync(external, { recursive: true });
+  fs.writeFileSync(path.join(external, 'SKILL.md'), '---\nname: task-triage\ndescription: foreign\n---\nforeign\n');
+  const env = { ...process.env, HOME: userHome };
+  run(['init', '--target', root, '--name', 'conflict', '--profile', 'personal'], 0, { env });
+  const result = run(['skills', 'render', 'codex', '--destination', 'workspace', '--target', root, '--json'], 1, { env });
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.schemaVersion, 'buildr.skill-conflict-report/v1');
+  const conflict = report.conflicts.find((item) => item.skillId === 'task-triage');
+  assert.equal(conflict.reason, 'name_conflict');
+  assert.ok(conflict.assetIdentity && conflict.sourceIdentity && conflict.renderDigest);
+  assert.equal(conflict.nextActions.length, 3);
+  assert.equal(fs.existsSync(path.join(root, '.agents')), false, 'blocking preflight must write no candidate or receipt');
+});
+
+test('legacy Project Skill migration check/apply 事务化迁移并对同名异内容零写入', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-project-skill-migration-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  run(['init', '--target', root, '--name', 'migration', '--profile', 'personal']);
+  run(['project', 'create', 'demo', '--target', root]);
+  const legacyRoot = path.join(root, 'projects', 'demo', 'skills');
+  fs.mkdirSync(path.join(legacyRoot, 'legacy-demo'), { recursive: true });
+  fs.writeFileSync(path.join(legacyRoot, 'legacy-demo', 'SKILL.md'), '---\nname: legacy-demo\ndescription: legacy\n---\nbody\n');
+  fs.writeFileSync(path.join(legacyRoot, 'manifest.yml'), YAML.stringify({ schemaVersion: 'buildr.skills/v2', skills: [{ id: 'legacy-demo', path: 'legacy-demo' }] }));
+  const check = JSON.parse(run(['skills', 'migrate-project-assets', '--target', root, '--check', '--json']).stdout);
+  assert.equal(check.blocking, false);
+  assert.equal(check.projects[0].skills[0].classification, 'project_only');
+  run(['skills', 'migrate-project-assets', '--target', root, '--apply']);
+  assert.equal(fs.existsSync(legacyRoot), false);
+  assert.equal(fs.existsSync(path.join(root, 'skills', 'legacy-demo', 'SKILL.md')), true);
+  assert.equal(manifest(root).schemaVersion, 'buildr.skills/v3');
+  const capabilities = YAML.parse(fs.readFileSync(path.join(root, 'projects', 'demo', 'capabilities.yml'), 'utf8'));
+  assert.deepEqual(capabilities.skills, ['legacy-demo']);
+
+  run(['project', 'create', 'other', '--target', root]);
+  const conflictRoot = path.join(root, 'projects', 'other', 'skills');
+  fs.mkdirSync(path.join(conflictRoot, 'legacy-demo'), { recursive: true });
+  fs.writeFileSync(path.join(conflictRoot, 'legacy-demo', 'SKILL.md'), '---\nname: legacy-demo\ndescription: different\n---\ndifferent\n');
+  fs.writeFileSync(path.join(conflictRoot, 'manifest.yml'), YAML.stringify({ schemaVersion: 'buildr.skills/v2', skills: [{ id: 'legacy-demo', path: 'legacy-demo' }] }));
+  const before = fs.readFileSync(path.join(root, 'skills', 'manifest.yml'), 'utf8');
+  run(['skills', 'migrate-project-assets', '--target', root, '--apply'], 1);
+  assert.equal(fs.readFileSync(path.join(root, 'skills', 'manifest.yml'), 'utf8'), before);
+  assert.equal(fs.existsSync(conflictRoot), true);
 });

@@ -46,12 +46,16 @@ fs.writeFileSync(path.join(sibling, 'probe.txt'), 'SIBLING_FILE_MARKER_40DC\n');
 const skillSource = path.join(target, '.smoke-source', 'adapter-smoke-skill');
 fs.mkdirSync(skillSource, { recursive: true });
 fs.writeFileSync(path.join(skillSource, 'SKILL.md'), `---\nname: adapter-smoke-skill\ndescription: Use when asked for the Buildr adapter smoke Skill marker.\n---\n\nReturn exactly SMOKE_SKILL_DISCOVERED_19AF.\n`);
-run(['skills', 'add', 'adapter-smoke-skill', '--source', skillSource, '--scope', 'projects/smoke', '--target', target]);
+run(['skills', 'add', 'adapter-smoke-skill', '--source', skillSource, '--target', target]);
+const capabilitiesFile = path.join(target, 'projects', 'smoke', 'capabilities.yml');
+const capabilities = fs.readFileSync(capabilitiesFile, 'utf8');
+if (!capabilities.includes('skills: []')) throw new Error(`Unexpected Project capabilities template: ${capabilitiesFile}`);
+fs.writeFileSync(capabilitiesFile, capabilities.replace('skills: []', 'skills:\n  - adapter-smoke-skill'));
 run(['sync', adapterId, '--target', target]);
 
 const adapter = getRuntimeAdapter(adapterId);
 const rulesProfile = adapter.traits.rules.kind === 'reference-bridge' ? 'reference-bridge' : 'scoped-rule-files';
-const prompt = `# Buildr Agent Adapter One-Shot Smoke\n\nRun one read-only marker check for ${adapterId} in this workspace. Do not search the whole workspace, inspect application storage, test reload behavior, or edit files.\n\n1. Record the exact Agent product version and surface.\n2. Read projects/smoke/services/active/probe.txt and report the SMOKE_*_RULE markers that actually apply. Do not open the sibling directory.\n3. Invoke the project-level Skill adapter-smoke-skill and report its exact result.\n\nReturn only JSON:\n\n{\n  "adapterId": "${adapterId}",\n  "version": null,\n  "surface": null,\n  "profile": "${rulesProfile}",\n  "rules": {\n    "root": "pass|fail|not_observed",\n    "project": "pass|fail|not_observed",\n    "active": "pass|fail|not_observed",\n    "siblingIsolated": "pass|fail|not_observed",\n    "observedMarkers": []\n  },\n  "skill": { "status": "pass|fail|not_observed", "result": null },\n  "evidence": [],\n  "blockingUnknowns": []\n}\n`;
+const prompt = `# Buildr Agent Adapter One-Shot Smoke\n\nRun one read-only marker check for ${adapterId} in this workspace. Do not search the whole workspace, inspect application storage, test reload behavior, or edit files.\n\n1. Record the exact Agent product version and surface.\n2. Read projects/smoke/services/active/probe.txt and report the SMOKE_*_RULE markers that actually apply. Do not open the sibling directory.\n3. Invoke the workspace Skill adapter-smoke-skill referenced by this Project context and report its exact result.\n\nReturn only JSON:\n\n{\n  "adapterId": "${adapterId}",\n  "version": null,\n  "surface": null,\n  "profile": "${rulesProfile}",\n  "rules": {\n    "root": "pass|fail|not_observed",\n    "project": "pass|fail|not_observed",\n    "active": "pass|fail|not_observed",\n    "siblingIsolated": "pass|fail|not_observed",\n    "observedMarkers": []\n  },\n  "skill": { "status": "pass|fail|not_observed", "result": null },\n  "evidence": [],\n  "blockingUnknowns": []\n}\n`;
 
 fs.writeFileSync(path.join(target, 'SMOKE_PROMPT.md'), prompt);
 fs.rmSync(path.join(target, '.smoke-source'), { recursive: true, force: true });

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {
   ownerExecutable,
@@ -104,6 +105,24 @@ function validateSkillPublicationExtensions(skills, label, errors) {
   }
 }
 
+function normalizeSkillDestinations(skills) {
+  const workspace = skills.destinations?.workspace || { supported: true, root: skills.root };
+  const user = skills.destinations?.user || { supported: true, root: skills.root };
+  return {
+    workspace,
+    user,
+    discovery: skills.discovery || {
+      evidence: 'partial',
+      roots: [
+        { source: 'workspace', destination: 'workspace' },
+        { source: 'user', destination: 'user' },
+      ],
+      opaqueSources: ['admin', 'system', 'plugin'],
+      precedence: 'not-guaranteed',
+    },
+  };
+}
+
 function normalizeImplementationCatalog(value = {}) {
   return {
     rules: new Set(value.rules || BUILTIN_ADAPTER_IMPLEMENTATIONS.rules),
@@ -147,6 +166,13 @@ function validateAdapterTraits(descriptor, options = {}) {
   if (!isSafeRuntimeRoot(skills?.root)) errors.push(`adapter ${descriptor.id} skills root is unsafe: ${skills?.root || '<missing>'}`);
   if (skills?.kind === 'agents-compatible' && skills.root !== '.agents') errors.push(`adapter ${descriptor.id} agents-compatible skills root must be .agents`);
   validateSkillPublicationExtensions(skills || {}, `adapter ${descriptor.id} skills`, errors);
+  const destinations = normalizeSkillDestinations(skills || {});
+  for (const destination of ['workspace', 'user']) {
+    const entry = destinations[destination];
+    if (entry.supported !== false && !isSafeRuntimeRoot(entry.root)) errors.push(`adapter ${descriptor.id} ${destination} Skill destination root is unsafe: ${entry.root || '<missing>'}`);
+  }
+  if (!['complete', 'partial'].includes(destinations.discovery.evidence)) errors.push(`adapter ${descriptor.id} Skill discovery evidence must be complete or partial`);
+  if (!Array.isArray(destinations.discovery.roots)) errors.push(`adapter ${descriptor.id} Skill discovery roots must be an array`);
 
   if (!Array.isArray(traits.surfaces) || traits.surfaces.length === 0) errors.push(`adapter ${descriptor.id} surfaces are required`);
   for (const surface of traits.surfaces || []) {
@@ -211,6 +237,8 @@ function runtimeTargets(traits) {
 }
 
 export function createRuntimeAdapterDescriptor(value, options = {}) {
+  value = structuredClone(value);
+  value.traits.skills.destinations = normalizeSkillDestinations(value.traits.skills);
   const traitErrors = validateAdapterTraits(value, options);
   if (traitErrors.length > 0) throw new Error(`Invalid runtime adapter descriptor ${value.id || '<missing>'}:\n- ${traitErrors.join('\n- ')}`);
   const traits = freeze(structuredClone(value.traits));
@@ -234,12 +262,20 @@ export function createRuntimeAdapterDescriptor(value, options = {}) {
   return freeze(descriptor);
 }
 
+export function skillDestinationRoot(adapterOrId, destination, workspaceRoot, options = {}) {
+  const adapter = typeof adapterOrId === 'string' ? getRuntimeAdapter(adapterOrId) : adapterOrId;
+  if (!['workspace', 'user'].includes(destination)) throw new Error(`Unsupported Skill destination: ${destination}. Use workspace or user.`);
+  const descriptor = adapter.traits.skills.destinations[destination];
+  if (!descriptor || descriptor.supported === false) throw new Error(`Skill destination ${destination} is unsupported for ${adapter.id}.`);
+  return path.resolve(destination === 'workspace' ? workspaceRoot : (options.userHome || os.homedir()), descriptor.root);
+}
+
 function recommendedCommands(id) {
   return {
     doctor: `buildr doctor --agent ${id} --target <dir> --json`,
     syncWorkspaceEntry: `buildr sync ${id} --target <dir>`,
     renderScope: `buildr render ${id} --scope <workspace-relative-path> --target <dir>`,
-    renderSkillsScope: `buildr skills render ${id} --scope <scope> --target <dir>`,
+    renderSkillsScope: `buildr skills render ${id} --destination workspace --target <workspace>`,
     renderRulesScope: `buildr rules render ${id} --scope <scope> --target <dir>`,
     runtimeCheckScope: `buildr runtime check ${id} --scope <workspace-relative-path> --target <dir>`,
     installProductSkill: `buildr skill install ${id} --target <dir>`,
@@ -289,7 +325,7 @@ const DESCRIPTORS = [
       doctor: 'buildr doctor --agent claude-code --target <dir> --json',
       syncWorkspaceEntry: 'buildr sync claude-code --target <dir>',
       renderScope: 'buildr render claude-code --scope <workspace-relative-path> --target <dir>',
-      renderSkillsScope: 'buildr skills render claude-code --scope <scope> --target <dir>',
+      renderSkillsScope: 'buildr skills render claude-code --destination workspace --target <workspace>',
       renderRulesScope: 'buildr rules render claude-code --scope <scope> --target <dir>',
       runtimeCheckScope: 'buildr runtime check claude-code --scope <workspace-relative-path> --target <dir>',
       installProductSkill: 'buildr skill install claude-code --target <dir>',
@@ -318,7 +354,7 @@ const DESCRIPTORS = [
       doctor: 'buildr doctor --agent codex --target <dir> --json',
       syncWorkspaceEntry: 'buildr sync codex --target <dir>',
       renderScope: 'buildr render codex --scope <workspace-relative-path> --target <dir>',
-      renderSkillsScope: 'buildr skills render codex --scope <scope> --target <dir>',
+      renderSkillsScope: 'buildr skills render codex --destination workspace --target <workspace>',
       runtimeCheckScope: 'buildr runtime check codex --scope <workspace-relative-path> --target <dir>',
       installProductSkill: 'buildr skill install codex --target <dir>',
     },

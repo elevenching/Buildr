@@ -42,6 +42,7 @@ export const COMMAND_REGISTRY = [
   { key: 'skills remove', match: ({ domain, action }) => domain === 'skills' && action === 'remove', run: (r, c) => r.skillsRemove(c.argv.slice(4)) },
   { key: 'skills bind', match: ({ domain, action }) => domain === 'skills' && action === 'bind', run: (r, c) => r.skillsBind(c.argv.slice(4)) },
   { key: 'skills unbind', match: ({ domain, action }) => domain === 'skills' && action === 'unbind', run: (r, c) => r.skillsUnbind(c.argv.slice(4)) },
+  { key: 'skills migrate-project-assets', match: ({ domain, action }) => domain === 'skills' && action === 'migrate-project-assets', run: (r, c) => r.skillsMigrateProjectAssets(c.argv.slice(4)) },
   { key: 'skill install', requiresAgent: true, match: ({ domain, action }) => domain === 'skill' && action === 'install', run: (r, c) => {
     const command = r.withResolvedTarget(c.args);
     const adapter = r.getRuntimeAdapter(c.runtimeId);
@@ -71,12 +72,13 @@ function runScopedRender(r, context) {
   const command = r.withResolvedTarget(context.args);
   const result = renderer(command.args, { repoRoot: command.targetRoot, command: `buildr ${context.domain} render ${context.runtimeId}` });
   const { targetRoot, files } = result;
+  for (const warning of result.warnings || []) console.error(`Warning: ${warning}`);
+  if (result.jsonReported) return;
   if (context.domain === 'skills' && files.length === 0) {
     const scope = r.optionValue(command.args, '--scope');
-    console.log(`No workspace/project Skills declared for scope ${r.displayScope(scope)}.`);
+    console.log('No workspace Skills declared.');
     return;
   }
-  for (const warning of result.warnings || []) console.error(`Warning: ${warning}`);
   if (context.domain === 'rules' && result.actions) {
     for (const item of result.actions) console.log(`[${item.action}] ${r.toPosixRelative(targetRoot, item.targetFile)}`);
     return;

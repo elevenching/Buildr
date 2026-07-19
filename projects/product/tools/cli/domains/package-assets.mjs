@@ -413,6 +413,8 @@ export function registerDomainsPackageAssets(runtime) {
   function builtinSkillEntry(builtin) {
     return {
       id: builtin.id,
+      assetIdentity: `buildr:skill:${builtin.id}`,
+      sourceIdentity: `package:${builtin.target}`,
       source: builtin.target.startsWith('skills/openspec/') ? 'openspec' : 'buildr',
       path: builtin.target.replace(/^skills\//, ''),
       description: builtin.description,
@@ -536,10 +538,9 @@ export function registerDomainsPackageAssets(runtime) {
       writeMappedFileIfMissing(targetRoot, projectRoot, entry, variables, changed);
       if (changed.length > before) changed[changed.length - 1] = `projects/${projectName}/${entry.target}`;
     }
-    const skillsFile = path.join(projectRoot, 'skills', 'manifest.yml');
-    if (writeFileIfChanged(skillsFile, existsFile(skillsFile) ? renderSkillsManifestYaml(readSkillManifest(skillsFile)) : renderSkillsManifestYaml([]))) {
-      changed.push(toPosixRelative(targetRoot, skillsFile));
-    }
+    // Legacy projects/<project>/skills is preserved verbatim until the explicit
+    // migrate-project-assets transaction is run. Ordinary repair/sync never
+    // creates, rewrites, merges, or deletes it.
     const servicesFile = servicesManifestPath(projectRoot);
     if (!existsFile(servicesFile) && !existsFile(path.join(projectRoot, 'services.yml'))) {
       writeServicesManifest(projectRoot, { schemaVersion: 'buildr.services/v1', project: projectName, services: {} });
@@ -551,7 +552,7 @@ export function registerDomainsPackageAssets(runtime) {
     const file = skillsManifestPath(scopeRoot);
     if (!existsFile(file)) return;
     const schemaVersion = readSkillManifestSchemaVersion(file);
-    if (schemaVersion === 'buildr.skills/v2') return;
+    if (schemaVersion === 'buildr.skills/v3') return;
     const skills = readSkillManifest(file);
     atomicWriteFile(file, renderSkillsManifestYaml(skills));
     changed.push(toPosixRelative(targetRoot, file));
@@ -597,7 +598,6 @@ export function registerDomainsPackageAssets(runtime) {
       fs.rmSync(legacyFile, { force: true });
       changed.push(toPosixRelative(targetRoot, legacyFile));
     }
-    convergeSkillsManifestSchema(targetRoot, projectRoot, changed);
     return manifest;
   }
 

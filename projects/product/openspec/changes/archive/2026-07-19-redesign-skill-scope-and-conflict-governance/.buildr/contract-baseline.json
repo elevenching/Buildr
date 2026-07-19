@@ -1,0 +1,248 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "redesign-skill-scope-and-conflict-governance",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-49eec4fbffa8e61560f2970f6d251d71ad4638044399f327a9e39a5f9a045d5c",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-first-product-positioning",
+      "title": "公开产品模型区分 Workspace、Project 与 Skill destination",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-first-product-positioning",
+      "title": "公开入口准确说明同名 Skill 治理",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "Package baseline 只交付 workspace Skill authority",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "Package verification 覆盖 destination 与冲突迁移",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "package manifest 声明 workspace Skill 引用来源",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: package manifest 声明 workspace Skill 引用来源\nBuildr package manifest MUST 支持声明产品随包 workspace/project Skill 引用来源，并将其与 workspace baseline 文件映射和产品内置 Agent Skills 分离。\n\n#### Scenario: 声明 skillSources\n- **WHEN** Buildr 产品包提供可被 workspace/project `skills/manifest.yml` 引用的 Skill 源资产\n- **THEN** `package/manifest.yml` MUST 通过专用字段声明 source id、源路径和适用 runtime\n- **AND** 该声明 MUST NOT 使用 `agentSkills` 字段\n\n#### Scenario: skillSources 不参与 init 文件映射\n- **WHEN** Agent 执行 `buildr init`\n- **THEN** manifest 中声明的 `skillSources` MUST NOT 被直接复制到目标 workspace `skills/<skill-id>/` 目录\n- **AND** Buildr MUST 继续只按 `workspaceDirectories` 和 `workspaceFiles` 生成 workspace baseline 文件\n- **AND** 默认 workspace 可通过 `skills/manifest.yml` 中的引用型条目启用这些 Skill\n\n#### Scenario: package check 校验 skillSources\n- **WHEN** Agent 执行 `buildr package check`\n- **THEN** Buildr MUST 校验 manifest 声明的 `skillSources` 源路径存在\n- **AND** Buildr MUST 校验每个 source 具备可读取的 `SKILL.md`\n- **AND** Buildr MUST 校验 `SKILL.md` frontmatter 的 `name` 与 source id 一致\n- **AND** Buildr MUST 校验 source 内容不包含 forbidden patterns\n\n#### Scenario: workspace baseline 引用 package Skill source\n- **WHEN** package workspace baseline 的 `skills/manifest.yml` 声明 `source: package:<source-id>`\n- **THEN** Buildr package check MUST 校验 `<source-id>` 存在于 package manifest 的 `skillSources`\n- **AND** Buildr MUST NOT 要求该 Skill 的 `SKILL.md` 也出现在 `workspaceFiles` 映射中\n"
+    },
+    {
+      "capability": "cli-product-surface",
+      "title": "Skills CLI 明确区分 workspace source 与 render destination",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-product-surface",
+      "title": "Skill 冲突输出使用稳定机器契约",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "Onboarding 区分 Skill source authority 与 render destination",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "Runtime guidance 公开 Skills inventory 保证边界",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "Buildr guidance names runtime render assets",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: Buildr guidance names runtime render assets\nBuildr onboarding guidance MUST 说明哪些 Buildr assets 参与 Agent runtime render，哪些仍保持为 source assets。\n\n#### Scenario: Runtime render explanation\n- **WHEN** Buildr Skill、bootstrap guide、README、init output 或 doctor unsupported-Agent guidance 描述 runtime render\n- **THEN** guidance MUST 将 rules entry or bridge、product Buildr Skill、workspace/project Skills、Skill install plans 和 runtime check 说明为 adapter render capabilities\n- **AND** guidance MUST 说明 Commands、Project registry、Service registry、OpenSpec、knowledge 和 docs 保持为 Buildr source assets，除非未来 adapter 明确支持 render 它们\n- **AND** guidance MUST NOT 将 Practices 表示为 Buildr source asset\n"
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Workspace Skills 源资产维护命令",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Skill asset identity 与 runtime name 分离",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Skill render destination 明确区分 user 与 workspace",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Buildr 对候选 Skill 执行冲突治理",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "同一 Buildr Skill 不重复进入有效发现集合",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Project Skill 源资产迁移保持保守和可恢复",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "workspace/project Skills 源资产维护命令",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: workspace/project Skills 源资产维护命令\nBuildr MUST 提供 workspace/project Skills 源资产的 add/remove 维护命令，用于登记本地源目录、远端信息源和已解析安装源。\n\n#### Scenario: 装载完整 Skill 源目录\n- **WHEN** Agent 运行 `buildr skills add --source <skill-dir> --scope <scope> --target <dir>`\n- **THEN** Buildr MUST 要求 `<dir>` 是已初始化 Buildr workspace\n- **AND** Buildr MUST 要求 `<scope>` 是 `.` 或 `projects/<project>`\n- **AND** Buildr MUST 从 `<skill-dir>/SKILL.md` frontmatter 的 `name` 读取 Skill id\n- **AND** Buildr MUST 将该 Skill 登记到对应 scope 的 `skills/manifest.yml`\n- **AND** Buildr MUST 将支持的 Skill 源资产内容装载到对应 scope 的 `skills/<skill-id>/`\n- **AND** manifest 条目 MUST 写为 `path` 本地源目录条目\n\n#### Scenario: 登记远端信息源\n- **WHEN** Agent 运行 `buildr skills add <id> --remote-source <url> --scope <scope> --target <dir>`\n- **THEN** Buildr MUST 要求 `<dir>` 是已初始化 Buildr workspace\n- **AND** Buildr MUST 要求 `<scope>` 是 `.` 或 `projects/<project>`\n- **AND** Buildr MUST 将该 Skill 登记到对应 scope 的 `skills/manifest.yml`\n- **AND** manifest 条目 MUST 保存 source URL 和 source kind\n- **AND** 当 Agent 未提供 source kind时，Buildr MUST 将 source kind 记录为 `url`\n- **AND** manifest 条目 MUST 标记该 Skill 需要 Agent 安装或解析\n- **AND** Buildr MUST NOT 尝试复制或安装该 source\n\n#### Scenario: 登记已解析安装源\n- **WHEN** Agent 运行 `buildr skills add <id> --resolved-source <url> --scope <scope> --target <dir>`\n- **THEN** Buildr MUST 要求 `<dir>` 是已初始化 Buildr workspace\n- **AND** Buildr MUST 将 `<url>` 登记为该 Skill 的精确安装源\n- **AND** 当 Agent 未提供 resolved kind 时，Buildr MUST 将 resolved kind 记录为 `skill-url`\n- **AND** `skill-url` MUST 表示该 URL 的内容是 raw `SKILL.md`\n- **AND** manifest 条目 MUST 在 Agent 提供原始 source URL 时保存该 URL\n- **AND** manifest 条目 MUST 在 Agent 提供 version 或 integrity 时保存到 `resolved`\n- **AND** manifest 条目 MUST 标记该 Skill 可由 Buildr render 安装\n\n#### Scenario: 已解析安装源默认 runtime 名称\n- **WHEN** Agent 登记已解析安装源\n- **AND** manifest 条目没有额外声明 Agent runtime 名称\n- **THEN** Buildr MUST 默认使用 Skill id 作为 Agent runtime 中的 Skill 名称\n\n#### Scenario: 已解析安装源保留原始信息源\n- **WHEN** Agent 运行 `buildr skills add <id> --remote-source <source-url> --resolved-source <skill-md-url> --scope <scope> --target <dir>`\n- **THEN** Buildr MUST 将 `<source-url>` 保存到 `source`\n- **AND** Buildr MUST 将 `<skill-md-url>` 保存到 `resolved`\n- **AND** manifest 条目 MUST 标记该 Skill 可由 Buildr render 安装\n\n#### Scenario: 不支持的 resolved kind\n- **WHEN** Agent 使用 `skills add --resolved-source` 提供当前 CLI 不支持的 resolved kind\n- **THEN** Buildr MUST 报告错误\n- **AND** Buildr MUST NOT 猜测如何安装该来源\n\n#### Scenario: 显式 id 必须对齐\n- **WHEN** Agent 运行 `buildr skills add <id> --source <skill-dir> --scope <scope> --target <dir>`\n- **THEN** Buildr MUST 校验 `<id>` 与 `<skill-dir>/SKILL.md` frontmatter 的 `name` 一致\n- **AND** 当二者不一致时 Buildr MUST 报告错误\n\n#### Scenario: Skill 源资产结构\n- **WHEN** Buildr 装载 Skill 源目录\n- **THEN** Buildr MUST 要求 source 目录包含 `SKILL.md`\n- **AND** Buildr MUST 支持装载 `SKILL.md` 以及可选的 `agents/`、`scripts/`、`templates/`、`assets/`、`examples/`、`references/`\n- **AND** 当 source 目录包含未知顶层内容时 Buildr MUST 默认报错\n- **AND** 当 Agent 显式提供 `--ignore-unsupported` 时 Buildr MUST 跳过未知顶层内容并在输出中说明未装载内容\n\n#### Scenario: 登记已在目标位置的 Skill\n- **WHEN** `--source` 指向对应 scope 的 `skills/<skill-id>/`\n- **THEN** Buildr MUST 校验该目录是完整 Skill 源目录\n- **AND** Buildr MUST 只更新 `skills/manifest.yml`\n- **AND** Buildr MUST NOT 复制或删除该目录\n\n#### Scenario: 替换 Skill 源资产\n- **WHEN** Agent 运行任一 `skills add` 登记命令并提供 `--replace`\n- **AND** 对应 scope 已存在同 id Skill\n- **THEN** Buildr MUST 替换 manifest 条目\n- **AND** 当替换为本地源目录且 source 不在目标位置时 Buildr MUST 使用整目录替换语义\n- **AND** 当替换为远端信息源或已解析安装源时 Buildr MUST NOT 删除既有本地源目录，除非 Agent 另行请求删除该源目录\n\n#### Scenario: 删除 Skill 源资产\n- **WHEN** Agent 运行 `buildr skills remove <id> --scope <scope> --target <dir>`\n- **THEN** Buildr MUST 从对应 scope 的 `skills/manifest.yml` 删除该 Skill 条目\n- **AND** 当被删除条目是本地作者型 Skill 时，Buildr MUST 在安全校验后删除对应 `skills/<skill-id>/` 源目录\n- **AND** 当被删除条目是远端发布型 Skill 时，Buildr MUST NOT 删除远端来源或 Agent runtime 投射产物\n- **AND** Buildr MUST NOT 删除任何 Agent runtime 投射产物\n\n#### Scenario: Skills manifest 摘要字段\n- **WHEN** Buildr 写入 `skills/manifest.yml`\n- **THEN** Buildr MUST 允许 Skill 条目包含 `description` 字段\n- **AND** `description` MUST 只作为 manifest 中供人和 Agent 快速扫描的摘要\n- **AND** 本地作者型 Skill 的完整触发条件、步骤和执行说明 MUST 以 `skills/<skill-id>/SKILL.md` 为准\n- **AND** 远端发布型 Skill 的完整触发条件、步骤和执行说明 MUST 以已安装 runtime Skill 或远端 source / resolved 内容为准\n\n#### Scenario: 输出下一步行为\n- **WHEN** Buildr 完成 `skills add` 或 `skills remove`\n- **THEN** Buildr MUST 输出中文 Agent-readable 回执\n- **AND** 回执 MUST 说明已更新的源资产\n- **AND** 回执 MUST 引导 Agent 按当前 Agent runtime 能力执行 Skills render、runtime check 或 doctor\n- **AND** 回执 MUST NOT 硬编码特定 Agent adapter 命令\n"
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "workspace/project Skills 支持两种类型",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: workspace/project Skills 支持两种类型\nBuildr MUST 将 workspace/project Skill 源资产区分为本地作者型 Skill 和远端发布型 Skill。\n\n#### Scenario: 本地作者型 Skill\n- **WHEN** Skill manifest 条目使用 `path`\n- **THEN** Buildr MUST 将该 Skill 视为本地作者型 Skill\n- **AND** 该 Skill 的完整源内容 MUST 位于当前 scope 的 `skills/<skill-id>/`\n- **AND** 该目录 MUST 至少包含 `SKILL.md`\n\n#### Scenario: 远端发布型 Skill\n- **WHEN** Skill manifest 条目使用 `source` 或 `resolved`\n- **THEN** Buildr MUST 将该 Skill 视为远端发布型 Skill\n- **AND** Buildr MUST NOT 要求当前 workspace 或 project 下存在该 Skill 的完整源目录\n- **AND** 当 manifest 条目包含 `source` 时，`source` MUST 表示信息来源，不等同于可直接安装的 Skill 包\n\n#### Scenario: 远端信息源未解析\n- **WHEN** 远端发布型 Skill 只有 `source` 且没有 `resolved`\n- **THEN** Buildr MUST 将该 Skill 视为未解析远端信息源\n- **AND** Buildr MUST 保留 source 信息供 Agent 后续解析或安装\n\n#### Scenario: 远端信息源已解析\n- **WHEN** 远端发布型 Skill 包含 `resolved`\n- **THEN** Buildr MUST 将 `resolved` 视为精确安装源\n- **AND** 当该条目同时包含 `source` 时，Buildr MUST 使用 `resolved` 而不是 `source` 执行可确定的安装或校验\n"
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Codex Skills runtime 投射",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: Codex Skills runtime 投射\nBuildr MUST 支持将适用的 Buildr Skills 渲染到当前 Codex 打开项目根目录的 `.agents/skills`。\n\n#### Scenario: 渲染 Skill 到 Codex\n- **WHEN** Buildr 为 workspace 渲染 Codex runtime\n- **THEN** Buildr MUST 将每个已启用且适用的 Skill 安装到当前 Codex 打开项目根目录的 `.agents/skills/<skill-id>/`\n- **AND** 每个已安装 Skill MUST 包含有效的 `SKILL.md`\n\n#### Scenario: Codex Skill 源结构\n- **WHEN** Buildr 校验面向 Codex runtime 的 Skill\n- **THEN** Buildr MUST 要求存在带必需 frontmatter 字段的 `SKILL.md`\n- **AND** Buildr MAY 包含受支持的可选 `scripts/`、`references/`、`assets/` 和 `agents/openai.yaml` 文件\n\n#### Scenario: Codex Skill 冲突\n- **WHEN** Buildr 内置 Skill id 与用户 Skill id 在 Codex runtime 中冲突\n- **THEN** Buildr MUST 报告该冲突\n- **AND** Buildr MUST 要求用户或 Agent 先卸载内置 Skill 或重命名用户 Skill，再进行 render，不能静默选择其中一个\n"
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Skills manifest schemaVersion",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: Skills manifest schemaVersion\nBuildr MUST 要求 workspace/project `skills/manifest.yml` 声明 Skill manifest schema version，并 MUST 通过 `buildr.skills/v2` 表达 capability contracts、bindings、providers 和 consumers。\n\n#### Scenario: 新建 Skills manifest\n- **WHEN** Buildr creates a workspace or project `skills/manifest.yml`\n- **THEN** Buildr MUST write `schemaVersion: buildr.skills/v2`\n- **AND** 没有 capability composition 的 manifest MAY 省略空的 `contracts` 和 `bindings`\n\n#### Scenario: v1 Skills manifest 升级到 v2\n- **WHEN** Buildr update or sync reads a valid `buildr.skills/v1` manifest\n- **THEN** Buildr MUST transactionally migrate it to `buildr.skills/v2`\n- **AND** migration MUST preserve every existing Skill identity、source/path、description、enabled、required、state、reason、runtime 和远端安装信息\n- **AND** migration MUST add package-declared `provides`、`requires`、contracts 和 initial default bindings only where no user binding exists and the corresponding managed builtin state permits them\n- **AND** migration MUST NOT restore an uninstalled builtin provider or overwrite an explicit user provider choice\n\n#### Scenario: 旧 Skills manifest 缺 schemaVersion\n- **WHEN** an existing `skills/manifest.yml` has valid Skill entries but no `schemaVersion`\n- **THEN** Buildr update or sync MUST transactionally migrate it to `buildr.skills/v2`\n- **AND** Buildr doctor MUST report a warning before the file is repaired\n\n#### Scenario: Skills manifest schemaVersion 错误\n- **WHEN** `skills/manifest.yml` declares an unsupported `schemaVersion`\n- **THEN** Buildr doctor MUST report an error with supported versions and executable nextActions\n- **AND** Buildr MUST NOT partially render or rewrite the unsupported manifest\n\n#### Scenario: 旧 CLI 读取 v2 manifest\n- **WHEN** a Buildr CLI version that does not support `buildr.skills/v2` reads a v2 manifest\n- **THEN** the CLI MUST fail explicitly rather than ignore `contracts`、`bindings`、`provides` or `requires`\n- **AND** rollback MUST use a pre-migration snapshot or an explicit lossy downgrade action\n"
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "Buildr Skill 使用 workspace source 与两种 render destination",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "Buildr Skill 解释并处理 Agent Skills 同名行为",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "内置 Agent Skills 通过现有 render 体系投射",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 内置 Agent Skills 通过现有 render 体系投射\nBuildr MUST 提供 `buildr skill install <agent>` 作为产品内置 Buildr Skill 的独立安装入口，并保留 `buildr skills render <agent>` 作为 workspace/root/project Skills 的 scope 投射能力。\n\n#### Scenario: 安装 Claude Code Buildr Skill\n- **WHEN** Agent 执行 `buildr skill install claude-code --target <dir>`\n- **THEN** Buildr MUST 将适用于 Claude Code 的产品内置 Buildr Skill 安装到 `<dir>/.claude/skills/buildr/SKILL.md`\n- **AND** Buildr MUST NOT 要求存在 workspace scope\n\n#### Scenario: 渲染 Claude Code workspace Skills\n- **WHEN** Agent 执行 `buildr skills render claude-code --scope <scope> --target <dir>`\n- **THEN** Buildr MUST 渲染适用于该 scope 的 workspace/root/project Skills\n- **AND** Buildr MUST NOT 通过该命令安装或修复产品内置 Buildr Skill\n- **AND** 产品内置 Buildr Skill MUST 通过 `buildr skill install claude-code --target <dir>` 安装或修复\n\n#### Scenario: 禁止新增 bootstrap install-skill\n- **WHEN** Buildr 提供 Buildr Skill 安装或渲染能力\n- **THEN** Buildr MUST NOT 引入 `buildr bootstrap install-skill`\n\n#### Scenario: 未实现 adapter 时跳过\n- **WHEN** 当前 Agent 没有对应 Skills adapter\n- **THEN** Buildr MUST 明确跳过产品内置 Agent Skills 的 runtime 投射\n- **AND** Agent MUST 继续通过 `AGENTS.md`、bootstrap guide 和 Buildr CLI 使用 workspace\n"
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "内置 Agent Skill 来源冲突必须显式处理",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 内置 Agent Skill 来源冲突必须显式处理\nBuildr MUST 在产品内置 Agent Skills 与 workspace/root/project Skills 发生 id 冲突时报告错误，而不是静默覆盖。\n\n#### Scenario: Buildr Skill id 冲突\n- **WHEN** workspace 或 project Skills manifest 声明了与产品内置 Agent Skill 相同的 `id`\n- **THEN** `buildr skills render <agent>` MUST 报告冲突\n- **AND** 输出 MUST 说明冲突来源包含产品内置 Skill 和 workspace/project Skill\n"
+    },
+    {
+      "capability": "project-registry",
+      "title": "Project 只引用 workspace 能力资产",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-registry",
+      "title": "Project capability context 保持跨 Project 确定性",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "root-organization-workspace",
+      "title": "Workspace 是 Skill 治理根和工作目录边界",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "root-organization-workspace",
+      "title": "项目资产使用根 projects 目录",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 项目资产使用根 projects 目录\nBuildr MUST 默认使用根 `projects/<project>/` 维护项目级资产，并使用 `projects/manifest.yml` 管理 Project 集合。\n\n#### Scenario: 创建项目\n- **WHEN** Agent executes `buildr project create pig --target <root>`\n- **THEN** Buildr MUST create project-level `AGENTS.md`, `openspec/`, `skills/`, `services/` and `services/manifest.yml` under `<root>/projects/pig/`\n- **AND** Buildr MUST NOT create `<root>/projects/pig/practices/`\n\n#### Scenario: 未指定组织的 service 接入\n- **WHEN** Agent executes `buildr service create pig/freshx <repo-ref> --target <root>`\n- **THEN** Buildr MUST attach that service to `<root>/projects/pig/` service metadata and default service repo directory\n- **AND** service metadata MUST be written to `<root>/projects/pig/services/manifest.yml`\n"
+    },
+    {
+      "capability": "skill-capability-contracts",
+      "title": "Provider 通过 workspace registry 与业务上下文 binding 解析",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "skill-capability-contracts",
+      "title": "不同 provider 必须使用不同 Skill ID",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "skill-capability-contracts",
+      "title": "Provider 通过 scope binding 确定性解析",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: Provider 通过 scope binding 确定性解析\nBuildr MUST 基于当前 workspace/Project scope、显式 binding、provider 唯一性、version 和 runtime 可用性确定 consumer 的 provider，并 MUST NOT 依赖安装顺序或描述文本猜测。\n\n#### Scenario: 最近 scope 存在显式 binding\n- **WHEN** consumer 的当前 scope 或祖先 scope 为 required capability 声明 binding\n- **THEN** Buildr MUST 使用从当前 scope 向 workspace root 找到的最近 binding\n- **AND** 被绑定 Skill MUST 在该 scope 可见、已启用、未卸载、version 兼容且适用于当前 runtime\n\n#### Scenario: 没有 binding 且 scope 链只有一个 provider\n- **WHEN** 当前 scope 链没有显式 binding\n- **AND** 全部可见 scope 中恰好只有一个兼容且可用的 provider\n- **THEN** Buildr MUST 自动选择该唯一 provider\n- **AND** 该选择 MUST NOT 依赖 provider 的安装顺序\n\n#### Scenario: Scope 链存在多个未绑定 providers\n- **WHEN** 当前 scope 链存在多个兼容且可用的 providers\n- **AND** 没有显式 binding\n- **THEN** consumer readiness MUST 为 `blocked` 且 reason MUST 为 `ambiguous_provider`\n- **AND** Buildr MUST 列出候选 providers 并要求显式 binding，不得选择更具体 scope、builtin、首个条目或最后安装项\n\n#### Scenario: Project 安装 provider 但没有改 binding\n- **WHEN** workspace 已有显式 provider binding\n- **AND** Project 新增了兼容 provider 但没有声明更具体 binding\n- **THEN** workspace binding MUST 继续生效\n- **AND** provider installation MUST NOT 静默改变 Project 的专业流程\n\n#### Scenario: Provider 版本不兼容\n- **WHEN** 可见 provider 只声明了与 consumer 所需 version 不同的 contract version\n- **THEN** consumer readiness MUST 为 `blocked` 且 reason MUST 为 `version_mismatch`\n- **AND** diagnostics MUST 同时报告 required version 和候选 provider versions\n\n#### Scenario: 用户卸载默认 builtin\n- **WHEN** 默认 builtin provider 的 manifest state 为 `uninstalled` 或 enabled 为 false\n- **THEN** Buildr MUST 将其排除在 provider resolution 之外\n- **AND** Buildr MUST NOT 因 consumer 仍依赖该 capability 而静默恢复或使用该 builtin\n\n#### Scenario: 用户 provider 使用自己的 Skill id\n- **WHEN** workspace 或 Project Skill 以不同于 builtin 的 id 声明兼容 capability\n- **THEN** Buildr MUST 允许该 Skill 被 binding 选为 provider\n- **AND** 用户 MUST NOT 通过冒用 builtin id 或覆盖 builtin receipt 才能替换默认实现\n\n#### Scenario: Selected provider 自身缺少 required dependency\n- **WHEN** selected provider 的任一 required dependency readiness 为 `blocked`\n- **THEN** provider MUST NOT 被上层 consumer 视为 ready\n- **AND** 上层 consumer readiness MUST 为 `blocked` 且 reason MUST 为 `provider_not_ready`\n- **AND** diagnostics MUST 保留 selected provider 与下游 root cause chain\n\n#### Scenario: Capability dependency graph 存在环\n- **WHEN** providers/consumers 的 required dependency graph 形成 cycle\n- **THEN** cycle 中的 consumers MUST 为 `blocked` 且 reason MUST 为 `dependency_cycle`\n- **AND** doctor MUST 报告完整 cycle path 和 breaking nextActions\n- **AND** resolver MUST NOT 任意忽略一条 dependency edge\n"
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Adapter 声明 user 与 workspace Skills discovery inventory",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Runtime plan 在统一 preflight 中治理 Skill 名称冲突",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Project render 必须遵守明确范围",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: Project render 必须遵守明确范围\nBuildr MUST 根据命令 scope 决定参与 Skill 渲染和冲突检查的 Project。\n\n#### Scenario: 渲染单个 Project\n- **WHEN** 用户明确 render 某个 Project scope\n- **THEN** Buildr MUST 只处理 workspace 和当前 Project 可见的 Skills\n- **AND** Buildr MUST NOT 因其他 Project 的 Skill 声明而报错\n\n#### Scenario: workspace 全量渲染相同 Skill\n- **WHEN** workspace 全量 render 发现多个 Project 引入来源、版本和内容相同的 Skill\n- **THEN** Buildr MUST 将其视为同一个运行时 Skill，且只写入一份\n\n#### Scenario: workspace 全量渲染不同 Skill\n- **WHEN** workspace 全量 render 发现多个 Project 要把不同内容写入同一个 Skill 运行时路径\n- **THEN** Buildr MUST 在写入前报错并列出相关 Project\n"
+    }
+  ]
+}

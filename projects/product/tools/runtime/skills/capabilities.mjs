@@ -3,6 +3,7 @@ import path from 'node:path';
 import {
   capabilityKey,
   parseCapabilityContract,
+  parseProjectCapabilities,
   parseSkillsManifestDocument,
 } from './manifests.mjs';
 import { resolveSkills } from './sources.mjs';
@@ -21,8 +22,9 @@ export function resolveSkillCapabilityGraph(organizationRoot, projectRoot = null
   const runtime = options.runtime || 'claude-code';
   const scope = projectRoot ? options.scope || `projects/${path.basename(projectRoot)}` : '.';
   const layers = [layerFor(organizationRoot, '.')];
-  if (projectRoot) layers.push(layerFor(projectRoot, scope));
   const visibleLayers = layers.filter(Boolean);
+  const projectCapabilitiesPath = projectRoot ? path.join(projectRoot, 'capabilities.yml') : null;
+  const projectContext = projectCapabilitiesPath && fs.existsSync(projectCapabilitiesPath) ? parseProjectCapabilities(projectCapabilitiesPath) : null;
   const definitions = new Map();
   for (const layer of visibleLayers) {
     for (const contract of layer.document.contracts || []) {
@@ -51,7 +53,14 @@ export function resolveSkillCapabilityGraph(organizationRoot, projectRoot = null
   });
   const skillsById = new Map(skills.map((skill) => [skill.id, skill]));
   const allEntries = visibleLayers.flatMap((layer) => (layer.document.skills || []).map((skill) => ({ ...skill, declaredScope: layer.scope })));
-  const bindings = [...visibleLayers].reverse().flatMap((layer) => (layer.document.bindings || []).map((binding) => ({ ...binding, scope: layer.scope, manifestPath: relative(organizationRoot, layer.manifestPath) })));
+  for (const reference of projectContext?.skills || []) {
+    const id = typeof reference === 'string' ? reference : reference.id;
+    if (!allEntries.some((skill) => skill.id === id)) throw new Error(`Project capability context references unknown workspace Skill: ${id} (${projectCapabilitiesPath})`);
+  }
+  const bindings = [
+    ...(projectContext?.bindings || []).map((binding) => ({ ...binding, scope, manifestPath: relative(organizationRoot, projectCapabilitiesPath), context: 'project' })),
+    ...[...visibleLayers].reverse().flatMap((layer) => (layer.document.bindings || []).map((binding) => ({ ...binding, scope: layer.scope, manifestPath: relative(organizationRoot, layer.manifestPath), context: 'workspace-default' }))),
+  ];
   const memo = new Map();
 
   function resolveDependency(consumer, dependency, stack) {
@@ -145,6 +154,22 @@ export function resolveSkillCapabilityGraph(organizationRoot, projectRoot = null
   }
 
   const consumers = skills.filter((skill) => (skill.requires || []).length > 0).map((skill) => evaluateConsumer(skill.id));
+  if (projectContext?.requires?.length) consumers.push({
+    consumer: `project:${path.basename(projectRoot)}`,
+    scope,
+    readiness: 'ready',
+    reason: null,
+    dependencies: projectContext.requires.map((dependency) => resolveDependency({ id: `project:${path.basename(projectRoot)}`, declaredScope: scope }, dependency, [])),
+    structurallyRoutableOnly: true,
+    projectContext: true,
+  });
+  const projectConsumer = consumers.find((consumer) => consumer.projectContext);
+  if (projectConsumer) {
+    const requiredFailure = projectConsumer.dependencies.find((item) => item.mode === 'required' && item.readiness === 'blocked');
+    const optionalFailure = projectConsumer.dependencies.find((item) => item.mode === 'optional' && item.readiness !== 'ready');
+    projectConsumer.readiness = requiredFailure ? 'blocked' : optionalFailure ? 'degraded' : 'ready';
+    projectConsumer.reason = requiredFailure?.reason || optionalFailure?.reason || null;
+  }
   return {
     schemaVersion: 'buildr.skill-capability-graph/v1',
     scope,
@@ -153,6 +178,7 @@ export function resolveSkillCapabilityGraph(organizationRoot, projectRoot = null
     bindings,
     consumers,
     skills,
+    projectContext: projectContext ? { path: relative(organizationRoot, projectCapabilitiesPath), skills: projectContext.skills || [] } : null,
     structurallyRoutableOnly: true,
   };
 }
@@ -184,10 +210,22 @@ function capabilityGraphsForWorkspace(organizationRoot, runtime, changedScope = 
   if (!fs.existsSync(projectsRoot)) return graphs;
   for (const name of fs.readdirSync(projectsRoot).sort()) {
     const projectRoot = path.join(projectsRoot, name);
-    if (!fs.statSync(projectRoot).isDirectory() || !fs.existsSync(path.join(projectRoot, 'skills', 'manifest.yml'))) continue;
+    if (!fs.statSync(projectRoot).isDirectory() || !fs.existsSync(path.join(projectRoot, 'capabilities.yml'))) continue;
     graphs.push(resolveSkillCapabilityGraph(organizationRoot, projectRoot, { runtime, scope: `projects/${name}` }));
   }
   return graphs;
+}
+
+export function resolveCrossProjectCapabilityContext(organizationRoot, projectNames, options = {}) {
+  const graphs = projectNames.map((name) => resolveSkillCapabilityGraph(organizationRoot, path.join(organizationRoot, 'projects', name), { runtime: options.runtime, scope: `projects/${name}` }));
+  const byCapability = new Map();
+  for (const graph of graphs) for (const binding of graph.bindings.filter((item) => item.context === 'project')) {
+    const key = capabilityKey(binding.capability, binding.version);
+    if (!byCapability.has(key)) byCapability.set(key, []);
+    byCapability.get(key).push({ project: graph.scope, provider: binding.provider });
+  }
+  const conflicts = [...byCapability.entries()].filter(([, bindings]) => new Set(bindings.map((item) => item.provider)).size > 1).map(([capability, bindings]) => ({ reason: 'cross_project_binding_ambiguous', capability, bindings, nextActions: ['Split the task into per-Project actions.', 'Provide an explicit provider selection for this cross-Project task.'] }));
+  return { schemaVersion: 'buildr.cross-project-capability-context/v1', projects: projectNames, readiness: conflicts.length ? 'blocked' : 'ready', conflicts, graphs };
 }
 
 export function selectedProviderImpacts(organizationRoot, providerId, options = {}) {

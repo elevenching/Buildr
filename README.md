@@ -77,7 +77,7 @@ workspace/
 ├── commands/              # 外部 CLI 的声明与检查
 ├── projects/
 │   └── <project>/
-│       ├── 项目文档 · Specs · Skills
+│       ├── 项目文档 · Specs · capabilities.yml
 │       └── services/
 │           └── <service>/ # 代码仓、应用、模块
 └── Agent runtime 入口      # 渲染后的原生入口，可重建，非事实源
@@ -85,9 +85,11 @@ workspace/
 
 | 对象 | 说明 |
 |------|------|
-| Workspace | 个人、团队或企业的工作资产根 |
-| Project | 业务或产品单元，保存项目事实、技能和 Service 关系 |
+| Workspace | 个人、团队或企业的工作目录和 Skill 唯一治理根 |
+| Project | 业务或产品单元，保存项目事实、Skill applicability、capability bindings 和 Service 关系 |
 | Service | Project 使用的代码仓、应用或模块 |
+
+Skill 只在 workspace `skills/` 维护，然后 render 到两种 Agent runtime destination：`workspace` 表示当前工作目录可发现，`user` 表示当前用户的所有 workspace 可发现。Project 不复制 Skill 内容，也不被 Buildr 当作安装隔离层；若某个 Skill 只适用于一个 Project，由该 Project 的 `capabilities.yml` 表达业务适用性。
 
 Buildr 管理的是长期工作资产，不直接填充模型的 context window。Agent 根据当前任务发现和选择相关内容，形成自己的任务上下文。
 
@@ -145,7 +147,7 @@ Buildr 当前处于预发布阶段，具体版本和安装来源以 [GitHub Rele
 ## 当前能力
 
 - 一个 workspace 管理多个 Project；每个 Project 管理多个 Service
-- 规则、技能、组件和命令等资产的统一管理
+- 规则、workspace Skills、组件和命令等资产的统一管理；Skill 支持 user/workspace destination 与同名冲突预检
 - 支持 7 个 Agent runtime adapter（claude-code、codex、cursor、qoder、trae、trae-work、workbuddy）
 
 详细边界见[已知限制](projects/product/docs/known-limitations.md)。

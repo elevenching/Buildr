@@ -242,24 +242,14 @@ export function buildAgentInstallPlanContent(skill) {
 export function resolveRenderSkills(repoRoot, scope, runtime) {
   const { organizationRoot, projectRoot } = resolveSkillScope(repoRoot, scope);
   if (projectRoot) {
-    const graph = resolveSkillCapabilityGraph(organizationRoot, projectRoot, { runtime, scope });
-    return resolveSkills(organizationRoot, projectRoot, { runtime }).map((skill) => ({ ...skill, capabilityBindings: capabilityBindingsForSkill(graph, skill.id) }));
+    const error = new Error(`Project Skill render scope is no longer supported: ${scope}. Use --destination workspace or --destination user from the workspace source authority.`);
+    error.code = 'skills.project_scope_unsupported';
+    error.reason = 'project_scope_removed';
+    error.nextActions = [`buildr skills migrate-project-assets --target ${organizationRoot} --check`, `buildr skills render ${runtime} --destination workspace --target ${organizationRoot}`];
+    throw error;
   }
   const workspaceGraph = resolveSkillCapabilityGraph(organizationRoot, null, { runtime });
-  const groups = [{ scope: '.', graph: workspaceGraph, skills: resolveSkills(organizationRoot, null, { runtime }) }];
-  const projectsRoot = path.join(organizationRoot, 'projects');
-  if (fs.existsSync(projectsRoot)) {
-    for (const name of fs.readdirSync(projectsRoot).sort()) {
-      const root = path.join(projectsRoot, name);
-      if (!fs.lstatSync(root).isDirectory() || !fs.existsSync(path.join(root, 'skills', 'manifest.yml'))) continue;
-      groups.push({
-        scope: `projects/${name}`,
-        graph: resolveSkillCapabilityGraph(organizationRoot, root, { runtime, scope: `projects/${name}` }),
-        skills: resolveSkills(organizationRoot, root, { runtime, includeWorkspace: false }),
-      });
-    }
-  }
-  return groups.flatMap((group) => group.skills.map((skill) => ({ ...skill, declaredScope: group.scope, capabilityBindings: capabilityBindingsForSkill(group.graph, skill.id) })));
+  return resolveSkills(organizationRoot, null, { runtime }).map((skill) => ({ ...skill, declaredScope: '.', capabilityBindings: capabilityBindingsForSkill(workspaceGraph, skill.id) }));
 }
 
 function skillWriteIdentity(item) {
@@ -268,6 +258,15 @@ function skillWriteIdentity(item) {
 
 function projectionSource(skill) {
   return `${skill.declaredScope || skill.origin}:${skill.id}`;
+}
+
+function digestInventory(writes, source = false) {
+  const inventory = writes.map((item) => ({
+    path: item.skillRelativePath,
+    integrity: sha256Integrity(runtimeWriteBuffer(item, source) || runtimeWriteBuffer(item)),
+    executable: item.mode === 0o100,
+  })).sort((left, right) => left.path.localeCompare(right.path));
+  return sha256Integrity(Buffer.from(JSON.stringify(inventory), 'utf8'));
 }
 
 function buildSkillFileWrites(repoRoot, targetRoot, skill, runtime) {
@@ -347,7 +346,7 @@ export function buildSkillRenderPlan(repoRoot, targetRoot, skills, runtime, opti
     const projection = buildSkillFileWrites(repoRoot, targetRoot, skill, runtime);
     const existing = byRuntimePath.get(projection.runtimePath);
     if (!existing) {
-      byRuntimePath.set(projection.runtimePath, { ...projection, sources: [projection.source] });
+      byRuntimePath.set(projection.runtimePath, { ...projection, skill, sources: [projection.source] });
       continue;
     }
     const existingByRelative = new Map(existing.writes.map((item) => [item.skillRelativePath, item]));
@@ -400,7 +399,14 @@ export function buildSkillRenderPlan(repoRoot, targetRoot, skills, runtime, opti
     }));
     const receipt = buildSkillProjectionReceipt({
       adapterId: runtime,
+      destination: options.destination || 'workspace',
+      skillId: projection.skill.id,
       runtimePath: projection.runtimePath,
+      assetIdentity: projection.skill.assetIdentity || `product:${projection.skill.id}`,
+      sourceIdentity: projection.skill.sourceIdentity || `product:${projection.skill.displaySource || projection.skill.id}`,
+      sourceWorkspaceId: projection.skill.workspaceId || options.sourceWorkspaceId || sha256Integrity(Buffer.from(path.resolve(repoRoot), 'utf8')),
+      sourceDigest: digestInventory(projection.writes, true),
+      renderDigest: digestInventory(projection.writes),
       sources: projection.sources,
       files: inventory,
     });
