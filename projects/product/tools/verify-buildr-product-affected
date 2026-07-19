@@ -80,7 +80,9 @@ for group in "${groups[@]}"; do
       run_once runtime-adapter-parity node tools/verification/runtime/adapter-parity.mjs
       ;;
     package)
-      run_once package-check ./buildr package check
+      for selector in static workspace commands rules skills runtime; do
+        run_once "package-$selector" node tools/verification/package/run.mjs "$selector"
+      done
       run_once managed-mutations node tools/verification/integrity/managed-mutations.mjs
       run_once managed-data-integrity node tools/verification/integrity/managed-data-integrity.mjs
       ;;

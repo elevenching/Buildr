@@ -31,12 +31,14 @@ tools/verification/  # 按 cli/runtime/release 等领域分组的 verifier
 application/doctor.mjs
   -> application/doctor/{scope,service,runtime}-diagnostics.mjs
 application/package-maintenance.mjs
-  -> application/package-maintenance/{static-validation,smoke-checks}.mjs
+  -> application/package-maintenance/{verification-registry,static-validation,smoke-checks}.mjs
 tools/runtime/render-claude-code.mjs
   -> tools/runtime/skills/{arguments,manifests,contributions,sources,render-plan}.mjs
 ```
 
 Workspace E2E 位于 `tools/verification/workspace/`，只保留 `workspace-lifecycle`、`ownership-recovery` 和 `runtime-reconciliation` 三条跨组件黄金路径。每个 suite 使用独立临时状态，可通过 `npm run test:workspace -- <suite...>` 定点重跑；无参数执行全部 suites，`--list` 列出稳定 id。全量 help、onboarding 异常分支、runtime adapter 实现族 parity、tarball inventory 与安装后生命周期分别由 focused verifier 持有，不在 Workspace E2E 重复覆盖。
+
+`package check` 的公开命令仍执行完整维护门禁。内部 registry 为 static、workspace、Commands、Rules、Skills、runtime 提供稳定 identity；Candidate 和 `npm run test:package -- <selector>` 可独立执行，selector 不属于公开 CLI 参数。无 selector 的聚合命令复用兼容 fixture，隔离 steps 则各自持有临时状态和 diagnostics。
 
 各类契约的主 owner、旧 MVP section 迁移和有意保留的边界交叉记录在 [验证覆盖职责矩阵](verification-ownership.md)。新增断言前先选择主 owner，不把 Workspace E2E 当作所有行为的兜底层。
 
@@ -49,7 +51,7 @@ Workspace E2E 位于 `tools/verification/workspace/`，只保留 `workspace-life
 - `tools/buildr` 与 npm 安装后的 `buildr` 使用同一个内部 runtime 和 command registry。
 - `package.json#files` 递归发布 `tools/cli/`，但不声明 package `exports`。
 - 重构内部模块不得改变命令路径、参数、stdout/stderr、退出码、JSON schema、文件结果或 transaction/fail-closed 行为；行为变化必须使用独立 OpenSpec change。
-- `packageCheck` 是 composition handler：静态发布校验和临时 workspace smoke runner 分开维护，统一聚合问题与退出状态。
+- `packageCheck` 是 composition handler：从稳定 registry 选择并组合静态、workspace 和领域 verifier，统一聚合问题与退出状态；旧单体 `runPackageSmokeChecks` runner 不得恢复。
 
 ## 维护验证
 

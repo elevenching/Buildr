@@ -59,6 +59,7 @@
     "test:fast": "./tools/verify-buildr-product-fast",
     "test:unit": "node --test test/*.test.mjs",
     "test:affected": "./tools/verify-buildr-product-affected",
+    "test:package": "node tools/verification/package/run.mjs",
     "test:workspace": "node tools/verification/workspace/run.mjs",
     "test:candidate": "./tools/verify-buildr-product",
     "test:release": "node tools/verification/release/release-smoke.mjs",

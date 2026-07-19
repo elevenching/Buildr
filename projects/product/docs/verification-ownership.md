@@ -16,9 +16,9 @@
 | 旧类别 | 当前主 verifier | Workspace E2E 代表覆盖 | 迁移判断 |
 | --- | --- | --- | --- |
 | Workspace / Project / Service | onboarding integration、service branch、package workspace smoke | workspace-lifecycle | E2E 只保留组合黄金路径；异常、幂等和 branch contract 由 focused verifier 持有 |
-| Commands | package workspace smoke | workspace-lifecycle 只做代表性 add | CRUD 和 manifest 细节不继续扩展进 Workspace E2E；批次二迁出 package monolith |
-| Rules | package workspace smoke、runtime adapter parity | lifecycle 代表性 add；reconciliation 验证投射 | CRUD、discovery 和 adapter 投射分属不同契约 |
-| Skills | package workspace smoke、runtime adapter parity、remote timeout | lifecycle 代表性 add；ownership 验证拒绝 | source/resolved/remote 与 runtime projection 由 focused verifier 持有 |
+| Commands | package Commands integration | workspace-lifecycle 只做代表性 add | CRUD 和 manifest 细节不继续扩展进 Workspace E2E |
+| Rules | package Rules integration、package runtime integration、runtime adapter parity | lifecycle 代表性 add；reconciliation 验证投射 | CRUD、recursive discovery 和 adapter 投射分属不同 verifier identity |
+| Skills | package Skills integration、runtime adapter parity、remote timeout | lifecycle 代表性 add；ownership 验证拒绝 | source/resolved/remote 与 runtime projection 由 focused verifier 持有 |
 | Builtins | capability CLI integration、managed data integrity、runtime adapter parity | ownership-recovery | E2E 只证明 required 拒绝和 optional uninstall/restore |
 | Components inventory / lifecycle | package static、release smoke、managed data integrity | ownership-recovery、runtime-reconciliation | package 内容、安装后 lifecycle、冲突恢复是不同边界 |
 | Component contributions / upgrades / migration | package static、runtime parity、managed data integrity | reconciliation 只验证 drift 与恢复 | 内容文本、运行时组合、事务/迁移冲突分别由专项持有 |
@@ -37,8 +37,19 @@
 - capability integration 验证 capability/provider/binding；ownership recovery 验证资产拒绝与恢复。
 - Workspace E2E 的最终 doctor 是收敛断言，不替代 doctor JSON 和 finding contract。
 
-## 已知待收缩重复
+## Package verifier 分层
 
-buildr package check 当前仍在一个临时 workspace 内组合 init、Project、Commands、Rules、Skills、doctor 和 runtime Rules smoke。它是旧 MVP 删除后最大的剩余聚合热点。批次二应拆分 package static validation、package asset smoke 和领域 integration；拆分前不得直接删除现有断言。
+`buildr package check` 继续是完整产品维护入口，但内部覆盖由稳定 registry 组合；Candidate 与 `npm run test:package -- <selector>` 可分别执行和诊断以下 owner：
+
+| Selector | Candidate step | 主职责 | 明确不承担 |
+| --- | --- | --- | --- |
+| static | package static validation | manifest、inventory、随包 baseline、Skill/Rule/Component 内容契约、支持工具存在性 | 临时 workspace、真实 CLI mutation |
+| workspace | package workspace smoke | init/Project baseline、遗留 practices 保留、existing `AGENTS.md` 兼容、最终收敛 | Commands/Rules/Skills CRUD、全 runtime adapter 矩阵 |
+| commands | package Commands integration | 默认 collection、add/check/remove 数据契约 | Workspace 黄金路径和 help 全量兼容 |
+| rules | package Rules integration | add/remove/keep-file、required 保护、doctor 未注册 finding | recursive discovery 和 adapter reconcile |
+| skills | package Skills integration | local/remote/resolved source add/remove | 网络下载和全部 adapter projection |
+| runtime | package runtime integration | recursive Rules discovery、Codex native check、Claude bridge reconcile/metadata | 其他实现族 parity、runtime help |
+
+无 selector 的 `buildr package check` 在一个兼容 fixture 中聚合相同断言，避免维护命令因隔离 steps 增加重复初始化；Candidate 使用隔离 fixture 并行执行，保留每步 timing、budget 和 stdout/stderr diagnostics。拆分前基线为 14.77 秒，兼容聚合拆分后为 14.66 秒；隔离 steps 并行实测墙钟约 9.4 秒。
 
 新增测试时先确定主 owner：单函数和错误分支优先 Node unit；单命令/单领域状态变化进入 focused integration；只有跨多个命令和组件、且必须共享连续 workspace 状态时才进入 Workspace E2E。

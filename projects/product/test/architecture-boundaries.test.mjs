@@ -17,6 +17,17 @@ test('兼容 facade 保持薄入口', () => {
   assert.ok(lines('tools/verify-buildr-product-affected').length <= 100);
 });
 
+test('package verification 使用稳定 registry 且不恢复共享 smoke runner', () => {
+  const application = fs.readFileSync(path.join(productRoot, 'tools/cli/application/package-maintenance.mjs'), 'utf8');
+  const smoke = fs.readFileSync(path.join(productRoot, 'tools/cli/application/package-maintenance/smoke-checks.mjs'), 'utf8');
+  const registry = fs.readFileSync(path.join(productRoot, 'tools/cli/application/package-maintenance/verification-registry.mjs'), 'utf8');
+  assert.match(application, /selectPackageVerifiers/);
+  assert.doesNotMatch(smoke, /runPackageSmokeChecks/);
+  for (const selector of ['static', 'workspace', 'commands', 'rules', 'skills', 'runtime']) {
+    assert.match(registry, new RegExp(`id: '${selector}'`));
+  }
+});
+
 test('CLI platform namespace 只允许 composition root 聚合', () => {
   const cliRoot = path.join(productRoot, 'tools', 'cli');
   const violations = [];

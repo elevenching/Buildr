@@ -98,7 +98,12 @@ test('identified expensive candidate steps have non-blocking target budgets', ()
   for (const name of [
     'capability CLI integration',
     'runtime adapter parity',
-    'package check',
+    'package static validation',
+    'package workspace smoke',
+    'package Commands integration',
+    'package Rules integration',
+    'package Skills integration',
+    'package runtime integration',
     'OpenSpec contract fixtures',
     'CLI compatibility',
   ]) assert.ok(candidateStepBudget(name) > 0, `${name} must have a target budget`);

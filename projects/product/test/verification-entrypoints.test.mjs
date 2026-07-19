@@ -5,6 +5,7 @@ import process from 'node:process';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { PACKAGE_VERIFIERS, selectPackageVerifiers } from '../tools/cli/application/package-maintenance/verification-registry.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relative) => fs.readFileSync(path.join(productRoot, relative), 'utf8');
@@ -14,6 +15,7 @@ test('product verification exposes fast, affected, workspace, and candidate laye
   assert.equal(scripts.test, './tools/verify-buildr-product-fast');
   assert.equal(scripts['test:fast'], './tools/verify-buildr-product-fast');
   assert.equal(scripts['test:affected'], './tools/verify-buildr-product-affected');
+  assert.equal(scripts['test:package'], 'node tools/verification/package/run.mjs');
   assert.equal(scripts['test:workspace'], 'node tools/verification/workspace/run.mjs');
   assert.equal(scripts['test:candidate'], './tools/verify-buildr-product');
 
@@ -54,7 +56,7 @@ test('affected verification validates help and unknown groups before fast', () =
   assert.doesNotMatch(`${unknown.stdout}${unknown.stderr}`, /Buildr fast verification/);
 });
 
-test('candidate verification retains every release gate and one shared package build', () => {
+test('candidate verification retains every release gate and split package steps', () => {
   const wrapper = read('tools/verify-buildr-product');
   const candidate = read('tools/verification/candidate.mjs');
   assert.ok(wrapper.includes('tools/verification/candidate.mjs'));
@@ -69,7 +71,6 @@ test('candidate verification retains every release gate and one shared package b
     'managed mutations',
     'repository onboarding from a clean checkout',
     'single-command init onboarding',
-    'package check',
     'CLI compatibility',
     'CLI package parity',
     'runtime adapter contract',
@@ -82,6 +83,8 @@ test('candidate verification retains every release gate and one shared package b
     'managed data integrity',
     'OpenSpec contract fixtures',
   ]) assert.ok(candidate.includes(`'${stage}'`), `candidate verifier must retain ${stage}`);
+  assert.ok(candidate.includes('PACKAGE_VERIFIERS.map'));
+  assert.deepEqual(PACKAGE_VERIFIERS.map((step) => step.id), ['static', 'workspace', 'commands', 'rules', 'skills', 'runtime']);
   assert.equal((candidate.match(/createCandidatePackage\(/g) || []).length, 1);
   assert.equal((candidate.match(/runBatch\(\[/g) || []).length, 3);
   assert.equal((candidate.match(/workspaceSuiteSteps\(/g) || []).length, 1);
@@ -90,4 +93,18 @@ test('candidate verification retains every release gate and one shared package b
     assert.ok(workspaceSuites.includes(`id: '${suite}'`), `Workspace E2E registry must retain ${suite}`);
   }
   assert.ok(candidate.includes("test/capability-cli.integration.mjs"));
+});
+
+test('package verifier selectors are stable, focused, and fail closed', () => {
+  assert.deepEqual(selectPackageVerifiers('static,runtime').map((step) => step.id), ['static', 'runtime']);
+  assert.throws(() => selectPackageVerifiers('unknown'), /Unknown package verifier/);
+
+  const runner = path.join(productRoot, 'tools', 'verification', 'package', 'run.mjs');
+  const help = spawnSync(process.execPath, [runner, '--help'], { cwd: productRoot, encoding: 'utf8' });
+  assert.equal(help.status, 0, help.stderr);
+  for (const step of PACKAGE_VERIFIERS) assert.match(help.stdout, new RegExp(`\\b${step.id}\\b`));
+
+  const unknown = spawnSync(process.execPath, [runner, 'unknown'], { cwd: productRoot, encoding: 'utf8' });
+  assert.equal(unknown.status, 2);
+  assert.match(unknown.stderr, /Unknown package verifier/);
 });

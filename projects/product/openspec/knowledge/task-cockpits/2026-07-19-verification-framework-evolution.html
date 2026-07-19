@@ -174,28 +174,28 @@
       "title": "Buildr 验证框架演进",
       "taskId": "verification-framework-evolution",
       "status": "进行中",
-      "phase": "批次 1 / 4 已完成",
-      "taskProgress": "批次 1 / 4 完成",
-      "updatedAt": "2026-07-19 15:57",
+      "phase": "批次 2 / 4 已完成",
+      "taskProgress": "批次 2 / 4 完成",
+      "updatedAt": "2026-07-19 16:19",
       "relativePath": "projects/product/openspec/knowledge/task-cockpits/2026-07-19-verification-framework-evolution.html"
     },
     "overview": {
       "purpose": "把 Buildr 验证框架从已经完成的 Candidate/Workspace 分层，继续演进为职责清晰、可诊断、可按改动规划并可量化单元测试覆盖率的长期体系。",
-      "conclusion": "第一批当前框架修复已经完成；下一步拆分 package check，再推进验证 DAG 与单元测试覆盖率。",
-      "currentFocus": "批次一 change 已同步 canonical specs 并归档；收尾集成完成后创建批次二 package check 拆分情景。",
-      "userAttention": "当前无阻塞；批次二至四会在批次一完成并重新验证后依次推进。",
+      "conclusion": "前两批已经完成；package check 保持兼容聚合，Candidate 获得六个独立 package steps。",
+      "currentFocus": "批次二已同步 canonical specs 并归档；集成完成后从最新 dev 创建批次三 verification registry/DAG 与 test:changed 情景。",
+      "userAttention": "当前无阻塞；批次三需要统一现有 registry，而不是再增加一套与 Candidate 分离的配置。",
       "highlights": {
         "done": {
           "title": "已经完成",
-          "text": "Candidate 分层、三个独立 Workspace E2E suites、selector、共享 tarball 和基础耗时预算已落地，最近完整 Candidate 52.327 秒通过。"
+          "text": "批次一已合入 dev；批次二 package verifier registry、六个 selectors、预算和所有权矩阵全部落地。"
         },
         "current": {
           "title": "正在进行",
-        "text": "第一批 7/7 已完成；诊断、affected、预算、覆盖矩阵和完整 Candidate 均已验证。"
+          "text": "批次二 16/16 tasks 完成；Candidate 53.242 秒、30 steps、无超预算，affected package 通过。"
         },
         "next": {
           "title": "下一步",
-          "text": "拆分仍承担多领域 E2E 的 package check，建立独立 owner 和定点重跑入口。"
+          "text": "创建批次三情景，统一 fast、affected、workspace、package、candidate 的 step 声明并设计 test:changed。"
         }
       },
       "blockers": [],
@@ -234,19 +234,20 @@
           ]
         },
         {
-          "label": "待开始",
-          "status": "next",
+          "label": "已完成",
+          "status": "done",
           "title": "批次二：拆分 package check",
           "summary": "把 package static validation 与跨领域 smoke 解耦，减少和 Workspace/runtime/onboarding 的重复。",
           "items": [
-            "建立 package static、asset/install smoke、领域 integration 的独立入口。",
+            "split-package-check-verification 16/16 tasks 完成，proposal gate 通过。",
+            "建立 package static、workspace、Commands、Rules、Skills、runtime 六个独立入口。",
             "迁移 Commands、Rules、Skills、runtime rules 的唯一主 owner。",
             "Candidate 继续聚合完整门禁，但支持独立计时和失败重跑。"
           ]
         },
         {
-          "label": "待开始",
-          "status": "next",
+          "label": "下一批",
+          "status": "current",
           "title": "批次三：验证注册表与 DAG",
           "summary": "由结构化声明统一生成 fast、affected、candidate 和 diff-aware plan。",
           "items": [
@@ -314,6 +315,14 @@
         {
           "title": "已确认热点",
           "text": "package check 仍包含共享临时 workspace smoke，并跨 Commands、Rules、Skills、Project、doctor 和 runtime。"
+        },
+        {
+          "title": "批次二契约状态",
+          "text": "split-package-check-verification 4/4 artifacts、16/16 tasks 完成；baselineState current，proposal gate 无冲突和 findings。"
+        },
+        {
+          "title": "批次二耗时结果",
+          "text": "旧聚合基线 14.77 秒，兼容聚合 14.66 秒；Candidate package steps 最慢 Skills 9.901 秒，完整 Candidate 53.242 秒。"
         }
       ],
       "files": [
@@ -324,6 +333,10 @@
         {
           "title": "Candidate orchestrator",
           "path": "projects/product/tools/verification/candidate.mjs"
+        },
+        {
+          "title": "批次二归档 change",
+          "path": "projects/product/openspec/changes/archive/2026-07-19-split-package-check-verification/"
         },
         {
           "title": "Workspace suite registry",
@@ -346,6 +359,10 @@
         {
           "title": "第一批完整 Candidate",
           "text": "25 个阶段全部通过；13 个阶段预算均 within；50 个 stdout/stderr diagnostics 文件已落盘。"
+        },
+        {
+          "title": "第二批完整 Candidate",
+          "text": "30 个阶段全部通过；六个 package steps 均在预算内；60 个 stdout/stderr diagnostics 文件已落盘。"
         },
         {
           "title": "驾驶舱静态检查",

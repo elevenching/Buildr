@@ -19,10 +19,13 @@
 
 ```bash
 projects/product/buildr package check
+cd projects/product && npm run test:package -- static
 projects/product/tools/verification/onboarding/init.mjs
 projects/product/tools/verification/onboarding/repository.mjs
 (cd projects/product && npm run test:workspace)
 (cd projects/product && openspec validate --all --strict)
 ```
+
+`test:package` 支持 `static`、`workspace`、`commands`、`rules`、`skills`、`runtime` 六个维护期 selector；它们不是随 npm 包承诺的用户 CLI 参数。无 selector 的 `buildr package check` 仍聚合全部阶段。
 
 `verify-repository-onboarding.mjs` 会复制一个不含 `node_modules` 与 Agent runtime 的临时候选树，从开发 checkout installer 开始验证 `runtime list -> init --agent codex`，并独立读取 doctor JSON 证明最终状态。

@@ -41,7 +41,8 @@ const allowed = new Map([
   ['tools/cli/application/package-maintenance/output.mjs', new Set(['buildPackageOutput', 'packageBuild'])],
   ['tools/cli/application/package-maintenance/smoke-checks.mjs', new Set([
     'verifyRecursiveRules', 'verifyWorkspaceAssetLifecycle', 'verifyInitializedWorkspace',
-    'verifyExistingAgentsCompatibility', 'runPackageSmokeChecks',
+    'verifyExistingAgentsCompatibility', 'runPackageWorkspaceSmoke', 'runPackageDomainIntegration',
+    'runPackageAggregateSmoke',
   ])],
   ['tools/cli/application/workspace-operations.mjs', new Set(['mutationRecover'])],
   ['tools/runtime/adapter-contract.mjs', new Set(['reconcileRuntimePlan'])],

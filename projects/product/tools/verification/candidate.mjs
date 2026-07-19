@@ -14,12 +14,12 @@ import {
 import { runVerificationBatch, runVerificationStep } from './timing/parallel-runner.mjs';
 import { CANDIDATE_TOTAL_BUDGET_MS, candidateStepBudget } from './timing/budgets.mjs';
 import { workspaceSuiteSteps } from './workspace/suites.mjs';
+import { PACKAGE_VERIFIERS } from '../cli/application/package-maintenance/verification-registry.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const nodeModulesBin = path.join(productRoot, 'node_modules', '.bin');
 const npmExecutable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const openspecExecutable = path.join(nodeModulesBin, process.platform === 'win32' ? 'openspec.cmd' : 'openspec');
-const buildr = path.join(productRoot, 'tools', 'buildr');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-candidate-verification-'));
 const timingFile = path.join(root, 'timing.tsv');
 const candidatePackageDirectory = path.join(root, 'candidate-package');
@@ -140,7 +140,7 @@ async function main() {
   if (!await runBatch([
     nodeStep('capability CLI integration', 'test/capability-cli.integration.mjs'),
     nodeStep('OpenSpec contract fixtures', 'tools/verification/openspec/contract.mjs'),
-    commandStep('package check', process.execPath, [buildr, 'package', 'check']),
+    ...PACKAGE_VERIFIERS.map((step) => nodeStep(step.name, 'tools/verification/package/run.mjs', [step.id])),
     nodeStep('runtime adapter parity', 'tools/verification/runtime/adapter-parity.mjs'),
   ])) return false;
 

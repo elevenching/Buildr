@@ -25,6 +25,7 @@ import { createPackageStaticValidator } from './package-maintenance/static-valid
 import { createBuiltinReceipts } from './package-maintenance/builtin-receipts.mjs';
 import { createPackageSyncPlan } from './package-maintenance/sync-plan.mjs';
 import { createBuiltinLifecycle } from './package-maintenance/builtin-lifecycle.mjs';
+import { PACKAGE_VERIFIER_ENV, selectPackageVerifiers } from './package-maintenance/verification-registry.mjs';
 
 export function registerApplicationPackageMaintenance(runtime) {
   const doctor = (...args) => runtime.doctor(...args);
@@ -387,7 +388,11 @@ export function registerApplicationPackageMaintenance(runtime) {
     validateSkillManifestEntries,
   });
   const {
-    runPackageSmokeChecks,
+    runPackageWorkspaceSmoke,
+    runPackageDomainIntegration,
+    runPackageRuntimeIntegration,
+    runPackageAggregateSmoke,
+    validatePackageSupportTools,
   } = createPackageSmokeChecks({
     BUILDR_REQUIRED_BLOCK_START,
     buildRuleDiscoveryPlan,
@@ -427,8 +432,32 @@ export function registerApplicationPackageMaintenance(runtime) {
     const mappedEntries = [];
 
     const context = { root, workspaceRoot, manifestPath, manifest, allowedVariables, files, problems, mappedEntries };
-    const { bootstrapContract, parseJsonOutput } = validatePackageStatic(context);
-    runPackageSmokeChecks({ ...context, bootstrapContract, parseJsonOutput });
+    const selector = process.env[PACKAGE_VERIFIER_ENV] || '';
+    const selected = selectPackageVerifiers(selector);
+    let smokeContext = null;
+    const prepareSmokeContext = () => {
+      if (smokeContext) return smokeContext;
+      const prepared = validatePackageStatic(context);
+      smokeContext = { ...context, ...prepared };
+      return smokeContext;
+    };
+    const runners = {
+      static: () => {
+        const prepared = prepareSmokeContext();
+        validatePackageSupportTools(prepared);
+      },
+      workspace: () => runPackageWorkspaceSmoke(prepareSmokeContext()),
+      commands: () => runPackageDomainIntegration(prepareSmokeContext(), 'commands'),
+      rules: () => runPackageDomainIntegration(prepareSmokeContext(), 'rules'),
+      skills: () => runPackageDomainIntegration(prepareSmokeContext(), 'skills'),
+      runtime: () => runPackageRuntimeIntegration(prepareSmokeContext()),
+    };
+    if (!selector) {
+      runners.static();
+      runPackageAggregateSmoke(prepareSmokeContext());
+    } else {
+      for (const step of selected) runners[step.runner]();
+    }
 
     if (problems.length > 0) {
       console.error('Buildr package check failed:');
@@ -436,7 +465,7 @@ export function registerApplicationPackageMaintenance(runtime) {
       process.exit(1);
     }
 
-    console.log(`Buildr package check passed. Checked ${manifest.include.length} include entries and ${files.length} files.`);
+    console.log(`Buildr package check passed. Checked ${manifest.include.length} include entries and ${files.length} files across ${selected.map((step) => step.id).join(', ')}.`);
   }
 
   const {

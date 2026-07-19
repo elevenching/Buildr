@@ -50,10 +50,16 @@ const required = [
   'application/doctor/scope-diagnostics.mjs', 'application/doctor/service-diagnostics.mjs',
   'application/doctor/runtime-diagnostics.mjs',
   'application/package-maintenance/static-validation.mjs',
-  'application/package-maintenance/smoke-checks.mjs', 'application/package-maintenance/output.mjs',
+  'application/package-maintenance/smoke-checks.mjs', 'application/package-maintenance/verification-registry.mjs',
+  'application/package-maintenance/output.mjs',
 ];
 for (const relative of required) {
   if (!fs.existsSync(path.join(cliRoot, relative))) problems.push(`missing CLI runtime module: tools/cli/${relative}`);
+}
+
+const packageSmoke = path.join(cliRoot, 'application/package-maintenance/smoke-checks.mjs');
+if (fs.existsSync(packageSmoke) && /runPackageSmokeChecks/.test(fs.readFileSync(packageSmoke, 'utf8'))) {
+  problems.push('package verification must not restore the shared runPackageSmokeChecks monolith');
 }
 
 if (fs.existsSync(cliRoot)) {

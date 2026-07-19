@@ -168,8 +168,9 @@ export function createPackageSmokeChecks(deps) {
     }
   }
 
-  function verifyWorkspaceAssetLifecycle(context, tempRoot, buildrScript) {
+  function verifyWorkspaceAssetLifecycle(context, tempRoot, buildrScript, kind, finalize = true) {
     const { root, manifest, problems, parseJsonOutput } = context;
+    if (kind === 'runtime') {
     execFileSync(process.execPath, [buildrScript, 'rules', 'render', 'claude-code', '--scope', 'projects/demo', '--target', tempRoot], { cwd: root, stdio: 'ignore' });
     const oldReferenceBlock = [
       '<!-- BEGIN Buildr managed Claude Code rules bridge; hash: 0000000000000000000000000000000000000000000000000000000000000000 -->',
@@ -207,6 +208,8 @@ export function createPackageSmokeChecks(deps) {
     if (doctorWithInfo.nextSteps.some((step) => step.code === 'runtime.reference_bridge_metadata_stale')) {
       problems.push('reference bridge metadata info must not be listed as a doctor next step.');
     }
+    }
+    if (kind === 'commands') {
     const installedCommandsManifest = path.join(tempRoot, 'commands', 'manifest.yml');
     if (!existsFile(installedCommandsManifest)) {
       problems.push('buildr init did not install commands/manifest.yml.');
@@ -231,6 +234,8 @@ export function createPackageSmokeChecks(deps) {
       if (!Array.isArray(commandsAfterRemove.commands) || commandsAfterRemove.commands.length !== 0) {
         problems.push('commands remove must keep an empty commands array.');
       }
+    }
+    if (kind === 'rules') {
       const rulesManifestFile = path.join(tempRoot, 'rules', 'manifest.yml');
       const packageCheckRuleFile = path.join(tempRoot, 'rules', 'package-check-rule.md');
       const claudeBeforeRulesAdd = existsFile(path.join(tempRoot, 'CLAUDE.md')) ? fs.readFileSync(path.join(tempRoot, 'CLAUDE.md'), 'utf8') : null;
@@ -281,6 +286,8 @@ export function createPackageSmokeChecks(deps) {
       if (packageCheckRules.rules.some((rule) => rule.id === 'package-check-rule')) {
         problems.push('rules remove must remove the manifest entry.');
       }
+    }
+    if (kind === 'skills') {
       const packageCheckSkillSource = path.join(tempRoot, 'package-check-skill-source');
       ensureDirectory(path.join(packageCheckSkillSource, 'scripts'));
       fs.writeFileSync(path.join(packageCheckSkillSource, 'SKILL.md'), [
@@ -322,6 +329,8 @@ export function createPackageSmokeChecks(deps) {
         problems.push('skills add --resolved-source must preserve source and write resolved.kind=skill-url with install.mode=buildr.');
       }
       execFileSync(process.execPath, [buildrScript, 'skills', 'remove', 'package-check-remote', '--scope', '.', '--target', tempRoot], { cwd: root, stdio: 'ignore' });
+    }
+    if (finalize) {
       for (const rawEntry of manifest.workspaceFiles) {
         const entry = parseManifestFileEntry(rawEntry, 'workspaceFiles');
         if (!existsFile(path.join(tempRoot, entry.target))) {
@@ -332,6 +341,7 @@ export function createPackageSmokeChecks(deps) {
     const doctorResult = parseJsonOutput('doctor final', doctorJson);
     if (!doctorResult.ok) {
       problems.push(`Temporary init doctor failed: ${JSON.stringify(doctorResult.summary)}`);
+    }
     }
   }
 
@@ -402,8 +412,6 @@ export function createPackageSmokeChecks(deps) {
       problems.push('buildr init copied product Agent Skill into workspace skills source.');
     }
 
-    verifyRecursiveRules(context, tempRoot, buildrScript);
-    verifyWorkspaceAssetLifecycle(context, tempRoot, buildrScript);
   }
 
   function verifyExistingAgentsCompatibility(context) {
@@ -443,9 +451,9 @@ export function createPackageSmokeChecks(deps) {
     }
   }
 
-  function runPackageSmokeChecks(context) {
+  function runPackageWorkspaceSmoke(context) {
     const { root } = context;
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-package-check-'));
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-package-workspace-'));
     const buildrScript = path.join(root, 'tools', 'buildr');
     try {
       execFileSync(process.execPath, [buildrScript, 'init', '--target', tempRoot, '--name', 'demo', '--profile', 'team'], { cwd: root, stdio: 'ignore' });
@@ -454,10 +462,53 @@ export function createPackageSmokeChecks(deps) {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }
     verifyExistingAgentsCompatibility(context);
+  }
+
+  function runPackageDomainIntegration(context, kind) {
+    const { root } = context;
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), `buildr-package-${kind}-`));
+    const buildrScript = path.join(root, 'tools', 'buildr');
+    try {
+      execFileSync(process.execPath, [buildrScript, 'init', '--target', tempRoot, '--name', 'assets', '--profile', 'team'], { cwd: root, stdio: 'ignore' });
+      execFileSync(process.execPath, [buildrScript, 'project', 'create', 'demo', '--target', tempRoot], { cwd: root, stdio: 'ignore' });
+      verifyWorkspaceAssetLifecycle(context, tempRoot, buildrScript, kind);
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  }
+
+  function runPackageRuntimeIntegration(context) {
+    const { root } = context;
+    runPackageDomainIntegration(context, 'runtime');
+    verifyRecursiveRules(context, null, path.join(root, 'tools', 'buildr'));
+  }
+
+  function runPackageAggregateSmoke(context) {
+    const { root } = context;
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-package-check-'));
+    const buildrScript = path.join(root, 'tools', 'buildr');
+    try {
+      execFileSync(process.execPath, [buildrScript, 'init', '--target', tempRoot, '--name', 'demo', '--profile', 'team'], { cwd: root, stdio: 'ignore' });
+      verifyInitializedWorkspace(context, tempRoot, buildrScript);
+      for (const kind of ['runtime', 'commands', 'rules', 'skills']) {
+        verifyWorkspaceAssetLifecycle(context, tempRoot, buildrScript, kind, kind === 'skills');
+      }
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+    verifyRecursiveRules(context, null, buildrScript);
+    verifyExistingAgentsCompatibility(context);
+  }
+
+  function validatePackageSupportTools(context) {
     verifyPackageSupportTools(context);
   }
 
   return {
-    runPackageSmokeChecks,
+    runPackageWorkspaceSmoke,
+    runPackageDomainIntegration,
+    runPackageRuntimeIntegration,
+    runPackageAggregateSmoke,
+    validatePackageSupportTools,
   };
 }
