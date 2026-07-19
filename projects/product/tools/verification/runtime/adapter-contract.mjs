@@ -170,6 +170,9 @@ const context = createRuntimeContext({ adapterId: 'codex', targetRoot: root, sco
 const valid = codex.planRuntime(context);
 assert.throws(() => validateRuntimePlan({ ...valid, writes: [{ targetFile: path.join(root, '..', 'escape'), content: 'bad' }] }, codex), /outside target root/);
 assert.throws(() => validateRuntimePlan({ ...valid, capabilityEvidence: [] }, codex), /missing capability evidence/);
+assert.throws(() => validateRuntimePlan({ ...valid, writes: [{ targetFile: path.join(root, 'invalid-base64'), content: '***', contentEncoding: 'base64' }] }, codex), /base64 content is invalid/);
+assert.throws(() => validateRuntimePlan({ ...valid, writes: [{ targetFile: path.join(root, 'invalid-mode'), content: 'bad', mode: 0o111 }] }, codex), /mode is invalid/);
+assert.throws(() => validateRuntimePlan({ ...valid, writes: [{ targetFile: path.join(root, 'invalid-commit'), content: 'bad', commitLast: 'yes' }] }, codex), /commitLast must be boolean/);
 
 const symlinkPlanRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-runtime-plan-symlink-'));
 const symlinkPlanOutside = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-runtime-plan-outside-'));
@@ -195,6 +198,47 @@ assert.equal(reconcileRuntimePlan(adoptionPlan).changed.length, 1);
 fs.writeFileSync(targetFile, 'user content\n');
 assert.throws(() => reconcileRuntimePlan(reconcilePlan), /no files were changed/);
 assert.equal(fs.readFileSync(targetFile, 'utf8'), 'user content\n');
+
+const binaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-runtime-binary-'));
+const binaryFile = path.join(binaryRoot, '.agents', 'skills', 'demo', 'assets', 'sample.bin');
+const staleFile = path.join(binaryRoot, '.agents', 'skills', 'demo', 'assets', 'stale.bin');
+const receiptFile = path.join(binaryRoot, '.agents', 'buildr', 'skill-projection-receipts', 'codex', 'demo.json');
+fs.mkdirSync(path.dirname(staleFile), { recursive: true });
+fs.writeFileSync(staleFile, Buffer.from([9, 8, 7]));
+const staleIntegrity = `sha256-${crypto.createHash('sha256').update(fs.readFileSync(staleFile)).digest('hex')}`;
+const binaryPlan = createRuntimePlan({
+  adapterId: 'codex',
+  targetRoot: binaryRoot,
+  scope: '.',
+  writes: [
+    { targetFile: binaryFile, content: Buffer.from([0, 255, 16]).toString('base64'), contentEncoding: 'base64', mode: 0o100, source: 'binary fixture' },
+    { targetFile: receiptFile, content: '{"committed":true}\n', source: 'receipt fixture', commitLast: true },
+  ],
+  nativeAssets: [],
+  removals: [{ targetFile: staleFile, expectedIntegrity: staleIntegrity, expectedExecutable: false }],
+  capabilityEvidence: evidence,
+});
+const binaryResult = reconcileRuntimePlan(binaryPlan);
+assert.deepEqual(fs.readFileSync(binaryFile), Buffer.from([0, 255, 16]));
+assert.equal((fs.statSync(binaryFile).mode & 0o100) === 0o100, true);
+assert.equal(fs.existsSync(staleFile), false);
+assert.equal(binaryResult.changed.at(-1), receiptFile, 'commitLast receipt must be written after payload files and stale removals');
+
+const guardedRemoval = path.join(binaryRoot, '.agents', 'skills', 'demo', 'assets', 'guarded.bin');
+const untouchedWrite = path.join(binaryRoot, '.agents', 'skills', 'demo', 'assets', 'untouched.bin');
+fs.writeFileSync(guardedRemoval, Buffer.from([1, 2, 3]));
+const guardedPlan = createRuntimePlan({
+  adapterId: 'codex',
+  targetRoot: binaryRoot,
+  scope: '.',
+  writes: [{ targetFile: untouchedWrite, content: 'new\n', source: 'guarded fixture' }],
+  nativeAssets: [],
+  removals: [{ targetFile: guardedRemoval, expectedIntegrity: staleIntegrity, expectedExecutable: false }],
+  capabilityEvidence: evidence,
+});
+assert.throws(() => reconcileRuntimePlan(guardedPlan), /no files were changed/);
+assert.equal(fs.existsSync(untouchedWrite), false, 'removal conflicts must stop every write during preflight');
+assert.deepEqual(fs.readFileSync(guardedRemoval), Buffer.from([1, 2, 3]));
 
 const componentRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-runtime-component-'));
 const componentDir = path.join(componentRoot, 'components', 'workspace', 'demo');

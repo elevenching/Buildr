@@ -44,16 +44,27 @@ function skillDiagnostic(item, product) {
     };
   }
   const conflict = `Refusing to overwrite non-Buildr-managed file: ${item.targetFile}`;
+  const label = item.kind === 'skill-projection-receipt'
+    ? `${product ? 'product' : 'workspace'} Skill ${item.skillId} projection receipt`
+    : `${product ? 'product Agent' : 'workspace'} Skill ${item.skillId || path.basename(path.dirname(item.targetFile))}${item.skillRelativePath && item.skillRelativePath !== 'SKILL.md' ? ` ${item.skillRelativePath}` : ''}`;
   return product
-    ? { label: 'product Agent Skill buildr', codes: { ok: 'runtime.product_skill_ok', missing: 'runtime.product_skill_missing', stale: 'runtime.product_skill_stale', conflict: 'runtime.product_skill_conflict' }, messages: { conflict }, repair: 'skill-install' }
-    : { label: `workspace Skill ${path.basename(path.dirname(item.targetFile))}`, codes: { ok: 'runtime.skill_ok', missing: 'runtime.skill_missing', stale: 'runtime.skill_stale', conflict: 'runtime.skill_conflict' }, messages: { conflict }, repair: 'skills-render' };
+    ? { label, codes: { ok: 'runtime.product_skill_ok', missing: 'runtime.product_skill_missing', stale: 'runtime.product_skill_stale', conflict: 'runtime.product_skill_conflict' }, messages: { conflict }, repair: 'skill-install' }
+    : { label, codes: { ok: 'runtime.skill_ok', missing: 'runtime.skill_missing', stale: 'runtime.skill_stale', conflict: 'runtime.skill_conflict' }, messages: { conflict }, repair: 'skills-render' };
 }
 
 function decorateSkillWrites(items, product = false) {
   return items.map((item) => ({
     ...item,
     capability: product ? 'product-buildr-skill' : item.targetFile.includes(`${path.sep}skill-install-plans${path.sep}`) ? 'skill-install-plans' : 'workspace-project-skills',
-    isManaged: (content) => hasManagedSkillMarker(content) || content.includes(INSTALL_PLAN_MARKER),
+    isManaged: item.isManaged || ((content) => hasManagedSkillMarker(content) || content.includes(INSTALL_PLAN_MARKER)),
+    diagnostic: skillDiagnostic(item, product),
+  }));
+}
+
+function decorateSkillRemovals(items, product = false) {
+  return items.map((item) => ({
+    ...item,
+    capability: product ? 'product-buildr-skill' : 'workspace-project-skills',
     diagnostic: skillDiagnostic(item, product),
   }));
 }
@@ -326,16 +337,23 @@ export function assembleRuntimeProjection(options) {
   const workspaceSkills = selection.workspaceSkills ? resolveRenderSkills(repoRoot, skillScope, adapter.id) : [];
   const productSkill = selection.productSkill ? resolvePackageAgentSkill(adapter.id, 'buildr') : null;
   if (productSkill && selection.workspaceSkills) productSkill.capabilityRoutingEvidence = resolveCapabilityRoutingEvidence(repoRoot, adapter.id);
-  const productWrites = productSkill
-    ? decorateSkillWrites(buildSkillRenderPlan(repoRoot, targetRoot, [productSkill], adapter.id, { deferConflicts: true, conflicts: skillConflicts }), true)
-    : [];
-  const workspaceWrites = decorateSkillWrites(buildSkillRenderPlan(repoRoot, targetRoot, workspaceSkills, adapter.id, { deferConflicts: true, conflicts: skillConflicts }));
+  const productProjection = productSkill
+    ? buildSkillRenderPlan(repoRoot, targetRoot, [productSkill], adapter.id, { deferConflicts: true, conflicts: skillConflicts })
+    : { writes: [], removals: [] };
+  const workspaceProjection = buildSkillRenderPlan(repoRoot, targetRoot, workspaceSkills, adapter.id, { deferConflicts: true, conflicts: skillConflicts });
+  const productWrites = decorateSkillWrites(productProjection.writes, true);
+  const workspaceWrites = decorateSkillWrites(workspaceProjection.writes);
+  const skillRemovals = [
+    ...decorateSkillRemovals(productProjection.removals, true),
+    ...decorateSkillRemovals(workspaceProjection.removals),
+    ...(options.removals || []),
+  ];
   const rules = selection.rules ? assembleRules(repoRoot, targetRoot, scopeInfo, adapter) : { writes: [], removals: [], nativeAssets: [], actions: [], findings: [], discovery: { boundaries: [], warnings: [] } };
   const warnings = workspaceSkills.filter((skill) => skill.resolved && !skill.resolved.integrity)
     .map((skill) => `workspace Skill ${skill.id} uses a remote resolved source without integrity.`);
   const context = createRuntimeContext({
     adapterId: adapter.id, targetRoot, scope: scopeInfo.scope,
-    rules, skills: { writes: [...productWrites, ...workspaceWrites], removals: options.removals || [] },
+    rules, skills: { writes: [...productWrites, ...workspaceWrites], removals: skillRemovals },
     findings: [...rules.findings, ...skillConflicts.map((message) => ({ status: 'conflict', path: skillScope, message, code: 'runtime.skill_conflict', userActionRequired: true }))], warnings,
   });
   return { plan: adapter.planRuntime(context), scopeInfo, discovery: rules.discovery, selection };

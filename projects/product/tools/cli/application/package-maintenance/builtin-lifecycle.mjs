@@ -1,13 +1,16 @@
 import { selectedProviderImpacts } from '../../../runtime/skills/capabilities.mjs';
+import { REQUIRED_RENDER_CAPABILITIES, createRuntimePlan, reconcileRuntimePlan } from '../../../runtime/adapter-contract.mjs';
 
 export function createBuiltinLifecycle(deps) {
   const {
     assertInitializedBuildrWorkspace,
     assertNoUnknownOptions,
+    buildRuntimeOrphanRemovalPlan,
     doctor,
     existsDirectory,
     existsFile,
     fs,
+    getRuntimeAdapter,
     optionValue,
     path,
     positionalArgs,
@@ -17,6 +20,7 @@ export function createBuiltinLifecycle(deps) {
     readPackageManifest,
     readRulesManifestForWrite,
     readSkillsManifestForWrite,
+    SUPPORTED_AGENT_IDS,
     syncPackageBuiltins,
     toPosixRelative,
     withWorkspaceMutation,
@@ -104,14 +108,24 @@ export function createBuiltinLifecycle(deps) {
         fs.rmSync(skillDir, { recursive: true, force: true });
         changed.push(toPosixRelative(targetRoot, skillDir));
       }
-      for (const runtimeRoot of ['.claude', '.agents']) {
-        const runtimeDir = path.join(targetRoot, runtimeRoot, 'skills', found.entry.runtimePath || id);
-        if (existsDirectory(runtimeDir)) {
-          fs.rmSync(runtimeDir, { recursive: true, force: true });
-          changed.push(toPosixRelative(targetRoot, runtimeDir));
-        }
-      }
       changed.push(toPosixRelative(targetRoot, writeSkillsManifest(targetRoot, found.manifest)));
+      const runtimePath = found.entry.runtimePath || id;
+      const runtimePlans = SUPPORTED_AGENT_IDS.map((agent) => ({
+        agent,
+        removals: buildRuntimeOrphanRemovalPlan(targetRoot, agent, '.', { runtimePath }).map((item) => ({ ...item, targetFile: item.path })),
+      }));
+      for (const { agent, removals } of runtimePlans) {
+        if (removals.length === 0) continue;
+        const result = reconcileRuntimePlan(createRuntimePlan({
+          adapterId: agent,
+          targetRoot,
+          scope: '.',
+          writes: [],
+          removals,
+          capabilityEvidence: REQUIRED_RENDER_CAPABILITIES.map((capability) => ({ capability, supported: true, adapterId: agent })),
+        }));
+        changed.push(...result.removed.map((file) => toPosixRelative(targetRoot, file)));
+      }
     } else {
       found.manifest.commands[found.index] = updated;
       changed.push(toPosixRelative(targetRoot, writeCommandsManifest(targetRoot, found.manifest)));
@@ -122,12 +136,12 @@ export function createBuiltinLifecycle(deps) {
 
   function builtinUninstall(args) {
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
+    const runtimeRoots = [...new Set(SUPPORTED_AGENT_IDS.map((agent) => getRuntimeAdapter(agent).traits.skills.root))];
     const result = withWorkspaceMutation(targetRoot, 'builtin.uninstall', [
       path.join(targetRoot, 'rules'),
       path.join(targetRoot, 'skills'),
       path.join(targetRoot, 'commands'),
-      path.join(targetRoot, '.claude', 'skills'),
-      path.join(targetRoot, '.agents', 'skills'),
+      ...runtimeRoots.map((root) => path.join(targetRoot, root)),
       path.join(targetRoot, '.buildr', 'builtin-receipts.json'),
     ], () => builtinUninstallUnsafe(args));
     runMutationDoctor(targetRoot);

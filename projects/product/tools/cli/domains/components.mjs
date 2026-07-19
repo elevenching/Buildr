@@ -9,6 +9,12 @@ import {
   isSupportedAgent,
 } from '../shared/platform.mjs';
 import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../shared/json-contracts.mjs';
+import {
+  readSkillProjectionReceipt,
+  runtimeFileMatches,
+  sha256Integrity,
+  skillProjectionReceiptTarget,
+} from '../../runtime/skills/projection-files.mjs';
 
 export function registerDomainsComponents(runtime) {
   const renderRuntime = (...args) => runtime.renderRuntime(...args);
@@ -837,10 +843,22 @@ export function registerDomainsComponents(runtime) {
   function managedRuntimeSkillOrphans(targetRoot, agent) {
     const runtimeRoot = getRuntimeAdapter(agent).traits.skills.root;
     const skillsRoot = path.join(targetRoot, runtimeRoot, 'skills');
-    if (!existsDirectory(skillsRoot)) return [];
     const declared = declaredRuntimeSkillPaths(targetRoot, agent);
     const orphans = [];
+    const receiptRoot = path.join(targetRoot, runtimeRoot, 'buildr', 'skill-projection-receipts', agent);
+    const receiptRuntimePaths = new Set();
+    for (const receiptFile of existsDirectory(receiptRoot) ? collectFiles(receiptRoot) : []) {
+      if (!receiptFile.endsWith('.json')) continue;
+      const receipt = readSkillProjectionReceipt(receiptFile, { adapterId: agent });
+      const expectedReceipt = skillProjectionReceiptTarget(targetRoot, runtimeRoot, agent, receipt.runtimePath);
+      if (path.resolve(expectedReceipt) !== path.resolve(receiptFile)) throw new Error(`Runtime Skill projection receipt target mismatch: ${receiptFile}`);
+      receiptRuntimePaths.add(receipt.runtimePath);
+      if (declared.has(receipt.runtimePath)) continue;
+      const targetDir = path.join(skillsRoot, ...receipt.runtimePath.split('/'));
+      orphans.push({ runtimePath: receipt.runtimePath, path: toPosixRelative(targetRoot, targetDir), targetDir, receipt, receiptFile });
+    }
     for (const runtimePath of listManagedDirectories(skillsRoot)) {
+      if (receiptRuntimePaths.has(runtimePath)) continue;
       if (declared.has(runtimePath)) continue;
       const targetDir = path.join(skillsRoot, runtimePath);
       if (fs.lstatSync(targetDir).isSymbolicLink()) continue;
@@ -851,11 +869,45 @@ export function registerDomainsComponents(runtime) {
     return orphans;
   }
 
-  function buildRuntimeOrphanRemovalPlan(targetRoot, agent, scope = '.') {
+  function buildRuntimeOrphanRemovalPlan(targetRoot, agent, scope = '.', options = {}) {
     if (scope !== '.') return [];
     const removals = [];
     const conflicts = [];
     for (const orphan of managedRuntimeSkillOrphans(targetRoot, agent)) {
+      if (options.runtimePath && orphan.runtimePath !== options.runtimePath) continue;
+      if (orphan.receipt) {
+        const actualFiles = existsDirectory(orphan.targetDir) ? collectFiles(orphan.targetDir) : [];
+        const expectedByPath = new Map(orphan.receipt.files.map((file) => [file.path, file]));
+        const unknown = actualFiles.filter((file) => !expectedByPath.has(toPosixRelative(orphan.targetDir, file)));
+        const modified = actualFiles.filter((file) => {
+          const expected = expectedByPath.get(toPosixRelative(orphan.targetDir, file));
+          return expected && !runtimeFileMatches(file, expected.integrity, expected.executable);
+        });
+        if (unknown.length || modified.length) {
+          conflicts.push(`${orphan.path}: ${unknown.length ? `包含非 Buildr 管理的额外文件 ${unknown.map((file) => toPosixRelative(orphan.targetDir, file)).join(', ')}` : ''}${unknown.length && modified.length ? '；' : ''}${modified.length ? `受管文件已修改 ${modified.map((file) => toPosixRelative(orphan.targetDir, file)).join(', ')}` : ''}`);
+          continue;
+        }
+        for (const [relative, expected] of expectedByPath) {
+          const file = path.join(orphan.targetDir, ...relative.split('/'));
+          if (!existsFile(file)) continue;
+          removals.push({
+            type: 'file',
+            path: file,
+            expectedIntegrity: expected.integrity,
+            expectedExecutable: expected.executable,
+            pruneEmptyRoot: orphan.targetDir,
+            source: `runtime Skill ${orphan.runtimePath}`,
+          });
+        }
+        removals.push({
+          type: 'file',
+          path: orphan.receiptFile,
+          expectedIntegrity: sha256Integrity(fs.readFileSync(orphan.receiptFile)),
+          pruneEmptyRoot: path.dirname(orphan.receiptFile),
+          source: `runtime Skill projection receipt ${orphan.runtimePath}`,
+        });
+        continue;
+      }
       const files = collectFiles(orphan.targetDir);
       if (files.length !== 1 || files[0] !== path.join(orphan.targetDir, 'SKILL.md')) {
         conflicts.push(`${orphan.path}: 包含非 Buildr 管理的额外文件`);
@@ -866,7 +918,7 @@ export function registerDomainsComponents(runtime) {
     const runtimeRoot = getRuntimeAdapter(agent).traits.skills.root;
     const plansRoot = path.join(targetRoot, runtimeRoot, 'buildr', 'skill-install-plans');
     const declaredPlans = declaredRuntimeInstallPlanIds(targetRoot, agent);
-    if (existsDirectory(plansRoot)) {
+    if (!options.runtimePath && existsDirectory(plansRoot)) {
       for (const name of fs.readdirSync(plansRoot).sort()) {
         if (!name.endsWith('.md') || declaredPlans.has(name.slice(0, -3))) continue;
         const file = path.join(plansRoot, name);

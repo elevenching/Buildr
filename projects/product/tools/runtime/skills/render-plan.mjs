@@ -1,10 +1,27 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { assertRuntimeTargetPath, getRuntimeAdapter } from '../adapter-contract.mjs';
+import {
+  REQUIRED_RENDER_CAPABILITIES,
+  assertRuntimeTargetPath,
+  createRuntimePlan,
+  getRuntimeAdapter,
+  reconcileRuntimePlan,
+} from '../adapter-contract.mjs';
 import { FRONTMATTER_BOUNDARY, MANAGED_PREFIX, SKILL_CONTRIBUTION_MARKER, resolveSkillScope } from './primitives.mjs';
 import { capabilityBindingsForSkill, resolveSkillCapabilityGraph } from './capabilities.mjs';
 import { resolvePackageAgentSkill, resolveSkills } from './sources.mjs';
+import {
+  buildCompanionWrite,
+  buildSkillProjectionReceipt,
+  enumerateSkillSourceFiles,
+  parseSkillProjectionReceipt,
+  readSkillProjectionReceipt,
+  renderSkillProjectionReceipt,
+  runtimeWriteBuffer,
+  sha256Integrity,
+  skillProjectionReceiptTarget,
+} from './projection-files.mjs';
 
 export function hasManagedSkillMarker(content) {
   const lines = content.split(/\r?\n/);
@@ -98,9 +115,13 @@ export function buildSkillTarget(targetRoot, skill, runtime = 'claude-code') {
 }
 
 export function buildRuntimeSkillTarget(targetRoot, skill, runtime) {
+  return path.join(buildRuntimeSkillDirectory(targetRoot, skill, runtime), 'SKILL.md');
+}
+
+export function buildRuntimeSkillDirectory(targetRoot, skill, runtime) {
   const runtimePath = skill.runtimePath ?? skill.id;
   const root = getRuntimeAdapter(runtime).traits.skills.root;
-  return path.join(targetRoot, root, 'skills', ...runtimePath.split('/'), 'SKILL.md');
+  return path.join(targetRoot, root, 'skills', ...runtimePath.split('/'));
 }
 
 function sourceHash(content) {
@@ -241,53 +262,192 @@ export function resolveRenderSkills(repoRoot, scope, runtime) {
   return groups.flatMap((group) => group.skills.map((skill) => ({ ...skill, declaredScope: group.scope, capabilityBindings: capabilityBindingsForSkill(group.graph, skill.id) })));
 }
 
+function skillWriteIdentity(item) {
+  return JSON.stringify([item.skillRelativePath, item.contentEncoding || 'utf8', item.content, item.mode ?? null]);
+}
+
+function projectionSource(skill) {
+  return `${skill.declaredScope || skill.origin}:${skill.id}`;
+}
+
+function buildSkillFileWrites(repoRoot, targetRoot, skill, runtime) {
+  const runtimeSkill = skill.runtime ? skill : { ...skill, runtime };
+  const runtimePath = skill.runtimePath ?? skill.id;
+  const source = projectionSource(skill);
+  const targetDir = buildRuntimeSkillDirectory(targetRoot, skill, runtime);
+  const sourceFiles = skill.sourceDir ? enumerateSkillSourceFiles(skill.sourceDir) : [];
+  const sourceEntry = sourceFiles.find((file) => file.relativePath === 'SKILL.md');
+  const rawSource = skill.sourceContent ?? fs.readFileSync(skill.sourceFile, 'utf8');
+  const writes = [{
+    targetFile: path.join(targetDir, 'SKILL.md'),
+    content: buildSkillContent(repoRoot, runtimeSkill),
+    contentEncoding: 'utf8',
+    sourceContent: rawSource,
+    sourceContentEncoding: 'utf8',
+    mode: sourceEntry?.executable ? 0o100 : 0,
+    sourceFile: skill.sourceFile,
+    source,
+    skillId: skill.id,
+    runtimePath,
+    skillRelativePath: 'SKILL.md',
+    kind: 'skill-entry',
+    isManaged: hasManagedSkillMarker,
+  }];
+  for (const file of sourceFiles.filter((entry) => entry.relativePath !== 'SKILL.md')) {
+    writes.push(buildCompanionWrite(
+      path.join(targetDir, ...file.relativePath.split('/')),
+      file.sourceFile,
+      file.relativePath,
+      file.content,
+      file.executable,
+      { source, skillId: skill.id, runtimePath, kind: 'skill-companion', isManaged: () => false },
+    ));
+  }
+  return { runtimePath, targetDir, source, writes };
+}
+
+function addWrite(byTarget, item, conflicts) {
+  const existing = byTarget.get(item.targetFile);
+  if (existing && skillWriteIdentity(existing) !== skillWriteIdentity(item)) {
+    conflicts.push(`${item.targetFile}: ${existing.source} 与 ${item.source} 内容不同`);
+  } else if (!existing) {
+    byTarget.set(item.targetFile, item);
+  }
+}
+
+function receiptManaged(content) {
+  try {
+    parseSkillProjectionReceipt(Buffer.isBuffer(content) ? content.toString('utf8') : content);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function buildSkillRenderPlan(repoRoot, targetRoot, skills, runtime, options = {}) {
   const adapter = getRuntimeAdapter(runtime);
   const byTarget = new Map();
+  const byRuntimePath = new Map();
+  const removals = [];
   const conflicts = [];
   for (const skill of skills) {
     const runtimeSkill = skill.runtime ? skill : { ...skill, runtime };
-    const installPlan = skill.installMode === 'agent';
-    const targetFile = installPlan
-      ? buildAgentInstallPlanTarget(targetRoot, skill, runtime)
-      : buildRuntimeSkillTarget(targetRoot, skill, runtime);
-    const content = installPlan ? buildAgentInstallPlanContent(runtimeSkill) : buildSkillContent(repoRoot, runtimeSkill);
-    const sourceContent = installPlan ? null : skill.sourceContent ?? fs.readFileSync(skill.sourceFile, 'utf8');
-    const item = { targetFile, content, sourceContent, source: `${skill.declaredScope || skill.origin}:${skill.id}` };
-    const existing = byTarget.get(targetFile);
-    if (existing && existing.content !== content) {
-      conflicts.push(`${targetFile}: ${existing.source} 与 ${item.source} 内容不同`);
-    } else if (!existing) {
-      byTarget.set(targetFile, item);
+    if (skill.installMode === 'agent') {
+      addWrite(byTarget, {
+        targetFile: buildAgentInstallPlanTarget(targetRoot, skill, runtime),
+        content: buildAgentInstallPlanContent(runtimeSkill),
+        source: projectionSource(skill),
+        skillId: skill.id,
+        runtimePath: skill.runtimePath ?? skill.id,
+        kind: 'skill-install-plan',
+        isManaged: (content) => content.includes('<!-- Generated by Buildr. Agent action required.'),
+      }, conflicts);
+      continue;
+    }
+    const projection = buildSkillFileWrites(repoRoot, targetRoot, skill, runtime);
+    const existing = byRuntimePath.get(projection.runtimePath);
+    if (!existing) {
+      byRuntimePath.set(projection.runtimePath, { ...projection, sources: [projection.source] });
+      continue;
+    }
+    const existingByRelative = new Map(existing.writes.map((item) => [item.skillRelativePath, item]));
+    const incomingByRelative = new Map(projection.writes.map((item) => [item.skillRelativePath, item]));
+    const relatives = [...new Set([...existingByRelative.keys(), ...incomingByRelative.keys()])].sort();
+    const different = relatives.some((relative) => {
+      const left = existingByRelative.get(relative);
+      const right = incomingByRelative.get(relative);
+      return !left || !right || skillWriteIdentity(left) !== skillWriteIdentity(right);
+    });
+    if (different) {
+      conflicts.push(`${projection.targetDir}: ${existing.sources.join(', ')} 与 ${projection.source} 的完整 Skill 内容不同`);
+    } else {
+      existing.sources.push(projection.source);
     }
   }
-  for (const item of byTarget.values()) {
-    if (!fs.existsSync(item.targetFile)) continue;
-    const current = fs.readFileSync(item.targetFile, 'utf8');
-    const managed = hasManagedSkillMarker(current) || current.includes('<!-- Generated by Buildr. Agent action required.');
-    if (!managed && current !== item.sourceContent && current !== item.content) {
-      conflicts.push(`Refusing to overwrite non-Buildr-managed file: ${item.targetFile}`);
+
+  for (const projection of byRuntimePath.values()) {
+    const receiptFile = skillProjectionReceiptTarget(targetRoot, adapter.traits.skills.root, runtime, projection.runtimePath);
+    const previousReceipt = readSkillProjectionReceipt(receiptFile, { adapterId: runtime, runtimePath: projection.runtimePath });
+    const previousByPath = new Map((previousReceipt?.files || []).map((file) => [file.path, file]));
+    const currentPaths = new Set();
+    for (const item of projection.writes) {
+      currentPaths.add(item.skillRelativePath);
+      const previous = previousByPath.get(item.skillRelativePath);
+      if (previous) {
+        item.previousIntegrity = previous.integrity;
+        item.previousExecutable = previous.executable;
+      }
+      addWrite(byTarget, item, conflicts);
     }
+    for (const previous of previousByPath.values()) {
+      if (currentPaths.has(previous.path)) continue;
+      removals.push({
+        targetFile: path.join(projection.targetDir, ...previous.path.split('/')),
+        expectedIntegrity: previous.integrity,
+        expectedExecutable: previous.executable,
+        pruneEmptyRoot: projection.targetDir,
+        source: projection.sources.join(', '),
+        skillId: projection.writes[0].skillId,
+        runtimePath: projection.runtimePath,
+        skillRelativePath: previous.path,
+        kind: 'skill-stale-file',
+      });
+    }
+    const inventory = projection.writes.map((item) => ({
+      path: item.skillRelativePath,
+      integrity: sha256Integrity(runtimeWriteBuffer(item)),
+      executable: item.mode === 0o100,
+    }));
+    const receipt = buildSkillProjectionReceipt({
+      adapterId: runtime,
+      runtimePath: projection.runtimePath,
+      sources: projection.sources,
+      files: inventory,
+    });
+    const previousReceiptContent = fs.existsSync(receiptFile) ? fs.readFileSync(receiptFile, 'utf8') : undefined;
+    addWrite(byTarget, {
+      targetFile: receiptFile,
+      content: renderSkillProjectionReceipt(receipt),
+      contentEncoding: 'utf8',
+      sourceContent: previousReceiptContent,
+      sourceContentEncoding: 'utf8',
+      previousIntegrity: previousReceiptContent ? sha256Integrity(Buffer.from(previousReceiptContent, 'utf8')) : undefined,
+      source: projection.sources.join(', '),
+      skillId: projection.writes[0].skillId,
+      runtimePath: projection.runtimePath,
+      kind: 'skill-projection-receipt',
+      isManaged: receiptManaged,
+      commitLast: true,
+    }, conflicts);
   }
+
   if (Array.isArray(options.conflicts)) options.conflicts.push(...conflicts);
   if (conflicts.length && options.deferConflicts !== true) throw new Error(`运行时写入冲突：\n- ${conflicts.sort().join('\n- ')}`);
-  return [...byTarget.values()].sort((left, right) => left.targetFile.localeCompare(right.targetFile));
+  return {
+    runtime,
+    writes: [...byTarget.values()].sort((left, right) => left.targetFile.localeCompare(right.targetFile)),
+    removals: removals.sort((left, right) => left.targetFile.localeCompare(right.targetFile)),
+  };
 }
 
 export function applySkillRenderPlan(plan, targetRoot) {
-  for (const item of plan) assertRuntimeTargetPath(targetRoot, item.targetFile, 'Runtime Skill target');
-  const files = [];
-  for (const item of plan) {
-    if (!fs.existsSync(item.targetFile) || fs.readFileSync(item.targetFile, 'utf8') !== item.content) {
-      fs.mkdirSync(path.dirname(item.targetFile), { recursive: true });
-      fs.writeFileSync(item.targetFile, item.content, 'utf8');
-    }
-    files.push(item.targetFile);
-  }
-  return files;
+  for (const item of [...plan.writes, ...plan.removals]) assertRuntimeTargetPath(targetRoot, item.targetFile, 'Runtime Skill target');
+  const runtimePlan = createRuntimePlan({
+    adapterId: plan.runtime,
+    targetRoot,
+    scope: '.',
+    writes: plan.writes,
+    removals: plan.removals,
+    capabilityEvidence: REQUIRED_RENDER_CAPABILITIES.map((capability) => ({ capability, supported: true, adapterId: plan.runtime })),
+  });
+  reconcileRuntimePlan(runtimePlan);
+  return [...plan.writes.map((item) => item.targetFile), ...plan.removals.map((item) => item.targetFile)];
 }
 
 function renderSkill(repoRoot, targetRoot, skill, runtime = 'claude-code') {
-  return applySkillRenderPlan(buildSkillRenderPlan(repoRoot, targetRoot, [skill], runtime), targetRoot)[0]
-    ?? (skill.installMode === 'agent' ? buildAgentInstallPlanTarget(targetRoot, skill, runtime) : buildRuntimeSkillTarget(targetRoot, skill, runtime));
+  const target = skill.installMode === 'agent'
+    ? buildAgentInstallPlanTarget(targetRoot, skill, runtime)
+    : buildRuntimeSkillTarget(targetRoot, skill, runtime);
+  applySkillRenderPlan(buildSkillRenderPlan(repoRoot, targetRoot, [skill], runtime), targetRoot);
+  return target;
 }

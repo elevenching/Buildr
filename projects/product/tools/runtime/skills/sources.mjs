@@ -73,10 +73,12 @@ function readPackageSkillEntries(section, runtime) {
         throw new Error(`${section} entries must include id and path in ${manifestPath}`);
       }
       const skillPath = normalizeRelativePath(skill.path);
-      const sourceFile = path.join(productRoot(), skillPath, 'SKILL.md');
+      const sourceDir = path.join(productRoot(), skillPath);
+      const sourceFile = path.join(sourceDir, 'SKILL.md');
       ensureFile(sourceFile, `Package Skill SKILL.md not found: ${sourceFile}`);
       const result = {
         id: skill.id,
+        sourceDir,
         sourceFile,
         origin: section === 'agentSkills' ? 'product' : 'package',
         runtime,
@@ -238,6 +240,7 @@ function loadLayer(manifestPath, options = {}) {
     const runtimePath = skill.runtimePath !== undefined ? normalizeRelativePath(skill.runtimePath) : skillPath;
     return decorateResolvedSkill({
       id: skill.id,
+      sourceDir,
       sourceFile,
       origin: isSourceLabel(skill.source) ? skill.source : layerOrigin,
       sourceKind: 'path',

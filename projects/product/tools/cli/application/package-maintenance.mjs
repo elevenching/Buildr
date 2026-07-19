@@ -17,6 +17,7 @@ import {
   LEGACY_PACKAGE_PATHS,
   BUILDR_REQUIRED_BLOCK_START,
   SUPPORTED_AGENT_IDS,
+  getRuntimeAdapter,
 } from '../shared/platform.mjs';
 import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../shared/json-contracts.mjs';
 import { createPackageOutput } from './package-maintenance/output.mjs';
@@ -76,6 +77,7 @@ export function registerApplicationPackageMaintenance(runtime) {
   const atomicWriteJson = (...args) => runtime.atomicWriteJson(...args);
   const assertSafeAssetTarget = (...args) => runtime.assertSafeAssetTarget(...args);
   const withWorkspaceMutation = (...args) => runtime.withWorkspaceMutation(...args);
+  const buildRuntimeOrphanRemovalPlan = (...args) => runtime.buildRuntimeOrphanRemovalPlan(...args);
   const productRoot = (...args) => runtime.productRoot(...args);
   const packageRoot = (...args) => runtime.packageRoot(...args);
   const packageWorkspaceTargetRoot = (...args) => runtime.packageWorkspaceTargetRoot(...args);
@@ -330,10 +332,12 @@ export function registerApplicationPackageMaintenance(runtime) {
   const { packageBuiltinComponent, findBuiltinManifestEntry, builtinUninstallUnsafe, builtinUninstall, builtinRestoreUnsafe, builtinRestore } = createBuiltinLifecycle({
     assertInitializedBuildrWorkspace,
     assertNoUnknownOptions,
+    buildRuntimeOrphanRemovalPlan,
     doctor,
     existsDirectory,
     existsFile,
     fs,
+    getRuntimeAdapter,
     optionValue,
     path,
     positionalArgs,
@@ -343,6 +347,7 @@ export function registerApplicationPackageMaintenance(runtime) {
     readPackageManifest,
     readRulesManifestForWrite,
     readSkillsManifestForWrite,
+    SUPPORTED_AGENT_IDS,
     syncPackageBuiltins,
     toPosixRelative,
     withWorkspaceMutation,

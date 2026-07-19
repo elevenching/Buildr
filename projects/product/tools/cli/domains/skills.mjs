@@ -297,7 +297,7 @@ export function registerDomainsSkills(runtime) {
   }
 
   function supportedSkillSourceEntries() {
-    return new Set(['SKILL.md', 'scripts', 'templates', 'assets', 'examples', 'references']);
+    return new Set(['SKILL.md', 'agents', 'scripts', 'templates', 'assets', 'examples', 'references']);
   }
 
   function inspectSkillSource(sourceDir) {

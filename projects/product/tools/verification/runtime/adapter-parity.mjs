@@ -57,8 +57,33 @@ const symlinkRulesRender = run(['rules', 'render', 'cursor', '--scope', '.', '--
 assert.notEqual(symlinkRulesRender.status, 0, 'runtime rules render must reject a target path that crosses a symbolic link');
 assert.equal(fs.existsSync(path.join(rulesSymlinkOutside, 'rules', 'buildr.mdc')), false, 'rules render must not write outside the workspace through a symbolic link');
 
+const guardedOrphanWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-runtime-guarded-orphan-'));
+run(['init', '--target', guardedOrphanWorkspace, '--name', 'runtime-guarded-orphan']);
+run(['render', 'codex', '--scope', '.', '--target', guardedOrphanWorkspace]);
+const guardedOrphanDir = path.join(guardedOrphanWorkspace, '.agents', 'skills', 'task-asset-review');
+const guardedUserFile = path.join(guardedOrphanDir, 'user-notes.md');
+fs.writeFileSync(guardedUserFile, 'user-owned\n');
+const guardedOrphanUninstall = run(['builtin', 'uninstall', 'task-asset-review', '--target', guardedOrphanWorkspace, '--reason', 'guarded orphan fixture'], { allowFailure: true });
+assert.notEqual(guardedOrphanUninstall.status, 0, 'builtin uninstall must stop when a runtime Skill directory contains an unknown user file');
+assert.match(`${guardedOrphanUninstall.stdout}\n${guardedOrphanUninstall.stderr}`, /非 Buildr 管理的额外文件/);
+assert.equal(fs.readFileSync(guardedUserFile, 'utf8'), 'user-owned\n');
+assert.ok(fs.existsSync(path.join(guardedOrphanDir, 'SKILL.md')), 'conflicted orphan cleanup must preserve managed files too');
+assert.ok(fs.existsSync(path.join(guardedOrphanWorkspace, 'skills', 'buildr', 'task-asset-review', 'SKILL.md')), 'failed uninstall must roll back source asset changes');
+
 run(['project', 'create', 'scope-alpha', '--target', workspace, '--description', 'scope alpha']);
 run(['project', 'create', 'scope-beta', '--target', workspace, '--description', 'scope beta']);
+const completeSkillSource = path.join(workspace, '.fixture-source', 'complete-runtime-skill');
+for (const directory of ['agents', 'assets', 'examples', 'references', 'scripts', 'templates']) fs.mkdirSync(path.join(completeSkillSource, directory), { recursive: true });
+fs.writeFileSync(path.join(completeSkillSource, 'SKILL.md'), '---\nname: complete-runtime-skill\ndescription: complete runtime projection fixture\n---\n\n# Complete Runtime Skill\n');
+fs.writeFileSync(path.join(completeSkillSource, 'agents', 'openai.yaml'), 'interface:\n  display_name: Complete Runtime Skill\n');
+fs.writeFileSync(path.join(completeSkillSource, 'assets', 'sample.bin'), Buffer.from([0, 255, 16, 128]));
+fs.writeFileSync(path.join(completeSkillSource, 'examples', 'sample.md'), '# Example\n');
+fs.writeFileSync(path.join(completeSkillSource, 'references', 'guide.md'), '# Guide\n');
+fs.writeFileSync(path.join(completeSkillSource, 'scripts', 'run.sh'), '#!/bin/sh\necho complete\n');
+fs.chmodSync(path.join(completeSkillSource, 'scripts', 'run.sh'), 0o744);
+fs.writeFileSync(path.join(completeSkillSource, 'templates', 'template.txt'), 'template\n');
+run(['skills', 'add', '--source', completeSkillSource, '--scope', '.', '--target', workspace]);
+fs.rmSync(path.join(workspace, '.fixture-source'), { recursive: true, force: true });
 fs.mkdirSync(path.join(workspace, 'projects', 'scope-alpha', 'services', 'api'), { recursive: true });
 fs.mkdirSync(path.join(workspace, 'projects', 'scope-alpha', 'services', 'web'), { recursive: true });
 fs.writeFileSync(path.join(workspace, 'projects', 'scope-alpha', 'services', 'api', 'AGENTS.md'), '# API rules\nAPI_MARKER\n');
@@ -119,9 +144,25 @@ for (const agent of supportedAdapters) {
   const root = adapterSkillRoots.get(agent);
   assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-asset-review', 'SKILL.md')), `${agent} must render task-asset-review`);
   assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'capability-adaptation', 'SKILL.md')), `${agent} must render capability-adaptation`);
+  assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-cockpit', 'agents', 'openai.yaml')), `${agent} must render task-cockpit agents metadata`);
+  assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-cockpit', 'assets', 'task-cockpit-template.html')), `${agent} must render task-cockpit template asset`);
+  assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-asset-review', 'agents', 'openai.yaml')), `${agent} must render task-asset-review agents metadata`);
+  const completeRuntime = path.join(workspace, root, 'skills', 'complete-runtime-skill');
+  for (const relative of ['SKILL.md', 'agents/openai.yaml', 'examples/sample.md', 'references/guide.md', 'scripts/run.sh', 'templates/template.txt']) {
+    assert.ok(fs.existsSync(path.join(completeRuntime, ...relative.split('/'))), `${agent} must render ${relative}`);
+  }
+  assert.deepEqual(fs.readFileSync(path.join(completeRuntime, 'assets', 'sample.bin')), Buffer.from([0, 255, 16, 128]), `${agent} must preserve binary bytes`);
+  assert.equal((fs.statSync(path.join(completeRuntime, 'scripts', 'run.sh')).mode & 0o100) === 0o100, true, `${agent} must preserve owner executable intent`);
+  assert.ok(fs.existsSync(path.join(workspace, root, 'buildr', 'skill-projection-receipts', agent, 'complete-runtime-skill.json')), `${agent} must record an adapter-specific projection receipt`);
   const adapterDoctor = JSON.parse(run(['doctor', '--agent', agent, '--target', workspace, '--json']).stdout);
   assert.equal(adapterDoctor.agentRuntime.requested, agent, `${agent} doctor must inspect the requested adapter`);
   assert.equal(adapterDoctor.agentRuntime.supported, true, `${agent} doctor must recognize a supported adapter`);
+}
+
+fs.rmSync(path.join(workspace, 'skills', 'complete-runtime-skill', 'assets', 'sample.bin'));
+for (const agent of supportedAdapters) run(['render', agent, '--scope', '.', '--target', workspace]);
+for (const [agent, root] of adapterSkillRoots) {
+  assert.equal(fs.existsSync(path.join(workspace, root, 'skills', 'complete-runtime-skill', 'assets', 'sample.bin')), false, `${agent} must safely remove a source-deleted managed asset`);
 }
 
 run(['builtin', 'uninstall', 'task-asset-review', '--target', workspace, '--reason', 'runtime lifecycle fixture']);

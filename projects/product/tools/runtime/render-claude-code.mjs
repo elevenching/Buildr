@@ -15,8 +15,11 @@ export { resolvePackageAgentSkill, resolveSkills } from './skills/sources.mjs';
 export { applySkillRenderPlan, buildRuntimeSkillTarget, buildSkillRenderPlan, buildSkillTarget, buildSkillContent, buildAgentInstallPlanContent, buildAgentInstallPlanTarget, hasManagedSkillMarker, resolveRenderSkills } from './skills/render-plan.mjs';
 
 function renderSkill(repoRoot, targetRoot, skill, runtime = 'claude-code') {
-  return applySkillRenderPlan(buildSkillRenderPlan(repoRoot, targetRoot, [skill], runtime), targetRoot)[0]
-    ?? (skill.installMode === 'agent' ? buildAgentInstallPlanTarget(targetRoot, skill, runtime) : buildRuntimeSkillTarget(targetRoot, skill, runtime));
+  const target = skill.installMode === 'agent'
+    ? buildAgentInstallPlanTarget(targetRoot, skill, runtime)
+    : buildRuntimeSkillTarget(targetRoot, skill, runtime);
+  applySkillRenderPlan(buildSkillRenderPlan(repoRoot, targetRoot, [skill], runtime), targetRoot);
+  return target;
 }
 
 export function renderClaudeCode(argv, options = {}) {

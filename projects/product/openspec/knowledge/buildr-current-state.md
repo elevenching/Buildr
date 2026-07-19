@@ -179,13 +179,15 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 - `service create` 不向 service repo 写入 `CLAUDE.md`、`.claude/` 或其他 runtime 文件。
 - adapter required render capabilities 固定为 `rules-entry`、`product-buildr-skill`、`workspace-project-skills`、`skill-install-plans` 和 `runtime-check`。
 - supported adapter descriptor 由受约束 traits 组合：Rules 为 `native-recursive`、`native-root`、`reference-bridge` 或 `vendor-rule-files`，Skills 为 `agents-compatible` 或 `vendor-root`，并显式声明 surface、activation 和 checker；组合不完整或部分 Rules scope 不得注册为 supported。
-- Codex 当前原生使用全部已发现的 `AGENTS.md`，Rules render 零写入；Codex Skills adapter 将 enabled Skills 渲染到 `.agents/skills/<skill-id>/`。
+- Codex 当前原生使用全部已发现的 `AGENTS.md`，Rules render 零写入；Codex Skills adapter 将 enabled Skills 的完整受支持目录渲染到 `.agents/skills/<skill-id>/`。
+- 本地作者型和 package Skill 会投射 `SKILL.md` 以及 `agents/`、`assets/`、`examples/`、`references/`、`scripts/`、`templates/` 下的普通文件；`SKILL.md` 继续派生 managed marker、contributions、capability bindings 和 adapter context，随附文件保持原始字节与 owner executable 状态。`resolved.kind: skill-url` 仍是单文件 `SKILL.md` 来源。
+- 每个 adapter 在自身 runtime metadata 区维护版本化 Skill projection receipt。render、sync、runtime check、doctor 和 Component lifecycle 复用相同 inventory；active stale 与 orphan 只在文件仍匹配旧 receipt 时清理，已修改文件或未知用户文件触发零部分写入 conflict。缺少 receipt 的旧版仅 `SKILL.md` 投射继续保守兼容。
 - Claude Code adapter 支持 `skill install`、`runtime check`、`rules render` 和 `skills render`。
 - Cursor、Qoder、TRAE 使用 `vendor-rule-files`：分别生成各 source scope 的 `.cursor/rules/buildr.mdc`、root `.qoder/rules/buildr/*.md`、各 source scope 的 `.trae/rules/buildr.md`；TRAE Work 与 WorkBuddy 使用 root-index reference bridge，目标分别为 `CLAUDE.local.md` 和 `CODEBUDDY.md`。
 - TRAE Work Rules import/reference traversal 无法仅由 projection 证明，checker 保持 prerequisite warning。新增 adapter 使用 `documented` / `verified` 两级证据：WorkBuddy 5.2.5 已通过桌面包内置 CodeBuddy CLI 2.106.4 的一次性新任务 marker smoke，等级为 `verified`；Cursor、Qoder、TRAE 与 TRAE Work 已由官方资料、本机观察或 discovery 源码认证为 `documented`，真实产品 smoke 保持 `pending`。GUI 自动点击、私有数据库抓取和重复 reload 测试不属于常规 adapter 完成门槛。
 - Claude Code rules render 在每个 source 同目录生成 `@AGENTS.md` reference bridge，不复制规则全文；reconcile 先校验全部 conflict 再写入，并清理 source 已删除的 Buildr-managed orphan bridge。
 - reference bridge 中旧 hash 过期只作为 metadata info，不构成 action-required stale。
-- 当前实现已通过本地 Codex runtime adapter 验证 `.agents/skills/<skill-id>/SKILL.md` 渲染结构；实际扫描行为仍以当前 Codex 产品版本为准。
+- 当前实现已通过全部 supported adapters 的完整 Skill 目录投射契约与 parity 验证；Agent 产品是否在当前 session 发现新 Skill 仍以对应产品版本和 activation 行为为准。
 
 ## CLI Update / Workspace Sync / Builtin
 
@@ -193,7 +195,7 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 - `buildr update check --json` 输出 mode、current、available、status、blockingReasons 和 nextActions；development checkout 还分别报告 Git `sourceStatus` 与 registry `versionStatus`，upstream 一致但 package version 落后于对应发布渠道时报告 `version-stale` 且不自动修改 checkout。来源无法证明、Git dirty/shared/conflict 或 registry/prefix 受阻时 fail closed。
 - `buildr builtin list --target <dir> --json` 查看内置能力状态。
 - `buildr builtin uninstall <id> --target <dir>` 卸载 optional 内置能力；required 能力会被拒绝。
-- 当前随包 optional Skills 卸载会删除源文件，并删除 `.claude/skills/` 和 `.agents/skills/` 下的 runtime 渲染结果。
+- 当前随包 optional Skills 卸载会删除源文件；各 supported adapter 下一次全量 render/sync 根据 projection receipt 安全删除完整 runtime Skill，遇到已修改受管文件或未知用户文件时保留现场并报告 conflict。
 - `buildr builtin restore <id> --target <dir>` 从当前产品包恢复指定内置能力。
 - `buildr sync <agent> --target <dir>` 是七个 supported adapter 的 workspace 同步主路径：同步 Buildr 产品能力、安装产品入口 Buildr Skill、准备当前 Agent 的 workspace 入口 runtime，并用 `doctor --agent <agent>` 复查；它不更新 CLI。
 - 默认 `sync` 从 canonical `.` 递归 reconcile 整个受管理 workspace Rules 子树；组合 `render` 的 Rules 使用完整 canonical scope，Skills scope 折叠到所属 Root/Project。

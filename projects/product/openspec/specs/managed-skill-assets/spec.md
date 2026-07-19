@@ -14,7 +14,7 @@ Buildr MUST 提供 workspace/project Skills 源资产的 add/remove 维护命令
 - **AND** Buildr MUST 从 `<skill-dir>/SKILL.md` frontmatter 的 `name` 读取 Skill id
 - **AND** Buildr MUST 将该 Skill 登记到对应 scope 的 `skills/manifest.yml`
 - **AND** Buildr MUST 将支持的 Skill 源资产内容装载到对应 scope 的 `skills/<skill-id>/`
-- **AND** Buildr MUST 将 manifest 条目写为 `path` 本地源目录条目
+- **AND** manifest 条目 MUST 写为 `path` 本地源目录条目
 
 #### Scenario: 登记远端信息源
 - **WHEN** Agent 运行 `buildr skills add <id> --remote-source <url> --scope <scope> --target <dir>`
@@ -22,7 +22,7 @@ Buildr MUST 提供 workspace/project Skills 源资产的 add/remove 维护命令
 - **AND** Buildr MUST 要求 `<scope>` 是 `.` 或 `projects/<project>`
 - **AND** Buildr MUST 将该 Skill 登记到对应 scope 的 `skills/manifest.yml`
 - **AND** manifest 条目 MUST 保存 source URL 和 source kind
-- **AND** 当 Agent 未提供 source kind 时，Buildr MUST 将 source kind 记录为 `url`
+- **AND** 当 Agent 未提供 source kind时，Buildr MUST 将 source kind 记录为 `url`
 - **AND** manifest 条目 MUST 标记该 Skill 需要 Agent 安装或解析
 - **AND** Buildr MUST NOT 尝试复制或安装该 source
 
@@ -60,7 +60,7 @@ Buildr MUST 提供 workspace/project Skills 源资产的 add/remove 维护命令
 #### Scenario: Skill 源资产结构
 - **WHEN** Buildr 装载 Skill 源目录
 - **THEN** Buildr MUST 要求 source 目录包含 `SKILL.md`
-- **AND** Buildr MUST 支持装载 `SKILL.md` 以及可选的 `scripts/`、`templates/`、`assets/`、`examples/`、`references/`
+- **AND** Buildr MUST 支持装载 `SKILL.md` 以及可选的 `agents/`、`scripts/`、`templates/`、`assets/`、`examples/`、`references/`
 - **AND** 当 source 目录包含未知顶层内容时 Buildr MUST 默认报错
 - **AND** 当 Agent 显式提供 `--ignore-unsupported` 时 Buildr MUST 跳过未知顶层内容并在输出中说明未装载内容
 
@@ -97,6 +97,39 @@ Buildr MUST 提供 workspace/project Skills 源资产的 add/remove 维护命令
 - **AND** 回执 MUST 说明已更新的源资产
 - **AND** 回执 MUST 引导 Agent 按当前 Agent runtime 能力执行 Skills render、runtime check 或 doctor
 - **AND** 回执 MUST NOT 硬编码特定 Agent adapter 命令
+
+### Requirement: 本地与 package Skill 完整投射受支持目录
+Buildr MUST 将启用且适用于当前 runtime 的本地作者型 Skill 和 package Skill 的受支持源目录内容完整投射到 Agent Skill runtime 目录，并 MUST 保持 Skill 入口派生内容与随附资源的不同处理边界。
+
+#### Scenario: 渲染带随附资源的本地 Skill
+- **WHEN** 本地作者型 Skill 包含 `SKILL.md` 以及 `agents/`、`assets/`、`scripts/`、`templates/`、`examples/` 或 `references/` 下的普通文件
+- **THEN** Buildr MUST 将 `SKILL.md` 和所有受支持随附文件投射到同一 runtime Skill 目录的对应相对路径
+- **AND** runtime 中的目录结构 MUST 与源 Skill 的受支持目录结构一致
+
+#### Scenario: 渲染 package Skill
+- **WHEN** workspace manifest 通过 `package:<source-id>` 引用随包 Skill source
+- **THEN** Buildr MUST 从 package Skill 完整源目录生成 runtime Skill
+- **AND** Buildr MUST NOT 只因该 Skill 通过 package reference 解析而丢弃随附文件
+
+#### Scenario: Skill 入口继续由 Buildr 派生
+- **WHEN** Buildr 渲染完整 Skill 目录
+- **THEN** runtime `SKILL.md` MUST 继续包含适用的 managed marker、contributions、capability bindings 和 adapter context
+- **AND** 其他随附文件 MUST 保持源文件原始字节，不得注入 `SKILL.md` 专用内容
+
+#### Scenario: 脚本保持可执行
+- **WHEN** 受支持 Skill 目录中的普通文件具有 owner executable bit
+- **THEN** Buildr MUST 在支持 POSIX 权限的 runtime target 上保留 owner executable 状态
+- **AND** Buildr MUST NOT 把 source 的无关 group 或 other 权限当作 Skill 行为契约
+
+#### Scenario: 远端单文件来源保持边界
+- **WHEN** Skill 使用 `resolved.kind: skill-url`
+- **THEN** Buildr MUST 继续把该来源解释为单个 raw `SKILL.md`
+- **AND** Buildr MUST NOT 猜测、抓取或合成该 URL 未声明的随附目录
+
+#### Scenario: 拒绝不安全的 Skill 包成员
+- **WHEN** 本地或 package Skill 的受支持目录中包含符号链接、路径逃逸或非普通文件
+- **THEN** Buildr MUST 在写入任何 runtime 文件前拒绝该次投射
+- **AND** Buildr MUST NOT 跟随该成员读取或写入 Skill 源目录和 runtime target 之外的内容
 
 ### Requirement: workspace/project Skills 支持两种类型
 Buildr MUST 将 workspace/project Skill 源资产区分为本地作者型 Skill 和远端发布型 Skill。

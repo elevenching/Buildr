@@ -1,5 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  ownerExecutable,
+  runtimeFileMatches,
+  runtimeWriteBuffer,
+  runtimeWriteMode,
+} from './skills/projection-files.mjs';
 
 export const REQUIRED_RENDER_CAPABILITIES = Object.freeze([
   'rules-entry',
@@ -557,9 +563,21 @@ export function validateRuntimePlan(plan, adapter = getRuntimeAdapter(plan?.adap
   for (const item of plan?.writes || []) {
     try { assertRuntimeTargetPath(plan.targetRoot, item.targetFile, 'runtime write target'); }
     catch (error) { errors.push(error.message); }
-    if (typeof item.content !== 'string') errors.push(`runtime write content must be text: ${item.targetFile}`);
+    if (typeof item.content !== 'string') errors.push(`runtime write content must be a string: ${item.targetFile}`);
+    try {
+      runtimeWriteBuffer(item);
+      runtimeWriteMode(item);
+      if (item.sourceContent !== undefined) runtimeWriteBuffer(item, true);
+    } catch (error) {
+      errors.push(error.message);
+    }
+    if (item.commitLast !== undefined && typeof item.commitLast !== 'boolean') errors.push(`runtime write commitLast must be boolean: ${item.targetFile}`);
+    if (item.previousIntegrity !== undefined && !/^sha256-[a-f0-9]{64}$/.test(item.previousIntegrity)) errors.push(`runtime write previous integrity is invalid: ${item.targetFile}`);
+    if (item.previousExecutable !== undefined && typeof item.previousExecutable !== 'boolean') errors.push(`runtime write previous executable is invalid: ${item.targetFile}`);
     const existing = writes.get(path.resolve(item.targetFile));
-    if (existing && existing.content !== item.content) errors.push(`runtime writes contain conflicting target: ${item.targetFile}`);
+    const identity = JSON.stringify([item.contentEncoding || 'utf8', item.content, item.mode ?? null]);
+    const existingIdentity = existing && JSON.stringify([existing.contentEncoding || 'utf8', existing.content, existing.mode ?? null]);
+    if (existing && existingIdentity !== identity) errors.push(`runtime writes contain conflicting target: ${item.targetFile}`);
     else writes.set(path.resolve(item.targetFile), item);
   }
   const removals = new Set();
@@ -567,6 +585,8 @@ export function validateRuntimePlan(plan, adapter = getRuntimeAdapter(plan?.adap
     const targetFile = typeof item === 'string' ? item : item.targetFile;
     try { assertRuntimeTargetPath(plan.targetRoot, targetFile, 'runtime removal target'); }
     catch (error) { errors.push(error.message); }
+    if (typeof item !== 'string' && item.expectedIntegrity !== undefined && !/^sha256-[a-f0-9]{64}$/.test(item.expectedIntegrity)) errors.push(`runtime removal integrity is invalid: ${targetFile}`);
+    if (typeof item !== 'string' && item.expectedExecutable !== undefined && typeof item.expectedExecutable !== 'boolean') errors.push(`runtime removal executable is invalid: ${targetFile}`);
     if (writes.has(path.resolve(targetFile))) errors.push(`runtime target cannot be written and removed: ${targetFile}`);
     if (removals.has(path.resolve(targetFile))) errors.push(`runtime removals contain duplicate target: ${targetFile}`);
     removals.add(path.resolve(targetFile));
@@ -615,9 +635,26 @@ export function reconcileRuntimePlan(plan, options = {}) {
   const removed = [];
   for (const item of plan.writes) {
     if (!fs.existsSync(item.targetFile)) continue;
-    const current = fs.readFileSync(item.targetFile, 'utf8');
-    const matches = current === item.content || item.matchesCurrent?.(current) === true;
-    if (!matches && current !== item.sourceContent && item.isManaged && !item.isManaged(current)) conflicts.push(item);
+    const current = fs.readFileSync(item.targetFile);
+    const expected = runtimeWriteBuffer(item);
+    const expectedMode = runtimeWriteMode(item);
+    const modeMatches = expectedMode === null || ownerExecutable(fs.statSync(item.targetFile).mode) === (expectedMode === 0o100);
+    const currentText = (item.contentEncoding || 'utf8') === 'utf8' ? current.toString('utf8') : null;
+    const matches = (current.equals(expected) && modeMatches) || (currentText !== null && item.matchesCurrent?.(currentText) === true);
+    const source = runtimeWriteBuffer(item, true);
+    const sourceMatches = source !== null && current.equals(source);
+    const previousMatches = item.previousIntegrity
+      ? runtimeFileMatches(item.targetFile, item.previousIntegrity, item.previousExecutable)
+      : false;
+    if (!matches && !sourceMatches && !previousMatches && item.isManaged) {
+      const managedInput = currentText === null ? current : currentText;
+      if (!item.isManaged(managedInput)) conflicts.push(item);
+    }
+  }
+  for (const removal of plan.removals) {
+    const item = typeof removal === 'string' ? { targetFile: removal } : removal;
+    if (!fs.existsSync(item.targetFile) || !item.expectedIntegrity) continue;
+    if (!runtimeFileMatches(item.targetFile, item.expectedIntegrity, item.expectedExecutable)) conflicts.push(item);
   }
   const findings = [...plan.findings];
   for (const item of conflicts) findings.push(diagnosticFinding(item, 'conflict', plan));
@@ -625,17 +662,30 @@ export function reconcileRuntimePlan(plan, options = {}) {
   if (!compareOnly && plannedConflicts.length > 0) {
     throw new Error(`Runtime reconcile found conflict(s); no files were changed:\n- ${plannedConflicts.map((finding) => finding.message || finding.path).sort().join('\n- ')}`);
   }
-  for (const item of plan.writes) {
-    if (conflicts.includes(item)) continue;
-    const current = fs.existsSync(item.targetFile) ? fs.readFileSync(item.targetFile, 'utf8') : null;
-    const status = current === null ? 'missing' : current === item.content || item.matchesCurrent?.(current) === true ? 'ok' : 'stale';
+  const reconcileWrite = (item) => {
+    if (conflicts.includes(item)) return;
+    const current = fs.existsSync(item.targetFile) ? fs.readFileSync(item.targetFile) : null;
+    const expected = runtimeWriteBuffer(item);
+    const expectedMode = runtimeWriteMode(item);
+    const currentText = current !== null && (item.contentEncoding || 'utf8') === 'utf8' ? current.toString('utf8') : null;
+    const modeMatches = current === null || expectedMode === null || ownerExecutable(fs.statSync(item.targetFile).mode) === (expectedMode === 0o100);
+    const status = current === null
+      ? 'missing'
+      : (current.equals(expected) && modeMatches) || (currentText !== null && item.matchesCurrent?.(currentText) === true)
+        ? 'ok'
+        : 'stale';
     findings.push(diagnosticFinding(item, status, plan));
     if (!compareOnly && status !== 'ok') {
       fs.mkdirSync(path.dirname(item.targetFile), { recursive: true });
-      fs.writeFileSync(item.targetFile, item.content, 'utf8');
+      fs.writeFileSync(item.targetFile, expected);
+      if (expectedMode !== null) {
+        const currentMode = fs.statSync(item.targetFile).mode;
+        fs.chmodSync(item.targetFile, expectedMode === 0o100 ? currentMode | 0o100 : currentMode & ~0o100);
+      }
       changed.push(item.targetFile);
     }
-  }
+  };
+  for (const item of plan.writes.filter((write) => write.commitLast !== true)) reconcileWrite(item);
   for (const nativeAsset of plan.nativeAssets) {
     const item = typeof nativeAsset === 'string' ? { targetFile: nativeAsset, source: nativeAsset } : nativeAsset;
     const status = fs.existsSync(item.targetFile) ? 'ok' : 'missing';
@@ -643,13 +693,25 @@ export function reconcileRuntimePlan(plan, options = {}) {
   }
   for (const removal of plan.removals) {
     const item = typeof removal === 'string' ? { targetFile: removal } : removal;
+    if (conflicts.includes(item)) continue;
     if (!fs.existsSync(item.targetFile)) continue;
     if (item.isManaged && !item.isManaged(item.type === 'directory' ? null : fs.readFileSync(item.targetFile, 'utf8'))) continue;
     findings.push(diagnosticFinding(item, 'orphan', plan));
     if (!compareOnly) {
       fs.rmSync(item.targetFile, { recursive: item.type === 'directory', force: true });
       removed.push(item.targetFile);
+      if (item.pruneEmptyRoot) {
+        const root = path.resolve(item.pruneEmptyRoot);
+        let current = path.dirname(path.resolve(item.targetFile));
+        while ((current === root || current.startsWith(`${root}${path.sep}`)) && current !== path.dirname(root)) {
+          if (!fs.existsSync(current) || fs.readdirSync(current).length > 0) break;
+          fs.rmdirSync(current);
+          if (current === root) break;
+          current = path.dirname(current);
+        }
+      }
     }
   }
+  for (const item of plan.writes.filter((write) => write.commitLast === true)) reconcileWrite(item);
   return { targetRoot: plan.targetRoot, adapterId: plan.adapterId, scope: plan.scope, changed, removed, findings, repairs: plan.repairs, warnings: plan.warnings, ruleActions: plan.ruleActions };
 }
