@@ -15,6 +15,7 @@ export function createScopeDiagnostics(deps) {
     servicesManifestPath,
     toPosixRelative,
     validateProjectsRegistry,
+    buildrWorkspaceIdentity,
   } = deps;
 
   function scopeParts(scope) {
@@ -265,21 +266,31 @@ export function createScopeDiagnostics(deps) {
   }
 
   function diagnoseWorkspace(result, targetRoot) {
-    const hasRootModel = existsDirectory(path.join(targetRoot, 'projects')) || existsFile(path.join(targetRoot, '.buildr', 'workspace.yml'));
+    const identity = buildrWorkspaceIdentity(targetRoot);
     const workspace = {
-      initialized: existsFile(path.join(targetRoot, 'AGENTS.md')) && hasRootModel,
-      agentsFile: existsFile(path.join(targetRoot, 'AGENTS.md')),
-      rootOrganization: hasRootModel,
-      metadataFile: existsFile(path.join(targetRoot, '.buildr', 'workspace.yml')),
+      initialized: identity.state === 'valid',
+      agentsFile: identity.agentsFile,
+      rootOrganization: identity.rootOrganization,
+      metadataFile: identity.metadataFile,
+      identity: {
+        state: identity.state,
+        required: identity.required,
+        missing: identity.missing,
+      },
     };
     result.workspace = workspace;
 
-    if (!workspace.initialized) {
+    if (identity.state !== 'valid') {
       const selectedAgent = result.agentRuntime?.selected;
-      addDoctorFinding(result, 'error', 'workspace.not_initialized', '当前目录不是完整 Buildr workspace。', {
+      const incomplete = identity.state === 'incomplete';
+      addDoctorFinding(result, 'error', incomplete ? 'workspace.identity_incomplete' : 'workspace.not_initialized', incomplete
+        ? `Buildr workspace identity 不完整，缺失：${identity.missing.join(', ')}`
+        : '当前目录不是完整 Buildr workspace。', {
         path: targetRoot,
+        missing: identity.missing,
         suggestion: selectedAgent ? '执行带当前 Agent 的高层 init，一次完成 workspace、runtime 和最终 doctor。' : '先确认 Agent runtime adapter，再执行 buildr init 初始化 workspace。',
         command: `buildr init${selectedAgent ? ` --agent ${selectedAgent}` : ''} --target ${targetRoot} --name ${path.basename(targetRoot)}`,
+        userActionRequired: true,
       });
     }
 
@@ -376,6 +387,8 @@ export function createScopeDiagnostics(deps) {
         });
         continue;
       }
+
+      if (!project.registered) continue;
 
       const missingBaseline = missingProjectBaselineAssets(project.baseline);
       if (missingBaseline.length > 0) {

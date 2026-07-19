@@ -8,6 +8,7 @@ import {
   isSupportedAgent,
 } from '../shared/platform.mjs';
 import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../shared/json-contracts.mjs';
+import { DOCTOR_DIAGNOSTIC_PROFILE } from './doctor/result-model.mjs';
 
 export function registerApplicationWorkspaceOperations(runtime) {
   const discoverDoctorScopes = (...args) => runtime.discoverDoctorScopes(...args);
@@ -192,7 +193,10 @@ export function registerApplicationWorkspaceOperations(runtime) {
       commandLineTools: null,
       runtime: Object.fromEntries(SUPPORTED_AGENT_IDS.map((agent) => [RUNTIME_ADAPTERS[agent].traits.checker.resultKey ?? agent.replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase()), []])),
       mutations: { blocked: false, lock: null, transactions: [] },
+      diagnosticProfile: DOCTOR_DIAGNOSTIC_PROFILE,
+      health: { workspaceValid: false, ready: false, actionRequired: false, actionableCount: 0 },
       findings: [],
+      repairPlan: [],
       nextSteps: [],
     };
 
@@ -209,7 +213,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
     }
     diagnoseLegacyPractices(result, targetRoot, scopes, includeInfo);
     diagnoseHierarchy(result, targetRoot, scopes, registry);
-    diagnoseServices(result, targetRoot, scopes);
+    diagnoseServices(result, targetRoot, scopes, registry);
     diagnoseSkillsManifestSchemas(result, targetRoot, scopes);
     if (result.workspace?.initialized) diagnoseSkillCapabilities(result, targetRoot, scopes, requestedAgent);
     if (result.workspace?.initialized) {

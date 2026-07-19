@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "strengthen-doctor-readiness-diagnostics",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-8fb9484ef922107478cd967082c4335a8df56d7bd34fcac63627cede9bba1d0e",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-readable-doctor",
+      "title": "doctor 严格验证 canonical workspace identity",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-readable-doctor",
+      "title": "doctor 分离兼容成功状态与 readiness",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-readable-doctor",
+      "title": "doctor 声明默认与专项诊断层级",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-readable-doctor",
+      "title": "doctor 输出根因化 repair plan",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-readable-doctor",
+      "title": "doctor 抑制未登记 Project 的派生噪音",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

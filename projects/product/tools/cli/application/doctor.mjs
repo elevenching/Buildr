@@ -12,6 +12,7 @@ import { createRuntimeDiagnostics } from './doctor/runtime-diagnostics.mjs';
 import { createScopeDiagnostics } from './doctor/scope-diagnostics.mjs';
 import { createServiceDiagnostics } from './doctor/service-diagnostics.mjs';
 import { createCapabilityDiagnostics } from './doctor/capability-diagnostics.mjs';
+import { buildDoctorHealth, buildDoctorRepairPlan } from './doctor/result-model.mjs';
 
 export function registerApplicationDoctor(runtime) {
   const runCommandsCheck = (...args) => runtime.runCommandsCheck(...args);
@@ -37,6 +38,7 @@ export function registerApplicationDoctor(runtime) {
   const existsDirectory = (...args) => runtime.existsDirectory(...args);
   const existsFile = (...args) => runtime.existsFile(...args);
   const addDoctorFinding = (...args) => runtime.addDoctorFinding(...args);
+  const buildrWorkspaceIdentity = (...args) => runtime.buildrWorkspaceIdentity(...args);
 
   const {
     scopeParts,
@@ -70,6 +72,7 @@ export function registerApplicationDoctor(runtime) {
     servicesManifestPath,
     toPosixRelative,
     validateProjectsRegistry,
+    buildrWorkspaceIdentity,
   });
   const {
     diagnoseServicesMetadata,
@@ -148,15 +151,21 @@ export function registerApplicationDoctor(runtime) {
     }
     result.summary = counts;
     result.ok = counts.error === 0;
-    result.nextSteps = result.findings
-      .filter((finding) => finding.suggestion && finding.userActionRequired !== false)
-      .map((finding) => ({ code: finding.code, suggestion: finding.suggestion, command: finding.command, commands: finding.commands }))
-      .slice(0, 10);
+    result.repairPlan = buildDoctorRepairPlan(result.findings);
+    result.health = buildDoctorHealth(result);
+    result.nextSteps = result.repairPlan.slice(0, 10).map((step) => ({
+      code: step.codes[0],
+      codes: step.codes,
+      suggestion: step.suggestion,
+      ...(step.commands?.length === 1 ? { command: step.commands[0] } : {}),
+      ...(step.commands?.length > 1 ? { commands: step.commands } : {}),
+    }));
   }
 
   function printDoctorReport(result) {
     console.log(`Buildr doctor for ${result.targetRoot}`);
     console.log(`Status: ok=${result.summary.ok} info=${result.summary.info} warning=${result.summary.warning} error=${result.summary.error}`);
+    console.log(`Health: workspaceValid=${result.health.workspaceValid} ready=${result.health.ready} actionRequired=${result.health.actionRequired} actionable=${result.health.actionableCount}`);
     console.log('');
 
     if (result.findings.length === 0) {
@@ -165,11 +174,16 @@ export function registerApplicationDoctor(runtime) {
       for (const finding of result.findings) {
         const location = finding.path ? ` (${finding.path})` : '';
         console.log(`[${finding.status}] ${finding.code}${location} - ${finding.message}`);
-        if (finding.suggestion) console.log(`  建议：${finding.suggestion}`);
-        if (finding.command) console.log(`  命令：${finding.command}`);
-        if (finding.commands) {
-          for (const command of finding.commands) console.log(`  命令：${command}`);
-        }
+      }
+    }
+
+    if (result.repairPlan.length > 0) {
+      console.log('');
+      console.log('Repair plan:');
+      for (const step of result.repairPlan) {
+        console.log(`${step.id} [${step.priority}] ${step.codes.join(', ')}`);
+        if (step.suggestion) console.log(`  建议：${step.suggestion}`);
+        for (const command of step.commands || []) console.log(`  命令：${command}`);
       }
     }
 

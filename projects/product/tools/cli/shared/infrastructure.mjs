@@ -433,10 +433,29 @@ export function registerSharedInfrastructure(runtime) {
     return changed;
   }
 
+  function buildrWorkspaceIdentity(targetRoot) {
+    const assets = {
+      agentsFile: existsFile(path.join(targetRoot, 'AGENTS.md')),
+      metadataFile: existsFile(path.join(targetRoot, '.buildr', 'workspace.yml')),
+      rootOrganization: existsDirectory(path.join(targetRoot, 'projects')),
+    };
+    const required = ['AGENTS.md', '.buildr/workspace.yml', 'projects'];
+    const missing = [
+      ...(!assets.agentsFile ? ['AGENTS.md'] : []),
+      ...(!assets.metadataFile ? ['.buildr/workspace.yml'] : []),
+      ...(!assets.rootOrganization ? ['projects'] : []),
+    ];
+    const presentCount = required.length - missing.length;
+    return {
+      state: missing.length === 0 ? 'valid' : presentCount === 0 ? 'absent' : 'incomplete',
+      required,
+      missing,
+      ...assets,
+    };
+  }
+
   function isInitializedBuildrWorkspace(targetRoot) {
-    return existsFile(path.join(targetRoot, 'AGENTS.md')) &&
-      existsFile(path.join(targetRoot, '.buildr', 'workspace.yml')) &&
-      existsDirectory(path.join(targetRoot, 'projects'));
+    return buildrWorkspaceIdentity(targetRoot).state === 'valid';
   }
 
   function assertInitializedBuildrWorkspace(targetRoot) {
@@ -449,6 +468,6 @@ export function registerSharedInfrastructure(runtime) {
     result.findings.push({ status, code, message, ...extra });
   }
 
-  Object.assign(runtime, { optionValue, optionValueRaw, withResolvedTarget, withOption, skillScopeForRuleScope, ensureDirectory, atomicWriteFile, atomicWriteJson, parseYamlDocument, mutationStateRoot, mutationLockPath, mutationRecoveryReceiptPath, pathIsEqualOrInside, assertSafeAssetTarget, normalizedGitIdentity, sameGitIdentity, snapshotMutationPath, removeMutationRestoreTarget, mutationPathFingerprint, restoreMutationSnapshot, withWorkspaceMutation, productRoot, packageRoot, packageWorkspaceTargetRoot, packageBootstrapContractPath, developmentWorkspaceRoot, renderTemplate, writeIfMissing, writeMappedFileIfMissing, appendGitignoreEntries, hasFlag, toPosixRelative, existsDirectory, existsFile, ensureRootRequiredBlock, rootRequiredBlockStatus, writeFileIfChanged, copyFileIfChanged, copyDirectoryIfChanged, isInitializedBuildrWorkspace, assertInitializedBuildrWorkspace, addDoctorFinding });
+  Object.assign(runtime, { optionValue, optionValueRaw, withResolvedTarget, withOption, skillScopeForRuleScope, ensureDirectory, atomicWriteFile, atomicWriteJson, parseYamlDocument, mutationStateRoot, mutationLockPath, mutationRecoveryReceiptPath, pathIsEqualOrInside, assertSafeAssetTarget, normalizedGitIdentity, sameGitIdentity, snapshotMutationPath, removeMutationRestoreTarget, mutationPathFingerprint, restoreMutationSnapshot, withWorkspaceMutation, productRoot, packageRoot, packageWorkspaceTargetRoot, packageBootstrapContractPath, developmentWorkspaceRoot, renderTemplate, writeIfMissing, writeMappedFileIfMissing, appendGitignoreEntries, hasFlag, toPosixRelative, existsDirectory, existsFile, ensureRootRequiredBlock, rootRequiredBlockStatus, writeFileIfChanged, copyFileIfChanged, copyDirectoryIfChanged, buildrWorkspaceIdentity, isInitializedBuildrWorkspace, assertInitializedBuildrWorkspace, addDoctorFinding });
   return runtime;
 }

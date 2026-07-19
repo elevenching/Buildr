@@ -166,12 +166,13 @@ export function createServiceDiagnostics(deps) {
     }
   }
 
-  function diagnoseServices(result, targetRoot, scopes) {
+  function diagnoseServices(result, targetRoot, scopes, registry = null) {
     result.services = [];
     const ignoreLines = gitignoreLines(targetRoot);
 
     for (const item of scopes) {
       if (!item.project) continue;
+      if (!registry?.projects?.[item.project]) continue;
       const { projectRoot, metadataPath } = projectDoctorContextFor(targetRoot, item);
       diagnoseServicesMetadata(result, targetRoot, item, metadataPath, projectRoot, item.project, ignoreLines);
     }

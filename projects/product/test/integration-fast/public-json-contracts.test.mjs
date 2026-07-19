@@ -63,3 +63,56 @@ test('schema registry 覆盖全部当前公开 JSON family', () => {
     'version',
   ]);
 });
+
+test('doctor 严格报告 workspace identity 与独立 readiness', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-doctor-identity-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  run(['init', '--target', root, '--name', 'doctor-identity', '--profile', 'team'], { json: false });
+
+  const initialized = run(['doctor', '--target', root, '--json']);
+  assert.equal(initialized.workspace.identity.state, 'valid');
+  assert.equal(initialized.workspace.initialized, true);
+  assert.equal(initialized.health.workspaceValid, true);
+  assert.equal(typeof initialized.health.ready, 'boolean');
+  assert.deepEqual(Object.keys(initialized.diagnosticProfile).sort(), ['conditional', 'core', 'id', 'specialty']);
+
+  fs.rmSync(path.join(root, '.buildr', 'workspace.yml'));
+  const incomplete = run(['doctor', '--target', root, '--json'], { expectedStatus: 1 });
+  assert.equal(incomplete.ok, false);
+  assert.equal(incomplete.workspace.initialized, false);
+  assert.equal(incomplete.workspace.identity.state, 'incomplete');
+  assert.deepEqual(incomplete.workspace.identity.missing, ['.buildr/workspace.yml']);
+  assert.equal(incomplete.health.workspaceValid, false);
+  assert.equal(incomplete.health.ready, false);
+  assert.equal(incomplete.health.actionRequired, true);
+  assert.ok(incomplete.findings.some((finding) => finding.code === 'workspace.identity_incomplete'));
+
+  fs.rmSync(path.join(root, 'AGENTS.md'));
+  fs.rmSync(path.join(root, 'projects'), { recursive: true, force: true });
+  const absent = run(['doctor', '--target', root, '--json'], { expectedStatus: 1 });
+  assert.equal(absent.workspace.identity.state, 'absent');
+  assert.deepEqual(absent.workspace.identity.missing, ['AGENTS.md', '.buildr/workspace.yml', 'projects']);
+  assert.ok(absent.findings.some((finding) => finding.code === 'workspace.not_initialized'));
+});
+
+test('doctor 对未登记 Project 只报告登记根因并输出去重 repair plan', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-doctor-orphan-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  run(['init', '--target', root, '--name', 'doctor-orphan', '--profile', 'team'], { json: false });
+  fs.mkdirSync(path.join(root, 'projects', 'orphan'), { recursive: true });
+
+  const report = run(['doctor', '--target', root, '--json']);
+  const orphanCodes = report.findings
+    .filter((finding) => finding.path === 'projects/orphan')
+    .map((finding) => finding.code);
+  assert.deepEqual(orphanCodes, ['projects.unregistered']);
+  assert.equal(report.health.workspaceValid, true);
+  assert.equal(report.health.ready, false);
+  assert.equal(report.health.actionRequired, true);
+  assert.equal(report.repairPlan.filter((step) => step.codes.includes('projects.unregistered')).length, 1);
+  assert.equal(report.nextSteps.filter((step) => step.codes.includes('projects.unregistered')).length, 1);
+
+  const textReport = run(['doctor', '--target', root], { json: false });
+  assert.match(textReport, /Health: workspaceValid=true ready=false actionRequired=true/);
+  assert.match(textReport, /Repair plan:/);
+});

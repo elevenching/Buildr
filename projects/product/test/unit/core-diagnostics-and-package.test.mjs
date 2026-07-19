@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import { createRuntimeDiagnostics } from '../../tools/cli/application/doctor/runtime-diagnostics.mjs';
 import { createScopeDiagnostics } from '../../tools/cli/application/doctor/scope-diagnostics.mjs';
+import { buildDoctorHealth, buildDoctorRepairPlan } from '../../tools/cli/application/doctor/result-model.mjs';
 import { PACKAGE_VERIFIERS, selectPackageVerifiers } from '../../tools/cli/application/package-maintenance/verification-registry.mjs';
 
 test('package verifier selector 保持稳定顺序、去重并拒绝未知 owner', () => {
@@ -67,4 +68,52 @@ test('doctor scope parser 只接受 root/project 层级并稳定发现显式 sco
   assert.deepEqual(diagnostics.discoverDoctorScopes('/workspace', 'projects/product/services/api'), [{
     org: 'workspace', project: 'product', servicePath: 'api', scope: 'projects/product/services/api',
   }]);
+});
+
+test('doctor health 分离 ok、workspace validity 与 action requirement', () => {
+  assert.deepEqual(buildDoctorHealth({
+    workspace: { identity: { state: 'valid' } },
+    findings: [
+      { status: 'info', userActionRequired: false },
+      { status: 'warning', userActionRequired: false },
+    ],
+  }), {
+    workspaceValid: true,
+    ready: true,
+    actionRequired: false,
+    actionableCount: 0,
+  });
+  assert.deepEqual(buildDoctorHealth({
+    workspace: { identity: { state: 'valid' } },
+    findings: [{ status: 'warning', userActionRequired: true }],
+  }), {
+    workspaceValid: true,
+    ready: false,
+    actionRequired: true,
+    actionableCount: 1,
+  });
+});
+
+test('doctor repair plan 按根因动作去重并让 error 优先', () => {
+  assert.deepEqual(buildDoctorRepairPlan([
+    { status: 'warning', code: 'runtime.one', suggestion: '重新 render。', commands: ['buildr render'] },
+    { status: 'warning', code: 'runtime.two', suggestion: '重新 render。', command: 'buildr render' },
+    { status: 'error', code: 'workspace.invalid', suggestion: '重新初始化。', command: 'buildr init' },
+    { status: 'info', code: 'metadata.stale', suggestion: '无需操作。', userActionRequired: false },
+  ]), [
+    {
+      id: 'repair-1',
+      priority: 'blocking',
+      codes: ['workspace.invalid'],
+      suggestion: '重新初始化。',
+      commands: ['buildr init'],
+    },
+    {
+      id: 'repair-2',
+      priority: 'required',
+      codes: ['runtime.one', 'runtime.two'],
+      suggestion: '重新 render。',
+      commands: ['buildr render'],
+    },
+  ]);
 });
