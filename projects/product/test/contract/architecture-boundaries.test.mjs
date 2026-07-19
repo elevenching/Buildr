@@ -14,7 +14,6 @@ test('兼容 facade 保持薄入口', () => {
   assert.ok(lines('tools/runtime/render-claude-code.mjs').length <= 100);
   assert.ok(lines('tools/cli/application/doctor.mjs').length <= 250);
   assert.ok(lines('tools/cli/application/package-maintenance.mjs').length <= 550);
-  assert.ok(lines('tools/verify-buildr-product-affected').length <= 100);
 });
 
 test('package verification 使用稳定 registry 且不恢复共享 smoke runner', () => {

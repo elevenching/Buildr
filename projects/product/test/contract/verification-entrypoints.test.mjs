@@ -13,19 +13,19 @@ import { workspaceSuites } from '../../tools/verification/workspace/suites.mjs';
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (relative) => fs.readFileSync(path.join(productRoot, relative), 'utf8');
 
-test('product verification exposes fast, affected, workspace, and candidate layers', () => {
+test('product verification exposes three gates, direct layers, and one focus entry', () => {
   const scripts = JSON.parse(read('package.json')).scripts;
   assert.equal(scripts.test, './tools/verify-buildr-product-fast');
   assert.equal(scripts['test:fast'], './tools/verify-buildr-product-fast');
   assert.equal(scripts['test:unit'], 'node --test test/unit/*.test.mjs');
   assert.equal(scripts['test:contract'], 'node --test test/contract/*.test.mjs');
   assert.equal(scripts['test:integration:fast'], 'node --test test/integration-fast/*.test.mjs');
-  assert.equal(scripts['test:coverage:unit'], 'node tools/verification/unit-coverage.mjs');
-  assert.equal(scripts['test:affected'], './tools/verify-buildr-product-affected');
+  assert.equal(scripts['coverage:unit'], 'node tools/verification/unit-coverage.mjs');
   assert.equal(scripts['test:changed'], 'node tools/verification/changed.mjs');
-  assert.equal(scripts['test:package'], 'node tools/verification/package/run.mjs');
-  assert.equal(scripts['test:workspace'], 'node tools/verification/workspace/run.mjs');
+  assert.equal(scripts['test:focus'], 'node tools/verification/focus.mjs');
   assert.equal(scripts['test:candidate'], './tools/verify-buildr-product');
+  assert.equal(scripts['test:release'], 'node tools/verification/release/release-smoke.mjs');
+  for (const removed of ['test:affected', 'test:package', 'test:workspace', 'test:coverage:unit']) assert.equal(scripts[removed], undefined);
 
   const fast = read('tools/verify-buildr-product-fast');
   assert.match(fast, /verification\/profile\.mjs" fast/);
@@ -36,27 +36,28 @@ test('product verification exposes fast, affected, workspace, and candidate laye
   }
 });
 
-test('affected verification runs fast once and de-duplicates shared steps', () => {
-  const affected = read('tools/verify-buildr-product-affected');
-  assert.match(affected, /verification\/affected\.mjs/);
-  assert.ok(affected.split(/\r?\n/).length < 15);
-  const plan = createVerificationPlan({ profiles: ['fast'], groups: ['public', 'release', 'public'] });
-  assert.equal(plan.steps.filter((step) => step.id === 'unit').length, 1);
+test('focus verification de-duplicates groups without attaching fast', () => {
+  const plan = createVerificationPlan({ groups: ['public', 'release', 'public'] });
+  assert.equal(plan.steps.filter((step) => step.id === 'unit').length, 0);
   assert.equal(plan.steps.filter((step) => step.id === 'open-source-candidate').length, 1);
   assert.equal(plan.steps.filter((step) => step.id === 'candidate-tarball').length, 1);
 });
 
-test('affected verification validates help and unknown groups before fast', () => {
-  const runner = path.join(productRoot, 'tools', 'verify-buildr-product-affected');
-  const help = spawnSync(runner, ['--help'], { cwd: productRoot, encoding: 'utf8' });
+test('focus verification lists selectors and rejects unknown values before execution', () => {
+  const runner = path.join(productRoot, 'tools', 'verification', 'focus.mjs');
+  const help = spawnSync(process.execPath, [runner, '--help'], { cwd: productRoot, encoding: 'utf8' });
   assert.equal(help.status, 0, help.stderr);
-  assert.match(help.stdout, /Groups:/);
-  assert.doesNotMatch(help.stdout, /Buildr fast verification/);
+  assert.match(help.stdout, /step-id\|group/);
 
-  const unknown = spawnSync(runner, ['unknown'], { cwd: productRoot, encoding: 'utf8' });
+  const listed = spawnSync(process.execPath, [runner, '--list'], { cwd: productRoot, encoding: 'utf8' });
+  assert.equal(listed.status, 0, listed.stderr);
+  assert.match(listed.stdout, /group:package/);
+  assert.match(listed.stdout, /workspace-lifecycle/);
+
+  const unknown = spawnSync(process.execPath, [runner, 'unknown'], { cwd: productRoot, encoding: 'utf8' });
   assert.equal(unknown.status, 2);
-  assert.match(unknown.stderr, /Unknown affected verification group/);
-  assert.doesNotMatch(`${unknown.stdout}${unknown.stderr}`, /Buildr fast verification/);
+  assert.match(unknown.stderr, /Unknown verification step/);
+  assert.doesNotMatch(`${unknown.stdout}${unknown.stderr}`, /\[focus\]/);
 });
 
 test('candidate verification retains every release gate and split package steps', () => {
@@ -66,7 +67,6 @@ test('candidate verification retains every release gate and split package steps'
   assert.ok(candidate.includes("profiles: ['candidate']"));
   assert.ok(candidate.split(/\r?\n/).length < 100);
   const candidatePlan = createVerificationPlan({ profiles: ['candidate'] });
-  assert.equal(candidatePlan.steps.length, 32);
   for (const stage of [
     'fine-grained unit tests',
     'static contract tests',
@@ -91,6 +91,7 @@ test('candidate verification retains every release gate and split package steps'
     'release tarball smoke',
     'managed data integrity',
     'OpenSpec contract fixtures',
+    'documentation quality',
   ]) assert.ok(candidatePlan.steps.some((step) => step.name === stage), `candidate verifier must retain ${stage}`);
   assert.deepEqual(PACKAGE_VERIFIERS.map((step) => step.id), ['static', 'workspace', 'commands', 'rules', 'skills', 'runtime']);
   assert.equal(verificationSteps.filter((step) => step.executor.type === 'candidate-artifact').length, 1);

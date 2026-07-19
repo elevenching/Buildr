@@ -21,7 +21,6 @@ const allowedTopLevelEntries = new Set([
   'uninstall-buildr-cli',
   'verification',
   'verify-buildr-product',
-  'verify-buildr-product-affected',
   'verify-buildr-product-fast',
 ]);
 for (const entry of fs.readdirSync(path.join(productRoot, 'tools'))) {
@@ -119,7 +118,6 @@ const facadeLimits = new Map([
   ['tools/cli/application/doctor.mjs', 250],
   ['tools/cli/application/package-maintenance.mjs', 550],
   ['tools/verify-buildr-product-fast', 20],
-  ['tools/verify-buildr-product-affected', 20],
   ['tools/verification/candidate.mjs', 100],
 ]);
 for (const [relative, limit] of facadeLimits) {
@@ -133,7 +131,7 @@ for (const module of rendererModules) {
   if (!fs.existsSync(path.join(productRoot, 'tools', 'runtime', 'skills', module))) problems.push(`missing runtime Skill renderer module: ${module}`);
 }
 const workspaceVerificationRoot = path.join(productRoot, 'tools', 'verification', 'workspace');
-const workspaceVerificationFiles = ['fixture.mjs', 'suites.mjs', 'run.mjs', 'workspace-lifecycle.mjs', 'ownership-recovery.mjs', 'runtime-reconciliation.mjs'];
+const workspaceVerificationFiles = ['fixture.mjs', 'suites.mjs', 'workspace-lifecycle.mjs', 'ownership-recovery.mjs', 'runtime-reconciliation.mjs'];
 for (const file of workspaceVerificationFiles) {
   if (!fs.existsSync(path.join(workspaceVerificationRoot, file))) problems.push(`missing Workspace E2E module: ${file}`);
 }
@@ -149,10 +147,12 @@ if (!candidateSource.includes("profiles: ['candidate']")) problems.push('candida
 if (/\b(?:nodeStep|commandStep|runBatch|workspaceSuiteSteps|candidateStepBudget)\b/.test(candidateSource)) {
   problems.push('candidate verifier must not inline step commands, batches, suites, or budgets');
 }
-for (const module of ['registry.mjs', 'planner.mjs', 'dag-scheduler.mjs', 'executor.mjs', 'plan-runner.mjs', 'changed.mjs']) {
+for (const module of ['registry.mjs', 'planner.mjs', 'dag-scheduler.mjs', 'executor.mjs', 'plan-runner.mjs', 'changed.mjs', 'focus.mjs']) {
   if (!fs.existsSync(path.join(productRoot, 'tools', 'verification', module))) problems.push(`missing verification planning module: ${module}`);
 }
-if (verificationSteps.filter((step) => step.profiles.includes('candidate')).length !== 32) problems.push('candidate profile must retain exactly 32 gates');
+for (const required of ['candidate-tarball', 'docs-quality', 'workspace-lifecycle', 'package-static', 'runtime-adapter-parity', 'openspec-candidate-audit', 'release-tarball-smoke']) {
+  if (!verificationSteps.some((step) => step.id === required && step.profiles.includes('candidate'))) problems.push(`candidate profile is missing required gate: ${required}`);
+}
 if (verificationSteps.filter((step) => step.executor.type === 'candidate-artifact').length !== 1) problems.push('verification registry must declare exactly one candidate artifact');
 if (fs.existsSync(path.join(productRoot, 'tools', 'verify-buildr-product-mvp'))) problems.push('legacy MVP verification entry must be removed');
 if (fs.existsSync(path.join(productRoot, 'tools', 'verify', 'mvp'))) problems.push('legacy MVP verification scenarios must be removed');
@@ -164,7 +164,11 @@ for (const file of workspaceVerificationFiles) {
 const packageJson = JSON.parse(fs.readFileSync(path.join(productRoot, 'package.json'), 'utf8'));
 if (!(packageJson.files || []).includes('tools/cli/')) problems.push('package.json files must publish tools/cli/');
 if (!(packageJson.files || []).includes('tools/runtime/skills')) problems.push('package.json files must publish tools/runtime/skills');
-if (packageJson.scripts?.['test:workspace'] !== 'node tools/verification/workspace/run.mjs') problems.push('package.json must expose the Workspace E2E selector');
+if (packageJson.scripts?.['test:focus'] !== 'node tools/verification/focus.mjs') problems.push('package.json must expose the unified focus selector');
+for (const removed of ['test:affected', 'test:package', 'test:workspace']) {
+  if (packageJson.scripts?.[removed]) problems.push(`package.json must not expose legacy selector: ${removed}`);
+}
+if (packageJson.scripts?.['test:release'] !== 'node tools/verification/release/release-smoke.mjs') problems.push('package.json must retain the cross-platform release smoke compatibility entry');
 if (packageJson.exports) problems.push('internal CLI modules must not be declared through package exports');
 
 const registry = path.join(cliRoot, 'command', 'registry.mjs');

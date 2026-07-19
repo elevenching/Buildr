@@ -230,7 +230,9 @@ CLI identity 可通过 `buildr --version`、`buildr -V`、`buildr version` 或 `
 - `cd projects/product && npm run test:unit`（同进程直接 unit owner）
 - `cd projects/product && npm run test:contract`（源码、manifest、docs、Skills 与 entrypoint 静态契约）
 - `cd projects/product && npm run test:integration:fast`（真实 CLI/Git 子进程的低成本集成）
-- `cd projects/product && npm run test:coverage:unit -- --summary <path>`（独立 unit-only coverage，不作为当前全局发布阈值）
+- `cd projects/product && npm run coverage:unit -- --summary <path>`（独立 unit-only coverage 观测，不作为当前全局发布阈值）
+- `cd projects/product && npm run test:changed -- --plan`（根据 Git diff 生成最小可解释 DAG）
+- `cd projects/product && npm run test:focus -- <step-id|group:<group>>`（统一定点重跑入口，不自动附加 Fast）
 - `projects/product/buildr package check`
 - `projects/product/tools/verification/onboarding/repository.mjs`
 - `projects/product/tools/verification/onboarding/init.mjs`
@@ -239,14 +241,14 @@ CLI identity 可通过 `buildr --version`、`buildr -V`、`buildr version` 或 `
 - `projects/product/tools/verification/cli/architecture.mjs`
 - `projects/product/tools/verification/cli/compatibility.mjs`
 - `projects/product/tools/verification/cli/package-parity.mjs`
-- `cd projects/product && npm run test:workspace`（可用稳定 suite id 定点重跑；完整 Candidate 强制运行全部 suites）
+- `cd projects/product && npm run test:focus -- workspace-lifecycle ownership-recovery runtime-reconciliation`（按稳定 step id 重跑 Workspace E2E；完整 Candidate 强制运行全部 suites）
 - `projects/product/tools/verification/openspec/contract.mjs`
 - `projects/product/tools/verification/openspec/contract-audit.mjs`
 - `projects/product/tools/verification/release/open-source-candidate.mjs`
 - `(cd projects/product && openspec validate --all --strict)`
 - `npm pack --dry-run`
 
-`projects/product/tools/verify-buildr-product` 聚合以上产品级门禁；repository verifier 会从无依赖、无 runtime 的临时候选树开始，npm E2E 会从 tarball 安装后的 `buildr` 执行 `sync codex` 和最终 doctor。
+`projects/product/tools/verify-buildr-product` 聚合以上产品级门禁并包含 docs quality；repository verifier 从无依赖、无 runtime 的临时候选树验证开发 CLI 安装和 update source，release smoke 从 tarball 安装后的 `buildr` 执行完整 init、sync、doctor、optional uninstall 生命周期。
 
 开源候选 verifier 会检查 tracked candidate 的敏感模式、内部来源、占位 URL、异常大文件、中文/英文 README canonical token、公开 package metadata 和 npm tarball 禁止路径。产品完整验证会记录该阶段耗时，Buildr Product Project 的完成报告需说明总耗时、最慢阶段、失败阶段（如有）和 timing summary 路径。
 

@@ -20,7 +20,7 @@
 - `rules render`、`runtime check` 和 `skills render` 支持当前 adapter 主路径。
 - Supported runtime adapter 由静态 registry 和声明式 RuntimePlan contract 管理；Component 必须验证自身完整性但不能扩展 adapter。
 - `package check` 和 `package build` 校验、构建 Buildr 产品随包资产。
-- `npm run test:package -- <static|workspace|commands|rules|skills|runtime>` 用于维护期间定点重跑 package verifier；正式候选仍由 `test:candidate` 编排全部 selectors。
+- `npm run test:focus -- package-<static|workspace|commands|rules|skills|runtime>` 用于维护期间定点重跑 package verifier；正式候选仍由 `test:candidate` 编排全部 steps。
 - Buildr mutation 具备严格 identity、scope/ownership 路径保护、atomic writer、workspace transaction、失败回滚和 doctor recovery；package output 使用 receipt/integrity 安全替换。
 - bootstrap guide 在 Skill 不可用时提供纯文本兜底入口。
 
@@ -71,7 +71,7 @@ npm test
 npm run test:unit
 npm run test:contract
 npm run test:integration:fast
-npm run test:coverage:unit -- --summary /tmp/buildr-unit-coverage.json
+npm run coverage:unit -- --summary /tmp/buildr-unit-coverage.json
 ```
 
 已知改动路径时优先让统一 planner 自动选择受影响 DAG。无路径时读取当前分支相对 upstream（fallback `origin/dev`）以及 staged、unstaged、untracked 改动；`--plan` 只解释计划，`--json` 输出机器可读计划。普通文档改词通常只运行 docs quality；未映射路径直接失败，要求补 owner，不能静默跳过：
@@ -83,23 +83,22 @@ npm run test:changed -- docs/buildr-product.md
 npm run --silent test:changed -- --json docs/buildr-product.md
 ```
 
-受影响范围验证可按改动类型组合执行；该入口始终先运行一次 fast gate，并按 verifier identity 去重多个 group 共享的检查，但不能替代最终候选完整验证：
+需要定位失败或人工重跑领域时使用统一 focus 入口。它按 verifier identity 去重 step/group，只展开真实 artifact 依赖，不自动重复 Fast，也不能替代最终候选完整验证：
 
 ```bash
-npm run test:affected -- public
-npm run test:affected -- cli
-npm run test:affected -- runtime
-npm run test:affected -- package
-npm run test:affected -- openspec
-npm run test:affected -- release
+npm run test:focus -- --list
+npm run test:focus -- group:cli
+npm run test:focus -- group:runtime
+npm run test:focus -- package-skills
+npm run test:focus -- --plan group:openspec
+npm run --silent test:focus -- --json release-tarball-smoke
 ```
 
-开发期间需要复现跨组件 workspace 生命周期问题时，可列出并定点运行独立 Workspace E2E suites；selector 只用于反馈和失败重跑，不能替代最终 Candidate：
+开发期间需要复现跨组件 workspace 生命周期问题时，通过同一个 focus 入口定点运行独立 Workspace E2E suites：
 
 ```bash
-npm run test:workspace -- --list
-npm run test:workspace -- workspace-lifecycle
-npm run test:workspace -- ownership-recovery runtime-reconciliation
+npm run test:focus -- workspace-lifecycle
+npm run test:focus -- ownership-recovery runtime-reconciliation
 ```
 
 以下完整验证在所有 rebase、冲突解决和内容修改结束后，对 task worktree 的最终候选 Git tree 执行。commit、相同 tree 集成、push 和 worktree 清理复用该结果，不在主开发分支重复执行；tree 改变时才重新运行受影响的验证。仓库 CI/publish 继续调用兼容入口 `tools/verify-buildr-product`，其语义与 `test:candidate` 相同。

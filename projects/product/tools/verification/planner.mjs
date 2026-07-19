@@ -53,6 +53,16 @@ export function validateVerificationRegistry(steps = verificationSteps) {
   for (const item of steps) for (const dependency of item.dependsOn ?? []) {
     if (!ids.has(dependency)) findings.push({ step: item.id, code: 'unknown_dependency', value: dependency });
   }
+  const artifactProducers = steps.filter((item) => item.executor?.type === 'candidate-artifact');
+  const artifactConsumers = steps.filter((item) => item.executor?.consumesArtifact === true);
+  if (artifactConsumers.length > 0 && artifactProducers.length !== 1) {
+    findings.push({ step: '<registry>', code: 'candidate_artifact_count', value: artifactProducers.length });
+  } else if (artifactProducers.length === 1) {
+    const producer = artifactProducers[0].id;
+    for (const item of artifactConsumers) {
+      if (!item.dependsOn.includes(producer)) findings.push({ step: item.id, code: 'missing_artifact_dependency', value: producer });
+    }
+  }
   const byId = new Map(steps.map((item) => [item.id, item]));
   const visiting = new Set();
   const visited = new Set();
@@ -123,6 +133,12 @@ export function createVerificationPlan(request = {}, steps = verificationSteps) 
   const paths = [...new Set((request.paths ?? []).map(normalizeProductPath))];
   const profiles = [...new Set(request.profiles ?? [])];
   const groups = [...new Set(request.groups ?? [])];
+  const stepIds = [...new Set(request.stepIds ?? [])];
+  for (const id of stepIds) {
+    if (!byId.has(id)) throw new Error(`Unknown verification step: ${id}`);
+    selected.add(id);
+    reasons.set(id, [...(reasons.get(id) ?? []), `step ${id}`]);
+  }
   for (const profile of profiles) {
     if (!VERIFICATION_PROFILES.includes(profile)) throw new Error(`Unknown verification profile: ${profile}`);
     for (const item of steps) if (item.profiles.includes(profile)) {
@@ -153,6 +169,7 @@ export function createVerificationPlan(request = {}, steps = verificationSteps) 
     paths: Object.freeze(paths),
     profiles: Object.freeze(profiles),
     groups: Object.freeze(groups),
+    stepIds: Object.freeze(stepIds),
     steps: Object.freeze(orderedIds.map((id) => Object.freeze({ ...byId.get(id), reasons: Object.freeze(reasons.get(id) ?? []) }))),
   });
 }

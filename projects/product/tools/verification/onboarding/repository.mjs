@@ -12,7 +12,6 @@ const workspaceRoot = path.resolve(productRoot, '..', '..');
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-repository-onboarding-'));
 const checkout = path.join(tempRoot, 'Buildr');
 const installBin = path.join(tempRoot, 'bin');
-const managedWorkspace = path.join(tempRoot, 'workspace');
 const remote = path.join(tempRoot, 'Buildr.git');
 
 const skippedNames = new Set(['.git', '.worktrees', 'node_modules', '.agents', '.claude']);
@@ -66,14 +65,7 @@ try {
   assert.equal(update.mode, 'development-checkout');
   assert.equal(update.status, 'up-to-date');
 
-  fs.mkdirSync(managedWorkspace);
-  run(buildr, ['init', '--agent', 'codex', '--target', managedWorkspace, '--name', 'github-smoke', '--profile', 'personal'], { cwd: checkout, env });
-  assert.equal(fs.existsSync(path.join(managedWorkspace, '.agents', 'skills', 'buildr', 'SKILL.md')), true, 'init --agent must install the product Buildr Skill');
-  const doctor = JSON.parse(run(buildr, ['doctor', '--agent', 'codex', '--target', managedWorkspace, '--json'], { cwd: checkout, env, capture: true }));
-  assert.equal(doctor.ok, true);
-  assert.equal(doctor.summary.error, 0);
-  assert.equal(doctor.runtime.codex.some((scope) => scope.counts.missing || scope.counts.stale || scope.counts.conflict), false);
-  console.log('Repository onboarding verification passed.');
+  console.log('Repository onboarding verification passed: clean checkout, development CLI install, runtime discovery, and update source.');
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 }

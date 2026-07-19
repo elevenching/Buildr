@@ -174,28 +174,28 @@
       "title": "Buildr 验证框架演进",
       "taskId": "verification-framework-evolution",
       "status": "已完成",
-      "phase": "批次 4 / 4 已完成",
-      "taskProgress": "四个批次全部完成",
-      "updatedAt": "2026-07-19 18:28",
+      "phase": "批次 5 / 5 已完成",
+      "taskProgress": "五个批次全部完成",
+      "updatedAt": "2026-07-19 19:24",
       "relativePath": "projects/product/openspec/knowledge/task-cockpits/2026-07-19-verification-framework-evolution.html"
     },
     "overview": {
-      "purpose": "把 Buildr 验证框架从已经完成的 Candidate/Workspace 分层，继续演进为职责清晰、可诊断、可按改动规划并可量化单元测试覆盖率的长期体系。",
-      "conclusion": "第四批已将原 84 个混合 Node tests 拆为 unit、contract、fast integration 三层；test:fast 和 Candidate 保留完整聚合，unit-only coverage 首次成为可信指标。",
-      "currentFocus": "第四批实现、OpenSpec strict、cli/package/openspec affected 和 32-step Candidate 均已通过。",
-      "userAttention": "当前无阻塞；unit-only 基线 line 46.16%、branch 68.42%、function 48.90%，后续按风险补 owner，不设置全局硬阈值。",
+      "purpose": "把 Buildr 验证框架演进为职责清晰、入口收敛、可诊断、可按改动规划并可量化单元测试覆盖率的长期体系。",
+      "conclusion": "五个批次均已完成：测试分层、Package/Workspace owner 拆分、统一 registry/DAG、unit-only coverage，以及三门禁加 focus 的入口收敛均已落地。",
+      "currentFocus": "第五批 16/16 tasks、33-step Candidate、spec sync 和 OpenSpec 归档均已完成；当前没有待处理任务。",
+      "userAttention": "当前无阻塞；日常使用 test:changed，失败定位使用 test:focus，正式候选始终运行完整 test:candidate。",
       "highlights": {
         "done": {
           "title": "已经完成",
-          "text": "批次一至三均已归档并合入 origin/dev；第三批提交 7c46fc8，统一 registry/DAG 与 test:changed 已稳定。"
+          "text": "批次一至四均已归档并合入 origin/dev；测试分层、统一 registry/DAG、test:changed 与 unit-only coverage 已稳定。"
         },
         "current": {
           "title": "本批完成",
-          "text": "第四批已完成 30 unit、32 contract、29 fast integration tests；Commands domain、doctor diagnostics 和 package selector 新增直接 unit owner。"
+          "text": "第五批移除 affected/package/workspace 平级入口，新增 test:focus，清理 DAG 假依赖和 onboarding 重复覆盖，并将 docs quality 纳入 Candidate。"
         },
         "next": {
           "title": "后续演进",
-          "text": "按新增代码和高风险模块逐步补直接 unit owner；阈值需基于稳定趋势另行决策。"
+          "text": "按新增代码和高风险模块逐步补直接 unit owner；覆盖率阈值需基于稳定趋势另行决策。"
         }
       },
       "blockers": [],
@@ -215,6 +215,10 @@
         {
           "title": "批次四",
           "text": "探索 unit 覆盖率并完善单元测试体系"
+        },
+        {
+          "title": "批次五",
+          "text": "收敛验证入口、依赖和重复覆盖"
         }
       ]
     },
@@ -268,11 +272,23 @@
             "新增 buildr.unit-coverage/v1 summary；unit-only 基线为 25 个加载模块，line 46.16%、branch 68.42%、function 48.90%。",
             "Commands domain、runtime/scope doctor diagnostics 和 package verifier selector 已有直接 unit owner；其他大 domain 继续按可隔离纯逻辑逐步提取。"
           ]
+        },
+        {
+          "label": "已完成",
+          "status": "done",
+          "title": "批次五：验证框架收敛",
+          "summary": "将持续集成、日常改动和失败定位收敛为 Candidate、Changed、Focus 三类清晰入口。",
+          "items": [
+            "converge-product-verification-framework 16/16 tasks 完成，proposal contract gate 和 OpenSpec strict 均通过。",
+            "新增 test:focus step/group selector；移除 test:affected、test:package、test:workspace 平级入口，test:release 仅保留 CI 兼容。",
+            "DAG 只保留 candidate tarball 的真实 producer/consumer 依赖，changed inputs 收窄并对已删除入口 fail closed。",
+            "repository onboarding 不再重复 init/doctor happy path，docs quality 已纳入 33-step Candidate。"
+          ]
         }
       ]
     },
     "solution": {
-      "summary": "整个任务按四批推进：先修复现有实现的可观测性和入口问题，再处理最大的重复热点，随后用结构化 DAG 消除人工编排，最后用覆盖率事实完善单元测试。每批完成后运行受影响验证，全部冻结后再运行完整 Candidate。",
+      "summary": "整个任务按五批推进：先修复可观测性和入口问题，再拆分重复热点，随后建立结构化 DAG 和 diff-aware 规划，用覆盖率事实完善单元测试，最后反向收敛公开入口、假依赖和重复覆盖。每批完成后运行受影响验证，全部冻结后再运行完整 Candidate。",
       "boundaries": {
         "inScope": [
           "Buildr Product 的 test:* 入口、Candidate 编排、Workspace E2E、package check、timing/diagnostics 和单元测试体系。",
@@ -336,6 +352,14 @@
         {
           "title": "核心领域覆盖差异",
           "text": "Verification 与 runtime Skills 保持直接 owner；本批新增 Commands domain、doctor runtime/scope diagnostics 和 package selector unit，其他 CLI domains 仍由 focused integration 持有并按风险逐步提取。"
+        },
+        {
+          "title": "批次五契约状态",
+          "text": "converge-product-verification-framework 4/4 artifacts、16/16 tasks 完成；baselineState current，proposal gate 无冲突和 findings。"
+        },
+        {
+          "title": "批次五候选结果",
+          "text": "33/33 Candidate steps 通过，总耗时 48.854 秒，总预算 120 秒以内；最慢 capability CLI integration 23.438 秒。"
         }
       ],
       "files": [
@@ -364,8 +388,12 @@
           "path": "projects/product/tools/verification/workspace/suites.mjs"
         },
         {
-          "title": "Affected runner",
-          "path": "projects/product/tools/verify-buildr-product-affected"
+          "title": "Focus runner",
+          "path": "projects/product/tools/verification/focus.mjs"
+        },
+        {
+          "title": "批次五归档 change",
+          "path": "projects/product/openspec/changes/archive/2026-07-19-converge-product-verification-framework/"
         }
       ],
       "validations": [
@@ -402,8 +430,12 @@
           "text": "最终候选 tree 的 32 个阶段全部通过，总耗时 51.584 秒，Candidate 总预算 within；最慢 capability CLI integration 23.737 秒，其次 runtime adapter parity 23.219 秒，无失败阶段。"
         },
         {
+          "title": "第五批完整 Candidate",
+          "text": "归档前最终候选 tree 的 33 个阶段全部通过，总耗时 48.854 秒，Candidate 总预算 within；最慢 capability CLI integration 23.438 秒，其次 runtime adapter parity 22.214 秒，无失败阶段。"
+        },
+        {
           "title": "驾驶舱静态检查",
-          "text": "JSON 可解析、四阶段完整、无外部资源和写回行为、包含窄屏响应式规则；本地 file URL 被浏览器安全策略阻止，未声称完成视觉验收。"
+          "text": "JSON 可解析、五阶段完整、无外部资源和写回行为、包含窄屏响应式规则；本地 file URL 被浏览器安全策略阻止，未声称完成视觉验收。"
         }
       ],
       "snippets": []

@@ -54,7 +54,7 @@ export function summarizeLcov(content) {
 
 export function runUnitCoverage(args = process.argv.slice(2)) {
   if (args.includes('--help')) {
-    process.stdout.write('Usage: npm run test:coverage:unit -- [--summary <path>]\n');
+    process.stdout.write('Usage: npm run coverage:unit -- [--summary <path>]\n');
     return 0;
   }
   const unknown = args.filter((arg, index) => arg !== '--summary' && args[index - 1] !== '--summary');

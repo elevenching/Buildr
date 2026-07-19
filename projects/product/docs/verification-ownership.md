@@ -2,24 +2,30 @@
 
 本文记录各类产品契约的主 verifier、允许的边界交叉，以及旧 MVP shell 删除后的覆盖归属。目标不是让每个行为只能出现一次，而是让重复验证具有明确理由。
 
-## 分层职责
+## 证据层与执行入口
 
 | 层级 | 主职责 | 不承担 |
 | --- | --- | --- |
 | test:unit | 同进程直接调用 parser、validator、planner、diagnostics 和 domain 纯逻辑；允许受控小型文件 fixture | 真实 CLI/Git/npm 子进程、静态文档契约和产品生命周期 |
 | test:contract | 源码结构、manifest、docs、Skills、schema 与 entrypoint declaration 的静态一致性 | 把聚合执行覆盖率标记为 unit coverage |
 | test:integration:fast | 真实 CLI/Git 子进程或多模块组合的低成本集成 | 完整用户 workspace、npm pack/install、网络和发布生命周期 |
-| test:fast | 并行聚合 unit、contract、fast integration、架构、canonical spec quality/strict 和 runtime adapter 低成本契约 | 临时用户 workspace、npm pack/install、网络和完整生命周期 |
-| test:affected | 人工选择领域专项，复用一次 fast，并按 step identity 去重 | 根据 Git diff 自动推断范围、证明最终候选完整 |
-| test:changed | 根据 Git diff 或显式 Product 路径从统一 registry 生成最小 DAG，并解释选择原因 | 替代正式 Candidate、猜测未声明路径的影响 |
-| test:workspace | 必须依赖同一真实 workspace 连续状态演进的跨组件黄金路径 | 全量 help、全 adapter parity、onboarding 分支和 tarball inventory |
-| test:candidate | 聚合全部发布、安全、package、runtime、OpenSpec、managed data 和 Workspace E2E 门禁 | 开发期最小反馈 |
+| focused integration | 单领域完整状态变化，包括 package、runtime、OpenSpec、onboarding、network 和 integrity | 跨多个组件且必须共享连续状态的黄金路径 |
+| system acceptance | Workspace E2E、候选 tarball、package parity 和 release lifecycle | 开发期低成本反馈 |
 
-所有入口共享 `tools/verification/registry.mjs` 中的 step identity、executor、inputs、依赖、profile/group、预算和并发类别。`test:changed` 对未被任何 input 或显式 ignore 覆盖的 Product 路径 fail closed；`test:candidate` 固定选择完整 32-step profile，不读取 Git diff。
+证据层由以下执行策略组合，不再把 selector 描述为新的测试层：
+
+| 入口 | 用途 |
+| --- | --- |
+| `npm test` / `test:fast` | 固定聚合三个低成本 Node 层、架构、OpenSpec 和 runtime contract |
+| `test:changed` | 根据 Git diff 或显式 Product 路径生成最小可解释 DAG |
+| `test:candidate` | 无条件选择完整 candidate profile，不读取 diff |
+| `test:focus` | 按 step id 或 `group:<group>` 定位和重跑失败，不自动附加 Fast |
+
+所有入口共享 `tools/verification/registry.mjs` 中的 step identity、executor、inputs、真实依赖、profile/group、预算和并发类别。`test:changed` 对未被任何 input 或显式 ignore 覆盖的 Product 路径 fail closed；Candidate 的完整性按 required gate identity 验证，不冻结 step 数量。
 
 ## Unit coverage 与核心 owner
 
-`npm run test:coverage:unit -- --summary <path>` 只执行 `test/unit/*.test.mjs`，使用 Node 内置 coverage 输出人类报告和 `buildr.unit-coverage/v1` JSON。分层后的首个 unit-only 基线为 30 tests、25 个实际加载的产品模块，line 46.16%、branch 68.42%、function 48.90%；它与分层前 84 tests 的 fast 聚合 line 53.55% 不可直接比较。
+`npm run coverage:unit -- --summary <path>` 只执行 `test/unit/*.test.mjs`，使用 Node 内置 coverage 输出人类报告和 `buildr.unit-coverage/v1` JSON。它是观测入口，不是额外发布门禁。分层后的首个 unit-only 基线为 30 tests、25 个实际加载的产品模块，line 46.16%、branch 68.42%、function 48.90%；它与分层前 84 tests 的 fast 聚合 line 53.55% 不可直接比较。
 
 | 核心区域 | 当前直接 unit owner | 其他必要 owner | 后续缺口 |
 | --- | --- | --- | --- |
@@ -53,7 +59,7 @@
 
 ## 有意保留的边界交叉
 
-- repository onboarding 验证干净开发 checkout；release smoke 验证正式 tarball。
+- repository onboarding 验证干净开发 checkout、开发 CLI 安装和 update source；init onboarding 持有 checkout CLI 的参数、幂等和冲突恢复；release smoke 独占正式 tarball 安装后生命周期。
 - CLI package parity 比较 checkout 与安装包；release smoke 证明安装后生命周期。
 - OpenSpec fixtures 验证算法和破坏性样本；candidate audit 验证当前候选。
 - capability integration 验证 capability/provider/binding；ownership recovery 验证资产拒绝与恢复。
@@ -61,7 +67,7 @@
 
 ## Package verifier 分层
 
-`buildr package check` 继续是完整产品维护入口，但内部覆盖由稳定 registry 组合；Candidate 与 `npm run test:package -- <selector>` 可分别执行和诊断以下 owner：
+`buildr package check` 继续是完整产品维护入口，但内部覆盖由稳定 registry 组合；Candidate 与 `npm run test:focus -- package-<selector>` 可分别执行和诊断以下 owner：
 
 | Selector | Candidate step | 主职责 | 明确不承担 |
 | --- | --- | --- | --- |

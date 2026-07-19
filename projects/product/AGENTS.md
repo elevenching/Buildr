@@ -59,7 +59,7 @@ Project 服务通过 `services/manifest.yml` 维护 Service registry，默认 re
 修改 package baseline、manifest、CLI、bootstrap、Buildr Skill 或 runtime adapter 后，按 `docs/release-checklist.md` 验证。
 
 - 普通任务运行 `npm test` 或 `npm run test:fast`，只承担 unit、架构、spec 和全部 adapter 低成本契约反馈。
-- 任务组运行 `npm run test:affected -- <group...>`，同一组合中的共享 verifier 只执行一次。
+- 日常改动优先运行 `npm run test:changed`；失败定位使用 `npm run test:focus -- <step-id|group:<group>>`，只展开真实依赖并按 identity 去重。
 - 最终候选冻结后运行 `npm run test:candidate`；`tools/verify-buildr-product` 是供 CI、publish 和历史集成使用的等价兼容入口。
 
 Buildr 产品完整验证结束后，Agent 必须读取 timing summary，并向维护者汇报总耗时、最慢阶段、失败阶段（如有）和 summary 文件路径。耗时仅用于观察趋势；除非 OpenSpec 另有阈值契约，不得仅因耗时增长判定验证失败。该要求仅适用于 Buildr Product Project，不扩展为其他 Buildr workspace 的通用 Skill 流程。

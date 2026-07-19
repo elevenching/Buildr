@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "converge-product-verification-framework",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-59be4bc7480b85d5d273829eb8efcf739e50b531cb6f9293756e3fc4eebf71ee",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "product-verification-quality",
+      "title": "重复生命周期验证必须声明唯一主 owner",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "产品验证必须提供分层入口",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品验证必须提供分层入口\nBuildr 产品验证 MUST 提供 fast、affected、workspace 和 candidate 分层入口，使普通任务不默认执行候选版系统级验证、开发者可定点重跑 Workspace E2E，同时保证最终候选仍经过完整门禁。\n\n#### Scenario: 普通任务运行默认测试\n- **WHEN** 维护者或 Agent 在 Product checkout 运行 `npm test` 或 `npm run test:fast`\n- **THEN** verifier MUST 运行 unit、架构、canonical spec quality/strict 和全部 runtime adapter 低成本契约\n- **AND** verifier MUST NOT 创建临时用户 workspace、执行 npm pack/install、访问网络或运行 Workspace E2E\n\n#### Scenario: 任务组运行 affected 验证\n- **WHEN** 维护者为一个或多个改动领域运行 `npm run test:affected -- <group...>`\n- **THEN** verifier MUST 先运行一次 fast 验证，再运行每个领域声明的专项 verifier\n- **AND** 同一 verifier MUST 在该次组合中最多执行一次\n\n#### Scenario: affected 参数无效或只请求帮助\n- **WHEN** 维护者传入 `--help` 或未知 affected group\n- **THEN** verifier MUST 在运行 fast gate 前完成帮助输出或 fail closed\n- **AND** CLI 与 runtime adapter 的昂贵专项验证 MUST 使用独立 group identity\n\n#### Scenario: 开发期间选择 Workspace E2E suite\n- **WHEN** 维护者列出 suite 或运行 `npm run test:workspace -- <suite...>`\n- **THEN** verifier MUST 使用稳定 suite identity 输出或执行所选 suites\n- **AND** 每个所选 suite MUST 使用独立临时状态并保留独立失败结果\n- **AND** 未知 selector MUST fail closed，重复 selector MUST 只执行一次\n\n#### Scenario: 最终候选运行完整验证\n- **WHEN** 实现、自然语言资产、生成资产和 review 修订已经冻结\n- **THEN** 维护者或 CI MUST 运行 `npm run test:candidate`\n- **AND** candidate verifier MUST 直接编排全部已登记 Workspace E2E suites，不得使用 selector 缩小覆盖范围\n- **AND** candidate verifier MUST 保留产品要求的安全、onboarding、package、runtime adapter、release、managed data 和 OpenSpec 门禁及 timing summary\n"
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "产品验证步骤必须由统一 registry 声明",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品验证步骤必须由统一 registry 声明\nBuildr Product MUST 使用单一 verification registry 声明所有可编排 step 的稳定 id、显示名称、执行命令、输入路径、依赖、profile/group、预算、并发类别和 artifact 需求，并 MUST 在执行前验证 registry 完整性。\n\n#### Scenario: registry 定义合法\n- **WHEN** fast、affected、changed 或 Candidate 解析 verification registry\n- **THEN** 每个 step id MUST 唯一且引用的依赖、profile、group、concurrency class 和 executor MUST 已登记\n- **AND** dependency graph MUST 无环\n\n#### Scenario: registry 定义非法\n- **WHEN** registry 存在重复 id、未知依赖、依赖环或缺失执行信息\n- **THEN** planner MUST 在启动任何验证进程前 fail closed\n- **AND** 诊断 MUST 标识无效 step 与原因\n"
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "changed 验证必须从 Git diff 生成可解释计划",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: changed 验证必须从 Git diff 生成可解释计划\nBuildr Product MUST 提供 `test:changed`，根据默认 Git diff、显式 `--base <ref>` 或显式 Product 路径匹配 registry inputs，展开依赖并去重；规划结果 MUST 解释每个 step 的选择原因和未映射路径。\n\n#### Scenario: 普通文档发生小改动\n- **WHEN** changed paths 只匹配普通非发布 Markdown 文档\n- **THEN** planner MUST 选择轻量 docs quality step 及其显式依赖\n- **AND** planner MUST NOT 选择完整 Candidate、Workspace E2E、tarball install 或 runtime parity\n\n#### Scenario: 使用 Git base 规划\n- **WHEN** 维护者运行 `npm run test:changed -- --base <ref>`\n- **THEN** planner MUST 使用 `<ref>...HEAD` 的 merge-base diff，并合并 staged、unstaged 和 Product 内 untracked paths\n- **AND** 输出 MUST 标识实际 base 与每个 matched path\n\n#### Scenario: 使用显式路径规划\n- **WHEN** 维护者向 `test:changed` 传入一个或多个 Product 相对路径\n- **THEN** planner MUST 只使用这些规范化路径进行匹配\n- **AND** 绝对路径、越界路径或不存在的 selector option MUST fail closed\n\n#### Scenario: 改动路径没有 owner\n- **WHEN** 任一 Product changed path 未匹配 registry input 且未被显式 ignore 规则覆盖\n- **THEN** planner MUST 在运行步骤前 fail closed\n- **AND** 诊断 MUST 列出全部未映射路径并要求补充验证所有权\n\n#### Scenario: 只查看计划\n- **WHEN** 维护者使用 `--plan` 或 `--json`\n- **THEN** planner MUST 输出规范化 changed paths、按拓扑排序的 steps、依赖展开和选择原因\n- **AND** planner MUST NOT 启动验证进程或创建候选制品\n"
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "Candidate 必须使用完整 profile 而不依赖 diff",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Candidate 必须使用完整 profile 而不依赖 diff\nBuildr Candidate MUST 从统一 registry 选择完整 candidate profile、展开全部依赖并生成一次冻结 tarball artifact；Candidate MUST NOT 根据 Git diff、changed inputs 或人工 selector 缩小发布门禁。\n\n#### Scenario: 运行完整 Candidate\n- **WHEN** 维护者运行 `npm run test:candidate`\n- **THEN** planner MUST 选择 registry 中完整 candidate profile 的全部 steps\n- **AND** Candidate MUST 保留 Workspace、package、runtime、OpenSpec、managed integrity、onboarding、CLI parity 和 release gates\n- **AND** 所有 tarball consumer MUST 依赖并复用同一 candidate artifact\n\n#### Scenario: Candidate registry 漂移\n- **WHEN** 既有强制 gate 不再属于 candidate profile，或 artifact consumer 未声明 artifact dependency\n- **THEN** architecture/registry verification MUST fail before release verification is reported complete\n"
+    }
+  ]
+}

@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-product_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export PATH="$product_root/node_modules/.bin:$PATH"
-
-exec node "$product_root/tools/verification/affected.mjs" "$@"

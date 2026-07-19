@@ -9,7 +9,7 @@ import { selectWorkspaceSuites, workspaceSuiteSteps, workspaceSuites } from '../
 import { createSuiteFixture } from '../../tools/verification/workspace/fixture.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const runner = path.join(productRoot, 'tools', 'verification', 'workspace', 'run.mjs');
+const runner = path.join(productRoot, 'tools', 'verification', 'focus.mjs');
 
 test('Workspace E2E registry exposes stable independent suites', () => {
   assert.deepEqual(workspaceSuites.map((suite) => suite.id), [
@@ -24,14 +24,14 @@ test('Workspace E2E registry exposes stable independent suites', () => {
   assert.deepEqual(workspaceSuiteSteps({ productRoot }).map((step) => step.name), workspaceSuites.map((suite) => suite.name));
 });
 
-test('Workspace E2E runner lists suites and fails closed on invalid selection', () => {
+test('统一 focus 入口列出 Workspace E2E steps 并 fail closed', () => {
   const listed = spawnSync(process.execPath, [runner, '--list'], { cwd: productRoot, encoding: 'utf8' });
   assert.equal(listed.status, 0, listed.stderr);
-  assert.deepEqual(listed.stdout.trim().split(/\r?\n/), workspaceSuites.map((suite) => suite.id));
+  for (const suite of workspaceSuites) assert.match(listed.stdout, new RegExp(`\\b${suite.id}\\b`));
 
   const unknown = spawnSync(process.execPath, [runner, 'unknown'], { cwd: productRoot, encoding: 'utf8' });
   assert.equal(unknown.status, 2);
-  assert.match(unknown.stderr, /Unknown Workspace E2E suite/);
+  assert.match(unknown.stderr, /Unknown verification step/);
 });
 
 test('Workspace E2E retains failed fixtures and cleans successful fixtures', () => {

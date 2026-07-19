@@ -60,11 +60,9 @@
     "test:unit": "node --test test/unit/*.test.mjs",
     "test:contract": "node --test test/contract/*.test.mjs",
     "test:integration:fast": "node --test test/integration-fast/*.test.mjs",
-    "test:coverage:unit": "node tools/verification/unit-coverage.mjs",
-    "test:affected": "./tools/verify-buildr-product-affected",
+    "coverage:unit": "node tools/verification/unit-coverage.mjs",
     "test:changed": "node tools/verification/changed.mjs",
-    "test:package": "node tools/verification/package/run.mjs",
-    "test:workspace": "node tools/verification/workspace/run.mjs",
+    "test:focus": "node tools/verification/focus.mjs",
     "test:candidate": "./tools/verify-buildr-product",
     "test:release": "node tools/verification/release/release-smoke.mjs",
     "pack:check": "npm pack --dry-run"
