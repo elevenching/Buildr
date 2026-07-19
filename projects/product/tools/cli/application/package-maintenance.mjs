@@ -27,6 +27,7 @@ import { createBuiltinReceipts } from './package-maintenance/builtin-receipts.mj
 import { createPackageSyncPlan } from './package-maintenance/sync-plan.mjs';
 import { createBuiltinLifecycle } from './package-maintenance/builtin-lifecycle.mjs';
 import { PACKAGE_VERIFIER_ENV, selectPackageVerifiers } from './package-maintenance/verification-registry.mjs';
+import { validateSkillPublication } from '../../runtime/skills/publication.mjs';
 
 export function registerApplicationPackageMaintenance(runtime) {
   const doctor = (...args) => runtime.doctor(...args);
@@ -391,6 +392,8 @@ export function registerApplicationPackageMaintenance(runtime) {
     validatePackageComponentMembers,
     validateProjectsRegistry,
     validateSkillManifestEntries,
+    getRuntimeAdapter,
+    validateSkillPublication,
   });
   const {
     runPackageWorkspaceSmoke,

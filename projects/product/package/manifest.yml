@@ -89,7 +89,7 @@ builtins:
     - id: task-cockpit
       path: package/targets/workspace/skills/buildr/task-cockpit
       target: skills/buildr/task-cockpit
-      description: 为复杂、长期、跨阶段、跨 change、跨服务或团队，或存在交叉依赖和多次用户判断的任务创建、更新和检查只读 HTML 任务驾驶舱；用户明确要求任务可视化、驾驶舱、整体进度、任务全景或长期跟踪时也使用。简单短时任务不机械创建。
+      description: 为复杂、长期、跨批次、跨 change、跨服务或团队的任务维护只读 HTML 任务驾驶舱（任务看板）、change 关联、交付批次和依赖池；用户明确要求任务看板、整体进度或长期跟踪时也使用。
       required: false
       runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     - id: capability-adaptation
@@ -101,7 +101,7 @@ builtins:
     - id: task-asset-review
       path: package/targets/workspace/skills/buildr/task-asset-review
       target: skills/buildr/task-asset-review
-      description: 用户明确要求复盘任务执行质量、总结可沉淀的 Skill 或 Rule、把本次工作方法留给后续 Agent，Agent 已发现明确长期候选，或 finish consumer 的轻量资格判断命中时使用。
+      description: 用户明确要求复盘任务执行质量、核对现有资产覆盖、总结可沉淀的 Skill 或 Rule，Agent 已发现明确长期候选，或 finish consumer 的轻量资格判断命中时使用。
       required: false
       provides:
         - capability: buildr.task-asset-review

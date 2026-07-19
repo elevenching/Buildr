@@ -30,6 +30,7 @@
     html { scroll-behavior: smooth; }
     body {
       margin: 0;
+      overflow-x: hidden;
       color: var(--ink);
       background:
         radial-gradient(circle at 8% 2%, rgba(8, 127, 118, .09), transparent 24rem),
@@ -60,11 +61,11 @@
       letter-spacing: .04em;
     }
     .eyebrow { color: #caf8ee; border: 1px solid rgba(202, 248, 238, .35); background: rgba(8, 127, 118, .27); }
-    .hero h1 { max-width: 850px; margin: 22px 0 0; font-size: clamp(34px, 5vw, 60px); line-height: 1.12; letter-spacing: -.045em; }
-    .hero-lead { max-width: 840px; margin: 18px 0 0; color: rgba(255, 255, 255, .8); font-size: 18px; }
+    .hero h1 { max-width: 850px; margin: 22px 0 0; overflow-wrap: anywhere; font-size: clamp(34px, 5vw, 60px); line-height: 1.12; letter-spacing: -.045em; }
+    .hero-lead { max-width: 840px; margin: 18px 0 0; overflow-wrap: anywhere; color: rgba(255, 255, 255, .8); font-size: 18px; }
     .metric-row { gap: 14px; margin-top: 30px; }
     .metric { flex: 1; min-width: 0; padding: 16px 18px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 16px; background: rgba(255, 255, 255, .075); }
-    .metric strong { display: block; font-size: 22px; line-height: 1.25; }
+    .metric strong { display: block; overflow-wrap: anywhere; font-size: 22px; line-height: 1.25; }
     .metric span { display: block; margin-top: 4px; color: rgba(255, 255, 255, .66); font-size: 12px; }
     .tabs { position: sticky; top: 0; z-index: 10; margin: 18px 0 0; padding: 10px; border: 1px solid rgba(223, 229, 236, .95); border-radius: 18px; background: rgba(255, 255, 255, .92); box-shadow: 0 8px 28px rgba(20, 33, 61, .06); backdrop-filter: blur(14px); }
     .tab-list { gap: 8px; overflow-x: auto; }
@@ -91,7 +92,7 @@
     .focus p { max-width: 840px; margin: 10px 0 0; color: #40516e; }
     .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
     .card { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
-    .card h3 { margin: 8px 0 0; color: var(--navy); font-size: 18px; }
+    .card h3 { margin: 8px 0 0; overflow-wrap: anywhere; color: var(--navy); font-size: 18px; }
     .card p { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
     .tag.done { color: var(--green); background: var(--green-soft); }
     .tag.current { color: var(--blue); background: var(--blue-soft); }
@@ -173,21 +174,21 @@
     "meta": {
       "title": "Buildr Skill runtime 与任务资产演进",
       "taskId": "buildr-task-assets-evolution",
-      "status": "第一批次实现完成",
-      "phase": "批次 1 / 2",
-      "taskProgress": "OpenSpec 4 / 4 · 实现 14 / 14",
-      "updatedAt": "2026-07-19 22:55",
+      "status": "两个批次均已实现",
+      "phase": "批次 2 / 2",
+      "taskProgress": "13 / 13 项完成 · 依赖池 0 组",
+      "updatedAt": "2026-07-20 00:37",
       "relativePath": "projects/product/openspec/knowledge/task-cockpits/2026-07-19-buildr-task-assets-evolution.html"
     },
     "overview": {
       "purpose": "让 Buildr 完整投射 Skill 随附资源，并把集鲜验证过的任务驾驶舱和资产审查能力融合回内置 Skill。",
-      "conclusion": "第一批次 14 项任务全部完成：全部 supported adapters 可投射完整 Skill 目录，并用 adapter-specific receipt 保护更新、卸载与清理；candidate 和本机开发 CLI 验证均通过。",
-      "currentFocus": "等待用户确认第一批次后续收尾；第二批次将独立创建 change，融合 task-cockpit、task-asset-review 与 OpenSpec change 关联。",
-      "userAttention": "当前没有需要用户判断的阻塞。第二个 change 会在第一批次稳定后创建，并继续关联到本驾驶舱。",
+      "conclusion": "OpenAI metadata 已从发布必需资源收敛为可选 UI extension：存在时校验并完整投射，缺失时不阻塞、不生成、不反写。",
+      "currentFocus": "两个 change 均已完成：第二个 change 的 canonical specs 已同步、contract post-sync 已通过并进入归档收尾。",
+      "userAttention": "当前无阻塞。剩余动作是提交、fast-forward 集成、推送、主 workspace 自举同步和本地任务环境清理。",
       "highlights": {
         "done": { "title": "批次 1 已完成", "text": "OpenSpec、完整目录投射、安全生命周期、文档和候选验证全部通过" },
-        "current": { "title": "等待后续指令", "text": "第一 change 尚未执行提交、归档、集成或 worktree 清理" },
-        "next": { "title": "批次 2", "text": "融合 task-cockpit 与 task-asset-review，并正式定义任务看板和 change 关联" }
+        "current": { "title": "批次 2 已完成", "text": "13 / 13 项完成；Codex/OpenAI optional extension 边界已通过最终验证" },
+        "next": { "title": "完成收尾", "text": "集成后从主 Product checkout 同步 workspace runtime，并核对 doctor" }
       },
       "blockers": [],
       "flow": [
@@ -197,52 +198,76 @@
         { "title": "统一看板", "text": "任务驾驶舱关联一个或多个 OpenSpec change" }
       ]
     },
+    "changes": [
+      {
+        "id": "render-complete-skill-directories",
+        "status": "archived",
+        "path": "openspec/changes/archive/2026-07-19-render-complete-skill-directories/",
+        "summary": "完整投射 Skill 目录并以 adapter-specific receipt 保护生命周期。",
+        "batchIds": ["batch-runtime-projection"]
+      },
+      {
+        "id": "evolve-task-cockpit-and-asset-review",
+        "status": "archived",
+        "path": "openspec/changes/archive/2026-07-20-evolve-task-cockpit-and-asset-review/",
+        "summary": "统一任务驾驶舱与任务看板，融合批次、依赖池、change 关联和资产覆盖审查。",
+        "batchIds": ["batch-task-assets"]
+      }
+    ],
     "progress": {
-      "stages": [
+      "batches": [
         {
+          "id": "batch-runtime-projection",
           "status": "done",
           "label": "已完成",
-          "title": "探索与范围确认",
-          "summary": "已对照集鲜源 Skill、模板、真实驾驶舱、Buildr 内置源、runtime 实现和 canonical specs，确认 render 只投射 SKILL.md。",
-          "items": [
-            "确定保留 task-asset-review capability provider 分层",
-            "确定任务驾驶舱与任务看板是同一能力",
-            "确定整个任务拆成两个可独立交付 change"
-          ]
-        },
-        {
-          "status": "done",
-          "label": "已完成",
-          "title": "render-complete-skill-directories",
+          "title": "批次 1 · 完整 Skill 目录投射",
           "summary": "OpenSpec 和实现任务 14 / 14；受影响验证、candidate、本机开发 CLI path/help 与主 workspace doctor 已通过。",
+          "deliverable": "全部 supported adapters 安全投射 Skill 入口和随附资源。",
+          "changeIds": ["render-complete-skill-directories"],
           "items": [
-            "Change：openspec/changes/render-complete-skill-directories/",
+            "归档 change：openspec/changes/archive/2026-07-19-render-complete-skill-directories/",
             "已实现完整 Skill source inventory、binary writes 与 executable intent",
             "已实现 adapter-specific receipt、active stale、orphan cleanup 和零部分写入冲突门控",
-            "candidate 总耗时 51.673 秒，失败项 0；本机 CLI 指向当前 task checkout"
+            "commit 508ef52 已推送 origin/dev"
           ]
         },
         {
-          "status": "next",
-          "label": "下一批次",
-          "title": "任务 Skill 融合与任务看板",
-          "summary": "待第一批次稳定后创建独立 change，吸收集鲜优化并建立显式 change 关联数据模型。",
+          "id": "batch-task-assets",
+          "status": "done",
+          "label": "已完成",
+          "title": "批次 2 · 任务 Skill 融合与任务看板",
+          "summary": "13 / 13 项已完成；两个任务 Skill 增强与 OpenAI optional UI extension 边界均通过最终验证。",
+          "deliverable": "两个 builtin Skill、完整模板、显式 change 关联，以及可移植核心与 adapter optional extension 分层。",
+          "changeIds": ["evolve-task-cockpit-and-asset-review"],
           "items": [
-            "task-cockpit：批次、依赖池、业务方案、技术方案和完成后技术细节",
+            "task-cockpit：任务看板、change、批次、依赖池、业务/技术方案和完成后技术细节",
             "task-asset-review：完整覆盖、部分覆盖、冲突、尚无资产",
-            "任务看板至少关联一个 OpenSpec change"
+            "保留 buildr.task-asset-review/v1 provider 和确认后写回边界",
+            "Codex descriptor 仅在 agents/openai.yaml 存在时校验，缺失不阻塞也不生成",
+            "仅保留 task-cockpit、task-asset-review、capability-adaptation 三个明确 UI 定制"
           ]
         }
-      ]
+      ],
+      "dependencyPool": []
     },
     "solution": {
       "summary": "先修复 Buildr runtime 的通用 Skill 包投射能力，使 assets、scripts、references、templates、examples 和 agents 能安全进入 runtime；再基于这条能力融合两个内置任务 Skill，避免继续依赖 workspace 源路径作为运行时补丁。",
+      "businessPlan": [
+        { "label": "完整任务", "title": "一个任务看板跨越多个 change", "text": "用户始终从同一稳定入口理解目标、当前批次、依赖和交付结果。" },
+        { "label": "资产复用", "title": "识别已有资产的真实覆盖", "text": "审查正文和配套资源，区分完整覆盖、部分覆盖、冲突与尚无资产。" }
+      ],
+      "technicalPlan": [
+        { "label": "数据模型", "title": "changes、batches 与 dependencyPool", "text": "change 与批次双向关联；依赖未满足的任务留池，已就绪工作形成新批次。" },
+        { "label": "runtime", "title": "Skill 自带模板", "text": "以当前 runtime SKILL.md 为基准，从相对 assets 路径复制自包含模板。" },
+        { "label": "adapter", "title": "可选 extension 分层", "text": "发现和路由使用 SKILL.md；Codex/OpenAI 只校验已经存在的 UI metadata。" }
+      ],
       "boundaries": {
         "inScope": [
           "本地作者型和 package Skill 完整目录投射",
           "二进制、脚本权限、投射回执、冲突与清理",
           "集鲜两个 Skill 的通用优化",
-          "任务驾驶舱、任务看板与 OpenSpec change 关联"
+          "任务驾驶舱、任务看板与 OpenSpec change 关联",
+          "Skill portable core 与 adapter-specific optional extensions"
         ],
         "outOfScope": [
           "远端 Skill bundle 下载协议",
@@ -251,31 +276,38 @@
         ]
       },
       "decisions": [
-        { "title": "两个 change、一个驾驶舱", "text": "runtime 投射与任务 Skill 语义分别交付，但共享完整任务入口。" },
-        { "title": "回执不放入 Skill 目录", "text": "回执放在 adapter runtime 的 Buildr metadata 区域，避免污染 Agent 消费的 Skill 包。" },
-        { "title": "远端单文件保持兼容", "text": "skill-url 仍只代表 raw SKILL.md，完整远端 bundle 以后独立设计。" }
+        { "title": "两个 change、一个任务看板", "reason": "runtime 投射与任务 Skill 语义分别交付，但共享完整任务入口。" },
+        { "title": "看板至少关联一个真实 change", "reason": "以 OpenSpec 为契约锚点，同时允许批次包含 code-only 或外部协作。" },
+        { "title": "保留资产审查 provider contract", "reason": "吸收覆盖审查方法不改变 task-finish 的 capability routing 和授权边界。" },
+        { "title": "保留不等于消费", "reason": "所有 filesystem adapters 保真复制完整 Skill inventory，只有 Codex/OpenAI profile 解释 agents/openai.yaml。" }
       ]
     },
     "technical": {
-      "facts": [
-        { "title": "完整目录", "text": "buildSkillRenderPlan 已生成 SKILL.md、全部受支持随附文件和 adapter-specific receipt。" },
-        { "title": "统一事务", "text": "runtime plan 已支持 UTF-8/base64、owner executable、全量 conflict preflight 和 receipt 最后提交。" }
-      ],
-      "files": [
-        { "title": "Change", "text": "projects/product/openspec/changes/render-complete-skill-directories/" },
-        { "title": "Render 实现", "text": "projects/product/tools/runtime/skills/render-plan.mjs" },
-        { "title": "统一 reconcile", "text": "projects/product/tools/runtime/adapter-contract.mjs" }
-      ],
-      "validations": [
-        { "title": "Proposal contract", "text": "baselineState=current，ok=true，0 conflicts，0 findings" },
-        { "title": "Worktree doctor", "text": "ok=true，0 error；仅新 worktree runtime 未渲染 warning" },
-        { "title": "Runtime unit/contract", "text": "完整目录 unit 6 / 6；runtime-adapter-contract passed" },
-        { "title": "Adapter parity", "text": "7 个 supported adapters 的目录、字节、权限、receipt、stale、uninstall 安全与 doctor 验证 passed" },
-        { "title": "Package/workspace", "text": "package-skills 检查 8 include / 131 files；workspace-lifecycle passed" },
-        { "title": "Candidate", "text": "passed；51.673 秒；最慢 runtime adapter parity 28.074 秒；失败项 0" },
-        { "title": "Development CLI", "text": "~/.local/bin/buildr 指向当前 task checkout；help 正常；主 workspace doctor ok=true、0 error、1 个预期 runtime stale warning" }
-      ],
-      "snippets": []
+      "details": [
+        {
+          "taskId": "batch-runtime-projection",
+          "title": "批次 1 · 完整 Skill 目录投射",
+          "summary": "已完成并归档的 runtime 实现事实。",
+          "items": [
+            { "title": "完整目录", "text": "buildSkillRenderPlan 已生成 SKILL.md、全部受支持随附文件和 adapter-specific receipt。" },
+            { "title": "统一事务", "text": "runtime plan 支持 UTF-8/base64、owner executable、全量 conflict preflight 和 receipt 最后提交。" },
+            { "title": "验证", "text": "candidate passed，51.673 秒；commit 508ef52 已推送 origin/dev。" }
+          ],
+          "snippets": []
+        },
+        {
+          "taskId": "batch-task-assets",
+          "title": "批次 2 · 任务 Skill 融合与任务看板",
+          "summary": "已完成、通过最终候选验证并归档的实现事实。",
+          "items": [
+            { "title": "任务看板", "text": "驾驶舱与任务看板统一；changes 非空，批次/change 双向关联，并支持 dependencyPool、业务/技术方案与完成后技术细节。" },
+            { "title": "资产覆盖审查", "text": "核对源正文、metadata、模板、脚本、manifest、runtime 和真实产物，区分完整覆盖、部分覆盖、冲突与尚无资产。" },
+            { "title": "Adapter 扩展边界", "text": "Codex Skills trait 声明可选 agents/openai.yaml extension；通用硬编码检查已移除，缺失不影响发现、发布或 render。" },
+            { "title": "验证", "text": "runtime adapter contract、任务 Skill contracts、OpenSpec 31 / 31、完整 package、ownership recovery、adapter parity 和 candidate 均通过；development CLI path、version、help 与 doctor ok=true 已验证。" }
+          ],
+          "snippets": []
+        }
+      ]
     }
   }
   </script>
@@ -312,13 +344,13 @@
         return wrap;
       };
 
-      document.title = `${data.meta.title}｜任务驾驶舱`;
+      document.title = `${data.meta.title}｜任务看板`;
       document.getElementById('hero-title').textContent = data.meta.title;
       document.getElementById('hero-purpose').textContent = data.overview.purpose;
       document.getElementById('hero-status').textContent = data.meta.status;
       document.getElementById('footer-id').textContent = `${data.meta.taskId} · ${data.meta.relativePath}`;
       const metrics = [
-        [data.meta.phase, '当前阶段'],
+        [data.meta.phase, '当前批次'],
         [data.meta.taskProgress, '可核实进度'],
         [data.meta.updatedAt, '最近更新']
       ];
@@ -372,25 +404,76 @@
       overviewPanel.append(flowSection);
 
       const progressPanel = document.getElementById('progress-panel');
-      const progressSection = section('整个任务的阶段', '保留历史阶段，并将当前阶段、依赖和阻塞放在一起。');
+      const changeSection = section('关联的 OpenSpec changes', '看板至少关联一个真实 change；状态和路径由 Agent 从权威事实核实。');
+      const changeGrid = el('div', 'grid');
+      (data.changes || []).forEach(change => {
+        const card = el('article', 'card');
+        card.append(el('span', `tag ${change.status === 'archived' ? 'done' : 'current'}`, change.status || '待核实'));
+        card.append(el('h3', '', change.id), el('p', '', change.summary));
+        card.append(el('p', 'section-desc', change.path));
+        card.append(el('p', 'section-desc', `关联批次：${(change.batchIds || []).join('、') || '待核实'}`));
+        changeGrid.append(card);
+      });
+      if (!changeGrid.children.length) changeGrid.append(el('p', 'empty', '错误：任务看板尚未关联真实 OpenSpec change。'));
+      changeSection.append(changeGrid);
+      progressPanel.append(changeSection);
+
+      const progressSection = section('已形成的交付批次', '每个批次是一组可以独立形成方案、实施和验收的任务，并显式记录关联 change。');
       const timeline = el('div', 'timeline');
-      (data.progress.stages || []).forEach(stageData => {
+      (data.progress.batches || []).forEach(stageData => {
         const stage = el('article', `stage ${stageData.status || ''}`);
         const title = el('div', 'stage-title');
         title.append(el('span', `tag ${stageData.status || 'next'}`, stageData.label || stageData.status), el('strong', '', stageData.title));
         const body = el('div', 'stage-body');
-        body.append(el('p', '', stageData.summary), appendList(stageData.items));
+        body.append(el('p', '', stageData.summary));
+        if (stageData.deliverable) body.append(el('p', 'section-desc', `交付：${stageData.deliverable}`));
+        body.append(el('p', 'section-desc', `关联 change：${(stageData.changeIds || []).join('、') || 'code-only / 外部交付'}`), appendList(stageData.items));
         stage.append(title, body);
         timeline.append(stage);
       });
-      if (!timeline.children.length) timeline.append(el('p', 'empty', 'Agent 尚未填写阶段。'));
+      if (!timeline.children.length) timeline.append(el('p', 'empty', 'Agent 尚未形成交付批次。'));
       progressSection.append(timeline);
       progressPanel.append(progressSection);
 
+      if ((data.progress.dependencyPool || []).length) {
+        const dependencySection = section('依赖任务池', '尚未满足实施条件的任务继续属于完整任务；已就绪部分拆成新批次，其余继续留池。');
+        const dependencyTimeline = el('div', 'timeline');
+        data.progress.dependencyPool.forEach(item => {
+          const stage = el('article', `stage ${item.status || 'next'}`);
+          const title = el('div', 'stage-title');
+          title.append(el('span', `tag ${item.status || 'next'}`, item.label || '依赖中'), el('strong', '', item.title));
+          const body = el('div', 'stage-body');
+          body.append(el('p', '', item.summary));
+          if (item.entryCondition) body.append(el('p', 'section-desc', `进入条件：${item.entryCondition}`));
+          if (item.unaffectedBatchIds) body.append(el('p', 'section-desc', `不影响批次：${item.unaffectedBatchIds.join('、') || '无'}`));
+          body.append(appendList(item.items));
+          stage.append(title, body);
+          dependencyTimeline.append(stage);
+        });
+        dependencySection.append(dependencyTimeline);
+        progressPanel.append(dependencySection);
+      }
+
       const solutionPanel = document.getElementById('solution-panel');
-      const summary = section('整体方案', '先讲清楚怎么解决，再下钻到技术实现。');
+      const summary = section('业务与技术方案', '说明完整任务涉及模块的业务流程、系统处理方式和关键设计选择。');
       summary.append(el('div', 'focus', data.solution.summary));
       solutionPanel.append(summary);
+      const solutionGroups = [
+        ['业务方案', '按相关业务模块说明完整任务要解决什么。', data.solution.businessPlan],
+        ['技术方案', '记录开发前已确认的系统交互、状态处理、实现边界和验证策略。', data.solution.technicalPlan]
+      ];
+      solutionGroups.forEach(([titleText, desc, items]) => {
+        const group = section(titleText, desc);
+        const grid = el('div', 'grid');
+        (items || []).forEach(item => {
+          const card = el('article', 'card');
+          card.append(el('span', 'tag current', item.label), el('h3', '', item.title), el('p', '', item.text));
+          grid.append(card);
+        });
+        if (!grid.children.length) grid.append(el('p', 'empty', '暂无。'));
+        group.append(grid);
+        solutionPanel.append(group);
+      });
       const boundaries = section('范围与边界');
       const split = el('div', 'split');
       [['本次处理', data.solution.boundaries.inScope], ['明确不处理', data.solution.boundaries.outOfScope]].forEach(([titleText, items]) => {
@@ -412,15 +495,16 @@
       solutionPanel.append(decisions);
 
       const technicalPanel = document.getElementById('technical-panel');
-      const technicalGroups = [
-        ['关键技术事实', data.technical.facts],
-        ['关键文件与产物', data.technical.files],
-        ['验证证据', data.technical.validations]
-      ];
-      technicalGroups.forEach(([titleText, items]) => {
-        const group = section(titleText);
+      const technicalDetails = data.technical.details || [];
+      if (!technicalDetails.length) {
+        const emptyDetails = section('复杂任务技术细节', '只记录已经完成、且确有技术含量或沉淀价值的任务。');
+        emptyDetails.append(el('p', 'empty', '当前暂无需要回写的复杂任务技术细节。'));
+        technicalPanel.append(emptyDetails);
+      }
+      technicalDetails.forEach(detail => {
+        const group = section(detail.title || `任务 ${detail.taskId}`, detail.summary || '已完成复杂任务的关键实现说明。');
         const evidence = el('div', 'evidence');
-        (items || []).forEach(item => {
+        (detail.items || []).forEach(item => {
           const card = el('div', 'evidence-item');
           card.append(el('strong', '', item.title));
           if (item.text) card.append(el('span', '', item.text));
@@ -430,11 +514,7 @@
         if (!evidence.children.length) evidence.append(el('p', 'empty', '暂无。'));
         group.append(evidence);
         technicalPanel.append(group);
-      });
-      (data.technical.snippets || []).forEach(snippet => {
-        const group = section(snippet.title || '简略代码');
-        group.append(el('pre', '', snippet.code));
-        technicalPanel.append(group);
+        (detail.snippets || []).forEach(snippet => group.append(el('pre', '', snippet.code)));
       });
 
       document.querySelectorAll('.tab').forEach(tab => {

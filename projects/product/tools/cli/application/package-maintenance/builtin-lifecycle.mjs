@@ -110,21 +110,38 @@ export function createBuiltinLifecycle(deps) {
       }
       changed.push(toPosixRelative(targetRoot, writeSkillsManifest(targetRoot, found.manifest)));
       const runtimePath = found.entry.runtimePath || id;
-      const runtimePlans = SUPPORTED_AGENT_IDS.map((agent) => ({
-        agent,
-        removals: buildRuntimeOrphanRemovalPlan(targetRoot, agent, '.', { runtimePath }).map((item) => ({ ...item, targetFile: item.path })),
-      }));
-      for (const { agent, removals } of runtimePlans) {
-        if (removals.length === 0) continue;
-        const result = reconcileRuntimePlan(createRuntimePlan({
-          adapterId: agent,
+      const agentsByRuntimeRoot = new Map();
+      for (const agent of SUPPORTED_AGENT_IDS) {
+        const runtimeRoot = getRuntimeAdapter(agent).traits.skills.root;
+        if (!agentsByRuntimeRoot.has(runtimeRoot)) agentsByRuntimeRoot.set(runtimeRoot, []);
+        agentsByRuntimeRoot.get(runtimeRoot).push(agent);
+      }
+      for (const [runtimeRoot, agents] of agentsByRuntimeRoot) {
+        const receiptAgents = agents.filter((agent) => existsFile(path.join(
           targetRoot,
-          scope: '.',
-          writes: [],
-          removals,
-          capabilityEvidence: REQUIRED_RENDER_CAPABILITIES.map((capability) => ({ capability, supported: true, adapterId: agent })),
-        }));
-        changed.push(...result.removed.map((file) => toPosixRelative(targetRoot, file)));
+          runtimeRoot,
+          'buildr',
+          'skill-projection-receipts',
+          agent,
+          `${runtimePath}.json`,
+        )));
+        // A shared filesystem Skills root can retain receipts for more than one
+        // adapter. Consume those receipts before considering the legacy
+        // SKILL.md-only fallback, so valid vendor files are never mislabeled as
+        // unknown user content by a sibling adapter.
+        for (const agent of receiptAgents.length > 0 ? receiptAgents : [agents[0]]) {
+          const removals = buildRuntimeOrphanRemovalPlan(targetRoot, agent, '.', { runtimePath }).map((item) => ({ ...item, targetFile: item.path }));
+          if (removals.length === 0) continue;
+          const result = reconcileRuntimePlan(createRuntimePlan({
+            adapterId: agent,
+            targetRoot,
+            scope: '.',
+            writes: [],
+            removals,
+            capabilityEvidence: REQUIRED_RENDER_CAPABILITIES.map((capability) => ({ capability, supported: true, adapterId: agent })),
+          }));
+          changed.push(...result.removed.map((file) => toPosixRelative(targetRoot, file)));
+        }
       }
     } else {
       found.manifest.commands[found.index] = updated;

@@ -30,6 +30,7 @@
     html { scroll-behavior: smooth; }
     body {
       margin: 0;
+      overflow-x: hidden;
       color: var(--ink);
       background:
         radial-gradient(circle at 8% 2%, rgba(8, 127, 118, .09), transparent 24rem),
@@ -60,11 +61,11 @@
       letter-spacing: .04em;
     }
     .eyebrow { color: #caf8ee; border: 1px solid rgba(202, 248, 238, .35); background: rgba(8, 127, 118, .27); }
-    .hero h1 { max-width: 850px; margin: 22px 0 0; font-size: clamp(34px, 5vw, 60px); line-height: 1.12; letter-spacing: -.045em; }
-    .hero-lead { max-width: 840px; margin: 18px 0 0; color: rgba(255, 255, 255, .8); font-size: 18px; }
+    .hero h1 { max-width: 850px; margin: 22px 0 0; overflow-wrap: anywhere; font-size: clamp(34px, 5vw, 60px); line-height: 1.12; letter-spacing: -.045em; }
+    .hero-lead { max-width: 840px; margin: 18px 0 0; overflow-wrap: anywhere; color: rgba(255, 255, 255, .8); font-size: 18px; }
     .metric-row { gap: 14px; margin-top: 30px; }
     .metric { flex: 1; min-width: 0; padding: 16px 18px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 16px; background: rgba(255, 255, 255, .075); }
-    .metric strong { display: block; font-size: 22px; line-height: 1.25; }
+    .metric strong { display: block; overflow-wrap: anywhere; font-size: 22px; line-height: 1.25; }
     .metric span { display: block; margin-top: 4px; color: rgba(255, 255, 255, .66); font-size: 12px; }
     .tabs { position: sticky; top: 0; z-index: 10; margin: 18px 0 0; padding: 10px; border: 1px solid rgba(223, 229, 236, .95); border-radius: 18px; background: rgba(255, 255, 255, .92); box-shadow: 0 8px 28px rgba(20, 33, 61, .06); backdrop-filter: blur(14px); }
     .tab-list { gap: 8px; overflow-x: auto; }
@@ -91,7 +92,7 @@
     .focus p { max-width: 840px; margin: 10px 0 0; color: #40516e; }
     .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
     .card { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
-    .card h3 { margin: 8px 0 0; color: var(--navy); font-size: 18px; }
+    .card h3 { margin: 8px 0 0; overflow-wrap: anywhere; color: var(--navy); font-size: 18px; }
     .card p { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
     .tag.done { color: var(--green); background: var(--green-soft); }
     .tag.current { color: var(--blue); background: var(--blue-soft); }
@@ -174,8 +175,8 @@
       "title": "任务名称",
       "taskId": "task-id",
       "status": "进行中",
-      "phase": "阶段 1 / 3",
-      "taskProgress": "任务 0 / 0",
+      "phase": "批次 1 · 待开始",
+      "taskProgress": "当前批次 0 / 0 · 依赖池 0 组",
       "updatedAt": "yyyy-MM-dd HH:mm",
       "relativePath": "projects/<project>/openspec/knowledge/task-cockpits/yyyy-MM-dd-task-id.html"
     },
@@ -197,20 +198,50 @@
         { "title": "验证交付", "text": "形成可信结果" }
       ]
     },
+    "changes": [
+      {
+        "id": "change-id",
+        "status": "active",
+        "path": "openspec/changes/change-id/",
+        "summary": "说明该 change 对完整任务的交付作用。",
+        "batchIds": ["batch-1"]
+      }
+    ],
     "progress": {
-      "stages": []
+      "batches": [
+        {
+          "id": "batch-1",
+          "status": "current",
+          "label": "当前批次",
+          "title": "批次 1 · 可独立交付任务组",
+          "summary": "说明该批次可以独立形成方案、实施和验收。",
+          "deliverable": "说明该批次完成后可验收的交付结果。",
+          "changeIds": ["change-id"],
+          "items": []
+        }
+      ],
+      "dependencyPool": []
     },
     "solution": {
-      "summary": "用普通语言说明整体解决方式。",
+      "summary": "用普通语言说明完整任务范围内的业务与技术解决方式，不描述看板自身如何管理任务。",
+      "businessPlan": [
+        {
+          "label": "业务模块",
+          "title": "模块业务方案",
+          "text": "说明该模块的目标流程、角色职责、业务状态或资金与数据流向。"
+        }
+      ],
+      "technicalPlan": [
+        {
+          "label": "技术模块",
+          "title": "模块技术方案",
+          "text": "说明开发前已确认的系统交互、接口契约、状态处理、实现边界和验证策略。"
+        }
+      ],
       "boundaries": { "inScope": [], "outOfScope": [] },
       "decisions": []
     },
-    "technical": {
-      "facts": [],
-      "files": [],
-      "validations": [],
-      "snippets": []
-    }
+    "technical": { "details": [] }
   }
   </script>
   <script>
@@ -246,13 +277,13 @@
         return wrap;
       };
 
-      document.title = `${data.meta.title}｜任务驾驶舱`;
+      document.title = `${data.meta.title}｜任务看板`;
       document.getElementById('hero-title').textContent = data.meta.title;
       document.getElementById('hero-purpose').textContent = data.overview.purpose;
       document.getElementById('hero-status').textContent = data.meta.status;
       document.getElementById('footer-id').textContent = `${data.meta.taskId} · ${data.meta.relativePath}`;
       const metrics = [
-        [data.meta.phase, '当前阶段'],
+        [data.meta.phase, '当前批次'],
         [data.meta.taskProgress, '可核实进度'],
         [data.meta.updatedAt, '最近更新']
       ];
@@ -306,25 +337,76 @@
       overviewPanel.append(flowSection);
 
       const progressPanel = document.getElementById('progress-panel');
-      const progressSection = section('整个任务的阶段', '保留历史阶段，并将当前阶段、依赖和阻塞放在一起。');
+      const changeSection = section('关联的 OpenSpec changes', '看板至少关联一个真实 change；状态和路径由 Agent 从权威事实核实。');
+      const changeGrid = el('div', 'grid');
+      (data.changes || []).forEach(change => {
+        const card = el('article', 'card');
+        card.append(el('span', `tag ${change.status === 'archived' ? 'done' : 'current'}`, change.status || '待核实'));
+        card.append(el('h3', '', change.id), el('p', '', change.summary));
+        card.append(el('p', 'section-desc', change.path));
+        card.append(el('p', 'section-desc', `关联批次：${(change.batchIds || []).join('、') || '待核实'}`));
+        changeGrid.append(card);
+      });
+      if (!changeGrid.children.length) changeGrid.append(el('p', 'empty', '错误：任务看板尚未关联真实 OpenSpec change。'));
+      changeSection.append(changeGrid);
+      progressPanel.append(changeSection);
+
+      const progressSection = section('已形成的交付批次', '每个批次是一组可以独立形成方案、实施和验收的任务，并显式记录关联 change。');
       const timeline = el('div', 'timeline');
-      (data.progress.stages || []).forEach(stageData => {
+      (data.progress.batches || []).forEach(stageData => {
         const stage = el('article', `stage ${stageData.status || ''}`);
         const title = el('div', 'stage-title');
         title.append(el('span', `tag ${stageData.status || 'next'}`, stageData.label || stageData.status), el('strong', '', stageData.title));
         const body = el('div', 'stage-body');
-        body.append(el('p', '', stageData.summary), appendList(stageData.items));
+        body.append(el('p', '', stageData.summary));
+        if (stageData.deliverable) body.append(el('p', 'section-desc', `交付：${stageData.deliverable}`));
+        body.append(el('p', 'section-desc', `关联 change：${(stageData.changeIds || []).join('、') || 'code-only / 外部交付'}`), appendList(stageData.items));
         stage.append(title, body);
         timeline.append(stage);
       });
-      if (!timeline.children.length) timeline.append(el('p', 'empty', 'Agent 尚未填写阶段。'));
+      if (!timeline.children.length) timeline.append(el('p', 'empty', 'Agent 尚未形成交付批次。'));
       progressSection.append(timeline);
       progressPanel.append(progressSection);
 
+      if ((data.progress.dependencyPool || []).length) {
+        const dependencySection = section('依赖任务池', '尚未满足实施条件的任务继续属于完整任务；已就绪部分拆成新批次，其余继续留池。');
+        const dependencyTimeline = el('div', 'timeline');
+        data.progress.dependencyPool.forEach(item => {
+          const stage = el('article', `stage ${item.status || 'next'}`);
+          const title = el('div', 'stage-title');
+          title.append(el('span', `tag ${item.status || 'next'}`, item.label || '依赖中'), el('strong', '', item.title));
+          const body = el('div', 'stage-body');
+          body.append(el('p', '', item.summary));
+          if (item.entryCondition) body.append(el('p', 'section-desc', `进入条件：${item.entryCondition}`));
+          if (item.unaffectedBatchIds) body.append(el('p', 'section-desc', `不影响批次：${item.unaffectedBatchIds.join('、') || '无'}`));
+          body.append(appendList(item.items));
+          stage.append(title, body);
+          dependencyTimeline.append(stage);
+        });
+        dependencySection.append(dependencyTimeline);
+        progressPanel.append(dependencySection);
+      }
+
       const solutionPanel = document.getElementById('solution-panel');
-      const summary = section('整体方案', '先讲清楚怎么解决，再下钻到技术实现。');
+      const summary = section('业务与技术方案', '说明完整任务涉及模块的业务流程、系统处理方式和关键设计选择。');
       summary.append(el('div', 'focus', data.solution.summary));
       solutionPanel.append(summary);
+      const solutionGroups = [
+        ['业务方案', '按相关业务模块说明完整任务要解决什么。', data.solution.businessPlan],
+        ['技术方案', '记录开发前已确认的系统交互、状态处理、实现边界和验证策略。', data.solution.technicalPlan]
+      ];
+      solutionGroups.forEach(([titleText, desc, items]) => {
+        const group = section(titleText, desc);
+        const grid = el('div', 'grid');
+        (items || []).forEach(item => {
+          const card = el('article', 'card');
+          card.append(el('span', 'tag current', item.label), el('h3', '', item.title), el('p', '', item.text));
+          grid.append(card);
+        });
+        if (!grid.children.length) grid.append(el('p', 'empty', '暂无。'));
+        group.append(grid);
+        solutionPanel.append(group);
+      });
       const boundaries = section('范围与边界');
       const split = el('div', 'split');
       [['本次处理', data.solution.boundaries.inScope], ['明确不处理', data.solution.boundaries.outOfScope]].forEach(([titleText, items]) => {
@@ -346,15 +428,16 @@
       solutionPanel.append(decisions);
 
       const technicalPanel = document.getElementById('technical-panel');
-      const technicalGroups = [
-        ['关键技术事实', data.technical.facts],
-        ['关键文件与产物', data.technical.files],
-        ['验证证据', data.technical.validations]
-      ];
-      technicalGroups.forEach(([titleText, items]) => {
-        const group = section(titleText);
+      const technicalDetails = data.technical.details || [];
+      if (!technicalDetails.length) {
+        const emptyDetails = section('复杂任务技术细节', '只记录已经完成、且确有技术含量或沉淀价值的任务。');
+        emptyDetails.append(el('p', 'empty', '当前暂无需要回写的复杂任务技术细节。'));
+        technicalPanel.append(emptyDetails);
+      }
+      technicalDetails.forEach(detail => {
+        const group = section(detail.title || `任务 ${detail.taskId}`, detail.summary || '已完成复杂任务的关键实现说明。');
         const evidence = el('div', 'evidence');
-        (items || []).forEach(item => {
+        (detail.items || []).forEach(item => {
           const card = el('div', 'evidence-item');
           card.append(el('strong', '', item.title));
           if (item.text) card.append(el('span', '', item.text));
@@ -364,11 +447,7 @@
         if (!evidence.children.length) evidence.append(el('p', 'empty', '暂无。'));
         group.append(evidence);
         technicalPanel.append(group);
-      });
-      (data.technical.snippets || []).forEach(snippet => {
-        const group = section(snippet.title || '简略代码');
-        group.append(el('pre', '', snippet.code));
-        technicalPanel.append(group);
+        (detail.snippets || []).forEach(snippet => group.append(el('pre', '', snippet.code)));
       });
 
       document.querySelectorAll('.tab').forEach(tab => {

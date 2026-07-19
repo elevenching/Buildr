@@ -16,6 +16,7 @@ export const REQUIRED_RENDER_CAPABILITIES = Object.freeze([
 ]);
 
 export const ADAPTER_VERIFICATION_LEVELS = Object.freeze(['documented', 'verified']);
+export const SKILL_PUBLICATION_FORMATS = Object.freeze(['openai-skill-metadata']);
 
 export const ADAPTER_TRAIT_CATALOG = Object.freeze({
   rules: Object.freeze(['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']),
@@ -80,6 +81,29 @@ function isSafeRuntimeRoot(value) {
   return normalized !== '.' && normalized !== '..' && !normalized.startsWith('../') && normalized === value.replaceAll('\\', '/').replace(/\/$/, '');
 }
 
+function isSafeSkillRelativePath(value) {
+  if (typeof value !== 'string' || value.length === 0 || path.isAbsolute(value)) return false;
+  const posix = value.replaceAll('\\', '/');
+  const normalized = path.posix.normalize(posix);
+  return normalized !== '.' && normalized !== '..' && !normalized.startsWith('../') && normalized === posix.replace(/\/$/, '');
+}
+
+function validateSkillPublicationExtensions(skills, label, errors) {
+  if (skills.publicationExtensions === undefined) return;
+  if (!Array.isArray(skills.publicationExtensions)) {
+    errors.push(`${label} publicationExtensions must be an array`);
+    return;
+  }
+  const paths = new Set();
+  for (const [index, extension] of skills.publicationExtensions.entries()) {
+    const extensionLabel = `${label} publicationExtensions[${index}]`;
+    if (!isSafeSkillRelativePath(extension?.path)) errors.push(`${extensionLabel} path is unsafe: ${extension?.path || '<missing>'}`);
+    if (!SKILL_PUBLICATION_FORMATS.includes(extension?.format)) errors.push(`${extensionLabel} format is invalid: ${extension?.format || '<missing>'}`);
+    if (paths.has(extension?.path)) errors.push(`${label} publicationExtensions contains duplicate path: ${extension?.path}`);
+    paths.add(extension?.path);
+  }
+}
+
 function normalizeImplementationCatalog(value = {}) {
   return {
     rules: new Set(value.rules || BUILTIN_ADAPTER_IMPLEMENTATIONS.rules),
@@ -122,6 +146,7 @@ function validateAdapterTraits(descriptor, options = {}) {
   if (!skills?.implementation || !implementations.skills.has(skills.implementation)) errors.push(`adapter ${descriptor.id} has no registered skills implementation: ${skills?.implementation || '<missing>'}`);
   if (!isSafeRuntimeRoot(skills?.root)) errors.push(`adapter ${descriptor.id} skills root is unsafe: ${skills?.root || '<missing>'}`);
   if (skills?.kind === 'agents-compatible' && skills.root !== '.agents') errors.push(`adapter ${descriptor.id} agents-compatible skills root must be .agents`);
+  validateSkillPublicationExtensions(skills || {}, `adapter ${descriptor.id} skills`, errors);
 
   if (!Array.isArray(traits.surfaces) || traits.surfaces.length === 0) errors.push(`adapter ${descriptor.id} surfaces are required`);
   for (const surface of traits.surfaces || []) {
@@ -279,7 +304,12 @@ const DESCRIPTORS = [
         implementation: 'native-recursive',
         diagnostics: { missingStatus: 'missing', missingPath: 'AGENTS.md', missingCode: 'runtime.codex_rules_missing', label: 'Codex native AGENTS.md rule asset', okCode: 'runtime.codex_rules_ok' },
       },
-      skills: { kind: 'agents-compatible', implementation: 'filesystem-skills', root: '.agents' },
+      skills: {
+        kind: 'agents-compatible',
+        implementation: 'filesystem-skills',
+        root: '.agents',
+        publicationExtensions: [{ path: 'agents/openai.yaml', format: 'openai-skill-metadata' }],
+      },
       surfaces: [{ kind: 'cli' }, { kind: 'desktop' }],
       activation: { rules: 'path-read', skills: 'session-start' },
       checker: { kind: 'projection', implementation: 'projection', resultKey: 'codex', installationProbe: { kind: 'none' }, versionProbe: { kind: 'none' } },

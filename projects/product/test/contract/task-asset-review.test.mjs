@@ -106,3 +106,20 @@ test('任务审查明确拒绝隐藏推理、完整轨迹和自动资产写入',
   assert.match(reviewSkill, /不自动写入组织资产/);
   assert.doesNotMatch(reviewSkill, /安装 runtime Hook|启动 daemon|启动 watcher|接入事件总线/);
 });
+
+test('任务审查核对源资源并输出明确覆盖度', () => {
+  for (const required of [
+    '候选目标资产的源文件、manifest、随附模板、脚本、metadata',
+    '完整覆盖',
+    '部分覆盖',
+    '存在冲突',
+    '尚无资产',
+    'runtime 投射只能证明同步状态',
+    '现有资产覆盖结论',
+    '现有资产差距',
+  ]) {
+    assert.ok(reviewSkill.includes(required), `review Skill must include ${required}`);
+  }
+  assert.match(reviewSkill, /本 Skill 是 `buildr\.task-asset-review\/v1` 的默认 provider/);
+  assert.match(reviewSkill, /selected provider/);
+});

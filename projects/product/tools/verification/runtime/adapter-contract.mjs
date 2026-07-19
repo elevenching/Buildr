@@ -22,6 +22,7 @@ import {
   selectAdapterImplementation,
   validateRuntimePlan,
 } from '../../runtime/adapter-contract.mjs';
+import { validateSkillPublication } from '../../runtime/skills/publication.mjs';
 import { resolveSkillContributions } from '../../runtime/render-claude-code.mjs';
 import { assembleRuntimeProjection } from '../../runtime/projection.mjs';
 
@@ -32,6 +33,12 @@ assert.deepEqual(SUPPORTED_AGENT_IDS, ['claude-code', 'codex', 'cursor', 'qoder'
 assert.deepEqual(ADAPTER_VERIFICATION_LEVELS, ['documented', 'verified']);
 assert.deepEqual(ADAPTER_TRAIT_CATALOG.rules, ['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']);
 assert.equal(runtimeDiscoveryPayload().adapterTraitCatalog, ADAPTER_TRAIT_CATALOG);
+assert.deepEqual(RUNTIME_ADAPTERS.codex.traits.skills.publicationExtensions, [
+  { path: 'agents/openai.yaml', format: 'openai-skill-metadata' },
+]);
+for (const adapterId of SUPPORTED_AGENT_IDS.filter((id) => id !== 'codex')) {
+  assert.deepEqual(RUNTIME_ADAPTERS[adapterId].traits.skills.publicationExtensions || [], [], `${adapterId} must not consume OpenAI Skill metadata`);
+}
 for (const adapter of Object.values(RUNTIME_ADAPTERS)) {
   assert.ok(adapter.traits);
   assert.deepEqual(Object.keys(adapter.renderCapabilities), REQUIRED_RENDER_CAPABILITIES);
@@ -160,9 +167,22 @@ const fakeValue = {
 };
 assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, rules: { ...fakeValue.traits.rules, kind: 'unknown' } } }, { implementations: fakeImplementations }), /rules trait is invalid/);
 assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, skills: { ...fakeValue.traits.skills, root: '../escape' } } }, { implementations: fakeImplementations }), /skills root is unsafe/);
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, skills: { ...fakeValue.traits.skills, publicationExtensions: [{ path: '../escape', format: 'openai-skill-metadata' }] } } }, { implementations: fakeImplementations }), /publicationExtensions\[0\] path is unsafe/);
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, skills: { ...fakeValue.traits.skills, publicationExtensions: [{ path: 'agents\/openai.yaml', format: 'unknown' }] } } }, { implementations: fakeImplementations }), /publicationExtensions\[0\] format is invalid/);
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, skills: { ...fakeValue.traits.skills, publicationExtensions: [{ path: 'agents\/openai.yaml', format: 'openai-skill-metadata' }, { path: 'agents\/openai.yaml', format: 'openai-skill-metadata' }] } } }, { implementations: fakeImplementations }), /duplicate path/);
 assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, rules: { kind: 'native-root', implementation: 'fake-rules' } } }, { implementations: fakeImplementations }), /do not cover recursive scope/);
 assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, rules: { ...fakeValue.traits.rules, implementation: 'missing' } } }, { implementations: fakeImplementations }), /no registered rules implementation/);
 assert.throws(() => createRuntimeAdapterRegistry([fakeDescriptor, fakeDescriptor], { testOnly: true, implementations: fakeImplementations }), /duplicate adapter id/);
+
+const publicationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-skill-publication-'));
+assert.deepEqual(validateSkillPublication(RUNTIME_ADAPTERS['claude-code'], { skillId: 'demo', skillDir: publicationRoot }), []);
+assert.deepEqual(validateSkillPublication(RUNTIME_ADAPTERS.codex, { skillId: 'demo', skillDir: publicationRoot }), [], 'missing optional OpenAI metadata must not block Codex publication');
+fs.mkdirSync(path.join(publicationRoot, 'agents'));
+fs.writeFileSync(path.join(publicationRoot, 'agents', 'openai.yaml'), 'interface:\n  display_name: Demo\n');
+assert.match(validateSkillPublication(RUNTIME_ADAPTERS.codex, { skillId: 'demo', skillDir: publicationRoot }).join('\n'), /short_description must be a non-empty string/);
+fs.writeFileSync(path.join(publicationRoot, 'agents', 'openai.yaml'), 'interface:\n  display_name: Demo\n  short_description: Demo skill\n  default_prompt: Use $demo.\n');
+assert.deepEqual(validateSkillPublication(RUNTIME_ADAPTERS.codex, { skillId: 'demo', skillDir: publicationRoot }), []);
+fs.rmSync(publicationRoot, { recursive: true, force: true });
 
 const codex = RUNTIME_ADAPTERS.codex;
 const root = path.join(os.tmpdir(), 'buildr-invalid-plan');

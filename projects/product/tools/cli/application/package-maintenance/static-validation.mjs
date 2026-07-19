@@ -31,7 +31,20 @@ export function createPackageStaticValidator(deps) {
     validatePackageComponentMembers,
     validateProjectsRegistry,
     validateSkillManifestEntries,
+    getRuntimeAdapter,
+    validateSkillPublication,
   } = deps;
+
+  function validateAdapterPublications(skill, skillDir, problems) {
+    for (const runtime of skill.runtimes || []) {
+      try {
+        const adapter = getRuntimeAdapter(runtime);
+        problems.push(...validateSkillPublication(adapter, { skillId: skill.id, skillDir }));
+      } catch (error) {
+        problems.push(error.message);
+      }
+    }
+  }
 
   function validateWorkspaceSkillsBaseline(root, problems) {
     const workspaceSkillsRoot = path.join(root, 'skills');
@@ -389,6 +402,7 @@ export function createPackageStaticValidator(deps) {
           }
         }
       }
+      validateAdapterPublications(skill, skillDir, problems);
       files.push(skillFile);
     }
 
@@ -573,6 +587,7 @@ export function createPackageStaticValidator(deps) {
         problems.push(error.message);
       }
       const skillContent = fs.readFileSync(skillFile, 'utf8');
+      validateAdapterPublications(skill, skillDir, problems);
       if (skill.id === 'capability-adaptation') {
         for (const requiredText of [
           'Agent 工作能力适配',
@@ -719,7 +734,12 @@ export function createPackageStaticValidator(deps) {
           '必要成本',
           '执行质量反馈',
           '资产沉淀建议',
-          '与现有 OpenSpec、Rule、`AGENTS.md` 或 Skill 没有未解决的重复或冲突',
+          '候选目标资产的源文件、manifest、随附模板、脚本、metadata',
+          '完整覆盖',
+          '部分覆盖',
+          '存在冲突',
+          '尚无资产',
+          'runtime 投射只能证明同步状态',
           '不得输出 Specs 候选',
           '普通 follow-up',
           '证据胶囊',
@@ -731,8 +751,6 @@ export function createPackageStaticValidator(deps) {
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`task-asset-review Skill must include ${JSON.stringify(requiredText)}.`);
         }
-        const metadataPath = path.join(skillDir, 'agents', 'openai.yaml');
-        if (!existsFile(metadataPath)) problems.push('task-asset-review Skill must include agents/openai.yaml.');
         for (const forbiddenText of ['安装 runtime Hook', '启动 daemon', '启动 watcher', '接入事件总线']) {
           if (skillContent.includes(forbiddenText)) problems.push(`task-asset-review Skill must not instruct Agents to ${JSON.stringify(forbiddenText)}.`);
         }
@@ -748,6 +766,10 @@ export function createPackageStaticValidator(deps) {
           'openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html',
           'Agent 单向维护',
           '不是 OpenSpec change 的翻译',
+          '驾驶舱（任务看板）',
+          '至少关联一个已经创建并核实路径的 OpenSpec change',
+          '`changes` 必须非空',
+          '`dependencyPool`',
           '首页',
           '推进',
           '方案',
@@ -759,17 +781,15 @@ export function createPackageStaticValidator(deps) {
           if (!skillContent.includes(requiredText)) problems.push(`task-cockpit Skill must include ${JSON.stringify(requiredText)}.`);
         }
         const templatePath = path.join(skillDir, 'assets', 'task-cockpit-template.html');
-        const metadataPath = path.join(skillDir, 'agents', 'openai.yaml');
         if (!existsFile(templatePath)) {
           problems.push('task-cockpit Skill must include assets/task-cockpit-template.html.');
         } else {
           const templateContent = fs.readFileSync(templatePath, 'utf8');
-          for (const requiredText of ['id="cockpit-data"', 'data-tab="overview"', 'data-tab="progress"', 'data-tab="solution"', 'data-tab="technical"', '由 Agent 单向维护 · 页面只读']) {
+          for (const requiredText of ['id="cockpit-data"', 'data-tab="overview"', 'data-tab="progress"', 'data-tab="solution"', 'data-tab="technical"', '由 Agent 单向维护 · 页面只读', '"changes"', '"batches"', '"dependencyPool"', '"businessPlan"', '"technicalPlan"', '"details"']) {
             if (!templateContent.includes(requiredText)) problems.push(`task-cockpit template must include ${JSON.stringify(requiredText)}.`);
           }
           if (/https?:\/\//.test(templateContent)) problems.push('task-cockpit template must not depend on external HTTP resources.');
         }
-        if (!existsFile(metadataPath)) problems.push('task-cockpit Skill must include agents/openai.yaml.');
       }
       if (skill.id === 'openspec-contract-guard') {
         for (const requiredText of ['buildr openspec baseline create', '--stage pre-sync', '--stage post-sync', '不修改外部 `openspec-*` Skills']) {

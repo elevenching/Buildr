@@ -124,9 +124,9 @@ Organization/Root -> Project -> Service
 - `package:<id>` 是 package manifest `skillSources` 与随包 Skill resolver 使用的内部 source identity，不是用户 Skill asset id、通用 source scheme 或 `skills add` 输入格式。
 - Buildr 内置 workspace Skills 现在发布到 `skills/buildr/<skill-id>/`，并在 `skills/manifest.yml` 中以 `source: buildr`、`path`、`runtimePath`、`enabled`、`required` 和 `state` 管理。
 - 当前随包独立 workspace Skills 包括 `task-triage`、`task-cockpit`、`task-asset-review`、`task-worktree`、`task-finish` 和 `git-ops`；OpenSpec workflows 与 `openspec-contract-guard` 由 OpenSpec Component 统一交付，但仍以 Buildr builtin descriptor 提供产品元数据。
-- `task-cockpit` 为复杂、长期、跨阶段或有交叉依赖的任务维护 Agent 单向更新、用户只读的单文件 HTML 驾驶舱；默认路径为 Project `openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html`，稳定入口可以关联多个 active/archive change、code-only 工作和外部依赖。
-- `task-asset-review` 基于当前 session 可观察节点和最终 Git/OpenSpec/验证证据反思目标一致性、路径、证据、scope/授权、token/工具成本与复用机会；执行质量反馈与 Rule/Skill 候选分层，OpenSpec 只作证据，合格候选生成可在 worktree 清理后继续核查的证据胶囊。它不读取隐藏推理、不保存完整任务轨迹、不依赖 Hook，也不自动写入组织资产。
-- 任务驾驶舱优先展示普通用户可理解的目标、当前结论、阶段、已完成、下一步和阻塞，再逐层展示推进、方案与技术细节。它是 task-scoped working knowledge，不替代 canonical specs、active change、代码和验证证据。
+- `task-cockpit` 为复杂、长期、跨批次或有交叉依赖的任务维护 Agent 单向更新、用户只读的单文件 HTML 任务驾驶舱（任务看板）；两种名称指向同一 artifact。默认路径为 Project `openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html`，每个看板至少关联一个真实 OpenSpec change，并可跨多个 active/archive change、code-only 工作和外部依赖。
+- `task-asset-review` 基于当前 session 可观察节点和最终 Git/OpenSpec/验证证据反思目标一致性、路径、证据、scope/授权、token/工具成本与复用机会；它按需核对候选目标 Skill 的正文、metadata、模板、脚本、manifest、runtime 投射和真实产物，输出完整覆盖、部分覆盖、存在冲突或尚无资产。执行质量反馈与 Rule/Skill 候选分层，OpenSpec 只作证据，合格候选生成可在 worktree 清理后继续核查的证据胶囊。它不读取隐藏推理、不保存完整任务轨迹、不依赖 Hook，也不自动写入组织资产。
+- 任务看板优先展示普通用户可理解的目标、当前结论、当前批次、已完成、下一步和阻塞，再逐层展示 change 关联、交付批次、依赖池、业务/技术方案与已完成复杂任务的技术细节。它是 task-scoped working knowledge，不替代 canonical specs、active change、代码和验证证据。
 - `task-triage` 判断驾驶舱是“不需要”“创建”还是“继续维护”；驾驶舱首次创建、实质更新、用户询问进度、任务暂停或完成时，Agent 回复提供可点击绝对路径和 workspace 相对路径。
 - 产品入口 Buildr Skill 仍位于 `package/targets/runtime/skills/buildr/SKILL.md`，不进入 workspace `skills/manifest.yml`，也不硬编码可卸载 Component 所拥有的专用 Skill 路由。
 - `buildr skills render <agent> --scope <scope>` 渲染 workspace/project Skills 和 Skill install plans；它不安装产品内置 Buildr Skill。
@@ -178,9 +178,10 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 - Agent runtime 文件是可重建渲染产物，不是长期资产源。
 - `service create` 不向 service repo 写入 `CLAUDE.md`、`.claude/` 或其他 runtime 文件。
 - adapter required render capabilities 固定为 `rules-entry`、`product-buildr-skill`、`workspace-project-skills`、`skill-install-plans` 和 `runtime-check`。
-- supported adapter descriptor 由受约束 traits 组合：Rules 为 `native-recursive`、`native-root`、`reference-bridge` 或 `vendor-rule-files`，Skills 为 `agents-compatible` 或 `vendor-root`，并显式声明 surface、activation 和 checker；组合不完整或部分 Rules scope 不得注册为 supported。
+- supported adapter descriptor 由受约束 traits 组合：Rules 为 `native-recursive`、`native-root`、`reference-bridge` 或 `vendor-rule-files`，Skills 为 `agents-compatible` 或 `vendor-root`，并可声明受约束的可选 Skill publication extensions；descriptor 还须显式声明 surface、activation 和 checker。组合不完整、extension path/format 非法或部分 Rules scope 不得注册为 supported。
 - Codex 当前原生使用全部已发现的 `AGENTS.md`，Rules render 零写入；Codex Skills adapter 将 enabled Skills 的完整受支持目录渲染到 `.agents/skills/<skill-id>/`。
 - 本地作者型和 package Skill 会投射 `SKILL.md` 以及 `agents/`、`assets/`、`examples/`、`references/`、`scripts/`、`templates/` 下的普通文件；`SKILL.md` 继续派生 managed marker、contributions、capability bindings 和 adapter context，随附文件保持原始字节与 owner executable 状态。`resolved.kind: skill-url` 仍是单文件 `SKILL.md` 来源。
+- Skill 可移植核心和 Codex 发布都只要求有效 `SKILL.md`，其 `name` 与 `description` 用于发现和路由；随附目录均为可选。Codex/OpenAI profile 只在 `agents/openai.yaml` 已存在时校验该 UI extension，缺失不阻塞、不生成、不反写；其他 adapter 只在完整目录投射中保留已有文件而不消费。Skill 执行资源相对于当前 runtime `SKILL.md` 所在目录解析。
 - 每个 adapter 在自身 runtime metadata 区维护版本化 Skill projection receipt。render、sync、runtime check、doctor 和 Component lifecycle 复用相同 inventory；active stale 与 orphan 只在文件仍匹配旧 receipt 时清理，已修改文件或未知用户文件触发零部分写入 conflict。缺少 receipt 的旧版仅 `SKILL.md` 投射继续保守兼容。
 - Claude Code adapter 支持 `skill install`、`runtime check`、`rules render` 和 `skills render`。
 - Cursor、Qoder、TRAE 使用 `vendor-rule-files`：分别生成各 source scope 的 `.cursor/rules/buildr.mdc`、root `.qoder/rules/buildr/*.md`、各 source scope 的 `.trae/rules/buildr.md`；TRAE Work 与 WorkBuddy 使用 root-index reference bridge，目标分别为 `CLAUDE.local.md` 和 `CODEBUDDY.md`。

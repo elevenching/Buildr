@@ -27,7 +27,7 @@
 | 产品入口、最小心智模型、快速开始 | `README.md` |
 | 产品定位、为什么、核心概念、协作模型 | `docs/buildr-product.md` |
 | 已经实现的当前事实 | `openspec/knowledge/buildr-current-state.md` |
-| 复杂任务的跨阶段目标、计划、依赖、进度和证据入口 | `openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html` |
+| 复杂任务跨 change 的交付批次、依赖池、方案、进度和证据看板 | `openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html` |
 | MUST / SHOULD 级产品行为 | `openspec/specs/` |
 | 计划型产品变更 | `openspec/changes/` |
 | 尚未进入实现的长期产品方向 | `docs/roadmap/` |
@@ -76,7 +76,7 @@
 
 - 新增当前产品说明时，优先更新 `docs/buildr-product.md`。
 - 新增当前实现事实时，优先更新 `openspec/knowledge/buildr-current-state.md`。
-- 复杂任务需要持续可视化认知入口时，使用 `task-cockpit` Skill 维护 `openspec/knowledge/task-cockpits/`，不要把任务进度混入 current-state facts 文档。
+- 复杂任务需要持续可视化认知入口时，使用 `task-cockpit` Skill 维护任务驾驶舱（任务看板）；每个看板至少关联一个真实 OpenSpec change，并以交付批次和依赖池表达进度，不要把任务进度混入 current-state facts 文档。
 - 新增规范性行为时，更新 `openspec/specs/` 或创建 OpenSpec change。
 - 新增尚未进入实现的详细产品方向时，维护 `docs/roadmap/` 并保持非当前事实声明。
 - 新增 Agent runtime adapter 前，先按 `docs/agent-runtime-adapter-contribution.md` 取得目标 Agent 的版本化证据；进入实现后仍必须创建独立 OpenSpec change。
