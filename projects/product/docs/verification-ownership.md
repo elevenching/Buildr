@@ -23,6 +23,8 @@
 
 所有入口共享 `tools/verification/registry.mjs` 中的 step identity、executor、inputs、真实依赖、profile/group、预算和并发类别。`test:changed` 对未被任何 input 或显式 ignore 覆盖的 Product 路径 fail closed；Candidate 的完整性按 required gate identity 验证，不冻结 step 数量。
 
+Candidate 与 Changed 也共享 `tools/verification/timing/evidence.mjs`：默认每次 run 使用唯一 evidence 目录，summary 记录 run/source identity 和候选 fingerprint，并在终端直接输出 total、budget、slowest、failed 与绝对路径。Changed 是开发反馈证据；只有最终 Candidate summary 可以作为 task-finish 的完整验证 timing evidence。
+
 ## Unit coverage 与核心 owner
 
 `npm run coverage:unit -- --summary <path>` 只执行 `test/unit/*.test.mjs`，使用 Node 内置 coverage 输出人类报告和 `buildr.unit-coverage/v1` JSON。它是观测入口，不是额外发布门禁。分层后的首个 unit-only 基线为 30 tests、25 个实际加载的产品模块，line 46.16%、branch 68.42%、function 48.90%；它与分层前 84 tests 的 fast 聚合 line 53.55% 不可直接比较。

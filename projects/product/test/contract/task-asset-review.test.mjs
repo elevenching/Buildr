@@ -79,6 +79,24 @@ test('task-finish fixture 覆盖轻量门控、复用、降级和写回授权', 
   assert.ok(preSync < postSync && postSync < reviewGate && reviewGate < archive, 'contract checks must precede review, and review must precede archive');
 });
 
+test('task-finish 核对并报告最终 Candidate timing evidence', () => {
+  for (const required of [
+    'buildr.verification-timing/v1',
+    '`run.kind: candidate`',
+    '`source.repositoryRoot`',
+    '`source.productRoot`',
+    '`source.head`',
+    '`source.candidateFingerprint`',
+    'Changed 或 Focus summary 不能替代 Candidate',
+    '不把并行 step duration 相加推算 wall-clock',
+    '完整验证总耗时',
+    '预算状态',
+    '最慢阶段及其耗时',
+    '失败阶段',
+    'summary 绝对路径',
+  ]) assert.ok(finishSkill.includes(required), `task-finish must include ${required}`);
+});
+
 test('证据胶囊支持 worktree 清理后继续核查并标记 session 限制', () => {
   assertIds(fixtures.postCloseoutCases, ['worktree-removed', 'session-only-evidence']);
   for (const required of [

@@ -5,12 +5,19 @@ import path from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { runVerificationBatch, runVerificationStep } from '../../tools/verification/timing/parallel-runner.mjs';
 import { candidateStepBudget } from '../../tools/verification/timing/budgets.mjs';
+import {
+  collectVerificationSourceIdentity,
+  createVerificationEvidencePaths,
+  formatVerificationTimingSummary,
+  validateVerificationTimingEvidence,
+} from '../../tools/verification/timing/evidence.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const reporter = path.join(productRoot, 'tools', 'verification', 'timing', 'report.mjs');
+const summaryVerifier = path.join(productRoot, 'tools', 'verification', 'timing', 'verify-summary.mjs');
 
 test('verification timing reporter emits a versioned machine-readable summary', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-timing-'));
@@ -24,10 +31,14 @@ test('verification timing reporter emits a versioned machine-readable summary', 
     fs.writeFileSync(input, `unit tests\tpassed\t0\t125\t\t\t\nWorkspace E2E: runtime reconciliation\tfailed\t1\t375\t300\t${stdoutPath}\t${stderrPath}\n`);
     const result = spawnSync(process.execPath, [reporter, input, output, 'failed', '500', diagnostics, '450'], { encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(JSON.parse(fs.readFileSync(output, 'utf8')), {
-      schemaVersion: 'buildr.verification-timing/v1',
-      status: 'failed',
-      steps: [
+    const summary = JSON.parse(fs.readFileSync(output, 'utf8'));
+    assert.equal(summary.schemaVersion, 'buildr.verification-timing/v1');
+    assert.equal(summary.status, 'failed');
+    assert.equal(summary.run.kind, 'candidate');
+    assert.match(summary.run.id, /^candidate-report-/);
+    assert.equal(summary.source.productRoot, productRoot);
+    assert.match(summary.source.candidateFingerprint, /^sha256-[a-f0-9]{64}$/);
+    assert.deepEqual(summary.steps, [
         { name: 'unit tests', status: 'passed', exitCode: 0, durationMs: 125 },
         {
           name: 'Workspace E2E: runtime reconciliation',
@@ -39,18 +50,124 @@ test('verification timing reporter emits a versioned machine-readable summary', 
           stdoutPath,
           stderrPath,
         },
-      ],
-      totalDurationMs: 500,
-      environment: {
-        nodeVersion: process.version,
-        platform: process.platform,
-        arch: process.arch,
-        ci: process.env.CI === 'true',
-      },
-      budgetMs: 450,
-      budgetStatus: 'over',
-      diagnosticsDirectory: diagnostics,
+      ]);
+    assert.equal(summary.totalDurationMs, 500);
+    assert.deepEqual(summary.environment, {
+      nodeVersion: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      ci: process.env.CI === 'true',
     });
+    assert.equal(summary.budgetMs, 450);
+    assert.equal(summary.budgetStatus, 'over');
+    assert.equal(summary.diagnosticsDirectory, diagnostics);
+    assert.equal(summary.summaryPath, output);
+    assert.match(result.stdout, /timing: total=0\.500s budget=over\/0\.450s/);
+    assert.match(result.stdout, /slowest: Workspace E2E: runtime reconciliation \(0\.375s\)/);
+    assert.match(result.stdout, /failed: Workspace E2E: runtime reconciliation \(1\)/);
+    assert.match(result.stdout, new RegExp(`timing summary: ${output.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    const verified = spawnSync(process.execPath, [summaryVerifier, output, productRoot, 'candidate'], { encoding: 'utf8' });
+    assert.equal(verified.status, 1);
+    assert.deepEqual(JSON.parse(verified.stdout).findings.map((finding) => finding.code), ['status.not_passed']);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('timing summary verifier rejects source identity drift', () => {
+  const currentSource = collectVerificationSourceIdentity(productRoot);
+  const summary = {
+    schemaVersion: 'buildr.verification-timing/v1',
+    status: 'passed',
+    run: { kind: 'candidate' },
+    source: { ...currentSource, candidateFingerprint: 'sha256-stale' },
+  };
+  const result = validateVerificationTimingEvidence(summary, currentSource);
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.findings.map((finding) => finding.code), ['source.candidateFingerprint_mismatch']);
+});
+
+test('default verification evidence paths are run-scoped while explicit paths remain supported', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-evidence-paths-'));
+  try {
+    const first = createVerificationEvidencePaths('candidate', { temporaryRoot: root, env: {} });
+    const second = createVerificationEvidencePaths('candidate', { temporaryRoot: root, env: {} });
+    assert.notEqual(first.runId, second.runId);
+    assert.notEqual(first.evidenceDirectory, second.evidenceDirectory);
+    assert.equal(first.timingOutput, path.join(first.evidenceDirectory, 'timing.json'));
+    assert.equal(first.diagnosticsOutput, path.join(first.evidenceDirectory, 'diagnostics'));
+
+    const explicitOutput = path.join(root, 'ci', 'summary.json');
+    const explicitDiagnostics = path.join(root, 'ci', 'logs');
+    const explicit = createVerificationEvidencePaths('candidate', {
+      temporaryRoot: root,
+      env: { BUILDR_TIMING_OUTPUT: explicitOutput, BUILDR_DIAGNOSTICS_OUTPUT: explicitDiagnostics },
+    });
+    assert.equal(explicit.timingOutput, explicitOutput);
+    assert.equal(explicit.diagnosticsOutput, explicitDiagnostics);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('source identity distinguishes dirty candidates sharing the same HEAD', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-source-identity-'));
+  try {
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'buildr-test@example.com'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'Buildr Test'], { cwd: root });
+    fs.mkdirSync(path.join(root, 'product'));
+    fs.writeFileSync(path.join(root, 'product', 'tracked.txt'), 'baseline\n');
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync('git', ['commit', '--quiet', '-m', 'fixture'], { cwd: root });
+
+    const clean = collectVerificationSourceIdentity(path.join(root, 'product'));
+    fs.writeFileSync(path.join(root, 'product', 'untracked.txt'), 'candidate one\n');
+    const first = collectVerificationSourceIdentity(path.join(root, 'product'));
+    fs.writeFileSync(path.join(root, 'product', 'untracked.txt'), 'candidate two\n');
+    const second = collectVerificationSourceIdentity(path.join(root, 'product'));
+    assert.equal(clean.dirty, false);
+    assert.equal(first.dirty, true);
+    assert.equal(first.head, second.head);
+    assert.notEqual(clean.candidateFingerprint, first.candidateFingerprint);
+    assert.notEqual(first.candidateFingerprint, second.candidateFingerprint);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('timing formatter reports successful runs without a failed stage', () => {
+  assert.deepEqual(formatVerificationTimingSummary({
+    totalDurationMs: 250,
+    steps: [{ name: 'unit', status: 'passed', exitCode: 0, durationMs: 200 }],
+    summaryPath: '/tmp/timing.json',
+  }, 'verify-changed'), [
+    '[verify-changed] timing: total=0.250s',
+    '[verify-changed] slowest: unit (0.200s)',
+    '[verify-changed] failed: none',
+    '[verify-changed] timing summary: /tmp/timing.json',
+  ]);
+});
+
+test('changed verification writes a persistent run-level timing summary', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-changed-timing-'));
+  try {
+    const timingOutput = path.join(root, 'timing.json');
+    const diagnosticsOutput = path.join(root, 'diagnostics');
+    const result = spawnSync(process.execPath, [path.join(productRoot, 'tools', 'verification', 'changed.mjs'), 'docs/buildr-product.md'], {
+      cwd: productRoot,
+      encoding: 'utf8',
+      env: { ...process.env, BUILDR_TIMING_OUTPUT: timingOutput, BUILDR_DIAGNOSTICS_OUTPUT: diagnosticsOutput },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const summary = JSON.parse(fs.readFileSync(timingOutput, 'utf8'));
+    assert.equal(summary.status, 'passed');
+    assert.equal(summary.run.kind, 'changed');
+    assert.equal(summary.source.productRoot, productRoot);
+    assert.ok(summary.steps.length > 0);
+    assert.ok(fs.existsSync(diagnosticsOutput));
+    assert.match(result.stdout, /\[verify-changed\] timing: total=/);
+    assert.match(result.stdout, /\[verify-changed\] failed: none/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

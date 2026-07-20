@@ -3,6 +3,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+import {
+  collectVerificationSourceIdentity,
+  createVerificationRunId,
+  writeVerificationTimingEvidence,
+} from './evidence.mjs';
 
 const [inputFile, outputFile, overallStatus, totalDuration, diagnosticsDirectory, totalBudget] = process.argv.slice(2);
 if (!inputFile || !outputFile || !overallStatus || totalDuration === undefined) {
@@ -27,29 +33,20 @@ function parseTimingFile(file) {
 const steps = fs.existsSync(inputFile)
   ? parseTimingFile(inputFile)
   : [];
-const summary = {
-  schemaVersion: 'buildr.verification-timing/v1',
+const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const finishedAt = Date.now();
+writeVerificationTimingEvidence({
+  kind: 'candidate',
+  runId: createVerificationRunId('candidate-report'),
+  source: collectVerificationSourceIdentity(productRoot),
   status: overallStatus,
-  steps,
-  totalDurationMs: Number(totalDuration),
-  environment: {
-    nodeVersion: process.version,
-    platform: process.platform,
-    arch: process.arch,
-    ci: process.env.CI === 'true',
-  },
-};
-if (totalBudget) {
-  summary.budgetMs = Number(totalBudget);
-  summary.budgetStatus = summary.totalDurationMs <= summary.budgetMs ? 'within' : 'over';
-}
-if (diagnosticsDirectory && fs.existsSync(diagnosticsDirectory)) {
-  summary.diagnosticsDirectory = path.resolve(diagnosticsDirectory);
-}
-fs.mkdirSync(path.dirname(path.resolve(outputFile)), { recursive: true });
-fs.writeFileSync(outputFile, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
-console.log(`[verify-product] timing summary: ${path.resolve(outputFile)}`);
-for (const step of steps.filter((item) => item.budgetStatus === 'over')) {
-  console.warn(`[verify-product] warning: ${step.name} exceeded ${step.budgetMs} ms target budget.`);
-}
-if (summary.budgetStatus === 'over') console.warn(`[verify-product] warning: candidate exceeded ${summary.budgetMs} ms target budget.`);
+  results: steps,
+  startedAt: finishedAt - Number(totalDuration),
+  finishedAt,
+  timingOutput: outputFile,
+  totalBudgetMs: totalBudget ? Number(totalBudget) : undefined,
+  diagnosticsDirectory,
+  prefix: 'verify-product',
+  stream: process.stdout,
+  errorStream: process.stderr,
+});

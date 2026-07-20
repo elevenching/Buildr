@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { collectChangedProductPaths } from './changed-paths.mjs';
 import { createVerificationPlan } from './planner.mjs';
 import { executePlan, printPlan } from './plan-runner.mjs';
+import { collectVerificationSourceIdentity, createVerificationEvidencePaths, writeVerificationTimingEvidence } from './timing/evidence.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -33,7 +34,11 @@ function parseArgs(args) {
   return result;
 }
 
-let temporaryRoot;
+let executionRoot;
+let evidence;
+let results = [];
+let totalStartedAt;
+let source;
 try {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
@@ -49,12 +54,31 @@ try {
     } else if (plan.steps.length === 0) {
       process.stdout.write('No Product verification steps selected.\n');
     } else {
-      temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-changed-verification-'));
+      executionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-changed-verification-'));
+      evidence = createVerificationEvidencePaths('changed');
+      totalStartedAt = Date.now();
+      source = collectVerificationSourceIdentity(productRoot);
+      fs.rmSync(evidence.diagnosticsOutput, { recursive: true, force: true });
+      fs.mkdirSync(evidence.diagnosticsOutput, { recursive: true });
       const execution = await executePlan(plan, {
         productRoot,
-        diagnosticsDirectory: path.join(temporaryRoot, 'diagnostics'),
-        artifactDirectory: path.join(temporaryRoot, 'candidate-package'),
+        diagnosticsDirectory: evidence.diagnosticsOutput,
+        artifactDirectory: path.join(executionRoot, 'candidate-package'),
         env: { BUILDR_CHANGED_PATHS_JSON: JSON.stringify(changed.paths) },
+        stream: process.stdout,
+        errorStream: process.stderr,
+      });
+      results = execution.results;
+      writeVerificationTimingEvidence({
+        ...evidence,
+        kind: 'changed',
+        source,
+        status: execution.passed ? 'passed' : 'failed',
+        results,
+        startedAt: totalStartedAt,
+        finishedAt: Date.now(),
+        diagnosticsDirectory: evidence.diagnosticsOutput,
+        prefix: 'verify-changed',
         stream: process.stdout,
         errorStream: process.stderr,
       });
@@ -64,8 +88,25 @@ try {
   }
 } catch (error) {
   process.stderr.write(`${error.message}\n`);
+  if (evidence && source && totalStartedAt && !fs.existsSync(evidence.timingOutput)) {
+    try {
+      writeVerificationTimingEvidence({
+        ...evidence,
+        kind: 'changed',
+        source,
+        status: 'failed',
+        results,
+        startedAt: totalStartedAt,
+        finishedAt: Date.now(),
+        diagnosticsDirectory: evidence.diagnosticsOutput,
+        prefix: 'verify-changed',
+        stream: process.stdout,
+        errorStream: process.stderr,
+      });
+    } catch {}
+  }
   usage(process.stderr);
   process.exitCode = 2;
 } finally {
-  if (temporaryRoot) fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  if (executionRoot) fs.rmSync(executionRoot, { recursive: true, force: true });
 }

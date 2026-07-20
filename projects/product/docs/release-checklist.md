@@ -107,11 +107,11 @@ npm run test:focus -- ownership-recovery runtime-reconciliation
 npm run test:candidate
 ```
 
-完整产品验证会把每个阶段和总耗时写入 `BUILDR_TIMING_OUTPUT` 指定的 JSON 文件（默认写入系统临时目录），CI 总是上传该文件。每个 step 的 stdout/stderr 写入 `BUILDR_DIAGNOSTICS_OUTPUT`，summary 记录日志路径以及 Node、平台、架构和 CI 环境；CI 在失败时上传 diagnostics。Workspace E2E 直接运行失败时默认保留失败 fixture 并打印位置，成功时清理；需要主动保留成功 fixture 时可设置 `BUILDR_WORKSPACE_E2E_KEEP=1`。
+完整产品验证会把每个阶段和总耗时写入 `BUILDR_TIMING_OUTPUT` 指定的 JSON 文件；未显式指定时，每次 Candidate/Changed run 都在系统临时目录创建唯一 evidence 目录，其中包含 `timing.json` 和持久 diagnostics，结束时直接打印绝对路径，不维护可被并发覆盖的固定 `latest` 文件。显式设置 `BUILDR_TIMING_OUTPUT` / `BUILDR_DIAGNOSTICS_OUTPUT` 时由调用方保证路径唯一，CI 总是上传这些证据。summary 记录 run kind/id、来源仓库与 Product root、HEAD、branch、dirty、候选 fingerprint、每个 step 日志路径以及 Node、平台、架构和 CI 环境。Workspace E2E 直接运行失败时默认保留失败 fixture 并打印位置，成功时清理；需要主动保留成功 fixture 时可设置 `BUILDR_WORKSPACE_E2E_KEEP=1`。
 
 Candidate 总耗时、Workspace E2E suites 和已识别的高耗时专项阶段声明目标预算；summary 使用 `budgetMs` / `budgetStatus` 标记目标内或超预算，超预算只输出 warning。0.1 不因环境波动或单纯超出目标预算阻塞发布。
 
-完成报告必须读取 timing summary，并说明总耗时、最慢阶段、失败阶段（如有）和 summary 路径。
+完成报告必须读取最终 Candidate 命令打印的 timing summary，核对 status、run kind 和 source identity 与最终候选一致，并说明总耗时、预算状态、最慢阶段、失败阶段（成功时为 none）和 summary 路径；Changed/Focus summary 不得替代 Candidate，也不得把并行 step duration 相加推算整体 wall-clock。
 
 验证层级、旧 MVP 覆盖迁移与必要交叉以 [验证覆盖职责矩阵](verification-ownership.md) 为维护依据；发现重复时先确认主 owner，再迁移或删除断言。
 
