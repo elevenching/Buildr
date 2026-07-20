@@ -33,7 +33,20 @@ export function createVerificationEvidencePaths(kind, options = {}) {
     : env.BUILDR_TIMING_OUTPUT
       ? timingOutput.replace(/\.json$/, '') + '-diagnostics'
       : path.join(evidenceDirectory, 'diagnostics');
-  return { runId, evidenceDirectory, timingOutput, diagnosticsOutput };
+  const providerManaged = !env.BUILDR_TIMING_OUTPUT;
+  const evidenceLifecycle = providerManaged
+    ? {
+        evidenceRetention: 'transient',
+        cleanupAfter: 'consumer-finished',
+        cleanupStatus: 'retained',
+        cleanupReference: evidenceDirectory,
+      }
+    : {
+        evidenceRetention: 'caller-managed',
+        cleanupAfter: 'caller-policy',
+        cleanupStatus: 'not-applicable',
+      };
+  return { runId, evidenceDirectory, timingOutput, diagnosticsOutput, evidenceLifecycle };
 }
 
 export function collectVerificationSourceIdentity(productRoot) {
@@ -107,6 +120,7 @@ export function createVerificationTimingSummary(options) {
       ...(options.schedulingMode ? { schedulingMode: options.schedulingMode } : {}),
     },
     summaryPath: path.resolve(options.timingOutput),
+    ...(options.evidenceLifecycle ? { evidenceLifecycle: options.evidenceLifecycle } : {}),
   };
   if (options.totalBudgetMs != null) {
     summary.budgetMs = Number(options.totalBudgetMs);
@@ -126,12 +140,47 @@ export function formatVerificationTimingSummary(summary, prefix = 'verify') {
   const slowest = [...summary.steps].sort((left, right) => right.durationMs - left.durationMs)[0] ?? null;
   const failed = summary.steps.filter((step) => step.status === 'failed');
   const budget = summary.budgetStatus ? ` budget=${summary.budgetStatus}/${seconds(summary.budgetMs)}` : '';
-  return [
+  const lines = [
     `[${prefix}] timing: total=${seconds(summary.totalDurationMs)}${budget}`,
     `[${prefix}] slowest: ${slowest ? `${slowest.name} (${seconds(slowest.durationMs)})` : 'none'}`,
     `[${prefix}] failed: ${failed.length > 0 ? failed.map((step) => `${step.name} (${step.exitCode})`).join(', ') : 'none'}`,
     `[${prefix}] timing summary: ${summary.summaryPath}`,
   ];
+  if (summary.evidenceLifecycle) {
+    lines.push(`[${prefix}] evidence: retention=${summary.evidenceLifecycle.evidenceRetention} cleanup=${summary.evidenceLifecycle.cleanupStatus} after=${summary.evidenceLifecycle.cleanupAfter}`);
+  }
+  return lines;
+}
+
+export function cleanupVerificationTimingEvidence(summary, options = {}) {
+  const lifecycle = summary?.evidenceLifecycle;
+  if (lifecycle?.evidenceRetention !== 'transient') {
+    return { ok: false, status: 'retained', code: 'retention.not_transient', message: 'Evidence is not provider-managed transient data.' };
+  }
+  if (lifecycle.cleanupStatus !== 'retained') {
+    return { ok: false, status: lifecycle.cleanupStatus, code: 'cleanup.not_retained', message: 'Evidence is not in retained state.' };
+  }
+  const temporaryRoot = path.resolve(options.temporaryRoot ?? os.tmpdir());
+  const cleanupReference = path.resolve(lifecycle.cleanupReference ?? '');
+  const summaryPath = path.resolve(summary.summaryPath ?? '');
+  const expectedPrefix = `buildr-${summary?.run?.kind}-evidence-`;
+  const relative = path.relative(temporaryRoot, cleanupReference);
+  const safeBoundary = relative && !relative.startsWith('..') && !path.isAbsolute(relative)
+    && path.basename(cleanupReference).startsWith(expectedPrefix)
+    && path.dirname(summaryPath) === cleanupReference
+    && path.basename(summaryPath) === 'timing.json';
+  if (!safeBoundary) {
+    return { ok: false, status: 'retained', code: 'cleanup.boundary_invalid', message: 'Cleanup reference is outside the owned transient run boundary.' };
+  }
+  if (!fs.existsSync(cleanupReference)) {
+    return { ok: true, status: 'cleaned', code: 'cleanup.already_absent', cleanupReference };
+  }
+  const stat = fs.lstatSync(cleanupReference);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    return { ok: false, status: 'retained', code: 'cleanup.target_invalid', message: 'Cleanup reference is not an owned directory.' };
+  }
+  fs.rmSync(cleanupReference, { recursive: true, force: false });
+  return { ok: true, status: 'cleaned', code: 'cleanup.removed', cleanupReference };
 }
 
 export function validateVerificationTimingEvidence(summary, currentSource, expectedKind = 'candidate') {

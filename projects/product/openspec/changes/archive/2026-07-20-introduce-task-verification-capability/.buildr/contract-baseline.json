@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "introduce-task-verification-capability",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-a5042422323b4bc1b686434f0ed12954e4c1025375e50245b522b2ecfec4921d",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "Task worktree 提供 change 单写入与验证证据边界",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Task worktree 提供 change 单写入与验证证据边界\nBuildr task-worktree 和 git-ops guidance MUST 在创建预计进入实现的 OpenSpec change 前完成 worktree 决策，并在采用 worktree 后保持唯一任务写入位置与可复用的最终候选 tree 验证证据。\n\n#### Scenario: 实现型 change 在 propose 前创建 worktree\n- **WHEN** task triage 选择 change-flow，且任务预计包含代码修改、构建、测试或长期实现上下文\n- **THEN** Agent MUST 在创建 OpenSpec change artifacts 前创建或复用 canonical task worktree\n- **AND** proposal、design、specs、tasks、实现和候选验证 MUST 只写入该 worktree\n\n#### Scenario: 纯元内容任务不创建 worktree\n- **WHEN** 任务明确只维护 OpenSpec artifacts、规则、Skills、文档或模板，且不进入代码实现、构建或测试\n- **THEN** Agent MAY 在当前 workspace 直接维护这些元内容\n- **AND** Agent MUST 在任务升级为实现前重新执行 worktree 决策\n\n#### Scenario: artifacts 任务升级为实现\n- **WHEN** 未使用 worktree 的 OpenSpec 任务后来需要代码实现、构建或测试\n- **THEN** Agent MUST 先创建或复用 task worktree 并将 change artifacts 收敛到该唯一位置\n- **AND** Agent MUST 清除原工作区的重复副本并确认主工作区没有该任务的开发改动后再继续\n\n#### Scenario: 最终候选 tree 已完成验证\n- **WHEN** worktree 中准备集成的最终候选 Git tree 已完成项目要求的完整验证\n- **THEN** 后续 commit、保持相同 tree 的集成、push 和 worktree 清理 MUST 复用该验证证据\n- **AND** Agent MUST NOT 仅因 checkout 切换到主开发分支而重复运行相同产品 E2E\n\n#### Scenario: 集成前候选 tree 发生变化\n- **WHEN** rebase、冲突解决、后续编辑或其他操作使准备集成的 Git tree 不同于已验证 tree\n- **THEN** 原验证证据 MUST 失效\n- **AND** Agent MUST 在集成前对新 tree 重新运行受影响的验证\n"
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "Task Finish 自动编排已验证任务收尾",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Task Finish 自动编排已验证任务收尾\nBuildr MUST 提供实现 `buildr.task-finish/v1` 的 `task-finish` 默认 workspace Skill，将用户当前轮次明确的“收尾”意图作为受限的一次性授权，并通过绑定的 `buildr.task-worktree-lifecycle/v1` 和 `buildr.git-task-integration/v1` providers 自动完成可安全确定的剩余任务动作。\n\n#### Scenario: 收尾前置检查\n- **WHEN** 用户在 canonical task worktree 中要求收尾\n- **THEN** Agent MUST 解析当前 task/change、仓库边界、目标分支、远端、工作区改动、验证状态和已绑定 worktree-lifecycle/task-integration providers\n- **AND** Agent MUST 在 Git 写操作前披露两个 provider identities、实际集成/清理策略、提交范围、目标分支、远端和清理范围\n- **AND** 存在无关 dirty changes、多个无法消歧的 change/目标分支、required provider readiness 为 `blocked` 或不可信验证状态时，Agent MUST 在破坏性动作前停止\n\n#### Scenario: 完成 OpenSpec 归档\n- **WHEN** 当前任务包含 artifacts 和 tasks 均完成的 active OpenSpec change\n- **THEN** Task Finish MUST 默认同步 delta specs 并归档 change\n- **AND** Task Finish MUST 通过外部可用的 OpenSpec CLI/Skills 完成该步骤，不修改外部 `openspec-*` Skill 源\n\n#### Scenario: 归档后规范 EOF 空白行\n- **WHEN** OpenSpec archive 或 specs sync 后 `git diff --check` 仅报告本次修改的 OpenSpec Markdown 文件存在 `new blank line at EOF`\n- **THEN** Task Finish MUST 将这些文件规范为恰好一个结尾换行\n- **AND** Task Finish MUST 重新运行 `git diff --check` 和 OpenSpec strict validation\n\n#### Scenario: 归档后存在其他格式问题\n- **WHEN** `git diff --check` 报告非 EOF 空白行、非 OpenSpec 文件或无法确认来源的问题\n- **THEN** Task Finish MUST 停止自动修复\n- **AND** Agent MUST 报告问题并等待用户决定\n\n#### Scenario: 收尾授权覆盖 provider 声明的常规动作\n- **WHEN** 前置检查、所需验证和归档相关检查通过\n- **THEN** 用户的“收尾” MUST 授权提交当前任务范围、调用已绑定 task-integration provider 完成其 contract 与执行前披露中声明的常规集成动作、推送已确认目标分支，以及删除已安全合入的本地 worktree 和本地任务分支\n- **AND** Task Finish MUST 遵循 provider contract 的前置条件、授权类别、tree-change semantics、结果证据和失败行为\n- **AND** Task Finish MUST NOT 复制或覆盖 provider 对 rebase、fast-forward 或 merge 的具体 policy\n\n#### Scenario: 默认 Git provider 保持现有集成策略\n- **WHEN** `git-ops` 是已绑定的 `buildr.git-task-integration/v1` provider\n- **THEN** 默认 task integration MUST 继续使用无语义冲突的必要 rebase 和 fast-forward-only 集成\n- **AND** 默认 provider MUST NOT 创建 merge commit，除非用户对该具体动作另行明确授权\n\n#### Scenario: Tree 未改变时复用验证\n- **WHEN** commit、provider integration、push 或 cleanup 后的候选 Git tree 与已验证 tree 相同\n- **THEN** Task Finish MUST 复用已有验证证据\n- **AND** Task Finish MUST NOT 在主开发分支重复运行相同产品 E2E\n\n#### Scenario: Tree 改变时重新验证\n- **WHEN** provider integration、冲突解决或其他步骤使候选 Git tree 不同于已验证 tree\n- **THEN** Task Finish MUST 在集成前重新运行受影响的验证\n- **AND** 新验证失败时 MUST 停止尚未执行的 integrate、push 和 cleanup\n\n#### Scenario: 默认收尾授权的固定排除项\n- **WHEN** 收尾需要 force push、删除远端任务分支、丢弃改动、改写共享分支历史或解决语义冲突\n- **THEN** “收尾” MUST NOT 授权这些动作\n- **AND** Agent MUST 停止并取得用户对具体动作的明确授权或决策\n- **AND** merge commit 是否属于常规动作 MUST 由已绑定 provider contract 和执行前披露决定，不得由 Task Finish 全局固定\n\n#### Scenario: Optional 资产审查 provider 缺失\n- **WHEN** `buildr.task-asset-review/v1` optional dependency 未绑定\n- **THEN** Task Finish MUST 跳过资产审查阶段并明确记录该降级\n- **AND** 收尾的其他 required 阶段 MUST 继续执行\n\n#### Scenario: 安全清理 task worktree\n- **WHEN** 目标分支已包含任务提交、远端目标分支已推送且 task worktree 干净\n- **THEN** Task Finish MUST 调用已绑定 worktree-lifecycle provider 确认 cleanup preconditions 和本机入口迁移要求\n- **AND** Task Finish MUST 按 provider contract 从保留的 workspace 执行本地 worktree 和本地任务分支清理\n- **AND** Task Finish MUST 检查清理后的 worktree 列表和仓库状态\n"
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "Task Finish 必须报告可信的完整验证 timing 证据",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Task Finish 必须报告可信的完整验证 timing 证据\nBuildr `task-finish` MUST 消费最终完整 Candidate verification 的 timing summary，并将其作为收尾 Result Evidence 的一部分。\n\n#### Scenario: 最终 Candidate 验证成功\n- **WHEN** `task-finish` 使用当前候选 tree 的成功 Candidate 验证作为收尾证据\n- **THEN** `task-finish` MUST 从验证输出读取 timing summary 路径并解析 summary\n- **AND** MUST 核对 summary status、run kind 和 source identity 与当前 worktree/候选证据一致\n- **AND** 最终收尾报告 MUST 说明总耗时、最慢阶段、失败阶段（成功时为无）和 summary 路径\n\n#### Scenario: timing summary 不可信\n- **WHEN** summary 缺失、不可读、已被其他 run 覆盖或 source identity 无法匹配当前候选\n- **THEN** `task-finish` MUST NOT 引用其他 run 的耗时或根据并行 step 耗时推算整体 wall-clock\n- **AND** 在仍可安全重跑完整验证时 MUST 重新生成可信 Candidate timing evidence\n- **AND** 无法重跑时 MUST 将 timing evidence 缺口作为剩余风险如实报告\n\n#### Scenario: 只有 Changed timing\n- **WHEN** 当前任务只有 Changed verification timing 而没有可信的最终 Candidate timing\n- **THEN** `task-finish` MUST NOT 将 Changed summary 表述为完整 Candidate 验证耗时\n"
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "实现任务采用分层验证门禁",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 实现任务采用分层验证门禁\nBuildr 任务流程 Skills MUST 将实现期间的验证分为单任务最小反馈、任务组受影响范围验证和最终候选完整验证，并 MUST 防止同一候选状态重复执行已被上层入口覆盖的检查。\n\n#### Scenario: 单任务只做最小反馈检查\n- **WHEN** Agent 完成任务组内的一个实现任务且没有跨越高风险边界\n- **THEN** Agent MUST 只运行语法、类型或与该任务直接相关的小范围检查\n- **AND** Agent MUST NOT 默认运行当前 workspace 或 Project 定义的完整验证入口\n\n#### Scenario: Workspace 定义具体验证入口\n- **WHEN** Buildr 将任务流程 Skills 交付到用户 workspace\n- **THEN** Skills MUST 使用通用的最小反馈、受影响范围和完整验证语义\n- **AND** 具体检查命令 MUST 由当前 workspace 或 Project 的规则、OpenSpec 或开发文档定义\n- **AND** Skills MUST NOT 将 Buildr 产品仓的 package check、临时 workspace E2E 或产品总验证命令规定为所有项目的固定入口\n\n#### Scenario: 任务组边界集中验证\n- **WHEN** 一组共享实现区域、验证入口或失败影响面的任务全部完成\n- **THEN** Agent MUST 对该任务组运行一次受影响范围验证\n- **AND** Agent MUST NOT 为组内每个任务机械重复同一专项检查\n\n#### Scenario: 最终候选冻结后完整验证\n- **WHEN** 计划中的实现、自然语言资产、生成资产同步和 review 修订均已完成\n- **THEN** Agent MUST 将当前状态视为最终候选并运行一次完整验证\n- **AND** 完整验证通过后相同 tree 的 commit、集成、push 和清理 MUST 复用该证据\n\n#### Scenario: 上层入口覆盖底层检查\n- **WHEN** Agent 能够证明即将运行的上层验证入口包含某个底层检查\n- **THEN** Agent MUST NOT 在同一候选状态中先后单独重复运行该底层检查\n- **AND** 无法证明覆盖关系时 Agent MUST 保留必要检查\n\n#### Scenario: 运行中验证复用进程\n- **WHEN** 验证命令返回 session、cell、process id 或仍在运行状态\n- **THEN** Agent MUST 使用 wait、poll 或 resume 继续同一进程\n- **AND** 暂时没有新输出 MUST NOT 触发相同命令的重复启动\n\n#### Scenario: 完整验证失败后的修复循环\n- **WHEN** 最终完整验证失败且 Agent 正在修复失败原因\n- **THEN** Agent MUST 优先重跑失败项和受修复影响的专项检查\n- **AND** 候选重新稳定后 Agent MUST 再执行一次最终完整验证\n\n#### Scenario: OpenSpec tasks 表达验证阶段\n- **WHEN** Agent 为实现型 change 编写或调整任务清单\n- **THEN** tasks MUST 将实现工作组织为有语义的任务组\n- **AND** tasks MUST 将任务组专项验证置于对应实现之后\n- **AND** tasks MUST 将完整候选验证置于所有实现、文档、同步和 review 修订之后\n"
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "内置任务 Skills 按 capability contract 协作",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 内置任务 Skills 按 capability contract 协作\nBuildr 内置任务 Skills MUST 依赖 capability contracts 而不是硬编码其他 optional Skill identity，并 MUST 将 provider policy 保留在 provider 中。\n\n#### Scenario: Task Finish 依赖 Git 集成能力\n- **WHEN** Buildr 声明 `task-finish` builtin\n- **THEN** its manifest entry MUST require `buildr.git-task-integration/v1` with `mode: required`\n- **AND** its manifest entry MUST require `buildr.task-worktree-lifecycle/v1` with `mode: required`\n- **AND** `task-finish` source MUST NOT 复制默认 Git provider 的 rebase、fast-forward 或 merge policy\n- **AND** `task-finish` source MUST NOT 复制 worktree provider 的 placement、retention 或 cleanup policy\n\n#### Scenario: Task Worktree 不依赖 Git provider identity\n- **WHEN** `task-worktree` 创建、检查或清理 Git worktree\n- **THEN** it MUST own worktree placement、retention 和 cleanup through `buildr.task-worktree-lifecycle/v1`\n- **AND** it MUST directly follow the required Core workspace-transition invariant after changing a checkout\n- **AND** it MUST NOT require `git-ops` or `buildr.git-single-operation/v1` only to reuse that invariant\n\n#### Scenario: 替换默认 Git provider\n- **WHEN** workspace binds compatible internal providers for the Git capabilities consumed by task workflows\n- **THEN** `task-finish` MUST cooperate with the task-integration provider without requiring the `git-ops` Skill id\n- **AND** `task-worktree` MUST remain independent of `git-ops`\n- **AND** uninstalling `git-ops` MUST NOT break those consumers while Task Finish 的 required bindings remain compatible and ready\n\n#### Scenario: 替换默认 Worktree provider\n- **WHEN** workspace or Project binds an internal provider for `buildr.task-worktree-lifecycle/v1`\n- **THEN** product routing and `task-finish` MUST use that provider without requiring the `task-worktree` Skill id\n- **AND** uninstalling `task-worktree` MUST NOT break Task Finish while the replacement binding remains ready\n"
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "随包任务验证能力保持完整可组合",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "产品入口按 capability 路由用户意图",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品入口按 capability 路由用户意图\n产品入口 Buildr Skill MUST 将跨 Skill 用户意图路由到已解析 capability provider，并 MUST NOT 把 builtin Skill id 当作不可替换入口；尚未声明 capability contract 的当前 builtin MUST 使用无歧义的当前 identity routing，并 MUST 将 legacy 名称意图收敛到当前入口。\n\n#### Scenario: 完整 sync 注入 routing evidence\n- **WHEN** `buildr sync <agent>` 在已初始化 workspace 中同时投射产品入口 Buildr Skill 和 workspace Skills\n- **THEN** runtime Buildr Skill MUST 包含按适用 Project context 分组的受管 capability routing evidence\n- **AND** evidence MUST 记录 contract、selected provider、provider runtime path、readiness、reason、contract digest 和 provenance\n\n#### Scenario: Routing evidence 已陈旧\n- **WHEN** existing runtime projection check 发现当前 scope/runtime 的 capability routing evidence 与重新解析结果不一致\n- **THEN** evidence MUST 被标记为 stale\n- **AND** 产品入口 Buildr Skill MUST 使用当前 workspace doctor 取得最新 capability graph 后再路由\n- **AND** Agent MUST NOT 因存在旧 evidence 而继续使用已卸载或已改绑 provider\n- **AND** Buildr MUST reuse the existing managed runtime content hash rather than introduce a separate graph digest protocol\n\n#### Scenario: 独立 Skill install 没有当前 binding evidence\n- **WHEN** 产品入口 Buildr Skill 由独立 `buildr skill install <agent>` 安装，或现有 routing evidence 不适用于当前 scope\n- **THEN** Buildr Skill MUST NOT 猜测 builtin provider 或依赖静态 Skill id\n- **AND** 在已初始化 workspace 中 MUST 使用当前 workspace doctor 的 capability graph 解析 provider 后再路由\n- **AND** v1 MUST NOT 为此新增独立 capability dispatch CLI\n\n#### Scenario: 路由单项 Git 意图\n- **WHEN** 用户通过产品入口表达明确单项 Git 意图\n- **THEN** Buildr Skill MUST route it to the bound `buildr.git-single-operation/v1` provider\n- **AND** runtime routing evidence or current doctor result MUST identify the selected provider and scope\n\n#### Scenario: 路由任务工作流意图\n- **WHEN** 用户表达 worktree、完整收尾或资产审查意图\n- **THEN** Buildr Skill MUST route to the bound `buildr.task-worktree-lifecycle/v1`、`buildr.task-finish/v1` or `buildr.task-asset-review/v1` provider as applicable\n- **AND** Buildr Skill MUST honor blocked and degraded semantics\n\n#### Scenario: 用户替换 builtin provider\n- **WHEN** a workspace or Project binding selects an internal Skill with a different id\n- **THEN** Buildr Skill MUST route to that provider without requiring an identically named builtin\n- **AND** provider substitution MUST survive update、sync and runtime render\n\n#### Scenario: 未进入 capability contracts 的当前 builtin\n- **WHEN** 用户意图路由到 `task-triage`、`task-board` 或其他尚未声明 capability contract 的当前 builtin\n- **THEN** 产品入口 Buildr Skill MUST 使用当前 identity routing\n- **AND** Buildr MUST NOT 声称该 builtin 已支持透明 provider substitution\n\n#### Scenario: 旧任务驾驶舱意图路由到当前入口\n- **WHEN** 用户仍使用“任务驾驶舱”或 `task-cockpit` 表达复杂任务可视化意图\n- **THEN** 产品入口 Buildr Skill MUST 路由到 `task-board`\n- **AND** runtime discovery MUST NOT 同时提供可被误选的受管 `task-cockpit` 入口\n"
+    },
+    {
+      "capability": "task-verification",
+      "title": "任务验证能力独立于任务环境生命周期",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "验证政策由当前 workspace 或 Project 定义",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "实现验证采用三级反馈协议",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "验证证据绑定候选身份并随内容变化失效",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "验证能力测量真实 wall-clock 耗时",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "验证能力返回并报告标准结果证据",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "Provider operation 与验证执行分离计数",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "验证在完成节点自动触发",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "落盘验证证据具有显式生命周期",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

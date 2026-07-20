@@ -36,8 +36,9 @@ Agent 在 `product` Project 中的最小运行规则。
 - 预计包含代码、构建或测试的产品 change 必须在 propose 前创建或复用 task worktree；artifacts、实现和合并前候选验证只写入该 worktree。
 - 合并前候选验证使用临时 workspace 或 task worktree 自身，不从未合并 checkout 更新主自举 workspace。
 - OpenSpec apply 期间按单任务最小反馈、任务组受影响范围验证、最终候选完整验证分层执行；不得在每个普通任务后运行产品总验证或临时 workspace E2E。所有实现、自然语言资产、所需同步和 review 修订完成并冻结候选后，才运行一次产品级总验证。
+- Product Project 的本节与验证入口定义“应该跑什么”；selected `buildr.task-verification/v1` provider 负责实际执行、绑定最终候选、测量验证自身 wall-clock 并向用户报告，`task-worktree` 只提供 checkout 与 tree identity，不拥有验证政策。
 - 验证进程仍在运行或暂时无输出时继续等待同一进程，不重复启动相同命令；完整验证失败后的修复循环优先重跑失败项和受影响检查，候选重新稳定后再运行一次最终完整验证。
-- 完整验证必须绑定所有 rebase、冲突解决和内容修改结束后的最终候选 Git tree；commit、相同 tree 集成、push 和 worktree 清理复用该结果，不在主开发分支重复 E2E。候选 tree 改变时，必须在集成前重新运行受影响的验证。
+- 完整验证必须绑定所有 rebase、冲突解决和实现内容修改结束后的 implementation Candidate，并记录最终候选 Git tree 作为当时的 delivery identity；commit、相同内容集成、push 和 worktree 清理复用该结果，不在主开发分支重复 E2E。候选 tree 改变时，先按动作来源、实际 diff 和 Project policy 分类：Task Finish 可归因产生的 OpenSpec sync/archive 等 closeout-only delta 只运行对应 workflow checks，不再次启动 Candidate；实现内容改变或无法证明仅为 closeout-only delta 时，必须在集成前重新运行受影响验证并形成新的最终 Candidate。
 - 用户在 task worktree 中明确要求“收尾”时，使用 `task-finish` 编排已完成 change 的 specs 同步与归档、相关校验、提交、必要的本地未推送 rebase、fast-forward 集成、目标分支 push 和本地 worktree/任务分支清理；该意图不授权 force push、merge commit、远端任务分支删除、丢弃改动或语义冲突决策。
 - `task-finish` 是 Buildr 自有编排层，不直接修改外部 `openspec-*` Skills；OpenSpec archive/specs sync 后只对可证明由本次操作产生的 Markdown EOF 多余空行自动规范化。
 - 实际自举 workspace 如需消费新版产品资产，再从仍保留的当前产品 checkout 执行 sync；CLI update 只更新 Product checkout 或 registry package。workspace 状态变更后按 Buildr Core 运行当前 Agent doctor，但不作为相同 tree 后续 Git 动作的重复产品验证门禁。
@@ -63,4 +64,4 @@ Project 服务通过 `services/manifest.yml` 维护 Service registry，默认 re
 - 日常改动优先运行 `npm run test:changed`；失败定位使用 `npm run test:focus -- <step-id|group:<group>>`，只展开真实依赖并按 identity 去重。
 - 最终候选冻结后运行 `npm run test:candidate`；`tools/verify-buildr-product` 是供 CI、publish 和历史集成使用的等价兼容入口。
 
-Buildr 产品完整验证结束后，Agent 必须读取 timing summary，并向维护者汇报总耗时、最慢阶段、失败阶段（如有）和 summary 文件路径。耗时仅用于观察趋势；除非 OpenSpec 另有阈值契约，不得仅因耗时增长判定验证失败。该要求仅适用于 Buildr Product Project，不扩展为其他 Buildr workspace 的通用 Skill 流程。
+Buildr 产品完整验证结束后，Agent 必须读取 timing summary，并向维护者汇报总耗时、最慢阶段、失败阶段（如有）、evidence retention 和 cleanup status。summary 仍保留时报告文件路径；transient evidence 已被 consumer 使用并清理后，不得把失效路径表述为长期引用。耗时仅用于观察趋势；除非 OpenSpec 另有阈值契约，不得仅因耗时增长判定验证失败。该要求仅适用于 Buildr Product Project，不扩展为其他 Buildr workspace 的通用 Skill 流程。

@@ -86,6 +86,14 @@ test('CLI 集成验证 provider 替换、绑定与 builtin 恢复', { concurrenc
   assert.equal(manifest(root).bindings.find((item) => item.capability === 'buildr.task-worktree-lifecycle').provider, 'task-worktree');
   await run(['skills', 'bind', 'buildr.task-worktree-lifecycle@1', '--provider', 'internal-worktree', '--scope', '.', '--target', root]);
   await run(['builtin', 'uninstall', 'task-worktree', '--target', root, '--reason', 'internal replacement']);
+  const internalVerificationSource = writeSkill(root, 'internal-verification');
+  await run([
+    'skills', 'add', '--source', internalVerificationSource, '--scope', '.', '--target', root,
+    '--provides', 'buildr.task-verification@1',
+  ]);
+  assert.equal(manifest(root).bindings.find((item) => item.capability === 'buildr.task-verification').provider, 'task-verification');
+  await run(['skills', 'bind', 'buildr.task-verification@1', '--provider', 'internal-verification', '--scope', '.', '--target', root]);
+  await run(['builtin', 'uninstall', 'task-verification', '--target', root, '--reason', 'internal replacement']);
   const uninstallGit = await run(['builtin', 'uninstall', 'git-ops', '--target', root, '--reason', 'internal replacement']);
   assert.doesNotMatch(uninstallGit.stdout, /Capability dependency impact（写入前）/, 'unselected builtin must not report a false dependency impact');
   workspaceManifest = manifest(root);
@@ -96,6 +104,7 @@ test('CLI 集成验证 provider 替换、绑定与 builtin 恢复', { concurrenc
   const humanDoctor = await run(['doctor', '--target', root, '--scope', '.']);
   assert.match(humanDoctor.stdout, /Capability readiness（ready 只表示结构可路由）：/);
   assert.match(humanDoctor.stdout, /buildr\.git-task-integration@1 mode=required readiness=ready reason=none selected=internal-git/);
+  assert.match(humanDoctor.stdout, /buildr\.task-verification@1 mode=required readiness=ready reason=none selected=internal-verification/);
 
   await run(['builtin', 'restore', 'git-ops', '--target', root]);
   assert.equal(manifest(root).skills.find((item) => item.id === 'git-ops').state, 'installed');

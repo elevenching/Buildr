@@ -105,15 +105,17 @@ OpenSpec change 状态：
 - 驾驶舱由 Agent 单向维护，用户通过 Agent 对话参与；HTML 中的 checkbox 和状态只读。
 - 看板首次创建、实质更新、用户询问进度、任务暂停或完成时，Agent 回复应提供可点击入口和关联 change；没有改变任务认知的短暂中间动作不机械重复链接。
 
-## 实现型任务的验证编排
+## 实现型任务的验证节点规划
 
-为实现型 change 编写或调整 tasks 时，按共享实现区域、验证入口或失败影响面组织有语义的任务组，不按固定任务数量机械分组：
+本 Skill 只把验证节点规划进实现型 change，不选择命令、不执行验证，也不生成完成证据。为 tasks 按共享实现区域、验证入口或失败影响面组织有语义的任务组，不按固定任务数量机械分组：
 
 - 每个实现任务只安排语法、类型或直接相关测试等最小反馈检查。
 - 每个任务组完成后安排一次受影响范围验证，不为组内每项任务重复同一专项检查。
 - 将完整候选验证放在全部实现、自然语言资产、生成资产同步和 review 修订之后。
 - 具体专项检查和完整验证命令由当前 workspace 或 Project 的规则、OpenSpec 或开发文档定义；不得把 Buildr 产品仓的 package check、临时 workspace E2E 或产品总验证规定为所有项目的固定入口。
 - 安全边界、不可逆迁移或用户明确要求的即时检查不因批量编排而省略。
+
+实际执行、候选 identity、耗时测量和用户报告由 selected `buildr.task-verification/v1` provider 负责；`task-triage` 不声明该 capability dependency，因为任务语义分流和 artifacts 规划本身不应因验证 provider 暂时不可用而 blocked。
 
 <!-- buildr:skill-contributions change-ready -->
 

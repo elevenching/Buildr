@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "buildr.task-verification-closeout-fixtures/v1",
+  "cases": [
+    {
+      "id": "existing-candidate-same-content",
+      "transitionClass": "same-content",
+      "providerOperations": ["inspect", "cleanup"],
+      "taskVerificationExecuteCalls": 0,
+      "candidateExecutorCalls": 0,
+      "candidateReused": true
+    },
+    {
+      "id": "openspec-archive-only",
+      "transitionClass": "closeout-metadata-only",
+      "providerOperations": ["inspect", "cleanup"],
+      "closeoutChecks": ["openspec-strict", "contract-guard", "git-diff-check"],
+      "taskVerificationExecuteCalls": 0,
+      "candidateExecutorCalls": 0,
+      "candidateReused": true
+    },
+    {
+      "id": "implementation-changed",
+      "transitionClass": "implementation-changed",
+      "providerOperations": ["execute", "cleanup"],
+      "taskVerificationExecuteCalls": 1,
+      "candidateExecutorCalls": 1,
+      "candidateReused": false
+    }
+  ]
+}

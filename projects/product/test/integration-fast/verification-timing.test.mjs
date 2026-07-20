@@ -10,6 +10,7 @@ import { runVerificationBatch, runVerificationStep } from '../../tools/verificat
 import { candidateStepBudget } from '../../tools/verification/timing/budgets.mjs';
 import {
   collectVerificationSourceIdentity,
+  cleanupVerificationTimingEvidence,
   createVerificationTimingSummary,
   createVerificationEvidencePaths,
   formatVerificationTimingSummary,
@@ -19,6 +20,7 @@ import {
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const reporter = path.join(productRoot, 'tools', 'verification', 'timing', 'report.mjs');
 const summaryVerifier = path.join(productRoot, 'tools', 'verification', 'timing', 'verify-summary.mjs');
+const evidenceCleaner = path.join(productRoot, 'tools', 'verification', 'timing', 'cleanup-evidence.mjs');
 
 test('timing summary 保留向后兼容的 step 调度时间轴', () => {
   const summary = createVerificationTimingSummary({
@@ -97,6 +99,11 @@ test('verification timing reporter emits a versioned machine-readable summary', 
     assert.equal(summary.budgetStatus, 'over');
     assert.equal(summary.diagnosticsDirectory, diagnostics);
     assert.equal(summary.summaryPath, output);
+    assert.deepEqual(summary.evidenceLifecycle, {
+      evidenceRetention: 'caller-managed',
+      cleanupAfter: 'caller-policy',
+      cleanupStatus: 'not-applicable',
+    });
     assert.match(result.stdout, /timing: total=0\.500s budget=over\/0\.450s/);
     assert.match(result.stdout, /slowest: Workspace E2E: runtime reconciliation \(0\.375s\)/);
     assert.match(result.stdout, /failed: Workspace E2E: runtime reconciliation \(1\)/);
@@ -131,6 +138,12 @@ test('default verification evidence paths are run-scoped while explicit paths re
     assert.notEqual(first.evidenceDirectory, second.evidenceDirectory);
     assert.equal(first.timingOutput, path.join(first.evidenceDirectory, 'timing.json'));
     assert.equal(first.diagnosticsOutput, path.join(first.evidenceDirectory, 'diagnostics'));
+    assert.deepEqual(first.evidenceLifecycle, {
+      evidenceRetention: 'transient',
+      cleanupAfter: 'consumer-finished',
+      cleanupStatus: 'retained',
+      cleanupReference: first.evidenceDirectory,
+    });
 
     const explicitOutput = path.join(root, 'ci', 'summary.json');
     const explicitDiagnostics = path.join(root, 'ci', 'logs');
@@ -140,8 +153,69 @@ test('default verification evidence paths are run-scoped while explicit paths re
     });
     assert.equal(explicit.timingOutput, explicitOutput);
     assert.equal(explicit.diagnosticsOutput, explicitDiagnostics);
+    assert.deepEqual(explicit.evidenceLifecycle, {
+      evidenceRetention: 'caller-managed',
+      cleanupAfter: 'caller-policy',
+      cleanupStatus: 'not-applicable',
+    });
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('transient evidence cleanup removes only an owned run directory', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-evidence-cleanup-test-'));
+  try {
+    const evidence = createVerificationEvidencePaths('candidate', { temporaryRoot: root, env: {} });
+    fs.mkdirSync(evidence.diagnosticsOutput, { recursive: true });
+    fs.writeFileSync(evidence.timingOutput, '{}\n');
+    const summary = {
+      run: { kind: 'candidate' },
+      summaryPath: evidence.timingOutput,
+      evidenceLifecycle: evidence.evidenceLifecycle,
+    };
+    const result = cleanupVerificationTimingEvidence(summary, { temporaryRoot: root });
+    assert.equal(result.ok, true);
+    assert.equal(result.status, 'cleaned');
+    assert.equal(fs.existsSync(evidence.evidenceDirectory), false);
+
+    const outside = path.join(root, 'not-owned');
+    fs.mkdirSync(outside);
+    const refused = cleanupVerificationTimingEvidence({
+      run: { kind: 'candidate' },
+      summaryPath: path.join(outside, 'timing.json'),
+      evidenceLifecycle: {
+        evidenceRetention: 'transient',
+        cleanupAfter: 'consumer-finished',
+        cleanupStatus: 'retained',
+        cleanupReference: outside,
+      },
+    }, { temporaryRoot: root });
+    assert.equal(refused.ok, false);
+    assert.equal(refused.code, 'cleanup.boundary_invalid');
+    assert.equal(fs.existsSync(outside), true);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('evidence cleanup CLI reports and removes a verified transient run', () => {
+  const evidence = createVerificationEvidencePaths('changed', { temporaryRoot: os.tmpdir(), env: {} });
+  try {
+    const summary = {
+      run: { kind: 'changed' },
+      summaryPath: evidence.timingOutput,
+      evidenceLifecycle: evidence.evidenceLifecycle,
+    };
+    fs.writeFileSync(evidence.timingOutput, `${JSON.stringify(summary)}\n`);
+    const result = spawnSync(process.execPath, [evidenceCleaner, evidence.timingOutput], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.schemaVersion, 'buildr.verification-evidence-cleanup/v1');
+    assert.equal(output.status, 'cleaned');
+    assert.equal(fs.existsSync(evidence.evidenceDirectory), false);
+  } finally {
+    fs.rmSync(evidence.evidenceDirectory, { recursive: true, force: true });
   }
 });
 

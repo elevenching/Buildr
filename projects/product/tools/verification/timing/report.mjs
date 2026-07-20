@@ -46,6 +46,11 @@ writeVerificationTimingEvidence({
   timingOutput: outputFile,
   totalBudgetMs: totalBudget ? Number(totalBudget) : undefined,
   diagnosticsDirectory,
+  evidenceLifecycle: {
+    evidenceRetention: 'caller-managed',
+    cleanupAfter: 'caller-policy',
+    cleanupStatus: 'not-applicable',
+  },
   prefix: 'verify-product',
   stream: process.stdout,
   errorStream: process.stderr,

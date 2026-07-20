@@ -179,6 +179,7 @@ for (const agent of supportedAdapters) {
   run(['render', agent, '--scope', '.', '--target', workspace]);
   const root = adapterSkillRoots.get(agent);
   assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-asset-review', 'SKILL.md')), `${agent} must render task-asset-review`);
+  assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-verification', 'SKILL.md')), `${agent} must render task-verification`);
   assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'capability-adaptation', 'SKILL.md')), `${agent} must render capability-adaptation`);
   assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-board', 'agents', 'openai.yaml')), `${agent} must preserve task-board OpenAI vendor metadata in the complete Skill inventory`);
   assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-board', 'assets', 'task-board-template.html')), `${agent} must render task-board template asset`);

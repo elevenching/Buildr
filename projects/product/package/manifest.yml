@@ -41,6 +41,11 @@ capabilityContracts:
     description: 管理任务 worktree 的放置、保留和安全清理。
     path: package/targets/workspace/skills/contracts/buildr/task-worktree-lifecycle/v1.md
     target: skills/contracts/buildr/task-worktree-lifecycle/v1.md
+  - id: buildr.task-verification
+    version: 1
+    description: 执行项目定义的分层验证并返回候选身份、结果与真实耗时证据。
+    path: package/targets/workspace/skills/contracts/buildr/task-verification/v1.md
+    target: skills/contracts/buildr/task-verification/v1.md
   - id: buildr.task-finish
     version: 1
     description: 编排已验证任务的归档、集成、推送与本地收尾。
@@ -65,6 +70,9 @@ initialSkillBindings:
   - capability: buildr.task-worktree-lifecycle
     version: 1
     provider: task-worktree
+  - capability: buildr.task-verification
+    version: 1
+    provider: task-verification
   - capability: buildr.task-finish
     version: 1
     provider: task-finish
@@ -116,7 +124,7 @@ builtins:
     - id: task-worktree
       path: package/targets/workspace/skills/buildr/task-worktree
       target: skills/buildr/task-worktree
-      description: 用户要求代码开发、修 bug、实现功能、运行构建或测试、多仓协作、隔离任务分支，或清理已上线、已归档、已收尾任务的 worktree/change-id/任务分支时使用。
+      description: 用户要求创建、定位、复用、保留或清理 task worktree/change-id/任务分支，或处理 task checkout 与本机入口迁移时使用。
       required: false
       provides:
         - capability: buildr.task-worktree-lifecycle
@@ -124,6 +132,15 @@ builtins:
       legacyIntegrities:
         - sha256-23e68c3174887ebbf6990526f93e7f1c047199e1bef1f2e8e293b0cba2a3cfad
         - sha256-7c792606db5d07e9364feb4be20755e184fb83291e4ae83a9cbb4884cf731b6d
+      runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
+    - id: task-verification
+      path: package/targets/workspace/skills/buildr/task-verification
+      target: skills/buildr/task-verification
+      description: 用户要求测试、验证或耗时报告，或者实现型任务到达验证节点、Agent 准备判断或声称开发完成、Task Finish 需要核对或补齐 Candidate evidence 时使用；用户无需主动点名本 Skill。
+      required: false
+      provides:
+        - capability: buildr.task-verification
+          version: 1
       runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     - id: task-finish
       path: package/targets/workspace/skills/buildr/task-finish
@@ -134,6 +151,9 @@ builtins:
         - capability: buildr.task-finish
           version: 1
       requires:
+        - capability: buildr.task-verification
+          version: 1
+          mode: required
         - capability: buildr.task-worktree-lifecycle
           version: 1
           mode: required
@@ -232,6 +252,7 @@ workspaceFiles:
   - package/targets/workspace/skills/contracts/buildr/git-task-integration/v1.md => skills/contracts/buildr/git-task-integration/v1.md copy
   - package/targets/workspace/skills/contracts/buildr/git-workspace-update/v1.md => skills/contracts/buildr/git-workspace-update/v1.md copy
   - package/targets/workspace/skills/contracts/buildr/task-worktree-lifecycle/v1.md => skills/contracts/buildr/task-worktree-lifecycle/v1.md copy
+  - package/targets/workspace/skills/contracts/buildr/task-verification/v1.md => skills/contracts/buildr/task-verification/v1.md copy
   - package/targets/workspace/skills/contracts/buildr/task-finish/v1.md => skills/contracts/buildr/task-finish/v1.md copy
   - package/targets/workspace/skills/contracts/buildr/task-asset-review/v1.md => skills/contracts/buildr/task-asset-review/v1.md copy
   - package/targets/workspace/skills/buildr/task-triage/SKILL.md => skills/buildr/task-triage/SKILL.md copy
@@ -243,6 +264,7 @@ workspaceFiles:
   - package/targets/workspace/skills/buildr/task-asset-review/SKILL.md => skills/buildr/task-asset-review/SKILL.md copy
   - package/targets/workspace/skills/buildr/task-asset-review/agents/openai.yaml => skills/buildr/task-asset-review/agents/openai.yaml copy
   - package/targets/workspace/skills/buildr/task-worktree/SKILL.md => skills/buildr/task-worktree/SKILL.md copy
+  - package/targets/workspace/skills/buildr/task-verification/SKILL.md => skills/buildr/task-verification/SKILL.md copy
   - package/targets/workspace/skills/buildr/task-finish/SKILL.md => skills/buildr/task-finish/SKILL.md copy
   - package/targets/workspace/skills/buildr/git-ops/SKILL.md => skills/buildr/git-ops/SKILL.md copy
 

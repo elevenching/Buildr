@@ -17,6 +17,10 @@ contracts:
     version: 1
     path: contracts/buildr/task-worktree-lifecycle/v1.md
     description: 管理任务 worktree 的放置、保留和安全清理。
+  - id: buildr.task-verification
+    version: 1
+    path: contracts/buildr/task-verification/v1.md
+    description: 执行项目定义的分层验证并返回候选身份、结果与真实耗时证据。
   - id: buildr.task-finish
     version: 1
     path: contracts/buildr/task-finish/v1.md
@@ -38,6 +42,9 @@ bindings:
   - capability: buildr.task-worktree-lifecycle
     version: 1
     provider: task-worktree
+  - capability: buildr.task-verification
+    version: 1
+    provider: task-verification
   - capability: buildr.task-finish
     version: 1
     provider: task-finish
@@ -106,6 +113,20 @@ skills:
     provides:
       - capability: buildr.task-worktree-lifecycle
         version: 1
+  - id: task-verification
+    assetIdentity: buildr:skill:task-verification
+    sourceIdentity: package:workspace:buildr/task-verification
+    source: buildr
+    path: buildr/task-verification
+    description: 用户要求测试、验证或耗时报告，或者实现型任务到达验证节点、Agent 准备判断或声称开发完成、Task Finish 需要核对或补齐 Candidate evidence 时使用；用户无需主动点名本 Skill。
+    enabled: true
+    required: false
+    state: installed
+    runtimes: [claude-code, codex, cursor, qoder, trae, trae-work, workbuddy]
+    runtimePath: task-verification
+    provides:
+      - capability: buildr.task-verification
+        version: 1
   - id: task-finish
     assetIdentity: buildr:skill:task-finish
     sourceIdentity: package:workspace:buildr/task-finish
@@ -121,6 +142,9 @@ skills:
       - capability: buildr.task-finish
         version: 1
     requires:
+      - capability: buildr.task-verification
+        version: 1
+        mode: required
       - capability: buildr.task-worktree-lifecycle
         version: 1
         mode: required
