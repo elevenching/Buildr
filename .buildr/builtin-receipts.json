@@ -5,11 +5,11 @@
       "type": "rule",
       "id": "buildr-core",
       "target": "rules/buildr/core.md",
-      "integrity": "sha256-4916fc8ae034919e5dbab213709e3836859b0d46793ba174f4bec74f61c181e7",
+      "integrity": "sha256-bd80debf1a3ef26605eb7021adb54f79f7776b0936e7a6f744373ff518ece994",
       "files": [
         {
           "path": "core.md",
-          "integrity": "sha256-9a5fd50764292e42f558b686d5849eca7f077777ac8a161b8f1efe9a2352b524"
+          "integrity": "sha256-251ca015041a45c35a24fd9d597c69328206c9799075d94d869d0cc9b60e0264"
         }
       ]
     },
@@ -81,11 +81,11 @@
       "type": "skill",
       "id": "task-finish",
       "target": "skills/buildr/task-finish",
-      "integrity": "sha256-d8b1f93935bd96ca4c1f2f610651889ae2bdfce4e023c98ccc79b91a2a776a80",
+      "integrity": "sha256-f5311e42a6cbee63f4c95fe1cfe1bb6992e766bf8b84c580cf8eb4c081eb52ad",
       "files": [
         {
           "path": "SKILL.md",
-          "integrity": "sha256-285aae05031344224280526544c62faec00d4a3cfceeb0a3a5b3abf3a1f64342"
+          "integrity": "sha256-3f759a2f79c809d59e887415931075983b24e2a89d54c07cbc147d74f0400134"
         }
       ]
     },
@@ -93,11 +93,23 @@
       "type": "skill",
       "id": "task-triage",
       "target": "skills/buildr/task-triage",
-      "integrity": "sha256-b482b91087b8dc9f69e7f04144ad99aec9c09dd772b3b9c26d2ac74a23bfea26",
+      "integrity": "sha256-f216c1c6db692721284e14b615f7352d675db64b7a20854ccdfc703d19dfc593",
       "files": [
         {
           "path": "SKILL.md",
-          "integrity": "sha256-5dd02fea1eb9ce4cbb568eccf3c1561d099cc0beaf23c2911c90558723d36338"
+          "integrity": "sha256-cc46c56f40e83d2ff31e983eb13cce3227fe2ae7707eb56a7b1ea4842f137ed0"
+        }
+      ]
+    },
+    {
+      "type": "skill",
+      "id": "task-verification",
+      "target": "skills/buildr/task-verification",
+      "integrity": "sha256-50abf3f4f8bc287346a49e7c18ac0794146efd8bd18854a84055cbb3d49006c1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "integrity": "sha256-b1e7c17c4148f4ed9aecfd83c5c8a393b2013a706a198a65663e0d06e53e49fa"
         }
       ]
     },
@@ -105,11 +117,11 @@
       "type": "skill",
       "id": "task-worktree",
       "target": "skills/buildr/task-worktree",
-      "integrity": "sha256-b3e3b0d68d8cb02b1168618a9139ec153a481481d997767a2258209796d495ff",
+      "integrity": "sha256-6c749ff21637c419c145f4120affe186fdd6a1102ea38fe198adf5e281022f57",
       "files": [
         {
           "path": "SKILL.md",
-          "integrity": "sha256-dca1b7f82b7e4fef2fd673f6eb1a9c1f6ff939a74fad608638ac312a285d9c89"
+          "integrity": "sha256-fadb07849ddcc7de031d7e10a2699a370a6353a2cf639cdcc8579a9e308a3490"
         }
       ]
     }

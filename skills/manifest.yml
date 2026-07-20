@@ -23,7 +23,7 @@ skills:
     sourceIdentity: package:skills/buildr/task-worktree
     source: buildr
     path: buildr/task-worktree
-    description: 用户要求代码开发、修 bug、实现功能、运行构建或测试、多仓协作、隔离任务分支，或清理已上线、已归档、已收尾任务的 worktree/change-id/任务分支时使用。
+    description: 用户要求创建、定位、复用、保留或清理 task worktree/change-id/任务分支，或处理 task checkout 与本机入口迁移时使用。
     enabled: true
     required: false
     state: installed
@@ -86,6 +86,9 @@ skills:
       - capability: buildr.task-finish
         version: 1
     requires:
+      - capability: buildr.task-verification
+        version: 1
+        mode: required
       - capability: buildr.task-worktree-lifecycle
         version: 1
         mode: required
@@ -265,6 +268,27 @@ skills:
     description: 准备、检查、发布和验证 Buildr 候选版或稳定版时使用，覆盖版本与发布材料更新、dev 到 main 候选收敛、release tag、GitHub Actions、npm dist-tag、GitHub Release、失败恢复和发布后验证；用户提到准备发布、发布 RC、发布候选版、发布稳定版、检查是否可发布、继续或排查 Buildr 发布时触发。
     assetIdentity: workspace:f2f40b71-2382-5906-82bd-76a7927b59f3:skill:buildr-release
     sourceIdentity: workspace:f2f40b71-2382-5906-82bd-76a7927b59f3:buildr-release
+  - id: task-verification
+    assetIdentity: buildr:skill:task-verification
+    sourceIdentity: package:skills/buildr/task-verification
+    source: buildr
+    path: buildr/task-verification
+    description: 用户要求测试、验证或耗时报告，或者实现型任务到达验证节点、Agent 准备判断或声称开发完成、Task Finish 需要核对或补齐 Candidate evidence 时使用；用户无需主动点名本 Skill。
+    enabled: true
+    required: false
+    state: installed
+    runtimes:
+      - claude-code
+      - codex
+      - cursor
+      - qoder
+      - trae
+      - trae-work
+      - workbuddy
+    runtimePath: task-verification
+    provides:
+      - capability: buildr.task-verification
+        version: 1
 contracts:
   - id: buildr.git-single-operation
     version: 1
@@ -290,6 +314,10 @@ contracts:
     version: 1
     path: contracts/buildr/task-asset-review/v1.md
     description: 审查任务过程并提出可沉淀工作资产候选。
+  - id: buildr.task-verification
+    version: 1
+    path: contracts/buildr/task-verification/v1.md
+    description: 执行项目定义的分层验证并返回候选身份、结果与真实耗时证据。
 bindings:
   - capability: buildr.git-single-operation
     version: 1
@@ -309,4 +337,7 @@ bindings:
   - capability: buildr.task-asset-review
     version: 1
     provider: task-asset-review
+  - capability: buildr.task-verification
+    version: 1
+    provider: task-verification
 workspaceId: f2f40b71-2382-5906-82bd-76a7927b59f3
