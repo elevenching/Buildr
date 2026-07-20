@@ -7,7 +7,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  ADAPTER_VERIFICATION_LEVELS,
   ADAPTER_TRAIT_CATALOG,
   REQUIRED_RENDER_CAPABILITIES,
   RUNTIME_ADAPTERS,
@@ -30,7 +29,6 @@ const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const repositoryRoot = path.resolve(productRoot, '../..');
 
 assert.deepEqual(SUPPORTED_AGENT_IDS, ['claude-code', 'codex', 'cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']);
-assert.deepEqual(ADAPTER_VERIFICATION_LEVELS, ['documented', 'verified']);
 assert.deepEqual(ADAPTER_TRAIT_CATALOG.rules, ['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']);
 assert.equal(runtimeDiscoveryPayload().adapterTraitCatalog, ADAPTER_TRAIT_CATALOG);
 assert.deepEqual(RUNTIME_ADAPTERS.codex.traits.skills.publicationExtensions, [
@@ -86,8 +84,11 @@ for (const adapterId of ['cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']) {
   const adapter = RUNTIME_ADAPTERS[adapterId];
   assert.ok(adapter.evidence.rules, `${adapterId} must retain runtime-specific Rules evidence`);
   assert.ok(adapter.evidence.skills, `${adapterId} must retain runtime-specific Skills evidence`);
-  assert.equal(adapter.evidence.verificationLevel, adapterId === 'workbuddy' ? 'verified' : 'documented');
-  assert.equal(adapter.evidence.smokeStatus, adapterId === 'workbuddy' ? 'passed' : 'pending');
+  assert.equal(typeof adapter.evidence.rules, 'string');
+  assert.equal(typeof adapter.evidence.skills, 'string');
+  assert.equal('verificationLevel' in adapter.evidence, false);
+  assert.equal('smokeStatus' in adapter.evidence, false);
+  assert.equal('smoke' in adapter.evidence, false);
   assert.deepEqual(adapter.planRuntime(createRuntimeContext({
     adapterId,
     targetRoot: path.join(os.tmpdir(), `buildr-${adapterId}-evidence`),
@@ -114,13 +115,11 @@ assert.equal(RUNTIME_ADAPTERS.trae.traits.checker.versionProbe.kind, 'manual');
 assert.equal(RUNTIME_ADAPTERS.trae.traits.skills.root, '.agents');
 assert.equal(RUNTIME_ADAPTERS.cursor.traits.rules.format, 'cursor-mdc');
 assert.equal(RUNTIME_ADAPTERS['trae-work'].traits.rules.placement, 'root-index');
-assert.equal(RUNTIME_ADAPTERS['trae-work'].traits.checker.prerequisites[0].code, 'runtime.trae_work_rules_import_unverified');
+assert.deepEqual(RUNTIME_ADAPTERS['trae-work'].traits.checker.prerequisites || [], []);
 assert.equal(RUNTIME_ADAPTERS.workbuddy.traits.rules.maxChars, 8000);
 assert.equal(RUNTIME_ADAPTERS.workbuddy.traits.skills.root, '.codebuddy');
 assert.deepEqual(RUNTIME_ADAPTERS.workbuddy.traits.surfaces, [{ kind: 'desktop' }, { kind: 'cli', variant: 'desktop-bundled' }]);
-assert.equal(RUNTIME_ADAPTERS.workbuddy.evidence.smoke.surface, 'desktop-bundled-cli');
-assert.equal(RUNTIME_ADAPTERS.workbuddy.evidence.smoke.rules.siblingIsolated, 'pass');
-assert.equal(RUNTIME_ADAPTERS.workbuddy.evidence.smoke.skill.result, 'SMOKE_SKILL_DISCOVERED_19AF');
+assert.deepEqual(Object.keys(RUNTIME_ADAPTERS.workbuddy.evidence).sort(), ['rules', 'skills']);
 assert.ok(adapterDoc.includes('`.codebuddy/skills`'));
 
 assert.throws(() => getRuntimeAdapter('fake-runtime'), /Unsupported Agent runtime/);

@@ -7,6 +7,7 @@ import {
   getRuntimeAdapter,
   isSupportedAgent,
   RUNTIME_CHECKERS,
+  assembleRuntimeProjection,
 } from '../shared/platform.mjs';
 import { createRuntimeDiagnostics } from './doctor/runtime-diagnostics.mjs';
 import { createScopeDiagnostics } from './doctor/scope-diagnostics.mjs';
@@ -98,6 +99,7 @@ export function registerApplicationDoctor(runtime) {
     runtimeFindingsForDoctor,
     summarizeRuntimeFindings,
     addUnsupportedAgentFinding,
+    detectManagedRuntimeAgents,
     diagnoseRuntime,
     diagnoseCommands,
     diagnoseComponents,
@@ -106,8 +108,10 @@ export function registerApplicationDoctor(runtime) {
     SUPPORTED_AGENT_IDS,
     UNSUPPORTED_AGENT_GUIDANCE,
     addDoctorFinding,
+    assembleRuntimeProjection,
     componentRegistryPath,
     existsFile,
+    fs,
     getRuntimeAdapter,
     isSupportedAgent,
     managedRuntimeSkillOrphans,
@@ -213,6 +217,7 @@ export function registerApplicationDoctor(runtime) {
     runtimeFindingsForDoctor,
     summarizeRuntimeFindings,
     addUnsupportedAgentFinding,
+    detectManagedRuntimeAgents,
     diagnoseRuntime,
     diagnoseCommands,
     diagnoseComponents,

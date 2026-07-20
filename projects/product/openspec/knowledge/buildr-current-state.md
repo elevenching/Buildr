@@ -151,7 +151,7 @@ Organization/Root -> Project -> Service
 - `buildr doctor --agent <agent> --json`：按当前 Agent runtime 过滤 runtime diagnostics。
 - `buildr doctor`：人类可读诊断报告。
 
-Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime list --json` 确认 adapter，再优先使用 `buildr doctor --agent <agent> --json` 建立事实基线；未传 `--agent` 的 doctor 保留为 CLI 兼容入口，不作为当前 Agent 主流程。
+Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime list --json` 确认 adapter，再优先使用 `buildr doctor --agent <agent> --json` 建立事实基线；未传 `--agent` 的 doctor 只按 Buildr managed marker/receipt 发现并诊断 present runtime inventory，未选中 runtime drift 不影响通用 workspace readiness，也不作为当前 Agent 主流程。
 
 尚未初始化的 workspace 例外：adapter 确认后直接运行 `buildr init --agent <agent>`，并使用该命令内置的最终 doctor 结果，不重复运行独立 sync 或 doctor。
 
@@ -186,7 +186,7 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 - 每个 adapter 在自身 runtime metadata 区维护版本化 Skill projection receipt。render、sync、runtime check、doctor 和 Component lifecycle 复用相同 inventory；active stale 与 orphan 只在文件仍匹配旧 receipt 时清理，已修改文件或未知用户文件触发零部分写入 conflict。缺少 receipt 的旧版仅 `SKILL.md` 投射继续保守兼容。
 - Claude Code adapter 支持 `skill install`、`runtime check`、`rules render` 和 `skills render`。
 - Cursor、Qoder、TRAE 使用 `vendor-rule-files`：分别生成各 source scope 的 `.cursor/rules/buildr.mdc`、root `.qoder/rules/buildr/*.md`、各 source scope 的 `.trae/rules/buildr.md`；TRAE Work 与 WorkBuddy 使用 root-index reference bridge，目标分别为 `CLAUDE.local.md` 和 `CODEBUDDY.md`。
-- TRAE Work Rules import/reference traversal 无法仅由 projection 证明，checker 保持 prerequisite warning。新增 adapter 使用 `documented` / `verified` 两级证据：WorkBuddy 5.2.5 已通过桌面包内置 CodeBuddy CLI 2.106.4 的一次性新任务 marker smoke，等级为 `verified`；Cursor、Qoder、TRAE 与 TRAE Work 已由官方资料、本机观察或 discovery 源码认证为 `documented`，真实产品 smoke 保持 `pending`。GUI 自动点击、私有数据库抓取和重复 reload 测试不属于常规 adapter 完成门槛。
+- 新增 adapter 保留 Rules/Skills 的官方资料、安装包源码或本机 intake provenance，并由自动 contract/parity 验证 Buildr 的投射和维护边界。Descriptor 不维护 `documented`/`verified`、`pending`/`passed` 或品牌历史 marker smoke；TRAE Work checker 只报告 projection、environment probe 和 activation guidance，不把产品级真实 Agent 验证缺口作为当前 workspace prerequisite。
 - Claude Code rules render 在每个 source 同目录生成 `@AGENTS.md` reference bridge，不复制规则全文；reconcile 先校验全部 conflict 再写入，并清理 source 已删除的 Buildr-managed orphan bridge。
 - reference bridge 中旧 hash 过期只作为 metadata info，不构成 action-required stale。
 - 当前实现已通过全部 supported adapters 的完整 Skill 目录投射契约与 parity 验证；Agent 产品是否在当前 session 发现新 Skill 仍以对应产品版本和 activation 行为为准。

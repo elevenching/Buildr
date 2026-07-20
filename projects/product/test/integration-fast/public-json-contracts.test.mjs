@@ -92,6 +92,11 @@ test('doctor 严格报告 workspace identity 与独立 readiness', async (t) => 
   assert.equal(initialized.health.workspaceValid, true);
   assert.equal(typeof initialized.health.ready, 'boolean');
   assert.deepEqual(Object.keys(initialized.diagnosticProfile).sort(), ['conditional', 'core', 'id', 'specialty']);
+  assert.deepEqual(initialized.agentRuntime.detectedAgents, []);
+  assert.deepEqual(initialized.agentRuntime.checkedAgents, []);
+  assert.equal(initialized.agentRuntime.diagnosticMode, 'managed-runtime-inventory');
+  assert.equal(Object.values(initialized.runtime).every((items) => items.length === 0), true);
+  assert.equal(initialized.findings.some((finding) => finding.code.startsWith('runtime.')), false);
 
   fs.rmSync(path.join(root, '.buildr', 'workspace.yml'));
   const incomplete = await run(['doctor', '--target', root, '--json'], { expectedStatus: 1 });
@@ -130,6 +135,44 @@ test('Codex partial inventory warning 保持可见但不降低 doctor readiness'
   assert.equal(report.health.actionableCount, 0);
   assert.deepEqual(report.repairPlan, []);
   assert.deepEqual(report.nextSteps, []);
+});
+
+test('doctor 默认只盘点受管 runtime，显式 agent 才把对应 drift 变为可操作项', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-doctor-managed-runtimes-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  await run(['init', '--agent', 'codex', '--target', root, '--name', 'doctor-managed-runtimes', '--profile', 'team'], { json: false });
+  await run(['sync', 'claude-code', '--target', root], { json: false });
+
+  const healthy = await run(['doctor', '--target', root, '--json']);
+  assert.deepEqual(healthy.agentRuntime.detectedAgents, ['claude-code', 'codex']);
+  assert.deepEqual(healthy.agentRuntime.checkedAgents, ['claude-code', 'codex']);
+  assert.equal(healthy.agentRuntime.diagnosticMode, 'managed-runtime-inventory');
+
+  const claudeBridge = path.join(root, 'CLAUDE.md');
+  fs.writeFileSync(claudeBridge, fs.readFileSync(claudeBridge, 'utf8').replace('@AGENTS.md', '@BROKEN.md'));
+
+  const inventory = await run(['doctor', '--target', root, '--json']);
+  const inventoryDrift = inventory.findings.find((finding) => finding.code === 'runtime.claude_code_stale');
+  assert.ok(inventoryDrift);
+  assert.equal(inventoryDrift.userActionRequired, false);
+  assert.equal(inventory.health.ready, true);
+  assert.equal(inventory.health.actionRequired, false);
+  assert.equal(inventory.health.actionableCount, 0);
+  assert.deepEqual(inventory.repairPlan, []);
+  assert.deepEqual(inventory.nextSteps, []);
+
+  const selected = await run(['doctor', '--agent', 'claude-code', '--target', root, '--json']);
+  const selectedDrift = selected.findings.find((finding) => finding.code === 'runtime.claude_code_stale');
+  assert.deepEqual(selected.agentRuntime.detectedAgents, ['claude-code', 'codex']);
+  assert.deepEqual(selected.agentRuntime.checkedAgents, ['claude-code']);
+  assert.equal(selected.agentRuntime.diagnosticMode, 'selected-runtime');
+  assert.ok(selectedDrift);
+  assert.equal(selectedDrift.userActionRequired, true);
+  assert.equal(selected.health.ready, false);
+  assert.equal(selected.health.actionRequired, true);
+  assert.equal(selected.health.actionableCount, 1);
+  assert.equal(selected.repairPlan.length, 1);
+  assert.equal(selected.nextSteps.length, 1);
 });
 
 test('doctor 对未登记 Project 只报告登记根因并输出去重 repair plan', async (t) => {

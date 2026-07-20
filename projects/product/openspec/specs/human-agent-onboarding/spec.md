@@ -270,8 +270,9 @@ Buildr MUST 维护一份可由人和 Agent 从根 README 发现的已接入 Agen
 #### Scenario: Adapter 文档说明接入方式
 - **WHEN** 用户或 Agent 阅读已接入 Agent adapter 权威文档
 - **THEN** 文档 MUST 对每个 supported adapter 说明 adapter id、适用 surface、Rules 入口与生成 target、Skills root、activation/reload、checker、前置条件和已知限制
-- **AND** 文档 MUST 区分官方文档、本机观察、安装包源码和推断等证据等级
-- **AND** 文档 MUST 标明 `documented` 或 `verified` 证据等级，以及真实产品 smoke 的通过或待验证状态
+- **AND** 文档 MUST 区分官方文档、本机观察、安装包源码和推断等兼容证据来源
+- **AND** 文档 MUST 说明自动 contract/parity 只能证明 Buildr 的投射与维护边界，不能证明目标 Agent 已在当前 workspace、版本或会话加载文件
+- **AND** 文档 MUST NOT 维护 `documented`/`verified`、`pending`/`passed` 或品牌历史 marker smoke 快照
 
 #### Scenario: Agent 按文档接入当前 runtime
 - **WHEN** Agent 从权威文档识别到自身 runtime 已受支持

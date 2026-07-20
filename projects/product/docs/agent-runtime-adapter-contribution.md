@@ -32,11 +32,9 @@ Buildr trait contract
 
 只保留实际版本的观察结果和官方文档链接。未知项使用 `null`，不要用“兼容某 Agent”代替验证。
 
-路径证据必须按用途分类。安装包中出现 `.vendor/skills` 字符串，只能证明这个路径被某段代码提到；它可能是用户目录、builtin 资源、编辑器特殊视图或 sandbox 可写白名单，不等于 workspace destination Skills discovery root。该工作目录下的 root 只有在以下至少一项成立时才能认证：当前会话实际列出该目录中的测试 Skill、产品自带文档明确声明该目录，或 discovery 源码明确把 workspace 与该目录拼接后扫描 `SKILL.md`。当多项证据冲突时，以真实 discovery smoke 为准，并保留冲突说明。
+路径证据必须按用途分类。安装包中出现 `.vendor/skills` 字符串，只能证明这个路径被某段代码提到；它可能是用户目录、builtin 资源、编辑器特殊视图或 sandbox 可写白名单，不等于 workspace destination Skills discovery root。该工作目录下的 root 只有在产品自带文档明确声明、discovery 源码明确扫描，或其他可重复 intake 证据支持时才能认证；多项证据冲突时停止注册对应 capability 并保留冲突说明。
 
-如果桌面产品随包提供稳定的 headless/print CLI，优先用只读临时 workspace 执行同一 runtime 的 marker smoke，并记录为具体 surface（例如 `desktop-bundled-cli`）；不能把普通文件生成、索引成功或内部 tool-host 启动当成 Agent 已加载 Rules/Skills。
-
-证据等级只有两种：`documented` 表示官方资料、随包资料、明确的 discovery 源码或可重复本机观察已经认证路径；`verified` 表示又完成了真实 runtime marker smoke。supported descriptor 至少必须达到 `documented`。没有足够证据的候选不注册为 supported；真实 smoke 明确失败时也必须停止该能力声明，而不是继续保留 `documented`。
+Descriptor 只记录 Rules 与 Skills 的官方资料、随包资料、明确 discovery 源码或可重复本机 intake provenance，不维护 `documented`/`verified`、`pending`/`passed` 或品牌历史 smoke 快照。没有足够证据的候选不注册为 supported；文件生成成功也不得描述为 Agent 已在真实会话加载。
 
 ## 2. 判断能否成为 adapter
 
@@ -69,7 +67,7 @@ Buildr trait contract
 - 用 trait composer 声明 adapter identity 与 traits。
 - 如有新 Rules 格式，增加受控的 Rules planning primitive。
 - 配置 Skills root、activation 与 checker probe。
-- 为五项 capabilities 增加 contract/parity/smoke tests。
+- 为五项 capabilities 增加 contract/parity tests。
 - 更新 Buildr Skill、current state、公开说明和 known limitations。
 
 Buildr 通用 RuntimePlan、路径保护、零写入冲突预检、ownership 和 orphan cleanup 不需要向目标 Agent 重新调查，也不应在每个 adapter 重写。

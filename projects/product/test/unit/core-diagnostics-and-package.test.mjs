@@ -44,7 +44,7 @@ test('runtime doctor 过滤 info 并汇总全部 finding status', () => {
 });
 
 function diagnoseRuntimeWarnings(runtimeFindings) {
-  const result = { findings: [] };
+  const result = { findings: [], agentRuntime: {} };
   const diagnostics = createRuntimeDiagnostics({
     RUNTIME_CHECKERS: {},
     SUPPORTED_AGENT_IDS: ['codex'],
@@ -67,7 +67,7 @@ function diagnoseRuntimeWarnings(runtimeFindings) {
     }),
     toPosixRelative: () => '.',
   });
-  diagnostics.diagnoseRuntime(result, '/workspace', [{ scope: '.' }], { agent: 'codex' });
+  diagnostics.diagnoseRuntime(result, '/workspace', [{ scope: '.' }], { agent: 'codex', detectedAgents: ['codex'] });
   return result;
 }
 

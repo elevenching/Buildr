@@ -18,6 +18,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
   const diagnoseHierarchy = (...args) => runtime.diagnoseHierarchy(...args);
   const diagnoseServices = (...args) => runtime.diagnoseServices(...args);
   const diagnoseRuntime = (...args) => runtime.diagnoseRuntime(...args);
+  const detectManagedRuntimeAgents = (...args) => runtime.detectManagedRuntimeAgents(...args);
   const diagnoseCommands = (...args) => runtime.diagnoseCommands(...args);
   const diagnoseComponents = (...args) => runtime.diagnoseComponents(...args);
   const diagnoseSkillsManifestSchemas = (...args) => runtime.diagnoseSkillsManifestSchemas(...args);
@@ -238,9 +239,13 @@ export function registerApplicationWorkspaceOperations(runtime) {
         });
       }
     }
-    diagnoseComponents(result, targetRoot, includeInfo, requestedAgent);
+    const detectedAgents = result.workspace?.initialized ? detectManagedRuntimeAgents(targetRoot) : [];
+    result.agentRuntime.detectedAgents = detectedAgents;
+    result.agentRuntime.checkedAgents = requestedAgent && isSupportedAgent(requestedAgent) ? [requestedAgent] : requestedAgent ? [] : detectedAgents;
+    result.agentRuntime.diagnosticMode = requestedAgent ? 'selected-runtime' : 'managed-runtime-inventory';
+    diagnoseComponents(result, targetRoot, includeInfo, requestedAgent, detectedAgents);
     diagnoseCommands(result, targetRoot, requestedScope && requestedScope.startsWith('projects/') ? [requestedScope.split('/')[1]] : []);
-    if (internalOptions.skipRuntime !== true) diagnoseRuntime(result, targetRoot, scopes, { includeInfo, agent: requestedAgent });
+    if (internalOptions.skipRuntime !== true) diagnoseRuntime(result, targetRoot, scopes, { includeInfo, agent: requestedAgent, detectedAgents });
     finalizeDoctorResult(result);
 
     if (json) {

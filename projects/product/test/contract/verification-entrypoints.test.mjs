@@ -94,7 +94,6 @@ test('candidate verification retains every release gate and split package steps'
     'CLI package parity',
     'runtime adapter contract',
     'runtime adapter parity',
-    'runtime adapter smoke workspace generator',
     'capability CLI integration',
     'Service branch contract',
     'remote Skill timeout contract',
@@ -103,6 +102,10 @@ test('candidate verification retains every release gate and split package steps'
     'OpenSpec contract fixtures',
     'documentation quality',
   ]) assert.ok(candidatePlan.steps.some((step) => step.name === stage), `candidate verifier must retain ${stage}`);
+  assert.equal(candidatePlan.steps.some((step) => step.id === 'runtime-adapter-smoke-workspace'), false);
+  assert.equal(candidatePlan.steps.some((step) => step.name === 'runtime adapter smoke workspace generator'), false);
+  assert.equal(fs.existsSync(path.join(productRoot, 'tools/verification/runtime/adapter-smoke-workspace.mjs')), false);
+  assert.equal(fs.existsSync(path.join(productRoot, 'tools/verification/runtime/adapter-smoke-workspace.test.mjs')), false);
   assert.deepEqual(PACKAGE_VERIFIERS.map((step) => step.id), ['static', 'workspace', 'commands', 'rules', 'skills', 'runtime']);
   assert.equal(verificationSteps.filter((step) => step.executor.type === 'candidate-artifact').length, 1);
   assert.equal(candidate.includes('createCandidatePackage'), false);

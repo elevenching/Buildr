@@ -16,7 +16,6 @@ export const REQUIRED_RENDER_CAPABILITIES = Object.freeze([
   'runtime-check',
 ]);
 
-export const ADAPTER_VERIFICATION_LEVELS = Object.freeze(['documented', 'verified']);
 export const SKILL_PUBLICATION_FORMATS = Object.freeze(['openai-skill-metadata']);
 
 export const ADAPTER_TRAIT_CATALOG = Object.freeze({
@@ -378,7 +377,7 @@ const DESCRIPTORS = [
       },
     },
     recommendedCommands: recommendedCommands('cursor'),
-    evidence: { verificationLevel: 'documented', rules: 'official-documentation-with-version-drift-mitigation', skills: 'official-documentation', smokeStatus: 'pending' },
+    evidence: { rules: 'official-documentation-with-version-drift-mitigation', skills: 'official-documentation' },
   }),
   createRuntimeAdapterDescriptor({
     id: 'qoder',
@@ -399,7 +398,7 @@ const DESCRIPTORS = [
       },
     },
     recommendedCommands: recommendedCommands('qoder'),
-    evidence: { verificationLevel: 'documented', rules: 'official-documentation-and-local-intake', skills: 'official-documentation-and-local-intake', smokeStatus: 'pending' },
+    evidence: { rules: 'official-documentation-and-local-intake', skills: 'official-documentation-and-local-intake' },
   }),
   createRuntimeAdapterDescriptor({
     id: 'trae',
@@ -420,7 +419,7 @@ const DESCRIPTORS = [
       },
     },
     recommendedCommands: recommendedCommands('trae'),
-    evidence: { verificationLevel: 'documented', rules: 'installed-product-and-local-intake', skills: 'installed-product-and-local-intake', smokeStatus: 'pending' },
+    evidence: { rules: 'installed-product-and-local-intake', skills: 'installed-product-and-local-intake' },
   }),
   createRuntimeAdapterDescriptor({
     id: 'trae-work',
@@ -438,13 +437,10 @@ const DESCRIPTORS = [
         kind: 'projection', implementation: 'projection', resultKey: 'traeWork',
         installationProbe: { kind: 'command', executable: 'defaults', args: ['read', '/Applications/TRAE SOLO.app/Contents/Info', 'CFBundleIdentifier'], timeoutMs: 3000 },
         versionProbe: { kind: 'command', executable: 'defaults', args: ['read', '/Applications/TRAE SOLO.app/Contents/Info', 'CFBundleShortVersionString'], timeoutMs: 3000 },
-        prerequisites: [
-          { code: 'runtime.trae_work_rules_import_unverified', message: 'TRAE Work Rules import and reference traversal cannot be proven from projection state.', guidance: 'Enable the desktop Rules import toggle for CLAUDE.local.md, start a new conversation, and run the documented reference-bridge smoke.' },
-        ],
       },
     },
     recommendedCommands: recommendedCommands('trae-work'),
-    evidence: { verificationLevel: 'documented', rules: 'official-documentation-and-local-intake', skills: 'official-documentation-and-local-intake', smokeStatus: 'pending' },
+    evidence: { rules: 'official-documentation-and-local-intake', skills: 'official-documentation-and-local-intake' },
   }),
   createRuntimeAdapterDescriptor({
     id: 'workbuddy',
@@ -465,22 +461,7 @@ const DESCRIPTORS = [
       },
     },
     recommendedCommands: recommendedCommands('workbuddy'),
-    evidence: {
-      verificationLevel: 'verified',
-      rules: 'installed-source-code-5.2.5',
-      skills: 'installed-product-docs-and-source',
-      smokeStatus: 'passed',
-      smoke: {
-        observedAt: '2026-07-13',
-        productVersion: '5.2.5',
-        runtimeVersion: '2.106.4',
-        surface: 'desktop-bundled-cli',
-        rules: { root: 'pass', project: 'pass', active: 'pass', siblingIsolated: 'pass' },
-        skill: { status: 'pass', result: 'SMOKE_SKILL_DISCOVERED_19AF' },
-        activation: { rules: 'session-start', skills: 'session-start' },
-        evidence: 'Headless task from the WorkBuddy desktop bundle plus an audited tool transcript; no sibling Rule file was read.',
-      },
-    },
+    evidence: { rules: 'installed-source-code', skills: 'installed-product-docs-and-source' },
   }),
 ];
 
@@ -502,11 +483,8 @@ export function validateAdapterDescriptor(descriptor, options = {}) {
   if (!descriptor.implementation || !['string', 'object'].includes(typeof descriptor.implementation)) errors.push(`adapter ${descriptor.id} implementation entry is required`);
   if (!descriptor.recommendedCommands || typeof descriptor.recommendedCommands !== 'object') errors.push(`adapter ${descriptor.id} recommendedCommands are required`);
   const evidence = descriptor.evidence || {};
-  if (Object.keys(evidence).length > 0) {
-    if (!ADAPTER_VERIFICATION_LEVELS.includes(evidence.verificationLevel)) errors.push(`adapter ${descriptor.id} evidence verificationLevel is invalid: ${evidence.verificationLevel || '<missing>'}`);
-    if (!['pending', 'passed'].includes(evidence.smokeStatus)) errors.push(`adapter ${descriptor.id} evidence smokeStatus is invalid: ${evidence.smokeStatus || '<missing>'}`);
-    if (evidence.verificationLevel === 'verified' && evidence.smokeStatus !== 'passed') errors.push(`adapter ${descriptor.id} verified evidence requires a passed smoke`);
-    if (evidence.smokeStatus === 'passed' && evidence.verificationLevel !== 'verified') errors.push(`adapter ${descriptor.id} passed smoke requires verified evidence`);
+  for (const key of ['verificationLevel', 'smokeStatus', 'smoke']) {
+    if (Object.hasOwn(evidence, key)) errors.push(`adapter ${descriptor.id} evidence must not encode runtime smoke state: ${key}`);
   }
   return errors;
 }

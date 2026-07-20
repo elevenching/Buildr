@@ -103,7 +103,7 @@ Agent：发现任务相关资产、根据诊断推进工作，并在需要业务
 
 CLI 是 Agent 的确定性执行层。Agent 负责理解目标、发现相关信息、编排动作和解释结果；人负责目标、边界与关键判断。涉及 workspace 资产变更时，Agent 应调用 Buildr CLI 或做可验证文件变更，并在状态变更后运行诊断。只要 Agent 能安全完成且已取得必要授权，就应直接推进动作，不把命令复制给用户代为执行；需要手动处理时，必须说明 Agent 无法执行的原因并给出准确兜底方式。
 
-doctor 是轻量、通用的 workspace 事实入口，不是所有专项验收的合集。它每次检查 canonical workspace identity、mutation 与 root registries，并在相关资产或 runtime adapter 适用时执行条件通用检查；Git 操作 readiness、OpenSpec change 契约、构建和测试仍由对应专业工作流负责。doctor 的 `ok` 只保持“没有 error”的兼容含义，是否可直接继续工作以独立的 `health.ready`、`health.actionRequired` 和根因化 `repairPlan` 为准。
+doctor 是轻量、通用的 workspace 事实入口，不是所有专项验收的合集。它每次检查 canonical workspace identity、mutation 与 root registries，并在相关资产或 runtime adapter 适用时执行条件通用检查；Git 操作 readiness、OpenSpec change 契约、构建和测试仍由对应专业工作流负责。显式 `--agent <agent>` 选择当前 runtime 并让其 actionable findings 参与 readiness；未选择 Agent 时只检查有 Buildr managed marker/receipt 的 runtime inventory，未选中 runtime drift 不降低通用 workspace readiness。doctor 的 `ok` 只保持“没有 error”的兼容含义，是否可直接继续工作以独立的 `health.ready`、`health.actionRequired` 和根因化 `repairPlan` 为准。
 
 这种结构让不同岗位不必先把各自工作内容手工整理成一份给当前执行者的临时说明。只要相关内容已经作为 Project 或 workspace 工作资产被组织，Agent 就能在任务需要时发现它，为跨服务、跨岗位的端到端工作提供共同基础。Buildr 不使用固定岗位路由，也不承诺自动推断所有依赖；语义相关性仍由 Agent 根据任务判断。
 

@@ -115,7 +115,7 @@ Buildr candidate verifier MUST 在同一冻结候选 run 内复用不可变 npm 
 - **AND** timing summary MUST 保留失败 step 的名称、exitCode、durationMs 以及该批次已完成 step 的结果
 
 ### Requirement: runtime adapter 验证必须按契约和实现族分层
-Buildr 产品验证 MUST 对全部 supported runtime adapter 执行低成本 descriptor/plan/evidence 契约，并 MUST 仅按不同投射、skills root、checker 或 cleanup 实现语义选择代表执行昂贵 CLI 生命周期。
+Buildr 产品验证 MUST 对全部 supported runtime adapter 执行低成本 descriptor/plan/capability evidence 契约，并 MUST 仅按不同投射、skills root、checker 或 cleanup 实现语义选择代表执行昂贵 CLI 生命周期；Candidate MUST NOT 生成或执行真实 Agent marker smoke workspace。
 
 #### Scenario: 验证全部 supported adapter
 - **WHEN** fast 或 candidate verifier 运行 runtime adapter contract
@@ -130,6 +130,12 @@ Buildr 产品验证 MUST 对全部 supported runtime adapter 执行低成本 des
 - **WHEN** verifier 对某个 Project 执行 scoped render 和 cleanup
 - **THEN** verifier MUST 验证无关 Project 的受管投射仍然存在且内容不变
 - **AND** 该回归 MUST 覆盖 same-directory vendor、central vendor 和 root-index bridge cleanup 模型
+
+#### Scenario: Agent runtime marker smoke 暂不属于 Candidate
+- **WHEN** Candidate 编排 runtime adapter 验证
+- **THEN** registry MUST NOT 包含 Agent runtime marker smoke workspace generator 或真实 Agent invocation step
+- **AND** contract tests MUST NOT 固化某个品牌的历史 smoke status、marker result、product version 或 surface 快照
+- **AND** npm release smoke、package smoke 和 workspace lifecycle E2E MUST 保持各自既有 owner 与覆盖
 
 ### Requirement: 产品验证必须记录阶段耗时
 Buildr 产品总验证 MUST 记录每个阶段和整体 wall-clock elapsed milliseconds，MUST 为 Candidate 总耗时和 Workspace E2E suites 声明目标预算，并 MUST 在成功或失败时生成可供 CI 保存的机器可读 timing summary。
