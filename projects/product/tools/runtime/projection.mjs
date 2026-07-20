@@ -404,9 +404,8 @@ export function checkRuntimeProjection(options) {
   writes = [...writes.filter((item) => !satisfiedIds.has(item.skillId)), ...evidenceWrites];
   const reconciled = reconcileRuntimePlan(createRuntimePlan({ ...assembled.plan, writes, removals: assembled.plan.removals.filter((item) => !satisfiedIds.has(item.skillId)) }), { compareOnly: true });
   const adapter = getRuntimeAdapter(options.adapterId);
-  const visibilityFinding = adapter.traits.skills.destinations.discovery.evidence === 'partial' ? [{ status: 'warning', path: '.', message: 'Agent Skill inventory is only partially observable; admin/system/plugin duplicates cannot be ruled out.', code: 'runtime.skill_visibility_incomplete', evidence: 'partial', opaqueSources: adapter.traits.skills.destinations.discovery.opaqueSources || [], userActionRequired: false }] : [];
   const staleSatisfaction = satisfaction.filter((item) => item.status !== 'satisfied_by_user' && fs.existsSync(evidenceFile(item.receipt.skillId))).map((item) => ({ status: 'stale', path: toPosixRelative(options.repoRoot, evidenceFile(item.receipt.skillId)), message: `workspace Skill ${item.receipt.skillId} user satisfaction evidence is stale.`, code: 'runtime.skill_satisfaction_stale', repair: 'skills-render', userActionRequired: true }));
-  const findings = [...reconciled.findings, ...staleSatisfaction, ...visibilityFinding];
+  const findings = [...reconciled.findings, ...staleSatisfaction];
   const counts = summarize(findings);
   const result = { ...reconciled, findings, counts, exitCode: counts.conflict ? 2 : counts.missing || counts.stale || counts.orphan ? 1 : 0, requestedScope: assembled.scopeInfo.requestedScope, discoveryBoundaries: assembled.discovery.boundaries, skillInventoryEvidence: adapter.traits.skills.destinations.discovery };
   result.repairCommands = repairCommands(result, options.adapterId);

@@ -169,12 +169,16 @@ test('effective inventory 只读汇总外部 Skill 并稳定分类', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-skill-inventory-'));
   const userHome = path.join(root, 'user');
   const skillDir = path.join(root, '.agents', 'skills', 'demo');
+  const unrelatedDir = path.join(root, '.agents', 'skills', 'unrelated');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(skillDir, { recursive: true });
+  fs.mkdirSync(unrelatedDir, { recursive: true });
   fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: demo\ndescription: demo\n---\nbody\n');
+  fs.writeFileSync(path.join(unrelatedDir, 'SKILL.md'), '---\nname: unrelated\ndescription: unrelated\n---\nbody\n');
   const before = fs.statSync(path.join(skillDir, 'SKILL.md')).mtimeMs;
   const inventory = buildEffectiveSkillInventory({ adapterId: 'codex', workspaceRoot: root, userHome, candidateIds: ['demo'] });
   assert.equal(inventory.entries.length, 1);
+  assert.equal(inventory.entries.some((entry) => entry.skillId === 'unrelated'), false);
   assert.equal(inventory.entries[0].sourceCategory, 'external-filesystem');
   const equivalent = classifySkillCandidate({ skillId: 'demo', assetIdentity: 'workspace:x:skill:demo', renderDigest: inventory.entries[0].renderDigest }, inventory, 'workspace');
   assert.equal(equivalent.status, 'equivalent_external');

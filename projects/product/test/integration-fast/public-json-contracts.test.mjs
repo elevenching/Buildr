@@ -117,19 +117,23 @@ test('doctor 严格报告 workspace identity 与独立 readiness', async (t) => 
   assert.ok(absent.findings.some((finding) => finding.code === 'workspace.not_initialized'));
 });
 
-test('Codex partial inventory warning 保持可见但不降低 doctor readiness', async (t) => {
+test('Codex partial inventory 作为 assurance metadata 保留且不产生 doctor warning', async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-doctor-partial-inventory-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   await run(['init', '--agent', 'codex', '--target', root, '--name', 'doctor-partial-inventory', '--profile', 'team'], { json: false });
 
   const report = await run(['doctor', '--agent', 'codex', '--target', root, '--json']);
-  const warning = report.findings.find((finding) => finding.code === 'runtime.codex_warning');
-  assert.ok(warning);
-  assert.equal(warning.userActionRequired, false);
-  assert.deepEqual(warning.runtimeFindingCodes, ['runtime.skill_visibility_incomplete']);
-  assert.equal(warning.evidence, 'partial');
-  assert.deepEqual(warning.opaqueSources, ['admin', 'system', 'plugin']);
-  assert.equal(report.summary.warning, 1);
+  assert.equal(report.findings.some((finding) => finding.code === 'runtime.codex_warning'), false);
+  assert.equal(report.summary.warning, 0);
+  assert.deepEqual(report.runtime.codex[0].skillInventoryEvidence, {
+    evidence: 'partial',
+    roots: [
+      { source: 'workspace', destination: 'workspace' },
+      { source: 'user', destination: 'user' },
+    ],
+    opaqueSources: ['admin', 'system', 'plugin'],
+    precedence: 'not-guaranteed',
+  });
   assert.equal(report.health.ready, true);
   assert.equal(report.health.actionRequired, false);
   assert.equal(report.health.actionableCount, 0);

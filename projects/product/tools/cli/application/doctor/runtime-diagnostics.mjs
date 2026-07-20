@@ -120,7 +120,7 @@ export function createRuntimeDiagnostics(deps) {
             command: 'buildr doctor',
           });
           const findings = dedupeFindings(agent, runtimeFindingsForDoctor(check.findings, includeInfo));
-          result.runtime[resultKey].push({ agent, scope, counts: summarizeRuntimeFindings(findings), findings, environmentChecks: check.environmentChecks, activation: check.activation });
+          result.runtime[resultKey].push({ agent, scope, counts: summarizeRuntimeFindings(findings), findings, skillInventoryEvidence: check.skillInventoryEvidence, environmentChecks: check.environmentChecks, activation: check.activation });
           if (findings.some((finding) => ['missing', 'stale', 'orphan'].includes(finding.status))) {
             addDoctorFinding(result, 'warning', `runtime.${codeId}_stale`, `${adapter.displayName} runtime 缺失或过期：${scope}`, {
               path: toPosixRelative(targetRoot, check.targetRoot),
@@ -148,7 +148,7 @@ export function createRuntimeDiagnostics(deps) {
               suggestion: userActionRequired
                 ? '优先查看 doctor 输出中的 runtime findings；需要 adapter 细节时再运行 runtime check。'
                 : selectedAgent
-                  ? '该 warning 表示 runtime 可观测性边界，无需通过 sync 或 render 修复；需要细节时运行 runtime check。'
+                  ? '该 warning 未要求用户操作；需要细节时运行 runtime check。'
                   : `这是未选中 runtime 的 inventory evidence；使用该 Agent 时运行 doctor --agent ${agent} 获取可操作诊断。`,
             });
           }

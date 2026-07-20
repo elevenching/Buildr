@@ -172,7 +172,7 @@ test('skills render 将 source workspace 与 user/workspace destination 分离�
   const local = await run(['skills', 'render', 'codex', '--destination', 'workspace', '--target', root], 0, { env });
   assert.equal(fs.existsSync(path.join(root, '.agents', 'skills', 'task-triage', 'SKILL.md')), false, 'same user asset must satisfy workspace without duplicate projection');
   assert.equal(fs.existsSync(path.join(root, '.agents', 'buildr', 'skill-satisfaction', 'codex', 'task-triage.json')), true);
-  assert.match(local.stderr, /runtime\.skill_visibility_incomplete/);
+  assert.doesNotMatch(local.stderr, /runtime\.skill_visibility_incomplete/);
 });
 
 test('skills render 对用户层同名外部资产输出稳定 JSON 并整次零写入', { concurrency: true }, async (t) => {

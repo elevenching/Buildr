@@ -99,13 +99,12 @@ export function registerApplicationRuntime(runtime) {
       ...plan,
       writes: [...(satisfiedIds.size ? plan.writes.filter((item) => !satisfiedIds.has(item.skillId)) : plan.writes), ...satisfactionWrites],
       removals: [...(satisfiedIds.size ? plan.removals.filter((item) => !satisfiedIds.has(item.skillId)) : plan.removals), ...satisfactionRemovals],
-      warnings: inventory.evidence === 'partial' ? [...plan.warnings, 'runtime.skill_visibility_incomplete: adapter inventory cannot enumerate every admin/system/plugin Skill source.'] : plan.warnings,
     });
     reconcileRuntimePlan(plan);
     const files = [...plan.writes.map((item) => item.targetFile), ...plan.removals.map((item) => item.targetFile)];
     const remaining = destination === 'workspace' ? buildRuntimeOrphanRemovalPlan(renderCommand.targetRoot, agent, '.') : [];
     if (remaining.length) throw new Error(`运行时同步未完成，请重新运行 buildr skills render ${agent}。`);
-    return { targetRoot: runtimeTargetRoot, files, plan: plan.writes, warnings: plan.warnings, classifications };
+    return { targetRoot: runtimeTargetRoot, files, plan: plan.writes, warnings: plan.warnings, classifications, skillInventoryEvidence: { evidence: inventory.evidence, opaqueSources: inventory.opaqueSources } };
   }
 
   function renderRulesRuntime(agent, args) {

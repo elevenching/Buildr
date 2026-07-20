@@ -74,9 +74,7 @@ function diagnoseRuntimeWarnings(runtimeFindings) {
 test('runtime doctor 聚合 warning 时保留 actionability 与来源摘要', () => {
   const nonActionable = diagnoseRuntimeWarnings([{
     status: 'warning',
-    code: 'runtime.skill_visibility_incomplete',
-    evidence: 'partial',
-    opaqueSources: ['admin', 'system', 'plugin'],
+    code: 'runtime.advisory',
     userActionRequired: false,
   }]);
   assert.deepEqual(nonActionable.findings[0], {
@@ -86,10 +84,8 @@ test('runtime doctor 聚合 warning 时保留 actionability 与来源摘要', ()
     path: '.',
     agent: 'codex',
     userActionRequired: false,
-    runtimeFindingCodes: ['runtime.skill_visibility_incomplete'],
-    evidence: 'partial',
-    opaqueSources: ['admin', 'system', 'plugin'],
-    suggestion: '该 warning 表示 runtime 可观测性边界，无需通过 sync 或 render 修复；需要细节时运行 runtime check。',
+    runtimeFindingCodes: ['runtime.advisory'],
+    suggestion: '该 warning 未要求用户操作；需要细节时运行 runtime check。',
   });
   assert.deepEqual(buildDoctorHealth({ workspace: { identity: { state: 'valid' } }, findings: nonActionable.findings }), {
     workspaceValid: true,
@@ -104,11 +100,11 @@ test('runtime doctor 聚合 warning 时保留 actionability 与来源摘要', ()
   assert.deepEqual(actionable.findings[0].runtimeFindingCodes, ['runtime.manual_check']);
 
   const mixed = diagnoseRuntimeWarnings([
-    { status: 'warning', code: 'runtime.skill_visibility_incomplete', userActionRequired: false },
+    { status: 'warning', code: 'runtime.advisory', userActionRequired: false },
     { status: 'warning', code: 'runtime.manual_check' },
   ]);
   assert.equal(mixed.findings[0].userActionRequired, true);
-  assert.deepEqual(mixed.findings[0].runtimeFindingCodes, ['runtime.skill_visibility_incomplete', 'runtime.manual_check']);
+  assert.deepEqual(mixed.findings[0].runtimeFindingCodes, ['runtime.advisory', 'runtime.manual_check']);
 });
 
 test('doctor scope parser 只接受 root/project 层级并稳定发现显式 scope', () => {
