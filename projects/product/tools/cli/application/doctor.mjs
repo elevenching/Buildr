@@ -137,7 +137,7 @@ export function registerApplicationDoctor(runtime) {
       const hasV2OnlyKeys = /^(?:contracts|bindings):/m.test(manifestText);
       const supportedLegacy = ['buildr.skills/v1', 'buildr.skills/v2'].includes(schemaVersion) || (schemaVersion === null && !hasV2OnlyKeys);
       const projectLegacy = !isWorkspace && supportedLegacy;
-      addDoctorFinding(result, supportedLegacy ? 'warning' : 'error', projectLegacy ? 'skills.project_assets_legacy' : supportedLegacy ? 'skills.schema_version_legacy' : 'skills.schema_version_invalid', `${projectLegacy ? 'Project Skill source 等待显式迁移' : supportedLegacy ? 'Skills manifest 等待事务化升级' : 'Skills manifest schemaVersion 不支持'}：${relative}`, {
+      addDoctorFinding(result, supportedLegacy ? 'warning' : 'error', projectLegacy ? 'skills.project_assets_legacy' : supportedLegacy ? 'skills.schema_version_legacy' : 'skills.schema_version_invalid', `${projectLegacy ? 'Legacy Project Skill source 等待显式迁移' : supportedLegacy ? 'Skills manifest 等待事务化升级' : 'Skills manifest schemaVersion 不支持'}：${relative}`, {
           path: relative,
           supportedVersions: ['buildr.skills/v1', 'buildr.skills/v2', 'buildr.skills/v3'],
           suggestion: projectLegacy ? '运行 buildr skills migrate-project-assets --check，审阅后再 --apply。' : supportedLegacy ? '运行 buildr update 或 buildr sync 迁移 workspace manifest 到 schemaVersion: buildr.skills/v3。' : '先更新 Buildr CLI；不要用当前版本重写该 manifest。',

@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "refactor-command-catalog-and-project-requirements",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-33c3fd73e2907347fc5ae3d970740c4e73f16e577861e24744fdb62cc409f90a",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-readable-doctor",
+      "title": "doctor 聚合命令行工具清单状态",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: doctor 聚合命令行工具清单状态\nBuildr doctor MUST 聚合全部 Commands collections 的检查结果，并以 Agent-readable JSON 输出当前本机环境与 workspace 声明的对齐状态。\n\n#### Scenario: doctor 检查命令行工具集合\n- **WHEN** Agent 运行 `buildr doctor --target <dir> --json`\n- **THEN** doctor MUST 包含根 `commands/manifest.yml` 和安全递归发现的 `commands/**/manifest.yml` 检查结果\n- **AND** 结果 MUST 标识每个 manifest 是否有效、每个声明的来源，以及 executable 是否可用\n\n#### Scenario: doctor 输出警示和修复提示\n- **WHEN** 某个命令行工具缺失、版本不满足或版本无法判断\n- **THEN** doctor MUST 输出 warning 状态和可供 Agent 使用的差异说明\n- **AND** 修复提示 MUST 来源于对应 Command collection 声明的最小安装提示或官方链接\n- **AND** doctor MUST NOT 因本机命令行工具差异使工作区诊断整体失败\n\n#### Scenario: doctor 报告清单或集合冲突错误\n- **WHEN** 任一 Command collection manifest 不可解析、字段非法、版本约束格式非法，或相同 Command id 的有效声明冲突\n- **THEN** doctor MUST 将该问题报告为 error\n- **AND** doctor MUST 输出全部冲突来源 manifest\n\n#### Scenario: doctor 不检查个人认证\n- **WHEN** doctor 检查命令行工具集合状态\n- **THEN** doctor MUST NOT 读取或报告 token、cookie、登录态或个人私有配置\n"
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "Package baseline 交付 Project Command requirements context",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-product-surface",
+      "title": "Commands CLI 显式表达 task context",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "command-line-tool-assets",
+      "title": "Buildr 管理命令行工具清单",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr 管理命令行工具清单\nBuildr MUST 支持在 workspace 中维护一个或多个命令行工具清单集合，用于表达组织期望使用的外部命令行工具。\n\n#### Scenario: 维护默认命令行工具集合\n- **WHEN** 用户或 Agent 需要将某个外部命令行工具作为需要沉淀或复用的组织工作资产维护\n- **THEN** Buildr MUST 默认使用 `commands/manifest.yml` 记录该命令行工具清单\n- **AND** 该清单 MUST 至少能表达工具 id、可执行命令、用途和可选版本约束\n- **AND** 该清单 MAY 表达工具名称、补充描述和最小安装提示\n\n#### Scenario: 维护嵌套命令行工具集合\n- **WHEN** 用户、Agent 或 Component 需要独立维护一组 Commands\n- **THEN** Buildr MUST 支持使用 `commands/<collection>/manifest.yml` 保存该集合\n- **AND** collection path MUST 保持在 workspace `commands/` 目录内\n\n#### Scenario: 命令行工具 manifest 字段\n- **WHEN** Buildr 读取或写入任一 `commands/**/manifest.yml`\n- **THEN** 命令行工具条目 MUST 使用 `id`、`executable`、`purpose`、可选 `name`、可选 `description`、可选 `version` 和可选 `installHint`\n- **AND** Buildr MUST NOT 将 `install` 作为合法字段\n\n#### Scenario: Buildr 不保存命令行工具主体\n- **WHEN** Buildr 维护命令行工具清单\n- **THEN** Buildr MUST NOT 将外部分发的命令行工具 binary、登录态、token、cookie 或个人私有配置保存为 workspace 资产\n"
+    },
+    {
+      "capability": "command-line-tool-assets",
+      "title": "命令行工具清单检查",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 命令行工具清单检查\nBuildr MUST 提供命令行工具清单检查能力，用于聚合判断当前本机环境是否满足 workspace 中全部 Commands collections 的声明。\n\n#### Scenario: 检查命令行工具存在性\n- **WHEN** Agent 运行 `buildr commands check --target <dir> --json` 或等价检查入口\n- **THEN** Buildr MUST 读取 `<dir>/commands/manifest.yml` 和安全递归发现的 `commands/**/manifest.yml`\n- **AND** Buildr MUST 报告每个声明的来源 manifest 和 executable 是否能在当前机器找到\n\n#### Scenario: 聚合相同 Command id\n- **WHEN** 多个 collection 声明相同 Command id\n- **THEN** Buildr MUST 在标准化有效字段完全一致时合并检查结果并保留全部来源\n- **AND** 任一有效字段不一致时 Buildr MUST 报告 error 和冲突来源\n\n#### Scenario: 检查命令行工具版本\n- **WHEN** manifest 声明了版本约束\n- **THEN** manifest MUST 同时声明结构化版本检查参数\n- **AND** Buildr MUST 使用声明的 executable 和参数检查当前版本是否满足约束\n- **AND** Buildr MUST NOT 执行 manifest 中的任意 shell 字符串\n\n#### Scenario: 版本无法判断\n- **WHEN** Buildr 无法从版本检查输出中解析版本\n- **THEN** Buildr MUST 将该工具状态报告为 warning\n- **AND** Buildr MUST NOT 将版本无法判断视为 manifest 源资产错误\n\n#### Scenario: 输出安装提示\n- **WHEN** 声明的命令行工具缺失或版本不满足约束\n- **THEN** Buildr MUST 在 JSON 结果中输出 manifest 声明的 `installHint`\n- **AND** Buildr MUST NOT 自动安装该命令行工具\n\n#### Scenario: 区分清单错误和本机差异\n- **WHEN** 任一命令行工具清单不可解析、字段非法、版本约束格式非法或 collection 之间存在冲突\n- **THEN** Buildr MUST 将该问题报告为 error\n- **WHEN** 命令不存在、版本不满足或版本无法判断\n- **THEN** Buildr MUST 将该问题报告为 warning\n"
+    },
+    {
+      "capability": "command-line-tool-assets",
+      "title": "命令行工具不执行 render 或 install",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 命令行工具不执行 render 或 install\nBuildr MUST NOT 为命令行工具清单集合提供 `commands render` 或 `commands install` 语义。\n\n#### Scenario: Agent 维护命令行工具清单\n- **WHEN** Agent 需要让当前机器满足命令行工具清单声明\n- **THEN** Agent MUST 使用命令行工具清单检查结果向用户说明差异\n- **AND** Agent MAY 在用户授权下协作安装或升级命令行工具\n- **AND** Agent MUST NOT 期待 Buildr 将命令行工具 render 到 Agent runtime 或自动安装到本机\n\n#### Scenario: 维护命令不触发检查或安装\n- **WHEN** Agent 运行 `buildr commands add` 或 `buildr commands remove`\n- **THEN** Buildr MUST 只维护选定的 Command collection manifest\n- **AND** Buildr MUST NOT 自动运行 `commands check`\n- **AND** Buildr MUST NOT 自动安装或升级命令行工具\n"
+    },
+    {
+      "capability": "command-line-tool-assets",
+      "title": "命令行工具清单维护命令",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 命令行工具清单维护命令\nBuildr MUST 提供命令行工具清单条目的 add/remove 维护命令，用于在已初始化 workspace 中维护默认或指定的 Command collection。\n\n#### Scenario: 添加到默认集合\n- **WHEN** Agent 运行 `buildr commands add <id> --purpose <text> --target <dir>`\n- **THEN** Buildr MUST 要求 `<dir>` 是已初始化 Buildr workspace\n- **AND** Buildr MUST 在 `<dir>/commands/manifest.yml` 中新增对应 `id` 的条目\n- **AND** 当未提供 executable 时 Buildr MUST 使用 `<id>` 作为 executable\n- **AND** Buildr MUST 保留 manifest 中已有条目的顺序，并将新条目追加到末尾\n\n#### Scenario: 添加到指定集合\n- **WHEN** Agent 运行 `buildr commands add <id> ... --collection <collection> --target <dir>`\n- **THEN** Buildr MUST 只写入 `<dir>/commands/<collection>/manifest.yml`\n- **AND** Buildr MUST 拒绝绝对路径、父目录逃逸和 Component-owned collection\n\n#### Scenario: 替换命令行工具条目\n- **WHEN** Agent 运行 `buildr commands add <id> ... --replace`\n- **AND** 目标 collection 中已存在同 `id` 条目\n- **THEN** Buildr MUST 使用本次命令声明的完整条目替换旧条目\n- **AND** Buildr MUST 保留旧条目在 manifest 中的位置\n- **AND** Buildr MUST NOT 执行局部字段 update\n\n#### Scenario: 重复添加命令行工具条目\n- **WHEN** Agent 运行 `buildr commands add <id> ...`\n- **AND** 目标 collection 中已存在同 `id` 条目\n- **AND** 命令未提供 `--replace`\n- **THEN** Buildr MUST 报告错误\n\n#### Scenario: 删除命令行工具条目\n- **WHEN** Agent 运行 `buildr commands remove <id> [--collection <collection>] --target <dir>`\n- **THEN** Buildr MUST 从目标 collection manifest 删除对应 `id` 的条目\n- **AND** Buildr MUST NOT 删除任何命令行工具 binary、认证信息或本机配置\n- **AND** 当删除后清单为空时 Buildr MUST 保留空的 `commands: []`\n- **AND** 目标 collection 属于已启用 Component 时 Buildr MUST 拒绝单项删除\n\n#### Scenario: 输出下一步行为\n- **WHEN** Buildr 完成 `commands add` 或 `commands remove`\n- **THEN** Buildr MUST 输出中文 Agent-readable 回执\n- **AND** 回执 MUST 说明已更新的 collection 和源资产\n- **AND** 回执 MUST 引导 Agent 运行命令行工具清单检查或 doctor 查看状态\n- **AND** 回执 MUST NOT 硬编码特定 Agent adapter 命令\n"
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "Onboarding 区分 Command definition、requirement 与本机状态",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-components",
+      "title": "Component 只拥有 workspace Command catalog collection",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-command-requirements",
+      "title": "Project 通过引用声明 Command requirements",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-command-requirements",
+      "title": "Command requirements 按明确 Project task context 解析",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-command-requirements",
+      "title": "跨 Project Command 版本约束确定性合并",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-command-requirements",
+      "title": "旧 Project 缺少 Commands context 可安全兼容",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-registry",
+      "title": "Project registry 识别 Command requirement context",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

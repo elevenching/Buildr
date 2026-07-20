@@ -162,9 +162,10 @@ Buildr package check MUST 验证 manifest-backed 资产维护命令不会破坏�
 
 #### Scenario: 验证 Skills add/remove
 - **WHEN** Agent 执行 `buildr package check`
-- **THEN** Buildr MUST 验证 `skills add/remove` 可以在已初始化临时 workspace 中维护 workspace 或 project scope 的 `skills/manifest.yml`
+- **THEN** Buildr MUST 验证 `skills add/remove` 只维护已初始化临时 workspace 根的 `skills/manifest.yml`
+- **AND** Buildr MUST 验证 Project source scope 被拒绝并返回 legacy migration guidance
 - **AND** Buildr MUST 验证 `skills add --source` 装载的是完整 Skill 源目录
-- **AND** Buildr MUST 验证 `skills add/remove` 不会自动写入 Agent runtime
+- **AND** Buildr MUST 验证 `skills add/remove` 不会自动写入 user 或 workspace runtime destination
 
 #### Scenario: 验证 Rules add/remove
 - **WHEN** Agent 执行 `buildr package check`

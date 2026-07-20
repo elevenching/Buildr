@@ -68,13 +68,13 @@ GUI 产品的标准 smoke 是一次新会话、一份由 Buildr 生成的 `SMOKE
 ## TRAE (`trae`)
 
 - Buildr 在每个 discovered source scope 生成带 `alwaysApply: true` frontmatter 的 `.trae/rules/buildr.md`；这样 root、Project、Service/deeper Rules 保持各自目录边界。
-- Skills 与 install plans 使用 `.agents/`。TRAE 3.5.73 的 `AI.skills.enableAgentsDir` 默认开启，安装包说明会自动加载 `.agents/skills`；这也与本机会话中项目 Skills 的实际注入一致。`.trae/skills` 在该版本安装包中只证明为 vendor 内容/编辑器路径，不能替代已观察到的项目发现入口。
+- Skills 与 install plans 使用 `.agents/`。TRAE 3.5.73 的 `AI.skills.enableAgentsDir` 默认开启，安装包说明会自动加载当前工作目录的 `.agents/skills`；这也与本机会话中 workspace destination Skills 的实际注入一致。`.trae/skills` 在该版本安装包中只证明为 vendor 内容/编辑器路径，不能替代已观察到的工作目录发现入口。
 - checker 使用静态无 shell 的 `trae --version` 确认入口存在；该命令当前返回底层编辑器 build，因此产品版本必须从 About 人工记录。Rules 或 Skills 修改后开启新会话。
 - 验证等级为 `documented`：[TRAE 官方 Skills 指南](https://www.trae.ai/blog/trae_tutorial_0115?v=1)确认产品采用开放 Agent Skills 标准，但没有声明项目目录；具体路径证据为 TRAE 3.5.73 本机 intake（root `AGENTS.md`、项目 `.agents/skills` 及用户级 `~/.agents/skills`/`~/.trae/skills` 的会话注入观察）、安装包 `AI.skills.enableAgentsDir` 配置，以及 `agent-tool-host` 中的 `globs`、`alwaysApply`、`description`、Rules import flags。nested vendor Rules 与 sibling 一次性 marker smoke 仍为 `pending`。
 
 ## TRAE Work (`trae-work`)
 
-- TRAE Work 与 TRAE IDE 是两个独立 adapter：TRAE IDE 的项目 Skills 使用 `.agents/skills`，TRAE Work 使用 `.trae/skills`；两者的 Rules、Skills root、surface 和 activation 都必须分别认证。
+- TRAE Work 与 TRAE IDE 是两个独立 adapter：TRAE IDE 的 workspace destination Skills 使用 `.agents/skills`，TRAE Work 使用 `.trae/skills`；两者的 Rules、Skills root、surface 和 activation 都必须分别认证。
 - Buildr 生成 root `CLAUDE.local.md`。bridge 明确要求 Agent 读取 root 和当前工作路径 ancestor chain 中适用的 `AGENTS.md`，并列出 source index；普通 Markdown 链接本身不视为 include。
 - 使用前必须在桌面 Settings 中启用对应 Rules import；修改 Rules 后开启新会话。Skills 写入后的实际即时发现仍以产品版本为准。
 - checker 读取 `/Applications/TRAE SOLO.app` 版本，并持续给出 import/reference smoke 前置条件 warning。
@@ -84,10 +84,10 @@ GUI 产品的标准 smoke 是一次新会话、一份由 Buildr 生成的 `SMOKE
 
 - Buildr 生成 root `CODEBUDDY.md`，其中包含 imperative ancestor-chain 读取指令和 source index；内容不得超过 WorkBuddy 5.2.5 已观察到的 8,000 字符 project guidance 上限。
 - WorkBuddy 5.2.5 安装源码的 first-match 顺序是 `CODEBUDDY.md`、`.codebuddy/CODEBUDDY.md`、`AGENTS.md`，只读取 workspace root 第一个存在的入口。非 Buildr 管理的 `CODEBUDDY.md` 会触发 conflict，Buildr 不覆盖也不静默降级。
-- Skills 与 install plans 使用 `.codebuddy/`。WorkBuddy 5.2.5 内置的 CodeBuddy CLI 2.106.4 文档和 Skills panel 源码都将项目 Skill 根声明为 `.codebuddy/skills/`；`.workbuddy/skills` 只出现在 sandbox 可写路径中，不能据此认定为发现入口。Rules 与 Skills 修改后都要开启新任务。
+- Skills 与 install plans 使用 `.codebuddy/`。WorkBuddy 5.2.5 内置的 CodeBuddy CLI 2.106.4 文档和 Skills panel 源码都将当前工作目录的 workspace destination Skills root 声明为 `.codebuddy/skills/`；`.workbuddy/skills` 只出现在 sandbox 可写路径中，不能据此认定为发现入口。Rules 与 Skills 修改后都要开启新任务。
 - checker 读取 `/Applications/WorkBuddy.app` 的 bundle id/版本，并检查 bridge、Skills 和 install plans 的 projection 状态。
 - 验证等级为 `verified`：2026-07-13 使用 WorkBuddy 5.2.5 桌面包内置 CodeBuddy CLI 2.106.4 新建 headless task，`CODEBUDDY.md` 作为 `always_applied_workspace_rules` 预注入，Agent 按 root → Project → active 路径读取三个 `AGENTS.md`，工具调用审计证明没有读取 sibling Rule；`.codebuddy/skills/adapter-smoke-skill` 被发现并返回 `SMOKE_SKILL_DISCOVERED_19AF`。该结果记为 `passed`，surface 为 `desktop-bundled-cli`；桌面 UI 不再重复 smoke。
-- 其他证据为 WorkBuddy 5.2.5 本机 app.asar 源码、随应用交付的 CodeBuddy CLI 文档/源码和运行时 intake；官方公开文档只覆盖产品与 Marketplace，未公开 project guidance 与 project Skills 的完整实现。
+- 其他证据为 WorkBuddy 5.2.5 本机 app.asar 源码、随应用交付的 CodeBuddy CLI 文档/源码和运行时 intake；官方公开文档只覆盖产品与 Marketplace，未公开 project guidance 与工作目录 Skills discovery 的完整实现。
 
 ## Checker 与限制
 

@@ -49,7 +49,7 @@ export function registerApplicationRuntime(runtime) {
     const destination = optionValue(renderCommand.args, '--destination', 'workspace');
     if (!['workspace', 'user'].includes(destination)) throw new Error(`Unsupported Skill destination: ${destination}. Use workspace or user.`);
     if (skillScope !== '.') {
-      const error = new Error(`Project Skill render scope is no longer supported: ${skillScope}. Run buildr skills migrate-project-assets --target ${renderCommand.targetRoot} --check, then use --destination ${destination}.`);
+      const error = new Error(`Legacy Project Skill render scope is no longer supported: ${skillScope}. Run buildr skills migrate-project-assets --target ${renderCommand.targetRoot} --check, then use --destination ${destination}.`);
       error.code = 'skills.project_scope_unsupported';
       throw error;
     }

@@ -100,7 +100,8 @@ Buildr MVP MUST 通过 Buildr Skill、bootstrap guide 兜底、带 Agent identit
 #### Scenario: 产品 Skill 安装不同于 workspace Skills 投射
 - **WHEN** Agent 只需要让当前 runtime 学会使用 Buildr
 - **THEN** Agent MUST 使用 `buildr skill install <agent>`
-- **AND** 当 Agent 需要投射 workspace/project Skills 时，Agent MUST 使用 `buildr skills render <agent>`
+- **AND** 当 Agent 需要投射 workspace Skills 时，Agent MUST 使用 `buildr skills render <agent> --destination workspace|user`
+- **AND** Project 专用语义 MUST 通过 `capabilities.yml` 表达而不是建立 Skill source scope
 
 #### Scenario: 讨论其他更高层入口
 - **WHEN** 需要评估 `buildr use` 等其他更高层入口
@@ -294,15 +295,21 @@ Buildr Skill、bootstrap guide、CLI Reference 和 current-state knowledge MUST 
 ### Requirement: Onboarding 区分 Skill source authority 与 render destination
 Buildr onboarding guidance MUST 说明 workspace 是唯一 Skill source authority，并 MUST 将 user/workspace destination 解释为 Agent runtime 投射位置而不是 source scope。
 
-#### Scenario: 首次初始化 workspace
-- **WHEN** Agent 为 supported runtime 执行首次 `buildr init --agent <agent>`
-- **THEN** Buildr MUST 初始化 workspace `skills/manifest.yml` 和 workspace runtime
-- **AND** MUST NOT 创建 Project Skill manifests 或隐式投射用户级 Skills
+#### Scenario: 用户要求全局安装 Skill
+- **WHEN** 用户要求某个 workspace Skill 对其他工作目录也可用
+- **THEN** Agent MUST 说明该 Skill 仍由当前 workspace `skills/` 维护
+- **AND** MUST 取得用户级写入授权后使用 `buildr skills render <agent> --destination user`
+
+#### Scenario: 用户要求项目专用 Skill
+- **WHEN** 用户要求一个 Skill 只适用于某个 Project
+- **THEN** Agent MUST 在 workspace source authority 中维护该 Skill
+- **AND** MUST 在 Project `capabilities.yml` 中声明 applicability 或 binding
+- **AND** MUST NOT 创建 Project Skill manifest 或隐式投射用户级 Skills
 
 #### Scenario: Agent 询问 Project Skill
-- **WHEN** 用户要求某个 Skill 只适用于一个 Project
-- **THEN** onboarding guidance MUST 说明 Project applicability 是语义路由和 readiness 信息
-- **AND** MUST 说明 Agent runtime 隔离只能由实际工作目录和 Agent discovery mechanism 决定
+- **WHEN** 用户或旧文档使用“Project Skill”描述当前能力
+- **THEN** onboarding MUST 区分 legacy Project Skill source、Project capability/applicability context 与 workspace destination
+- **AND** canonical guidance MUST NOT 把 Project 描述为当前 Skill source 或安装隔离层
 
 ### Requirement: Runtime guidance 公开 Skills inventory 保证边界
 Buildr guidance MUST 说明 adapter 是否能完整观察当前 Agent Skills 集，并 MUST 区分已证明冲突、未发现冲突和可见性不完整。

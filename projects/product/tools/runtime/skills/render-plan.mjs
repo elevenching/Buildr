@@ -242,7 +242,7 @@ export function buildAgentInstallPlanContent(skill) {
 export function resolveRenderSkills(repoRoot, scope, runtime) {
   const { organizationRoot, projectRoot } = resolveSkillScope(repoRoot, scope);
   if (projectRoot) {
-    const error = new Error(`Project Skill render scope is no longer supported: ${scope}. Use --destination workspace or --destination user from the workspace source authority.`);
+    const error = new Error(`Legacy Project Skill render scope is no longer supported: ${scope}. Use --destination workspace or --destination user from the workspace source authority.`);
     error.code = 'skills.project_scope_unsupported';
     error.reason = 'project_scope_removed';
     error.nextActions = [`buildr skills migrate-project-assets --target ${organizationRoot} --check`, `buildr skills render ${runtime} --destination workspace --target ${organizationRoot}`];

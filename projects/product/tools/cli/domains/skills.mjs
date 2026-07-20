@@ -247,7 +247,7 @@ export function registerDomainsSkills(runtime) {
     if (scope === undefined || scope === null || scope === '.' || scope === 'workspace') return { scope: '.', scopeRoot: targetRoot, deprecatedScope: scope === '.' };
     const normalizedScope = normalizeRelativePathForBuildr(scope, `Unsupported skills scope: ${scope}`);
     if (/^projects\/[^/]+$/.test(normalizedScope)) {
-      const error = new Error(`Project Skill source scope is no longer supported: ${normalizedScope}. Project is a capability/applicability context, not an Agent Skill installation boundary. Run \`buildr skills migrate-project-assets --target ${targetRoot} --check\`, then maintain the Skill in workspace skills/.`);
+      const error = new Error(`Legacy Project Skill source scope is no longer supported: ${normalizedScope}. Project is a capability/applicability context, not an Agent Skill installation boundary. Run \`buildr skills migrate-project-assets --target ${targetRoot} --check\`, then maintain the Skill in workspace skills/.`);
       error.code = 'skills.project_scope_unsupported';
       error.reason = 'project_scope_removed';
       error.nextActions = [`buildr skills migrate-project-assets --target ${targetRoot} --check`, 'Move the Skill source to workspace skills/ and reference it from projects/<project>/capabilities.yml.'];
@@ -838,7 +838,7 @@ export function registerDomainsSkills(runtime) {
   }
 
   function applyProjectSkillMigration(targetRoot, plan) {
-    if (plan.blocking) throw new Error(`Project Skill migration is blocked with zero writes:\n${plan.projects.filter((project) => project.blocking).map((project) => `- projects/${project.project}: resolve name conflicts or unknown files`).join('\n')}`);
+    if (plan.blocking) throw new Error(`Legacy Project Skill migration is blocked with zero writes:\n${plan.projects.filter((project) => project.blocking).map((project) => `- projects/${project.project}: resolve name conflicts or unknown files`).join('\n')}`);
     const workspaceRoot = path.join(targetRoot, 'skills');
     const affected = [workspaceRoot, ...plan.projects.flatMap((project) => [project.legacyRoot, project.capabilitiesFile])];
     return withWorkspaceMutation(targetRoot, 'skills.migrate-project-assets', affected, () => {
@@ -900,7 +900,7 @@ export function registerDomainsSkills(runtime) {
     if (apply) applyProjectSkillMigration(targetRoot, plan);
     if (hasFlag(args, '--json')) console.log(JSON.stringify(plan, (key, value) => key === 'entry' ? undefined : value, 2));
     else {
-      console.log(`Project Skill migration ${apply ? 'applied' : 'check'}: projects=${plan.projects.length} blocking=${plan.blocking}`);
+      console.log(`Legacy Project Skill migration ${apply ? 'applied' : 'check'}: projects=${plan.projects.length} blocking=${plan.blocking}`);
       for (const project of plan.projects) for (const skill of project.skills) console.log(`  projects/${project.project}: ${skill.id} ${skill.classification}`);
     }
     if (check && plan.blocking) process.exitCode = 1;

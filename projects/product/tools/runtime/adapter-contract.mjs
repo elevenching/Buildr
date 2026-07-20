@@ -370,7 +370,7 @@ const DESCRIPTORS = [
       },
       skills: { kind: 'agents-compatible', implementation: 'filesystem-skills', root: '.agents' },
       surfaces: [{ kind: 'ide' }, { kind: 'cli' }],
-      activation: { rules: 'path-read', skills: 'session-start', reloadGuidance: 'Start a new Cursor chat after adding or changing project Skills; reopen the chat if project-rule discovery is stale.' },
+      activation: { rules: 'path-read', skills: 'session-start', reloadGuidance: 'Start a new Cursor chat after adding or changing workspace destination Skills; reopen the chat if project-rule discovery is stale.' },
       checker: {
         kind: 'projection', implementation: 'projection', resultKey: 'cursor',
         installationProbe: { kind: 'manual', guidance: 'Confirm Cursor IDE or Cursor Agent CLI is installed for the surface you are using.' },
