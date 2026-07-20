@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "slim-git-worktree-boundaries",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-dd324caf1e99fcbe55d8060407ffca8b8d93ce16dd60295e01fb316143487694",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "Task worktree 提供 change 单写入与验证证据边界",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Task worktree 提供 change 单写入与验证证据边界\nBuildr task-worktree 和 git-ops guidance MUST 在创建预计进入实现的 OpenSpec change 前完成 worktree 决策，并在采用 worktree 后保持唯一任务写入位置，将最终候选 identity 与内容变化交给独立 task-verification capability 管理验证证据。\n\n#### Scenario: 实现型 change 在 propose 前创建 worktree\n- **WHEN** task triage 选择 change-flow，且任务预计包含代码修改、构建、测试或长期实现上下文\n- **THEN** Agent MUST 在创建 OpenSpec change artifacts 前创建或复用 canonical task worktree\n- **AND** proposal、design、specs、tasks、实现和候选验证 MUST 只写入该 worktree\n\n#### Scenario: 纯元内容任务不创建 worktree\n- **WHEN** 任务明确只维护 OpenSpec artifacts、规则、Skills、文档或模板，且不进入代码实现、构建或测试\n- **THEN** Agent MAY 在当前 workspace 直接维护这些元内容\n- **AND** Agent MUST 在任务升级为实现前重新执行 worktree 决策\n\n#### Scenario: artifacts 任务升级为实现\n- **WHEN** 未使用 worktree 的 OpenSpec 任务后来需要代码实现、构建或测试\n- **THEN** Agent MUST 先创建或复用 task worktree 并将 change artifacts 收敛到该唯一位置\n- **AND** Agent MUST 清除原工作区的重复副本并确认主工作区没有该任务的开发改动后再继续\n\n#### Scenario: 最终候选 identity 交给验证 provider\n- **WHEN** worktree 中的全部内容修改已经结束并准备验证最终候选\n- **THEN** task-worktree provider MUST 提供当前 canonical checkout、repository 和可确认的 tree identity\n- **AND** selected task-verification provider MUST 负责执行项目要求的 Candidate 验证并返回绑定该 identity 的 evidence\n\n#### Scenario: 集成前候选 tree 发生变化\n- **WHEN** rebase、冲突解决、后续编辑或其他操作使准备集成的 Git tree 不同于已验证 tree\n- **THEN** task-worktree provider MUST 报告 `treeChanged`\n- **AND** 原验证 evidence MUST 失效并由 selected task-verification provider 在集成前对新 tree 重新验证\n"
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "内置任务 Skills 按 capability contract 协作",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 内置任务 Skills 按 capability contract 协作\nBuildr 内置任务 Skills MUST 依赖 capability contracts 而不是硬编码其他 optional Skill identity，并 MUST 将验证、Git integration 和 worktree lifecycle provider policy 分别保留在对应 provider 中。\n\n#### Scenario: Task Finish 依赖三项 required 能力\n- **WHEN** Buildr 声明 `task-finish` builtin\n- **THEN** its manifest entry MUST require `buildr.task-verification/v1`、`buildr.git-task-integration/v1` 和 `buildr.task-worktree-lifecycle/v1` with `mode: required`\n- **AND** `task-finish` source MUST NOT 复制 selected providers 的验证命令选择、Git integration 或 worktree placement/cleanup policy\n\n#### Scenario: Task Worktree 只拥有生命周期能力\n- **WHEN** `task-worktree` 创建、检查或清理 Git worktree\n- **THEN** it MUST own worktree placement、retention 和 cleanup through `buildr.task-worktree-lifecycle/v1`\n- **AND** it MUST direct Candidate verification to `buildr.task-verification/v1` without providing that capability\n- **AND** it MUST remain independent of `git-ops` and the selected task-verification provider identity\n\n#### Scenario: 替换默认 Verification provider\n- **WHEN** workspace or Project binds an internal provider for `buildr.task-verification/v1`\n- **THEN** product routing and `task-finish` MUST use that provider without requiring the `task-verification` Skill id\n- **AND** uninstalling `task-verification` MUST NOT break Task Finish while the replacement binding remains ready\n\n#### Scenario: 替换默认 Git provider\n- **WHEN** workspace binds compatible internal providers for the Git capabilities consumed by task workflows\n- **THEN** `task-finish` MUST cooperate with the task-integration provider without requiring the `git-ops` Skill id\n- **AND** `task-worktree` MUST remain independent of `git-ops`\n- **AND** uninstalling `git-ops` MUST NOT break those consumers while Task Finish 的 required bindings remain compatible and ready\n\n#### Scenario: 替换默认 Worktree provider\n- **WHEN** workspace or Project binds an internal provider for `buildr.task-worktree-lifecycle/v1`\n- **THEN** product routing and `task-finish` MUST use that provider without requiring the `task-worktree` Skill id\n- **AND** uninstalling `task-worktree` MUST NOT break Task Finish while the replacement binding remains ready\n"
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "产品验证覆盖 task worktree 隔离与证据复用",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品验证覆盖 task worktree 隔离与证据复用\nBuildr package verification MUST 防止 task-worktree guidance 回退为 change artifacts 双写、合并前污染主自举 workspace 或相同 tree 集成后重复产品 E2E。\n\n#### Scenario: 校验 change 创建时机\n- **WHEN** Buildr 验证随包 task-worktree Skill\n- **THEN** 验证 MUST 确认实现型 OpenSpec change 在 propose 前创建或复用 task worktree\n- **AND** 验证 MUST 确认采用 worktree 后 artifacts、实现和候选验证只有一个写入位置\n\n#### Scenario: 校验最终候选 tree 验证契约\n- **WHEN** Buildr 验证 Product Project 开发规则、task-worktree Skill 和 git-ops Skill\n- **THEN** 验证 MUST 确认完整验证绑定准备集成的最终候选 Git tree\n- **AND** 验证 MUST 确认相同 tree 的 commit、集成、push 和 worktree 清理复用已有验证结果\n- **AND** 验证 MUST 确认 tree 改变后在集成前重新运行受影响的验证\n\n#### Scenario: 候选验证保持主工作区干净\n- **WHEN** 产品 E2E 从 task worktree checkout 验证未合并候选版本\n- **THEN** 验证 MUST 使用临时 workspace 或 task worktree 目标\n- **AND** 验证前后的主开发工作区 status MUST 保持不变\n\n#### Scenario: 不要求 post-merge 重复 E2E\n- **WHEN** Buildr 验证产品开发流程文本\n- **THEN** 验证 MUST 确认相同候选 tree 集成后不要求在主开发分支重复产品 E2E\n- **AND** 验证 MUST 区分实际 workspace update/sync 后的 doctor 与产品 E2E\n"
+    }
+  ]
+}

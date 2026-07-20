@@ -11,6 +11,8 @@ const read = (relative) => fs.readFileSync(path.join(productRoot, relative), 'ut
 const contract = read('package/targets/workspace/skills/contracts/buildr/task-verification/v1.md');
 const verificationSkill = read('package/targets/workspace/skills/buildr/task-verification/SKILL.md');
 const worktreeSkill = read('package/targets/workspace/skills/buildr/task-worktree/SKILL.md');
+const gitIntegrationContract = read('package/targets/workspace/skills/contracts/buildr/git-task-integration/v1.md');
+const gitOpsSkill = read('package/targets/workspace/skills/buildr/git-ops/SKILL.md');
 const finishSkill = read('package/targets/workspace/skills/buildr/task-finish/SKILL.md');
 const buildrSkill = read('package/targets/runtime/skills/buildr/SKILL.md');
 const packageManifest = YAML.parse(read('package/manifest.yml'));
@@ -44,11 +46,27 @@ test('默认 provider 执行三级验证并统一报告', () => {
 });
 
 test('worktree lifecycle 与任务验证职责解耦', () => {
-  assert.match(worktreeSkill, /候选身份与验证交接/);
+  assert.match(worktreeSkill, /候选边界交接/);
   assert.match(worktreeSkill, /不执行三级验证/);
   assert.doesNotMatch(worktreeSkill, /实现期间采用三级验证门禁/);
   assert.doesNotMatch(worktreeSkill, /单任务最小反馈：/);
-  assert.match(worktreeSkill, /不把 task checkout lifecycle contract 扩张为验证执行 contract/);
+  assert.match(worktreeSkill, /不监控普通编辑/);
+  assert.match(worktreeSkill, /不把 task checkout lifecycle contract 扩张为内容监控、Git integration 或验证执行 contract/);
+  assert.equal(worktreeSkill.split('实际自举 workspace 的 sync 是独立的状态变更').length - 1, 1);
+  assert.equal(worktreeSkill.split('本机 `buildr` 若指向即将删除的 task worktree').length - 1, 1);
+  assert.doesNotMatch(worktreeSkill, /旧 evidence 随即失效/);
+});
+
+test('Git integration 只返回内容转换证据，不拥有 Candidate 验证决策', () => {
+  assert.match(gitIntegrationContract, /version: 1/);
+  assert.match(gitIntegrationContract, /输入与最终 candidate content identity/);
+  assert.match(gitIntegrationContract, /tree 等价性信号只描述 Git 操作效果/);
+  assert.match(gitIntegrationContract, /验证 evidence 的有效性、复用或重跑由 task-verification provider 或其 consumer 决定/);
+  assert.match(gitOpsSkill, /不执行项目 Candidate 验证/);
+  assert.match(gitOpsSkill, /tree 等价性信号只描述 Git 操作效果/);
+  assert.doesNotMatch(gitOpsSkill, /改变已验证 tree 时，原验证结果失效/);
+  assert.doesNotMatch(gitOpsSkill, /集成前重新运行受影响的验证/);
+  assert.doesNotMatch(gitOpsSkill, /复用已有验证结果/);
 });
 
 test('随包 manifest 原子登记 contract、provider、binding 与 consumer', () => {
@@ -66,6 +84,21 @@ test('随包 manifest 原子登记 contract、provider、binding 与 consumer', 
   const workspaceSkill = workspaceManifest.skills.find((item) => item.id === 'task-verification');
   assert.ok(workspaceSkill.runtimes.includes('workbuddy'));
   assert.equal(workspaceSkill.description, packagedSkill.description);
+
+  const gitContract = packageManifest.capabilityContracts.find((item) => item.id === 'buildr.git-task-integration');
+  const worktreeContract = packageManifest.capabilityContracts.find((item) => item.id === 'buildr.task-worktree-lifecycle');
+  assert.equal(gitContract.version, 1);
+  assert.equal(worktreeContract.version, 1);
+  assert.equal(packageManifest.initialSkillBindings.find((item) => item.capability === 'buildr.git-task-integration').provider, 'git-ops');
+  assert.equal(packageManifest.initialSkillBindings.find((item) => item.capability === 'buildr.task-worktree-lifecycle').provider, 'task-worktree');
+  assert.deepEqual(packageManifest.builtins.skills.find((item) => item.id === 'git-ops').provides.map((item) => item.capability), [
+    'buildr.git-single-operation',
+    'buildr.git-task-integration',
+    'buildr.git-workspace-update',
+  ]);
+  assert.deepEqual(packageManifest.builtins.skills.find((item) => item.id === 'task-worktree').provides.map((item) => item.capability), [
+    'buildr.task-worktree-lifecycle',
+  ]);
 });
 
 test('task-finish 消费标准 Candidate evidence 并报告耗时', () => {

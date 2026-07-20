@@ -39,18 +39,20 @@ selected provider = git-ops
   ↓ Agent 读取 contract + git-ops playbook + 当前 Git 状态
 提交、集成、推送或在需要语义决策时停止
   ↓ result evidence
-commit、目标 ref、候选 tree、远端结果、treeChanged
+commit、目标 ref、输入/最终 content identity、tree 等价性信号、远端结果、treeChanged
 ```
 
 ### 1. Contract
 
 `skills/contracts/buildr/git-task-integration/v1.md` 固定的是跨 provider 不可丢失的行为信封：
 
-- consumer 必须提供任务范围、目标分支、远端、验证证据和授权范围；
-- provider 必须保留无关改动、比较候选 tree，并在语义冲突时停止；
+- consumer 必须提供任务范围、目标分支、远端、输入 candidate identity、验证证据和授权范围；
+- provider 必须保留无关改动、比较 Git 操作前后的 candidate content identity，并在语义冲突时停止；
 - force push、改写共享历史和删除远端分支需要额外授权；
--结果必须包含 commit、目标 ref、远端状态、tree identity 和 `treeChanged`；
+- 结果必须包含 commit、目标 ref、远端状态、输入/最终 content identity、tree 等价性信号和 `treeChanged`；
 - merge、rebase、fast-forward、PR 和分支策略属于 `Allowed Variations`。
+
+Git provider 返回的 tree 等价性只是操作效果，不是最终验证结论。`task-worktree` 只提供 canonical checkout、clean/dirty 状态和 lifecycle transition；`git-task-integration` provider 只提供 refs 与前后 content identity；`task-verification` provider 或其 consumer 才根据当前 candidate identity 决定 Candidate evidence 是否有效、复用或重跑。三者通过最小 evidence 交接，不互相复制 policy，也不要求固定 provider identity。
 
 ### 2. Manifest 注册、provider、consumer 与 binding
 
@@ -94,7 +96,7 @@ render/sync 会在 `task-finish` 的 runtime 派生版本中注入受管 binding
 
 ### 5. Agent 实际执行
 
-当用户说“收尾”时，Agent runtime 先根据 description 命中并加载 `task-finish`；这一步不经过产品入口 Buildr Skill。`task-finish` 随后读取受管 binding block，执行相应阶段前再读取已解析 contract 和 selected provider。Agent 根据当前仓库、授权和验证 tree 执行专业动作，并把 provider 返回的 evidence 交还给收尾编排决定继续、重验或停止。这个过程是 Agent 调解的工作协作，不是 `task-finish.gitOps()` 一类方法调用。
+当用户说“收尾”时，Agent runtime 先根据 description 命中并加载 `task-finish`；这一步不经过产品入口 Buildr Skill。`task-finish` 随后读取受管 binding block，执行相应阶段前再读取已解析 contract 和 selected provider。Agent 根据当前仓库、授权和 candidate identity 执行专业动作，并把各 provider 返回的最小 evidence 交还给收尾编排；Git provider 不执行 Candidate 验证，worktree provider 不监控普通内容编辑，验证 provider/consumer 决定继续、复用、重验或停止。这个过程是 Agent 调解的工作协作，不是 `task-finish.gitOps()` 一类方法调用。
 
 对 `buildr.task-verification/v1`，调用 provider 还必须携带 operation：`inspect` 只核对已有 Candidate evidence，`execute` 才启动验证，`cleanup` 只处理已消费 evidence。provider 被加载或调用不等于验证被执行。Task Finish 对已有 Candidate 的 `same-content` 或可归因 `closeout-metadata-only` transition 使用 `inspect`，两个 executor 调用计数均为 0；只有实现内容变化或无法证明仅为收尾元数据时才使用 `execute`。因此，收尾的 OpenSpec strict、contract guard、diff check 可以作为独立 delta checks 运行，但不能增加 Candidate executor 调用计数。
 

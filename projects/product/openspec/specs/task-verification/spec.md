@@ -1,7 +1,8 @@
 # task-verification Specification
 
 ## Purpose
-TBD - created by archiving change introduce-task-verification-capability. Update Purpose after archive.
+定义 Buildr 如何通过可替换的任务验证能力解析项目政策、执行分层验证，并生成绑定候选身份、包含真实耗时且具备明确生命周期的结果证据。
+
 ## Requirements
 ### Requirement: 任务验证能力独立于任务环境生命周期
 Buildr MUST 提供 `buildr.task-verification/v1` capability contract 和默认 workspace provider，负责验证政策解析、分层执行、候选身份绑定、耗时测量与结果报告，并 MUST NOT 把 Git worktree 作为使用该能力的前置条件。

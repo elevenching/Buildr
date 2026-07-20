@@ -5,7 +5,7 @@ description: 用户表达提交、推送、拉取、pull、合并、merge、reba
 
 # Git Ops Skill
 
-本 Skill 是 `buildr.git-single-operation/v1`、`buildr.git-task-integration/v1` 和 `buildr.git-workspace-update/v1` 的默认 provider，处理 Git 协作约定、意图消歧和安全默认行为。它不讲解 Git 命令用法，也不替代项目或服务规则中的构建、测试、发布要求。
+本 Skill 是 `buildr.git-single-operation/v1`、`buildr.git-task-integration/v1` 和 `buildr.git-workspace-update/v1` 的默认 provider，处理 Git 协作约定、意图消歧和安全默认行为。它不讲解 Git 命令用法，不执行项目 Candidate 验证，也不替代项目或服务规则中的构建、测试、发布要求。
 
 ## 意图消歧
 
@@ -49,16 +49,15 @@ description: 用户表达提交、推送、拉取、pull、合并、merge、reba
 ## 分支集成策略
 
 - 集成前先 fetch 最新目标分支；本地未推送任务分支发生分叉时，默认 rebase 到最新目标分支。
-- 项目要求的完整验证应绑定所有 rebase、冲突解决和内容修改结束后的最终候选 Git tree。
-- rebase 前后必须比较最终候选 Git tree；rebase、冲突解决、amend 中的内容调整或其他操作改变已验证 tree 时，原验证结果失效，集成前重新运行受影响的验证。
-- commit 只记录相同内容、目标分支集成后保持相同 tree 或 push 只传输已有提交时，复用已有验证结果，不因 checkout、commit hash 或分支名称改变而重复运行相同验证。
+- rebase、merge、fast-forward 或其他集成动作必须比较输入与最终 candidate content identity，并返回前后 identity、tree 等价性信号和 `treeChanged`；不得把相同 commit、branch 或命令成功当作内容等价证据。
+- tree 等价性信号只描述 Git 操作效果。Candidate evidence 是否有效、是否复用或重跑验证，由 selected task-verification provider 或其 consumer 根据当前 candidate identity 决定。
 - 目标分支默认只通过 fast-forward 集成任务分支；除非用户当前轮次或项目规则明确要求，不创建 merge commit。
 - 已推送或多人共享的任务分支不自动 rebase 或 force push。
 - rebase 冲突需要业务或语义选择时，停止并报告冲突，等待用户确认。
 
 ## Workspace tree transition result
 
-本 provider 对每次 Git 操作返回 `treeChanged` 结果证据，并在发生 tree 转换时记录操作、before/after commit 或 tree、冲突状态与当前仓库边界。
+本 provider 对每次 Git 操作返回 `treeChanged` 结果证据，并在发生 tree 转换时记录操作、before/after commit 或 content identity、冲突状态与当前仓库边界。
 
 `treeChanged: true` 时，consumer 或 orchestrator 必须直接遵守 required Core workspace-transition invariant，并通过产品入口 Buildr Skill 执行当前 Agent 的 doctor、sync 询问和修复边界；本 provider 不拥有或复制该 Buildr 操作手册。
 
@@ -72,7 +71,7 @@ description: 用户表达提交、推送、拉取、pull、合并、merge、reba
 
 ## 失败处理
 
-检查、测试、OpenSpec 校验、发布、rebase、merge、push 或分支删除失败时：
+Git 状态检查、commit、rebase、merge、push 或分支删除失败时：
 
 - 停止当前 Git 操作。
 - 说明失败阶段、失败命令和阻塞原因。

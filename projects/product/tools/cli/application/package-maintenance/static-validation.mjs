@@ -637,12 +637,12 @@ export function createPackageStaticValidator(deps) {
           '不得静默回退到 `/tmp`',
           'propose 和创建 change artifacts 前',
           'artifacts、实现和合并前候选验证都只能写入该 worktree',
-          '候选身份与验证交接',
+          '候选边界交接',
           '不执行三级验证',
           'selected task-verification provider',
           '`treeChanged` 结果证据',
-          '不选择验证命令、覆盖关系、验证级别或报告格式',
-          '不把 task checkout lifecycle contract 扩张为验证执行 contract',
+          '不监控普通编辑',
+          '不把 task checkout lifecycle contract 扩张为内容监控、Git integration 或验证执行 contract',
           '不从未合并 task checkout 更新主自举 workspace',
           '新 worktree checkout 完成后',
           'required Core workspace-transition invariant',
@@ -657,6 +657,20 @@ export function createPackageStaticValidator(deps) {
           '默认清理不授权删除远端发布分支',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`task-worktree Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        for (const uniqueText of [
+          '实际自举 workspace 的 sync 是独立的状态变更',
+          '本机 `buildr` 若指向即将删除的 task worktree',
+        ]) {
+          const count = skillContent.split(uniqueText).length - 1;
+          if (count !== 1) problems.push(`task-worktree Skill must include ${JSON.stringify(uniqueText)} exactly once, found ${count}.`);
+        }
+        for (const forbiddenText of [
+          '改变候选内容时必须返回 `treeChanged: true`，旧 evidence 随即失效',
+          '不因 checkout 或 commit hash 改变而机械重复验证',
+          '候选 tree 已改变时沿用旧验证结果',
+        ]) {
+          if (skillContent.includes(forbiddenText)) problems.push(`task-worktree Skill must not own verification decision ${JSON.stringify(forbiddenText)}.`);
         }
       }
       if (skill.id === 'task-verification') {
@@ -701,11 +715,10 @@ export function createPackageStaticValidator(deps) {
       }
       if (skill.id === 'git-ops') {
         for (const requiredText of [
-          '最终候选 Git tree',
-          'rebase 前后必须比较最终候选 Git tree',
-          '改变已验证 tree 时，原验证结果失效',
-          '相同 tree',
-          '不因 checkout、commit hash 或分支名称改变而重复运行相同验证',
+          '不执行项目 Candidate 验证',
+          '输入与最终 candidate content identity',
+          'tree 等价性信号',
+          '由 selected task-verification provider 或其 consumer',
           'Workspace tree transition result',
           '`treeChanged` 结果证据',
           '`fetch`、`push` 和普通 `commit`',
@@ -713,6 +726,14 @@ export function createPackageStaticValidator(deps) {
           '本 provider 不拥有或复制该 Buildr 操作手册',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`git-ops Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        for (const forbiddenText of [
+          '改变已验证 tree 时，原验证结果失效',
+          '集成前重新运行受影响的验证',
+          '复用已有验证结果',
+          '不因 checkout、commit hash 或分支名称改变而重复运行相同验证',
+        ]) {
+          if (skillContent.includes(forbiddenText)) problems.push(`git-ops Skill must not own Candidate verification decision ${JSON.stringify(forbiddenText)}.`);
         }
         for (const routedIntent of ['pull', 'checkout', 'switch', 'reset', 'cherry-pick', 'revert', 'stash']) {
           if (!skill.description.includes(routedIntent)) problems.push(`git-ops builtin description must route ${routedIntent}.`);
