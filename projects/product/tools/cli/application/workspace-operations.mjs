@@ -239,7 +239,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
       }
     }
     diagnoseComponents(result, targetRoot, includeInfo, requestedAgent);
-    diagnoseCommands(result, targetRoot);
+    diagnoseCommands(result, targetRoot, requestedScope && requestedScope.startsWith('projects/') ? [requestedScope.split('/')[1]] : []);
     if (internalOptions.skipRuntime !== true) diagnoseRuntime(result, targetRoot, scopes, { includeInfo, agent: requestedAgent });
     finalizeDoctorResult(result);
 

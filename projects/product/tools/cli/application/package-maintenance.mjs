@@ -32,6 +32,7 @@ import { validateSkillPublication } from '../../runtime/skills/publication.mjs';
 export function registerApplicationPackageMaintenance(runtime) {
   const doctor = (...args) => runtime.doctor(...args);
   const parseCommandsManifestYaml = (...args) => runtime.parseCommandsManifestYaml(...args);
+  const parseProjectCommandsYaml = (...args) => runtime.parseProjectCommandsYaml(...args);
   const isPlainObject = (...args) => runtime.isPlainObject(...args);
   const validateCommandsManifest = (...args) => runtime.validateCommandsManifest(...args);
   const readCommandsManifestForWrite = (...args) => runtime.readCommandsManifestForWrite(...args);
@@ -379,6 +380,7 @@ export function registerApplicationPackageMaintenance(runtime) {
     packageComponentSourcePath,
     packageWorkspaceTargetRoot,
     parseCommandsManifestYaml,
+    parseProjectCommandsYaml,
     parseManifestFileEntry,
     parseProjectsYaml,
     parseSkillFrontmatter,
@@ -416,6 +418,7 @@ export function registerApplicationPackageMaintenance(runtime) {
     hasManagedRulesMarker,
     os,
     parseCommandsManifestYaml,
+    parseProjectCommandsYaml,
     parseManifestFileEntry,
     parseProjectsYaml,
     parseRulesManifestYaml,

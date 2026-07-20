@@ -27,14 +27,15 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 | 命令 | 用途 |
 |---|---|
 | `buildr init [--agent <agent>]` | 初始化 Organization/Root；传入 `--agent` 时一次完成 runtime 与最终 doctor，不传时只写源资产。 |
-| `buildr project create <project>` | 创建或登记 Project；`--repo` 接入 Project 资产 Git repo。 |
+| `buildr project create <project>` | 创建或登记 Project；`--repo` 接入 Project 资产 Git repo，并补齐空 `commands.yml` requirement context。 |
 | `buildr service create <project>/<service> <repo-ref>` | 接入本地目录或 Git Service；Git 来源可用 `--branch <branch>` 指定 checkout intent。 |
 | `buildr rules add/remove` | 维护 root Rules manifest 和文件生命周期。 |
 | `buildr skills add/remove` | 只维护 workspace `skills/` 中的 Skill source；旧 `--scope .` 仅兼容并警告，Project scope 被拒绝。 |
 | `buildr skills bind/unbind` | 维护 workspace 默认 binding，或在 `projects/<project>/capabilities.yml` 维护 Project context binding。 |
 | `buildr skills render <agent> --destination workspace\|user` | 从 `--target <workspace>` 读取 source，显式投射到当前工作目录或个人用户层；默认 workspace。 |
 | `buildr skills migrate-project-assets --check\|--apply` | 检查或事务迁移 legacy Project Skill source，冲突时零写入。 |
-| `buildr commands add/remove/check` | 声明并诊断外部 CLI；Buildr 不代替用户安装。 |
+| `buildr commands add/remove` | 维护 workspace Command catalog definitions；最后一个 definition 仍被 requirement 引用时零写入。 |
+| `buildr commands check [--project <project> ...]` | 按显式 Project task context 合并 requirements 并观察本机环境；无 Project 时只检查 workspace defaults。 |
 | `buildr component list/check/install/uninstall` | 管理 workspace 级 Rules、Skills、Command collections 与声明式 Skill Contribution。 |
 | `buildr builtin list/uninstall/restore` | 查看或维护 Buildr 内置能力；required 能力不能卸载。 |
 | `buildr update [check]` | 检查或更新 Buildr CLI 自身；不维护 workspace。 |
@@ -58,6 +59,14 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 默认 doctor 分三层声明诊断边界：`core` 每次检查 workspace identity、mutation recovery 和 root registries；`conditional` 只在相关 scope、资产或 selected Agent 适用时检查 Project/Service、Rules/Skills、package assets、Commands 与 runtime；`specialty` 是显式场景。默认 doctor 不检查 Git dirty/ahead/behind，不深检 OpenSpec active change，也不运行 build/test。需要细节时使用 `runtime check`、`commands check`、`component check`，或进入对应 Git、OpenSpec、验证工作流。
 
 当前支持 `claude-code`、`codex`、`cursor`、`qoder`、`trae`、`trae-work` 和 `workbuddy`。其他 runtime 不使用 fallback adapter；各 adapter 的文件路径、刷新方式和证据状态见 [Agent Runtime Adapters](agent-runtime-adapters.md)。
+
+## Commands 三层模型
+
+- workspace `commands/manifest.yml` 与 `commands/**/manifest.yml` 是唯一 catalog definition source，保存 `id`、`executable`、version probe 和最小 `installHint`。
+- `projects/<project>/commands.yml` 使用 `buildr.project-commands/v1`，只保存 `id`、required/optional、可选版本约束和用途；它不复制 definition。
+- `commands check` 的 `catalog`、`requirements`、`effectiveConstraints`、`observations` 和 `findings` 分别表达源定义、业务要求、合并结果、本机观察和诊断。重复 `--project` 表达跨 Project task context；不兼容版本约束在 probe 前以 `command_requirement_conflict` 失败。
+
+Buildr 不 render 或安装 Commands，不保存 binary、token、cookie、登录态、license 或个人配置。machine warning 只说明当前环境与有效 requirement 的差异；安装、升级或登录仍需要用户单独授权。
 
 ## Skill capability contracts
 

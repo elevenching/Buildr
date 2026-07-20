@@ -14,6 +14,7 @@ export function createPackageSmokeChecks(deps) {
     hasManagedRulesMarker,
     os,
     parseCommandsManifestYaml,
+    parseProjectCommandsYaml,
     parseManifestFileEntry,
     parseProjectsYaml,
     parseRulesManifestYaml,
@@ -219,6 +220,13 @@ export function createPackageSmokeChecks(deps) {
       if (!commandsCheck.ok || !commandsCheck.manifest.valid) {
         problems.push(`Default commands manifest check failed: ${JSON.stringify(commandsCheck.summary)}`);
       }
+        if (!Array.isArray(commandsCheck.catalog?.definitions)
+          || !Array.isArray(commandsCheck.requirements)
+          || !Array.isArray(commandsCheck.effectiveConstraints)
+          || !Array.isArray(commandsCheck.observations)
+          || !Array.isArray(commandsCheck.findings)) {
+          problems.push('commands check JSON must expose catalog, requirements, effectiveConstraints, observations, and findings layers.');
+        }
         if (commandsCheck.commands.length !== 1 || commandsCheck.commands[0].id !== 'openspec'
           || !commandsCheck.commands[0].sources.includes('commands/buildr/openspec/manifest.yml')) {
           problems.push('Default workspace must aggregate the OpenSpec Component command collection.');
@@ -226,8 +234,9 @@ export function createPackageSmokeChecks(deps) {
       }
       execFileSync(process.execPath, [buildrScript, 'commands', 'add', 'demo-tool', '--purpose', '测试命令行工具维护', '--description', 'package check temporary command', '--install-hint', 'https://example.com/demo-tool', '--target', tempRoot], { cwd: root, stdio: 'ignore' });
       const commandsAfterAdd = parseJsonOutput('commands check after add', execFileSync(process.execPath, [buildrScript, 'commands', 'check', '--target', tempRoot, '--json'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
-      if (commandsAfterAdd.commands[0]?.installHint !== 'https://example.com/demo-tool' || Object.hasOwn(commandsAfterAdd.commands[0] ?? {}, 'install')) {
-        problems.push('commands add/check must use installHint and must not emit install.');
+      const demoDefinition = commandsAfterAdd.catalog?.definitions?.find((item) => item.id === 'demo-tool');
+      if (demoDefinition?.installHint !== 'https://example.com/demo-tool' || Object.hasOwn(demoDefinition ?? {}, 'install')) {
+        problems.push('commands add/check catalog must use installHint and must not emit install.');
       }
       execFileSync(process.execPath, [buildrScript, 'commands', 'remove', 'demo-tool', '--target', tempRoot], { cwd: root, stdio: 'ignore' });
       const commandsAfterRemove = parseCommandsManifestYaml(fs.readFileSync(installedCommandsManifest, 'utf8'));
@@ -371,6 +380,15 @@ export function createPackageSmokeChecks(deps) {
     }
     if (!existsFile(path.join(tempRoot, 'projects', 'demo', 'capabilities.yml')) || existsDirectory(path.join(tempRoot, 'projects', 'demo', 'skills'))) {
       problems.push('project create must install capabilities.yml without creating a legacy Project Skill source scope.');
+    }
+    const projectCommandsFile = path.join(tempRoot, 'projects', 'demo', 'commands.yml');
+    if (!existsFile(projectCommandsFile)) {
+      problems.push('project create must install commands.yml.');
+    } else {
+      const projectCommands = parseProjectCommandsYaml(fs.readFileSync(projectCommandsFile, 'utf8'), 'projects/demo/commands.yml');
+      if (projectCommands?.schemaVersion !== 'buildr.project-commands/v1' || !Array.isArray(projectCommands.requirements)) {
+        problems.push('Project commands.yml must use buildr.project-commands/v1 with a requirements array.');
+      }
     }
     const legacyRootPractices = path.join(tempRoot, 'practices');
     const legacyProjectPractices = path.join(tempRoot, 'projects', 'demo', 'practices');

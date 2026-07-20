@@ -50,3 +50,40 @@ test('Commands version parser 和 constraint comparator 处理边界', () => {
   assert.equal(commands.versionSatisfies([1, 9, 9], commands.parseVersionConstraint('>=2.1.0')), false);
   assert.equal(commands.parseVersionConstraint('not-a-version'), null);
 });
+
+test('Project Commands schema 只接受 requirement references', () => {
+  const commands = registerDomainsCommands(runtime());
+  assert.ok(commands.validateProjectCommandsDocument({ schemaVersion: 'buildr.project-commands/v1' })
+    .some((error) => error.includes('requirements as an array')));
+  assert.deepEqual(commands.validateProjectCommandsDocument({
+    schemaVersion: 'buildr.project-commands/v1',
+    requirements: [{ id: 'node', required: true, version: '>=20.0.0', purpose: '构建前端' }],
+  }), []);
+  const errors = commands.validateProjectCommandsDocument({
+    schemaVersion: 'buildr.project-commands/v0',
+    requirements: [{ id: 'node', executable: 'node', installHint: 'brew install node' }],
+  });
+  assert.ok(errors.some((error) => error.includes('schemaVersion')));
+  assert.ok(errors.some((error) => error.includes('executable')));
+  assert.ok(errors.some((error) => error.includes('installHint')));
+});
+
+test('Project Command constraints 确定性求交并在无交集时 fail closed', () => {
+  const commands = registerDomainsCommands(runtime());
+  assert.deepEqual(commands.intersectVersionConstraints(['>=20.0.0', '<22.0.0']), {
+    compatible: true,
+    constraint: '>=20.0.0 <22.0.0',
+    constraints: ['>=20.0.0', '<22.0.0'],
+  });
+  assert.equal(commands.intersectVersionConstraints(['=20.0.0', '>=20.0.0']).compatible, true);
+  assert.equal(commands.intersectVersionConstraints(['>=22.0.0', '<22.0.0']).compatible, false);
+  assert.equal(commands.intersectVersionConstraints(['=20.0.0', '=21.0.0']).compatible, false);
+});
+
+test('Command definition identity 不包含 requirement constraint', () => {
+  const commands = registerDomainsCommands(runtime());
+  const base = { id: 'node', executable: 'node', purpose: 'Node', version: { args: ['--version'], constraint: '>=20.0.0' } };
+  const other = { ...base, required: false, version: { args: ['--version'], constraint: '<22.0.0' } };
+  assert.equal(commands.normalizedCommandSignature(base), commands.normalizedCommandSignature(other));
+  assert.notEqual(commands.normalizedCommandSignature(base), commands.normalizedCommandSignature({ ...base, executable: 'nodejs' }));
+});

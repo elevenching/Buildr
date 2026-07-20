@@ -129,8 +129,8 @@ export function createRuntimeDiagnostics(deps) {
     }
   }
 
-  function diagnoseCommands(result, targetRoot) {
-    const commandsResult = runCommandsCheck(targetRoot);
+  function diagnoseCommands(result, targetRoot, projects = []) {
+    const commandsResult = runCommandsCheck(targetRoot, { projects });
     result.commandLineTools = commandsResult;
     for (const finding of commandsResult.findings) {
       addDoctorFinding(result, finding.status, finding.code, finding.message, {
@@ -142,6 +142,12 @@ export function createRuntimeDiagnostics(deps) {
         sources: finding.sources,
         expected: finding.expected,
         actual: finding.actual,
+        project: finding.project,
+        projects: finding.projects,
+        reason: finding.reason,
+        provenance: finding.provenance,
+        constraints: finding.constraints,
+        userActionRequired: finding.userActionRequired,
       });
     }
   }

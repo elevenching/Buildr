@@ -249,6 +249,7 @@ projectDirectories:
 projectFiles:
   - package/targets/workspace/projects/AGENTS.project.md => AGENTS.md render
   - package/targets/workspace/projects/capabilities.yml => capabilities.yml copy
+  - package/targets/workspace/projects/commands.yml => commands.yml copy
   - package/targets/workspace/projects/services/manifest.yml => services/manifest.yml render
 
 templateVariables:

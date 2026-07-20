@@ -174,28 +174,28 @@
     "meta": {
       "title": "工作资产范围与冲突治理",
       "taskId": "work-asset-scope-governance",
-      "status": "进行中",
-      "phase": "批次 3 · Commands 模型重构可实施",
-      "taskProgress": "批次 2 / 3 完成 · 任务 43 / 59 · 依赖池 0 组",
-      "updatedAt": "2026-07-20 09:01",
+      "status": "已完成",
+      "phase": "三个批次全部交付",
+      "taskProgress": "批次 3 / 3 完成 · 任务 59 / 59 · 依赖池 0 组",
+      "updatedAt": "2026-07-20 10:15",
       "relativePath": "projects/product/openspec/knowledge/task-cockpits/2026-07-20-work-asset-scope-governance.html"
     },
     "overview": {
       "purpose": "统一 Buildr 各类工作资产的源归属、业务适用范围和运行环境边界，避免把 Project 层级误当成安装隔离。",
-      "conclusion": "Skill 模型重构与契约残留清理均已交付；Commands change 保持 baseline current，现可进入 workspace catalog、Project requirements、machine environment 三层模型实现。",
-      "currentFocus": "批次 3 已解除实施顺序约束；下一步实施 refactor-command-catalog-and-project-requirements。",
-      "userAttention": "当前没有需要立即判断的事项；Commands design 中两个 CLI 细节可在实现前依据 fixture 成本确定。",
+      "conclusion": "Skill 范围与冲突治理、Skill 契约残留清理、Commands 三层模型三个批次全部交付并归档。",
+      "currentFocus": "任务已完成；current-state specs、自举 workspace 和 Agent runtime 均已同步。",
+      "userAttention": "当前没有需要立即判断的事项。",
       "highlights": {
         "done": { "title": "已经完成", "text": "workspace-only Skill source、Project capability context、user/workspace destination、冲突治理和 legacy migration 已交付并归档。" },
-        "current": { "title": "正在进行", "text": "Commands change 已 apply-ready、baseline current、proposal check 无冲突，且不再受 Skill 契约清理顺序依赖阻塞。" },
-        "next": { "title": "下一步", "text": "实施 Commands 的 workspace catalog、Project requirements、machine environment 三层模型。" }
+        "current": { "title": "最终状态", "text": "三个 change 全部归档，59 项任务完成，最终 Candidate 和自举 doctor 通过。" },
+        "next": { "title": "后续", "text": "没有遗留依赖；新增资产继续遵循 source、context、environment 分层治理。" }
       },
       "blockers": [],
       "flow": [
         { "title": "Skill 模型重构", "text": "唯一 workspace source + 两种 destination，已完成" },
-        { "title": "契约残留清理", "text": "统一 current-state specs、文档和验证，当前批次" },
-        { "title": "Commands 模型重构", "text": "catalog、Project requirements、machine observation 分层" },
-        { "title": "验证与收尾", "text": "逐 change sync/archive，最终 Candidate 与自举同步" }
+        { "title": "契约残留清理", "text": "统一 current-state specs、文档和验证，已完成" },
+        { "title": "Commands 模型重构", "text": "catalog、Project requirements、machine observation 分层，已完成" },
+        { "title": "验证与收尾", "text": "逐 change sync/archive，最终 Candidate 与自举同步，已完成" }
       ]
     },
     "changes": [
@@ -215,8 +215,8 @@
       },
       {
         "id": "refactor-command-catalog-and-project-requirements",
-        "status": "active",
-        "path": "openspec/changes/refactor-command-catalog-and-project-requirements/",
+        "status": "archived",
+        "path": "openspec/changes/archive/2026-07-20-refactor-command-catalog-and-project-requirements/",
         "summary": "把 Commands 重构为 workspace catalog、Project requirements 和 machine environment 三层，并定义跨 Project 约束冲突。",
         "batchIds": ["batch-3"]
       }
@@ -255,11 +255,11 @@
         },
         {
           "id": "batch-3",
-          "status": "current",
-          "label": "当前批次",
+          "status": "done",
+          "label": "已完成",
           "title": "批次 3 · Commands 模型重构",
-          "summary": "Proposal、design、1 个新增 capability、7 个修改 capability 和 16 项 tasks 已完成，契约门禁通过。",
-          "deliverable": "workspace Command catalog、Project commands.yml requirements、machine observations 分层；单 Project 与跨 Project readiness 可确定诊断。",
+          "summary": "16 项任务全部完成；workspace catalog、Project requirements、machine observations、Doctor 和 Component 生命周期形成完整闭环。",
+          "deliverable": "Change 已通过 post-sync 并归档；完整 Candidate 通过，最终验证耗时 62.946 秒，自举 sync 与 doctor 通过。",
           "changeIds": ["refactor-command-catalog-and-project-requirements"],
           "items": [
             "buildr.project-commands/v1 与 Project baseline",
@@ -356,6 +356,19 @@
             { "title": "Destination", "text": "skills render 显式区分 user/workspace，init 与 sync 不隐式写用户层。" },
             { "title": "Conflict", "text": "effective inventory、asset/source identity、receipt、digest 与 ownership 在 mutation 前统一预检。" },
             { "title": "Verification", "text": "OpenSpec strict 30/30、完整 Candidate 通过，最终耗时 56.252 秒。" }
+          ],
+          "snippets": []
+        },
+        {
+          "taskId": "refactor-command-catalog-and-project-requirements",
+          "title": "已完成：Commands definition、context 与 machine observation 分层",
+          "summary": "第三批次实现、契约同步和验证结果。",
+          "items": [
+            { "title": "Catalog", "text": "workspace commands/**/manifest.yml 维护稳定 definition identity 与检查方式。" },
+            { "title": "Project context", "text": "buildr.project-commands/v1 只保存 Command ID、required/optional、版本约束和 purpose。" },
+            { "title": "Readiness", "text": "单 Project 与重复 --project 跨 Project context 确定性合并，冲突时停止 machine probe。" },
+            { "title": "Lifecycle", "text": "Command 与 Component 删除前检查 Project 反向引用，无法验证时保持零写入。" },
+            { "title": "Verification", "text": "OpenSpec strict 31/31、完整 Candidate 通过，最终耗时 62.946 秒。" }
           ],
           "snippets": []
         }

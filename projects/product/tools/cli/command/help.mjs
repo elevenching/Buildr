@@ -17,7 +17,7 @@ export function registerCommandHelp(runtime) {
     console.error('  buildr mutation recover <transaction-id> [--target <dir>]');
     console.error('  buildr commands add <id> --purpose <text> [--target <dir>] [--collection <path>] [--executable <name>] [--name <text>] [--description <text>] [--version-constraint <constraint>] [--version-args <args>] [--install-hint <text>] [--replace]');
     console.error('  buildr commands remove <id> [--target <dir>] [--collection <path>]');
-    console.error('  buildr commands check [--target <dir>] [--json]');
+    console.error('  buildr commands check [--project <project> ...] [--target <dir>] [--json]');
     console.error('  buildr openspec baseline create <change> --project <project> [--target <dir>] [--adopt-current] [--update] [--json]');
     console.error('  buildr openspec check <change> --stage <proposal|pre-sync|post-sync> --project <project> [--target <dir>] [--json]');
     console.error('  buildr component list [--target <dir>] [--json]');
@@ -67,7 +67,7 @@ export function registerCommandHelp(runtime) {
       '  sync                 同步 Buildr 产品能力并准备当前 Agent 的 workspace 入口 runtime。',
       '  skill install        安装产品入口 Buildr Skill。',
       '  skills add/remove/bind/unbind/render',
-      '  commands add/remove/check',
+      '  commands add/remove/check  维护 workspace catalog，并按显式 Project context 检查本机环境。',
       '  component list/check/install/uninstall',
       '  rules add/remove/render',
       '  builtin list/uninstall/restore',
@@ -96,6 +96,7 @@ export function registerCommandHelp(runtime) {
       'Usage: buildr project create <project> [--target <dir>] [--repo <git-url>] [--title <text>] [--description <text>]',
       '',
       '创建或登记 Project，并写入 Project registry: projects/manifest.yml。',
+      'Project baseline 包含 commands.yml；它只引用 workspace Command catalog，不复制 executable、probe 或 install hint。',
     ],
     'service create': [
       'Usage: buildr service create <project>/<service> <repo-ref> [--target <dir>] [--type <type>] [--branch <branch>]',
@@ -173,17 +174,19 @@ export function registerCommandHelp(runtime) {
     'commands add': [
       'Usage: buildr commands add <id> --purpose <text> [--target <dir>] [--collection <path>] [--executable <name>] [--name <text>] [--description <text>] [--version-constraint <constraint>] [--version-args <args>] [--install-hint <text>] [--replace]',
       '',
-      '新增或替换命令行工具清单条目。',
+      '新增或替换 workspace Command catalog definition；不会修改 Project requirements 或安装 binary。',
     ],
     'commands remove': [
       'Usage: buildr commands remove <id> [--target <dir>] [--collection <path>]',
       '',
-      '删除命令行工具清单条目。',
+      '删除 workspace Command catalog definition；最后一个 definition 仍被 workspace default 或 Project requirement 引用时整次零写入。',
     ],
     'commands check': [
-      'Usage: buildr commands check [--target <dir>] [--json]',
+      'Usage: buildr commands check [--project <project> ...] [--target <dir>] [--json]',
       '',
-      '检查命令行工具清单和本机可用状态。',
+      '不传 --project 时只检查 workspace defaults；重复 --project 可表达跨 Project task context。',
+      'Project requirements 维护在 projects/<project>/commands.yml，只允许 id、required、version 和 purpose 引用字段。',
+      '输出分离 catalog、requirements、effectiveConstraints、observations 和 findings；Buildr 不 render 或安装 Commands。',
     ],
     'openspec baseline create': [
       'Usage: buildr openspec baseline create <change> --project <project> [--target <dir>] [--adopt-current] [--update] [--json]',

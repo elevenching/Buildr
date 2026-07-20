@@ -55,7 +55,7 @@ Organization/Root -> Project -> Service
 | 服务资产（Service assets） | `projects/<project>/services/<service>/` |
 | 技能（Skills） | `skills/manifest.yml`、`skills/` |
 | 组件（Components） | `components/manifest.yml`、`components/<source>/<id>/component.yml` |
-| 命令清单（Commands） | `commands/manifest.yml`、`commands/**/manifest.yml` |
+| 命令（Commands） | workspace catalog：`commands/manifest.yml`、`commands/**/manifest.yml`；Project requirements：`projects/<project>/commands.yml` |
 | Agent runtime | `.agents/`、`.claude/`、`CLAUDE.md` 等渲染结果 |
 
 ## 硬边界
@@ -63,6 +63,7 @@ Organization/Root -> Project -> Service
 - Buildr 源资产是组织工作资产的长期事实来源；Agent runtime、本机状态、登录态、token、cookie、临时 prompt 和一次性聊天内容不是组织源资产。
 - Practices 不是独立受管资产；已有 `practices/` 是用户保留数据，Buildr 不自动读取、迁移、覆盖或删除，也不因其存在阻塞正常命令。
 - Component 当前只支持 workspace scope；成员由 definition 唯一声明，只能通过 Component 生命周期统一维护。本机外部 CLI 和 Project 内容不属于 workspace Component。
+- Commands 的定义 authority 是 workspace catalog；Project `commands.yml` 只表达 requirement references，本机 binary、版本、登录态和凭证不是 Buildr 源资产。Buildr 不 render 或安装 Commands。
 - Workspace 等同于工作目录，是 Skill 唯一 source authority。Project 通过 `capabilities.yml` 表达业务 requirements、bindings 与 applicability；user/workspace 只是 Agent runtime render destinations，不能用 Project 目录冒充 Skill 安装隔离层。
 - 对象级卸载命中 Component 时，Agent 必须展示完整范围和保留项并取得二次确认，CLI 不负责猜测对象边界。
 - 组织资产、项目资产和服务代码仓的 Git 边界必须按实际仓库判断，不得凭目录名假设。

@@ -53,6 +53,9 @@ export function registerDomainsComponents(runtime) {
   const existsDirectory = (...args) => runtime.existsDirectory(...args);
   const existsFile = (...args) => runtime.existsFile(...args);
   const assertInitializedBuildrWorkspace = (...args) => runtime.assertInitializedBuildrWorkspace(...args);
+  const commandRemovalBlockers = (...args) => runtime.commandRemovalBlockers(...args);
+  const parseCommandsManifestYaml = (...args) => runtime.parseCommandsManifestYaml(...args);
+  const validateCommandsManifest = (...args) => runtime.validateCommandsManifest(...args);
 
   function componentRegistryPath(targetRoot) {
     return path.join(targetRoot, 'components', 'manifest.yml');
@@ -528,10 +531,44 @@ export function registerDomainsComponents(runtime) {
       const live = assetIntegrity(path.join(targetRoot, member));
       if (live && live !== oldIntegrity.get(member)) issues.push(`Removed Component member is modified: ${member}.`);
     }
+    issues.push(...commandCollectionReferenceIssues(targetRoot, [...oldMembers].filter((member) => !nextMembers.has(member) && member.startsWith('commands/'))));
     const receiptPath = `components/buildr/${record.entry.id}/component.yml`;
     const receiptSymlink = workspaceSymlinkSegment(targetRoot, receiptPath);
     if (receiptSymlink) issues.push(`Component receipt path crosses a symbolic link: ${receiptSymlink}.`);
     return { registry, existingEntry, oldDefinition, restoring, issues, nextMembers, oldMembers };
+  }
+
+  function commandCollectionReferenceIssues(targetRoot, members) {
+    const issues = [];
+    for (const member of members) {
+      const file = path.join(targetRoot, member);
+      if (!existsFile(file)) continue;
+      let manifest;
+      try {
+        manifest = parseCommandsManifestYaml(fs.readFileSync(file, 'utf8'));
+      } catch (error) {
+        issues.push(`Command collection cannot be parsed before removal: ${member}: ${error.message}`);
+        continue;
+      }
+      const validationErrors = validateCommandsManifest(manifest);
+      if (validationErrors.length) {
+        issues.push(`Command collection is invalid before removal: ${member}: ${validationErrors.join('; ')}`);
+        continue;
+      }
+      for (const command of manifest.commands) {
+        // A legacy workspace default stored on the Component-owned definition
+        // disappears with that definition. Component lifecycle only needs to
+        // protect independent Project references (and unverifiable contexts).
+        const blockers = commandRemovalBlockers(targetRoot, command.id, [file])
+          .filter((item) => item.kind !== 'workspace-default');
+        if (blockers.length) issues.push(`Command definition ${command.id} from ${member} is still referenced or cannot be safely checked: ${blockers.map((item) => {
+          if (item.kind === 'project') return `Project ${item.project} (${item.path})`;
+          if (item.kind === 'invalid-project-context') return `unverifiable Project context${item.project ? ` ${item.project}` : ''} (${item.path})`;
+          return `workspace default (${item.path})`;
+        }).join(', ')}.`);
+      }
+    }
+    return issues;
   }
 
   function removeEmptyCommandCollectionParents(targetRoot, file) {
@@ -1001,6 +1038,8 @@ export function registerDomainsComponents(runtime) {
     const integrity = componentIntegrityMap(definition);
     const modified = componentMemberPaths(definition).filter((member) => assetIntegrity(path.join(targetRoot, member)) !== integrity.get(member));
     if (modified.length) throw new Error(`Component ${id} has modified or missing members and cannot be uninstalled:\n- ${modified.join('\n- ')}`);
+    const commandReferenceIssues = commandCollectionReferenceIssues(targetRoot, componentMemberPaths(definition).filter((member) => member.startsWith('commands/')));
+    if (commandReferenceIssues.length) throw new Error(`Component ${id} cannot be uninstalled while Command definitions are referenced:\n- ${commandReferenceIssues.join('\n- ')}`);
     const packageManifest = readPackageManifest();
     const reason = optionValue(args, '--reason', null);
     const affected = [
@@ -1028,6 +1067,6 @@ export function registerDomainsComponents(runtime) {
     console.log('doctor 通过。');
   }
 
-  Object.assign(runtime, { componentRegistryPath, parseComponentsManifestYaml, validateComponentsManifest, renderComponentsManifestYaml, readComponentsManifestForWrite, writeComponentsManifest, parseComponentDefinitionYaml, renderComponentDefinitionYaml, componentIntegrityMap, componentMemberPaths, parseSkillContributionDeclaration, validateComponentDefinition, assetIntegrity, readComponentDefinition, componentDefinitionFile, workspaceSymlinkSegment, componentInventory, componentOwnerForMember, packageComponentEntry, packageComponentDefinition, componentMemberKind, componentBuiltinForMember, packageComponentSourcePath, validatePackageComponentMembers, legacyComponentMemberDecision, isAdoptableLegacyComponentMember, buildComponentReconcilePlan, removeEmptyCommandCollectionParents, removeComponentMember, installComponentMember, componentReconcileAffectedPaths, applyPackageComponent, packageComponentsStatus, planPackageComponentsSync, syncPackageComponents, assertWorkspaceComponentScope, componentListOrCheck, installWorkspaceComponent, declaredRuntimeSkillPaths, declaredRuntimeInstallPlanIds, managedRuntimeSkillOrphans, buildRuntimeOrphanRemovalPlan, reconcileComponentRuntime, componentInstall, componentUninstall });
+  Object.assign(runtime, { componentRegistryPath, parseComponentsManifestYaml, validateComponentsManifest, renderComponentsManifestYaml, readComponentsManifestForWrite, writeComponentsManifest, parseComponentDefinitionYaml, renderComponentDefinitionYaml, componentIntegrityMap, componentMemberPaths, parseSkillContributionDeclaration, validateComponentDefinition, assetIntegrity, readComponentDefinition, componentDefinitionFile, workspaceSymlinkSegment, componentInventory, componentOwnerForMember, packageComponentEntry, packageComponentDefinition, componentMemberKind, componentBuiltinForMember, packageComponentSourcePath, validatePackageComponentMembers, legacyComponentMemberDecision, isAdoptableLegacyComponentMember, buildComponentReconcilePlan, commandCollectionReferenceIssues, removeEmptyCommandCollectionParents, removeComponentMember, installComponentMember, componentReconcileAffectedPaths, applyPackageComponent, packageComponentsStatus, planPackageComponentsSync, syncPackageComponents, assertWorkspaceComponentScope, componentListOrCheck, installWorkspaceComponent, declaredRuntimeSkillPaths, declaredRuntimeInstallPlanIds, managedRuntimeSkillOrphans, buildRuntimeOrphanRemovalPlan, reconcileComponentRuntime, componentInstall, componentUninstall });
   return runtime;
 }
