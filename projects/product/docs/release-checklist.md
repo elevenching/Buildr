@@ -111,7 +111,7 @@ npm run test:candidate
 
 Candidate 总耗时、Workspace E2E suites 和已识别的高耗时专项阶段声明目标预算；summary 使用 `budgetMs` / `budgetStatus` 标记目标内或超预算，超预算只输出 warning。0.1 不因环境波动或单纯超出目标预算阻塞发布。
 
-完成报告必须读取最终 Candidate 命令打印的 timing summary，核对 status、run kind 和 source identity 与最终候选一致，并说明总耗时、预算状态、最慢阶段、失败阶段（成功时为 none）和 summary 路径；Changed/Focus summary 不得替代 Candidate，也不得把并行 step duration 相加推算整体 wall-clock。
+完成报告必须读取最终 Candidate 命令打印的 timing summary，核对 status、run kind 和 source identity 与最终候选一致，并说明总耗时、预算状态、最慢阶段、失败阶段（成功时为 none）和 summary 路径；Changed/Focus summary 不得替代 Candidate，也不得把并行 step duration 相加推算整体 wall-clock。分析并行 Candidate 性能时，使用 step 的 `queuedAt`、`startedAt`、`finishedAt` 和 `queueDurationMs` 区分调度等待与 executor 执行耗时；blocked step 读取 `blockedAt`，不得把 `durationMs: 0` 解释为已执行。
 
 验证层级、旧 MVP 覆盖迁移与必要交叉以 [验证覆盖职责矩阵](verification-ownership.md) 为维护依据；发现重复时先确认主 owner，再迁移或删除断言。
 

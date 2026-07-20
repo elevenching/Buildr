@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "optimize-slowest-verification-stages",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-f8bc629a4314151ab227c8987b6cfc73fb322860a66d033abe6f8c6bf29fa725",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "product-verification-quality",
+      "title": "Verification timing 必须暴露调度等待",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "高耗时 verifier 优化必须保持覆盖",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

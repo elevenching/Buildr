@@ -77,6 +77,11 @@ function normalizedSteps(results) {
     }),
     ...(result.stdoutPath ? { stdoutPath: path.resolve(result.stdoutPath) } : {}),
     ...(result.stderrPath ? { stderrPath: path.resolve(result.stderrPath) } : {}),
+    ...(result.queuedAt ? { queuedAt: result.queuedAt } : {}),
+    ...(result.startedAt ? { startedAt: result.startedAt } : {}),
+    ...(result.finishedAt ? { finishedAt: result.finishedAt } : {}),
+    ...(result.blockedAt ? { blockedAt: result.blockedAt } : {}),
+    ...(result.queueDurationMs == null ? {} : { queueDurationMs: Number(result.queueDurationMs) }),
   }));
 }
 

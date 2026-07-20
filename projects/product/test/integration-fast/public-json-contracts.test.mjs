@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import test from 'node:test';
-import { spawnSync } from 'node:child_process';
+import { describe, test } from 'node:test';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../../tools/cli/shared/json-contracts.mjs';
@@ -13,10 +13,27 @@ const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const buildr = path.join(productRoot, 'tools', 'buildr');
 
 function run(args, options = {}) {
-  const result = spawnSync(process.execPath, [buildr, ...args], { cwd: productRoot, encoding: 'utf8' });
-  assert.equal(result.status, options.expectedStatus ?? 0, `${args.join(' ')}: ${result.stderr || result.stdout}`);
-  return options.json === false || !result.stdout.trim() ? result.stdout : JSON.parse(result.stdout);
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [buildr, ...args], { cwd: productRoot });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', (status) => {
+      try {
+        assert.equal(status, options.expectedStatus ?? 0, `${args.join(' ')}: ${stderr || stdout}`);
+        resolve(options.json === false || !stdout.trim() ? stdout : JSON.parse(stdout));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
 }
+
+describe('public JSON contracts', { concurrency: 2 }, () => {
 
 test('JSON helper 只接受登记 schema 和对象 payload', () => {
   assert.deepEqual(withJsonSchema(PUBLIC_JSON_SCHEMAS.doctor, { ok: true }), {
@@ -27,10 +44,10 @@ test('JSON helper 只接受登记 schema 和对象 payload', () => {
   assert.throws(() => withJsonSchema(PUBLIC_JSON_SCHEMAS.doctor, []), /must be an object/);
 });
 
-test('全部 workspace JSON command family 输出登记的 schemaVersion', (t) => {
+test('全部 workspace JSON command family 输出登记的 schemaVersion', async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-json-contracts-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  run(['init', '--target', root, '--name', 'json-contracts', '--profile', 'team'], { json: false });
+  await run(['init', '--target', root, '--name', 'json-contracts', '--profile', 'team'], { json: false });
 
   const cases = [
     [['version', '--json'], PUBLIC_JSON_SCHEMAS.version],
@@ -43,7 +60,7 @@ test('全部 workspace JSON command family 输出登记的 schemaVersion', (t) =
     [['builtin', 'list', '--target', root, '--json'], PUBLIC_JSON_SCHEMAS.builtinList],
   ];
   for (const [args, expected, expectedStatus = 0] of cases) {
-    assert.equal(run(args, { expectedStatus }).schemaVersion, expected, args.join(' '));
+    assert.equal((await run(args, { expectedStatus })).schemaVersion, expected, args.join(' '));
   }
 });
 
@@ -64,12 +81,12 @@ test('schema registry 覆盖全部当前公开 JSON family', () => {
   ]);
 });
 
-test('doctor 严格报告 workspace identity 与独立 readiness', (t) => {
+test('doctor 严格报告 workspace identity 与独立 readiness', async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-doctor-identity-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  run(['init', '--target', root, '--name', 'doctor-identity', '--profile', 'team'], { json: false });
+  await run(['init', '--target', root, '--name', 'doctor-identity', '--profile', 'team'], { json: false });
 
-  const initialized = run(['doctor', '--target', root, '--json']);
+  const initialized = await run(['doctor', '--target', root, '--json']);
   assert.equal(initialized.workspace.identity.state, 'valid');
   assert.equal(initialized.workspace.initialized, true);
   assert.equal(initialized.health.workspaceValid, true);
@@ -77,7 +94,7 @@ test('doctor 严格报告 workspace identity 与独立 readiness', (t) => {
   assert.deepEqual(Object.keys(initialized.diagnosticProfile).sort(), ['conditional', 'core', 'id', 'specialty']);
 
   fs.rmSync(path.join(root, '.buildr', 'workspace.yml'));
-  const incomplete = run(['doctor', '--target', root, '--json'], { expectedStatus: 1 });
+  const incomplete = await run(['doctor', '--target', root, '--json'], { expectedStatus: 1 });
   assert.equal(incomplete.ok, false);
   assert.equal(incomplete.workspace.initialized, false);
   assert.equal(incomplete.workspace.identity.state, 'incomplete');
@@ -89,18 +106,18 @@ test('doctor 严格报告 workspace identity 与独立 readiness', (t) => {
 
   fs.rmSync(path.join(root, 'AGENTS.md'));
   fs.rmSync(path.join(root, 'projects'), { recursive: true, force: true });
-  const absent = run(['doctor', '--target', root, '--json'], { expectedStatus: 1 });
+  const absent = await run(['doctor', '--target', root, '--json'], { expectedStatus: 1 });
   assert.equal(absent.workspace.identity.state, 'absent');
   assert.deepEqual(absent.workspace.identity.missing, ['AGENTS.md', '.buildr/workspace.yml', 'projects']);
   assert.ok(absent.findings.some((finding) => finding.code === 'workspace.not_initialized'));
 });
 
-test('Codex partial inventory warning 保持可见但不降低 doctor readiness', (t) => {
+test('Codex partial inventory warning 保持可见但不降低 doctor readiness', async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-doctor-partial-inventory-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  run(['init', '--agent', 'codex', '--target', root, '--name', 'doctor-partial-inventory', '--profile', 'team'], { json: false });
+  await run(['init', '--agent', 'codex', '--target', root, '--name', 'doctor-partial-inventory', '--profile', 'team'], { json: false });
 
-  const report = run(['doctor', '--agent', 'codex', '--target', root, '--json']);
+  const report = await run(['doctor', '--agent', 'codex', '--target', root, '--json']);
   const warning = report.findings.find((finding) => finding.code === 'runtime.codex_warning');
   assert.ok(warning);
   assert.equal(warning.userActionRequired, false);
@@ -115,13 +132,13 @@ test('Codex partial inventory warning 保持可见但不降低 doctor readiness'
   assert.deepEqual(report.nextSteps, []);
 });
 
-test('doctor 对未登记 Project 只报告登记根因并输出去重 repair plan', (t) => {
+test('doctor 对未登记 Project 只报告登记根因并输出去重 repair plan', async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-doctor-orphan-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  run(['init', '--target', root, '--name', 'doctor-orphan', '--profile', 'team'], { json: false });
+  await run(['init', '--target', root, '--name', 'doctor-orphan', '--profile', 'team'], { json: false });
   fs.mkdirSync(path.join(root, 'projects', 'orphan'), { recursive: true });
 
-  const report = run(['doctor', '--target', root, '--json']);
+  const report = await run(['doctor', '--target', root, '--json']);
   const orphanCodes = report.findings
     .filter((finding) => finding.path === 'projects/orphan')
     .map((finding) => finding.code);
@@ -132,7 +149,9 @@ test('doctor 对未登记 Project 只报告登记根因并输出去重 repair pl
   assert.equal(report.repairPlan.filter((step) => step.codes.includes('projects.unregistered')).length, 1);
   assert.equal(report.nextSteps.filter((step) => step.codes.includes('projects.unregistered')).length, 1);
 
-  const textReport = run(['doctor', '--target', root], { json: false });
+  const textReport = await run(['doctor', '--target', root], { json: false });
   assert.match(textReport, /Health: workspaceValid=true ready=false actionRequired=true/);
   assert.match(textReport, /Repair plan:/);
+});
+
 });

@@ -10,6 +10,7 @@ import { runVerificationBatch, runVerificationStep } from '../../tools/verificat
 import { candidateStepBudget } from '../../tools/verification/timing/budgets.mjs';
 import {
   collectVerificationSourceIdentity,
+  createVerificationTimingSummary,
   createVerificationEvidencePaths,
   formatVerificationTimingSummary,
   validateVerificationTimingEvidence,
@@ -18,6 +19,38 @@ import {
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const reporter = path.join(productRoot, 'tools', 'verification', 'timing', 'report.mjs');
 const summaryVerifier = path.join(productRoot, 'tools', 'verification', 'timing', 'verify-summary.mjs');
+
+test('timing summary 保留向后兼容的 step 调度时间轴', () => {
+  const summary = createVerificationTimingSummary({
+    status: 'passed',
+    kind: 'candidate',
+    runId: 'candidate-scheduling',
+    source: {},
+    startedAt: 1000,
+    finishedAt: 1200,
+    timingOutput: path.join(os.tmpdir(), 'buildr-scheduling-summary.json'),
+    results: [{
+      name: 'scheduled',
+      status: 'passed',
+      exitCode: 0,
+      durationMs: 100,
+      queuedAt: '1970-01-01T00:00:01.000Z',
+      startedAt: '1970-01-01T00:00:01.050Z',
+      finishedAt: '1970-01-01T00:00:01.150Z',
+      queueDurationMs: 50,
+    }],
+  });
+  assert.deepEqual(summary.steps[0], {
+    name: 'scheduled',
+    status: 'passed',
+    exitCode: 0,
+    durationMs: 100,
+    queuedAt: '1970-01-01T00:00:01.000Z',
+    startedAt: '1970-01-01T00:00:01.050Z',
+    finishedAt: '1970-01-01T00:00:01.150Z',
+    queueDurationMs: 50,
+  });
+});
 
 test('verification timing reporter emits a versioned machine-readable summary', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-timing-'));
@@ -213,6 +246,7 @@ test('parallel verification preserves declaration order and failure identity', a
 
 test('identified expensive candidate steps have non-blocking target budgets', () => {
   for (const name of [
+    'fast integration tests',
     'capability CLI integration',
     'runtime adapter parity',
     'package static validation',

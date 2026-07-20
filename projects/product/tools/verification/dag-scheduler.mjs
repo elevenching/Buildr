@@ -11,6 +11,9 @@ function dependenciesPassed(step, results) {
 export async function runVerificationDag(plan, options = {}) {
   const execute = options.execute;
   if (typeof execute !== 'function') throw new Error('runVerificationDag requires an execute function');
+  const now = options.now ?? Date.now;
+  const queuedAtMs = now();
+  const queuedAt = new Date(queuedAtMs).toISOString();
   const limits = options.concurrency ?? VERIFICATION_CONCURRENCY;
   const pending = new Map(plan.steps.map((step) => [step.id, step]));
   const active = new Map();
@@ -29,6 +32,7 @@ export async function runVerificationDag(plan, options = {}) {
   };
 
   const launch = (step) => {
+    const startedAtMs = now();
     pending.delete(step.id);
     activeByClass.set(step.concurrencyClass, (activeByClass.get(step.concurrencyClass) ?? 0) + 1);
     options.onStart?.(step);
@@ -45,11 +49,19 @@ export async function runVerificationDag(plan, options = {}) {
       stdout: '',
       stderr: `${error.stack || error.message}\n`,
     })).then((result) => {
+      const finishedAtMs = now();
+      const scheduledResult = {
+        ...result,
+        queuedAt,
+        startedAt: new Date(startedAtMs).toISOString(),
+        finishedAt: new Date(finishedAtMs).toISOString(),
+        queueDurationMs: startedAtMs - queuedAtMs,
+      };
       active.delete(step.id);
       activeByClass.set(step.concurrencyClass, activeByClass.get(step.concurrencyClass) - 1);
-      results.set(step.id, result);
-      options.onComplete?.(result, step);
-      return result;
+      results.set(step.id, scheduledResult);
+      options.onComplete?.(scheduledResult, step);
+      return scheduledResult;
     });
     active.set(step.id, { step, promise });
   };
@@ -60,6 +72,7 @@ export async function runVerificationDag(plan, options = {}) {
       const blockedBy = failedDependency(step, results);
       if (!blockedBy) continue;
       pending.delete(step.id);
+      const blockedAtMs = now();
       const result = {
         id: step.id,
         name: step.name,
@@ -70,6 +83,8 @@ export async function runVerificationDag(plan, options = {}) {
         stderr: '',
         blockedBy,
         reason: `dependency ${blockedBy} did not pass`,
+        queuedAt,
+        blockedAt: new Date(blockedAtMs).toISOString(),
       };
       results.set(step.id, result);
       options.onComplete?.(result, step);
