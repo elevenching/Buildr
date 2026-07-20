@@ -14,6 +14,7 @@ const worktreeSkill = read('package/targets/workspace/skills/buildr/task-worktre
 const gitIntegrationContract = read('package/targets/workspace/skills/contracts/buildr/git-task-integration/v1.md');
 const gitOpsSkill = read('package/targets/workspace/skills/buildr/git-ops/SKILL.md');
 const finishSkill = read('package/targets/workspace/skills/buildr/task-finish/SKILL.md');
+const openSpecApplySidebar = read('package/targets/workspace/components/buildr/openspec/contributions/openspec-apply-sidebar.md');
 const buildrSkill = read('package/targets/runtime/skills/buildr/SKILL.md');
 const packageManifest = YAML.parse(read('package/manifest.yml'));
 const workspaceManifest = YAML.parse(read('package/targets/workspace/skills/manifest.yml'));
@@ -108,7 +109,8 @@ test('task-finish 消费标准 Candidate evidence 并报告耗时', () => {
     'cleanup status', 'selected task-verification provider 使用其 `cleanupReference`',
     'implementationCandidateIdentity', 'deliveryTreeIdentity', 'same-content',
     'closeout-metadata-only', 'implementation-changed', 'taskVerificationExecuteCalls',
-    'candidateExecutorCalls',
+    'candidateExecutorCalls', 'verification-result-metadata-only', 'source/target identity',
+    'session-only',
   ]) assert.ok(finishSkill.includes(required), `finish Skill must include ${required}`);
   assert.match(finishSkill, /Buildr Product.*buildr\.verification-timing\/v1/s);
 });
@@ -118,11 +120,15 @@ test('已有 Candidate 进入收尾时按 transition class 去重 executor 调�
   assert.deepEqual(closeoutFixtures.cases.map((item) => item.id), [
     'existing-candidate-same-content',
     'openspec-archive-only',
+    'candidate-task-checkbox-only',
+    'candidate-checkbox-with-extra-edit',
+    'candidate-checkbox-ambiguous-task',
+    'candidate-checkbox-cross-session-without-evidence',
     'implementation-changed',
   ]);
 
-  const [sameContent, archiveOnly, implementationChanged] = closeoutFixtures.cases;
-  for (const item of [sameContent, archiveOnly]) {
+  const [sameContent, archiveOnly, checkboxOnly, ...implementationChanges] = closeoutFixtures.cases;
+  for (const item of [sameContent, archiveOnly, checkboxOnly]) {
     assert.equal(item.taskVerificationExecuteCalls, 0, `${item.id} must not execute task verification`);
     assert.equal(item.candidateExecutorCalls, 0, `${item.id} must not execute Candidate`);
     assert.equal(item.candidateReused, true, `${item.id} must reuse Candidate evidence`);
@@ -133,11 +139,35 @@ test('已有 Candidate 进入收尾时按 transition class 去重 executor 调�
   assert.equal(archiveOnly.transitionClass, 'closeout-metadata-only');
   assert.deepEqual(archiveOnly.closeoutChecks, ['openspec-strict', 'contract-guard', 'git-diff-check']);
 
-  assert.equal(implementationChanged.transitionClass, 'implementation-changed');
-  assert.deepEqual(implementationChanged.providerOperations, ['execute', 'cleanup']);
-  assert.equal(implementationChanged.taskVerificationExecuteCalls, 1);
-  assert.equal(implementationChanged.candidateExecutorCalls, 1);
-  assert.equal(implementationChanged.candidateReused, false);
+  assert.equal(checkboxOnly.transitionClass, 'closeout-metadata-only');
+  assert.equal(checkboxOnly.transitionSubtype, 'verification-result-metadata-only');
+  assert.equal(checkboxOnly.transitionEvidenceRetention, 'session-only');
+  assert.equal(checkboxOnly.sourceIdentityMatchesCandidate, true);
+  assert.equal(checkboxOnly.targetIdentityCaptured, true);
+  assert.equal(checkboxOnly.changeIdCaptured, true);
+  assert.equal(checkboxOnly.taskIdentityCaptured, true);
+  assert.equal(checkboxOnly.markerTransition, '- [ ] -> - [x]');
+  assert.equal(checkboxOnly.onlyContentChange, true);
+
+  for (const item of implementationChanges) {
+    assert.equal(item.transitionClass, 'implementation-changed', `${item.id} must fail closed`);
+    assert.deepEqual(item.providerOperations, ['execute', 'cleanup']);
+    assert.equal(item.taskVerificationExecuteCalls, 1);
+    assert.equal(item.candidateExecutorCalls, 1);
+    assert.equal(item.candidateReused, false);
+  }
+});
+
+test('Candidate task checkbox 复用必须由 Buildr sidebar 和 provider consumer 共同约束', () => {
+  for (const required of [
+    '先保持该任务为 `- [ ]`', 'source/target identity', '唯一变化',
+    'verification-result-metadata-only', '不得仅凭最终 `tasks.md` 状态推断可复用性',
+  ]) assert.ok(openSpecApplySidebar.includes(required), `OpenSpec apply sidebar must include ${required}`);
+
+  for (const required of [
+    'Project policy', 'verification-result-metadata-only', 'session-only',
+    '不得改写 `candidateIdentity`', '不得从路径、文件类型或最终 checkbox 状态反推可复用性',
+  ]) assert.ok(verificationSkill.includes(required), `verification Skill must include ${required}`);
 });
 
 test('产品入口分别路由验证与 worktree lifecycle 意图', () => {
