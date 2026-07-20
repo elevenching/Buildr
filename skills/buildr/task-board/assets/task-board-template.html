@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Agent 单向维护的任务可视化驾驶舱。">
-  <title>任务驾驶舱</title>
+  <meta name="description" content="Agent 单向维护的任务看板。">
+  <title>任务看板</title>
   <style>
     :root {
       --ink: #172033;
@@ -141,15 +141,15 @@
   <main class="page">
     <header class="hero">
       <div class="hero-top">
-        <span class="eyebrow">TASK COCKPIT · AGENT MAINTAINED</span>
+        <span class="eyebrow">TASK BOARD · AGENT MAINTAINED</span>
         <span class="status" id="hero-status">待更新</span>
       </div>
-      <h1 id="hero-title">任务驾驶舱</h1>
+      <h1 id="hero-title">任务看板</h1>
       <p class="hero-lead" id="hero-purpose">用一句普通人能理解的话说明这个任务要解决什么。</p>
       <div class="metric-row" id="hero-metrics"></div>
     </header>
 
-    <nav class="tabs" aria-label="驾驶舱视图">
+    <nav class="tabs" aria-label="任务看板视图">
       <div class="tab-list" role="tablist">
         <button class="tab" role="tab" aria-selected="true" aria-controls="overview-panel" data-tab="overview">首页</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="progress-panel" data-tab="progress">推进</button>
@@ -169,7 +169,7 @@
     </footer>
   </main>
 
-  <script id="cockpit-data" type="application/json">
+  <script id="board-data" type="application/json">
   {
     "meta": {
       "title": "任务名称",
@@ -178,7 +178,7 @@
       "phase": "批次 1 · 待开始",
       "taskProgress": "当前批次 0 / 0 · 依赖池 0 组",
       "updatedAt": "yyyy-MM-dd HH:mm",
-      "relativePath": "projects/<project>/openspec/knowledge/task-cockpits/yyyy-MM-dd-task-id.html"
+      "relativePath": "projects/<project>/openspec/knowledge/task-boards/yyyy-MM-dd-task-id.html"
     },
     "overview": {
       "purpose": "用一句话说明这个任务要解决什么，以及完成后用户会得到什么。",
@@ -246,11 +246,11 @@
   </script>
   <script>
     (() => {
-      const dataNode = document.getElementById('cockpit-data');
+      const dataNode = document.getElementById('board-data');
       let data;
       try { data = JSON.parse(dataNode.textContent); }
       catch (error) {
-        document.body.innerHTML = '<main class="page"><section class="section"><h1>驾驶舱数据无法解析</h1><p>请让 Agent 检查 #cockpit-data JSON。</p></section></main>';
+        document.body.innerHTML = '<main class="page"><section class="section"><h1>任务看板数据无法解析</h1><p>请让 Agent 检查 #board-data JSON。</p></section></main>';
         return;
       }
 

@@ -1,0 +1,227 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "rename-task-cockpit-to-task-board",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-13a85dd91f10347bde42c01496f25e2e36d93361b42ef1a4ca0125470427147f",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "task-triage 路由任务看板",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "任务进展回复保持任务看板可发现",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "task-triage 路由任务驾驶舱",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: task-triage 路由任务驾驶舱\nBuildr 的 task-triage Skill MUST 在理解任务意图和影响范围后判断任务驾驶舱（任务看板）是“不需要”“创建”还是“继续维护”，并 MUST 在需要看板时引导 Agent 使用独立 `task-cockpit` Skill，而不是在 task-triage 中复制完整可视化流程；创建看板前 MUST 已解析至少一个真实 OpenSpec change。\n\n#### Scenario: 复杂任务需要任务看板\n- **WHEN** task triage 发现任务跨批次、跨 change、跨服务或团队，存在交叉依赖、长期跟踪或多次用户判断\n- **THEN** task triage MUST 将任务看板判定为“创建”或“继续维护”\n- **AND** Agent MUST 使用 `task-cockpit` 执行创建或维护\n\n#### Scenario: 看板需要先建立 change 锚点\n- **WHEN** task triage 判定复杂任务需要创建任务看板但尚无已创建的 OpenSpec change\n- **THEN** task triage MUST 先将任务路由到 change-flow 并创建、核实 change\n- **AND** Agent MUST NOT 用未来 change 名称或普通计划代替真实关联\n\n#### Scenario: task triage 输出看板状态\n- **WHEN** task triage 选择创建或继续维护任务看板\n- **THEN** 面向用户的路径判定 MUST 在可确认时包含 task id、看板路径、关联 change 和当前状态\n- **AND** task triage MUST NOT 猜测尚未解析的 Project、change 或文件路径\n"
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "任务进展回复保持驾驶舱可发现",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 任务进展回复保持驾驶舱可发现\nBuildr task workflow guidance MUST 要求 Agent 在驾驶舱首次创建、实质更新、用户询问进度、任务暂停或完成时提供驾驶舱入口，并 MUST 避免在没有状态变化的每条短暂中间消息中机械重复链接。\n\n#### Scenario: 实质状态变化后回复\n- **WHEN** 驾驶舱对应任务的阶段、目标、方案、完成项、阻塞或验证结论发生实质变化\n- **THEN** Agent MUST 先更新驾驶舱再汇报进展\n- **AND** 回复 MUST 包含驾驶舱入口\n\n#### Scenario: 短暂中间动作\n- **WHEN** Agent 仅执行没有改变任务认知的短暂命令或检查\n- **THEN** Agent MAY 省略驾驶舱链接\n- **AND** 驾驶舱 MUST 在下一次实质状态回复中继续可发现\n"
+    },
+    {
+      "capability": "buildr-development-openspec",
+      "title": "Project knowledge 区分当前事实与任务看板",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-development-openspec",
+      "title": "Project knowledge 区分当前事实与任务驾驶舱",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: Project knowledge 区分当前事实与任务驾驶舱\nBuildr Project `openspec/knowledge/` MUST 允许在明确的 `task-cockpits/` 子目录保存 Agent 维护的 task-scoped working knowledge，同时 MUST 保持 current-state knowledge、canonical specs、active changes 和历史 archive 的既有职责边界。\n\n#### Scenario: 记录任务驾驶舱\n- **WHEN** Agent 为复杂 Project 任务维护跨阶段目标、计划、依赖、进度、风险和证据索引\n- **THEN** 该 HTML MUST 保存在 `openspec/knowledge/task-cockpits/`\n- **AND** 它 MUST 被标识为任务认知入口，而不是当前业务事实全集或规范性契约\n\n#### Scenario: 驾驶舱包含未来阶段\n- **WHEN** 驾驶舱展示已经确认但尚未开始的后续阶段或外部等待事项\n- **THEN** 这些内容 MUST 被表达为当前任务计划或依赖状态\n- **AND** knowledge 文档规则 MUST NOT 将它们误读为 Buildr 已实现能力或无条件产品承诺\n\n#### Scenario: 读取权威事实\n- **WHEN** 驾驶舱摘要与 canonical specs、active change、代码或验证证据存在冲突\n- **THEN** Agent MUST 以对应权威来源核实并修正驾驶舱\n- **AND** Agent MUST NOT 使用驾驶舱覆盖或回写权威事实\n"
+    },
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr sync 安全迁移被替代的 builtin identity",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "产品入口按 capability 路由用户意图",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品入口按 capability 路由用户意图\n产品入口 Buildr Skill MUST 将跨 Skill 用户意图路由到已解析 capability provider，并 MUST NOT 把 builtin Skill id 当作不可替换入口。\n\n#### Scenario: 完整 sync 注入 routing evidence\n- **WHEN** `buildr sync <agent>` 在已初始化 workspace 中同时投射产品入口 Buildr Skill 和 workspace/Project Skills\n- **THEN** runtime Buildr Skill MUST 包含按 scope 分组的受管 capability routing evidence\n- **AND** evidence MUST 记录 contract、selected provider、provider runtime path、readiness、reason、contract digest 和 provenance\n\n#### Scenario: Routing evidence 已陈旧\n- **WHEN** existing runtime projection check 发现当前 scope/runtime 的 capability routing evidence 与重新解析结果不一致\n- **THEN** evidence MUST 被标记为 stale\n- **AND** 产品入口 Buildr Skill MUST 使用当前 workspace doctor 取得最新 capability graph 后再路由\n- **AND** Agent MUST NOT 因存在旧 evidence 而继续使用已卸载或已改绑 provider\n- **AND** Buildr MUST reuse the existing managed runtime content hash rather than introduce a separate graph digest protocol\n\n#### Scenario: 独立 Skill install 没有当前 binding evidence\n- **WHEN** 产品入口 Buildr Skill 由独立 `buildr skill install <agent>` 安装，或现有 routing evidence 不适用于当前 scope\n- **THEN** Buildr Skill MUST NOT 猜测 builtin provider 或依赖静态 Skill id\n- **AND** 在已初始化 workspace 中 MUST 使用当前 workspace doctor 的 capability graph 解析 provider 后再路由\n- **AND** v1 MUST NOT 为此新增独立 capability dispatch CLI\n\n#### Scenario: 路由单项 Git 意图\n- **WHEN** 用户通过产品入口表达明确单项 Git 意图\n- **THEN** Buildr Skill MUST route it to the bound `buildr.git-single-operation/v1` provider\n- **AND** runtime routing evidence or current doctor result MUST identify the selected provider and scope\n\n#### Scenario: 路由任务工作流意图\n- **WHEN** 用户表达 worktree、完整收尾或资产审查意图\n- **THEN** Buildr Skill MUST route to the bound `buildr.task-worktree-lifecycle/v1`、`buildr.task-finish/v1` or `buildr.task-asset-review/v1` provider as applicable\n- **AND** Buildr Skill MUST honor blocked and degraded semantics\n\n#### Scenario: 用户替换 builtin provider\n- **WHEN** a workspace or Project binding selects an internal Skill with a different id\n- **THEN** Buildr Skill MUST route to that provider without requiring an identically named builtin\n- **AND** provider substitution MUST survive update、sync and runtime render\n\n#### Scenario: 未进入首批 contracts 的 builtin\n- **WHEN** 用户意图路由到 `task-triage`、`task-cockpit` 或其他尚未声明 capability contract 的 builtin\n- **THEN** 产品入口 Buildr Skill MUST 继续使用现有 identity routing\n- **AND** Buildr MUST NOT 声称该 builtin 已支持透明 provider substitution\n"
+    },
+    {
+      "capability": "task-board",
+      "title": "Buildr 提供任务看板 Skill",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-board",
+      "title": "任务看板使用稳定的 Project knowledge 路径",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-board",
+      "title": "任务看板由 Agent 单向维护",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-board",
+      "title": "任务看板优先服务普通用户理解",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-board",
+      "title": "任务看板聚焦重要且易懂的信息",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-board",
+      "title": "任务看板保持事实来源边界",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-board",
+      "title": "Agent 在关键回复中提供任务看板入口",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-board",
+      "title": "任务看板模板自包含且可移植",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-board",
+      "title": "任务看板关联真实 OpenSpec change",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-board",
+      "title": "任务看板按交付批次和依赖池组织进度",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-board",
+      "title": "任务看板区分方案与已完成技术事实",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "旧任务驾驶舱能力不再创建新产物",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "Buildr 提供任务驾驶舱 Skill",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: Buildr 提供任务驾驶舱 Skill\nBuildr MUST 提供 optional builtin `task-cockpit` Skill，引导 Agent 为复杂、长期、跨批次、跨 change、跨团队或存在交叉依赖的任务创建和持续维护任务驾驶舱（任务看板）；驾驶舱与任务看板 MUST 指向同一 artifact，简单、短时且无持续跟踪价值的任务 MUST NOT 被机械要求创建看板。\n\n#### Scenario: 复杂任务创建任务看板\n- **WHEN** 任务跨多个交付批次、change、服务或团队，存在外部依赖、需要多次用户判断，或预计跨会话持续推进\n- **THEN** Agent MUST 使用 `task-cockpit` 创建或继续维护任务驾驶舱（任务看板）\n- **AND** 看板 MUST 覆盖整个任务，而不是只展示当前 OpenSpec change\n\n#### Scenario: 用户使用任一名称\n- **WHEN** 用户要求任务驾驶舱、任务看板、整体进度、任务全景或长期跟踪\n- **THEN** Agent MUST 将这些意图路由到同一 `task-cockpit` Skill 和同一稳定 artifact\n- **AND** Agent MUST NOT 创建相互独立的驾驶舱与看板状态\n\n#### Scenario: 简单任务不创建任务看板\n- **WHEN** 任务能够在短时间内完成、没有有意义的批次或依赖，且用户没有明确要求可视化\n- **THEN** Agent MUST 继续通过简洁对话汇报\n- **AND** Agent MUST NOT 为形式完整而创建空洞看板\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "驾驶舱使用稳定的 Project knowledge 路径",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 驾驶舱使用稳定的 Project knowledge 路径\n任务驾驶舱（任务看板）MUST 保存在拥有该任务的 Project `openspec/knowledge/task-cockpits/` 下，并 MUST 使用 `yyyy-MM-dd-<task-id>.html` 文件名；日期 MUST 取首次创建时的本地日期，后续更新 MUST 保持同一路径。\n\n#### Scenario: 创建 Project 任务看板\n- **WHEN** Agent 首次为 Project task id `fund-system-integration` 创建任务看板，且本地日期为 2026-07-16\n- **THEN** 文件路径 MUST 以 `openspec/knowledge/task-cockpits/2026-07-16-fund-system-integration.html` 结尾\n- **AND** 后续批次或 change 变化 MUST 更新该文件而不是按更新时间创建新文件\n\n#### Scenario: 任务看板跨越多个 change\n- **WHEN** 一个任务包含已归档 change、当前 active change、code-only 工作或未来批次\n- **THEN** 任务看板 MUST 保持稳定路径并关联这些批次\n- **AND** OpenSpec change archive MUST NOT 使任务看板入口消失或被移动\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "驾驶舱由 Agent 单向维护",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 驾驶舱由 Agent 单向维护\n任务驾驶舱 MUST 由 Agent 根据已核实的任务事实单向维护，用户 MUST 通过 Agent 对话提供目标、判断和确认；HTML 中的 checkbox、状态、按钮或进度元素 MUST NOT 直接修改任务事实或回写 OpenSpec、代码和外部系统。\n\n#### Scenario: 用户确认任务完成\n- **WHEN** 用户通过对话说明某项工作已完成或要求调整状态\n- **THEN** Agent MUST 核实相关证据并更新驾驶舱\n- **AND** 用户 MUST NOT 需要在 HTML 中直接修改 checkbox\n\n#### Scenario: 页面展示任务状态\n- **WHEN** 驾驶舱显示任务 checkbox、状态 chip 或进度条\n- **THEN** 这些元素 MUST 是只读展示\n- **AND** 页面 MUST NOT 提供未经 Agent 核实的状态写回通道\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "驾驶舱优先服务普通用户理解",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 驾驶舱优先服务普通用户理解\n任务驾驶舱 MUST 将与技术无关、普通用户能理解且对掌控任务最重要的信息放在首页或最前层，并 MUST 将 API、数据结构、代码、文件和技术证据放在后续视图或折叠区域。\n\n#### Scenario: 用户打开驾驶舱首页\n- **WHEN** 用户首次打开驾驶舱\n- **THEN** 首页 MUST 简练回答任务目标、当前阶段、当前焦点、已完成、下一步、阻塞和需要用户关注的事项\n- **AND** 首页 MUST NOT 以 API 表格、类名、数据库字段或大段代码作为主要内容\n\n#### Scenario: 用户查看技术细节\n- **WHEN** 用户进入技术细节视图\n- **THEN** 页面 MAY 展示 API、状态映射、数据结构、关键文件、简略代码和验证结果\n- **AND** 技术细节 MUST 与前层的任务目标和方案保持可追溯关系\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "驾驶舱聚焦重要且易懂的信息",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 驾驶舱聚焦重要且易懂的信息\n任务驾驶舱（任务看板）MUST 先展示结论再展示原因，MUST 高亮当前批次、阻塞和待确认事项，并 MUST 避免复杂说明、无必要的大表格、原始命令流水和 Agent 思考过程；任务进度 MUST 基于可核实的批次或任务数量，不得使用 Agent 主观猜测的百分比。\n\n#### Scenario: 展示任务进度\n- **WHEN** Agent 能核实交付批次或 task checkbox 状态\n- **THEN** 任务看板 MUST 优先显示类似“批次 2/4”或“任务 7/11”的可追溯进度\n- **AND** Agent MUST NOT 凭直觉显示无法解释的完成百分比\n\n#### Scenario: 存在阻塞或待确认事项\n- **WHEN** 任务因外部依赖、失败或用户判断无法继续\n- **THEN** 任务看板 MUST 在首页高亮阻塞事实、影响和下一项可执行动作\n- **AND** 相关信息 MUST NOT 仅埋在技术表格或历史记录中\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "驾驶舱保持事实来源边界",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 驾驶舱保持事实来源边界\n任务驾驶舱 MUST 汇总 OpenSpec、代码、验证、外部依赖和已确认对话中的任务认知，但 MUST NOT 替代 canonical specs、active change、代码实现或验证证据；改变业务契约的决策 MUST 先维护对应权威资产，再由驾驶舱摘要表达。\n\n#### Scenario: 驾驶舱发现业务契约变化\n- **WHEN** Agent 在维护驾驶舱时确认某项决策改变业务 requirement、状态流、API、权限或数据语义\n- **THEN** Agent MUST 按 task triage 维护对应 OpenSpec change 或 canonical spec\n- **AND** 驾驶舱 MUST 只摘要该决策并链接权威来源\n\n#### Scenario: 驾驶舱记录普通任务进度\n- **WHEN** 信息只是当前焦点、外部等待、阶段关系或已核实验证结果\n- **THEN** Agent MAY 直接更新驾驶舱\n- **AND** Agent MUST NOT 为每条任务状态在 OpenSpec 中制造重复事实\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "Agent 在关键回复中提供驾驶舱入口",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: Agent 在关键回复中提供驾驶舱入口\nAgent MUST 在驾驶舱首次创建、发生实质更新、用户询问进度、任务暂停或完成时，在回复中提供任务名称、可点击绝对路径、workspace 相对路径、当前状态和更新时间；未成功更新时 MUST 明确说明未更新及原因。\n\n#### Scenario: 驾驶舱成功更新\n- **WHEN** Agent 完成一次实质驾驶舱更新\n- **THEN** 回复 MUST 提供指向该 HTML 的可点击入口和 workspace 相对路径\n- **AND** 回复 MUST 简要说明当前状态与更新时间\n\n#### Scenario: 驾驶舱未更新\n- **WHEN** Agent 因事实未确认、文件写入失败或其他阻塞未完成更新\n- **THEN** 回复 MUST NOT 声称驾驶舱已更新\n- **AND** 回复 MUST 说明未更新原因和下一步\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "驾驶舱模板自包含且可移植",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 驾驶舱模板自包含且可移植\nBuildr MUST 随 `task-cockpit` Skill 的完整 runtime 目录提供不依赖外部 CDN 的单文件 HTML 模板，模板 MUST 支持首页、推进、方案和技术细节的渐进视图，并 MUST 能在常见桌面和窄屏浏览器中阅读。\n\n#### Scenario: Skill 从自身资源创建看板\n- **WHEN** Agent 使用 runtime 中的 `task-cockpit` Skill 创建任务看板\n- **THEN** Agent MUST 从该 Skill 的 `assets/task-cockpit-template.html` 复制模板\n- **AND** Agent MUST NOT 依赖 workspace 源目录或重新手写模板\n\n#### Scenario: 离线打开任务看板\n- **WHEN** 用户通过本地文件路径打开生成的任务看板\n- **THEN** 页面 MUST 在没有网络请求的情况下展示核心内容和导航\n- **AND** 页面 MUST NOT 因缺少第三方脚本、字体或样式服务而失效\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "任务看板关联真实 OpenSpec change",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 任务看板关联真实 OpenSpec change\n每个任务驾驶舱（任务看板）MUST 至少关联一个已创建的 OpenSpec change，并 MUST 展示 change id、核实状态、稳定路径及其与交付批次的关系；未来设想或仅有名称的计划 MUST NOT 冒充真实 change。\n\n#### Scenario: 创建任务看板时已有 active change\n- **WHEN** Agent 为复杂任务创建任务看板且 active change 已存在\n- **THEN** 看板 MUST 在 `changes` 中记录该 change 的真实 id、状态和路径\n- **AND** 至少一个交付批次 MUST 通过 change id 关联该 change\n\n#### Scenario: 创建任务看板时尚无 change\n- **WHEN** 任务需要任务看板但尚无已创建的 OpenSpec change\n- **THEN** Agent MUST 先通过 task-triage 的 change-flow 创建并核实 change\n- **AND** Agent MUST NOT 创建没有真实 change 关联的任务看板\n\n#### Scenario: change 归档后继续维护看板\n- **WHEN** 已关联 change 从 active 移至 archive\n- **THEN** Agent MUST 更新该 change 的状态和稳定归档路径\n- **AND** 看板 MUST 保留其与历史交付批次的关联\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "任务看板按交付批次和依赖池组织进度",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 任务看板按交付批次和依赖池组织进度\n任务看板 MUST 用可独立计划、实施和验收的 `batches` 表示可执行交付，并 MUST 用 `dependencyPool` 表示启动条件尚未满足的任务；批次 MAY 包含 code-only 或外部协作项，但 MUST 显式记录其关联 change ids。\n\n#### Scenario: 形成可独立交付批次\n- **WHEN** 一组任务能够独立计划、实施和验收\n- **THEN** Agent MUST 将其组织为具有稳定 id、状态、交付结果和 `changeIds` 的批次\n- **AND** 看板 MUST 基于批次和批次内任务计算可核实进度\n\n#### Scenario: 部分工作仍被依赖阻塞\n- **WHEN** 任务中的一部分尚未满足外部条件，但其他工作可以继续\n- **THEN** Agent MUST 将未就绪工作保留在 `dependencyPool` 并记录启动条件\n- **AND** Agent MUST 将已就绪工作组织为新的可执行批次或 change，而不是阻塞整个任务\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "任务看板区分方案与已完成技术事实",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 任务看板区分方案与已完成技术事实\n任务看板 MUST 分别维护普通用户可理解的业务方案、可执行技术方案和已完成复杂任务的技术细节；未完成工作的预期实现 MUST NOT 被表述为已经落地的事实。\n\n#### Scenario: 展示尚在实施的方案\n- **WHEN** 某项工作已有确认方案但尚未完成\n- **THEN** 看板 MUST 将其记录在业务方案或技术方案中\n- **AND** 看板 MUST NOT 将预期文件、接口或验证写入已完成技术细节\n\n#### Scenario: 记录已完成复杂任务\n- **WHEN** 一项复杂任务已经实现并有验证证据\n- **THEN** 看板 MAY 在 `technical.details` 中记录关键实现、文件和验证\n- **AND** 该细节 MUST 能追溯到关联批次或 change\n"
+    }
+  ]
+}

@@ -116,11 +116,38 @@ export function registerApplicationRuntime(runtime) {
     return { targetRoot: renderCommand.targetRoot, files: plan.writes.map((item) => item.targetFile), actions: plan.ruleActions, warnings: plan.warnings };
   }
 
-  function buildSyncSourcePlan(targetRoot) {
+  function replacementRuntimePreflight(targetRoot, agent, findings) {
+    const runtimeRoot = getRuntimeAdapter(agent).traits.skills.root;
+    const conflicts = [];
+    for (const finding of findings.filter((item) => item.replacementFrom && ['installed', 'uninstalled'].includes(item.status))) {
+      try {
+        buildRuntimeOrphanRemovalPlan(targetRoot, agent, '.', { runtimePath: finding.predecessorRuntimePath });
+      } catch (error) {
+        conflicts.push({
+          type: 'runtime', id: finding.id, status: 'modified', path: finding.predecessorRuntimePath,
+          replacementFrom: finding.replacementFrom, reason: error.message,
+        });
+      }
+      const targetDir = path.join(targetRoot, runtimeRoot, 'skills', ...finding.replacementRuntimePath.split('/'));
+      const targetReceipt = path.join(targetRoot, runtimeRoot, 'buildr', 'skill-projection-receipts', agent, `${finding.replacementRuntimePath}.json`);
+      if (fs.existsSync(targetDir) || fs.existsSync(targetReceipt)) {
+        conflicts.push({
+          type: 'runtime', id: finding.id, status: 'modified', path: finding.replacementRuntimePath,
+          replacementFrom: finding.replacementFrom, reason: 'replacement runtime target already exists',
+        });
+      }
+    }
+    return conflicts;
+  }
+
+  function buildSyncSourcePlan(targetRoot, agent) {
     const builtins = syncPackageBuiltins(targetRoot, { checkOnly: true });
     const components = syncPackageComponents(targetRoot, { checkOnly: true });
     const affectedPaths = assertSafeSyncMutationPaths(targetRoot, [...builtins.affectedPaths, ...components.affectedPaths]);
-    const needsDecision = builtins.findings.filter((finding) => !finding.component && !finding.required && ['modified', 'missing'].includes(finding.status));
+    const needsDecision = [
+      ...builtins.findings.filter((finding) => !finding.component && !finding.required && ['modified', 'missing'].includes(finding.status)),
+      ...replacementRuntimePreflight(targetRoot, agent, builtins.findings),
+    ];
     return {
       builtins,
       components,
@@ -145,7 +172,7 @@ export function registerApplicationRuntime(runtime) {
     if (!syncArgs.includes('--scope')) syncArgs.push('--scope', '.');
     const targetRoot = path.resolve(optionValue(syncArgs, '--target', process.cwd()));
     assertInitializedBuildrWorkspace(targetRoot);
-    const preflight = buildSyncSourcePlan(targetRoot);
+    const preflight = buildSyncSourcePlan(targetRoot, agent);
     assertSyncSourcePlanReady(preflight);
     let lockedPlan = null;
     const updated = withWorkspaceMutation(targetRoot, `buildr.sync:${agent}`, preflight.affectedPaths, () => {
@@ -162,7 +189,7 @@ export function registerApplicationRuntime(runtime) {
       return sourceUpdate;
     }, {
       preSnapshot() {
-        lockedPlan = buildSyncSourcePlan(targetRoot);
+        lockedPlan = buildSyncSourcePlan(targetRoot, agent);
         assertSyncSourcePlanReady(lockedPlan);
         if (lockedPlan.signature !== preflight.signature) throw new Error('sync source plan changed after preflight; rerun sync against the current workspace state.');
       },

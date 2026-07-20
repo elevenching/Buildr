@@ -86,12 +86,18 @@ builtins:
       description: 用户要求修 bug、实现或调整功能、改需求、重构、优化、补文档、补测试、调整 API/契约/权限/状态流/数据语义，或询问某项改动是否需要更新 spec、创建 change、只改代码时使用。
       required: false
       runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
-    - id: task-cockpit
-      path: package/targets/workspace/skills/buildr/task-cockpit
-      target: skills/buildr/task-cockpit
-      description: 为复杂、长期、跨批次、跨 change、跨服务或团队的任务维护只读 HTML 任务驾驶舱（任务看板）、change 关联、交付批次和依赖池；用户明确要求任务看板、整体进度或长期跟踪时也使用。
+    - id: task-board
+      path: package/targets/workspace/skills/buildr/task-board
+      target: skills/buildr/task-board
+      description: 为复杂、长期、跨批次、跨 change、跨服务或团队的任务维护只读 HTML 任务看板、change 关联、交付批次和依赖池；用户明确要求任务看板、整体进度、长期跟踪，或使用旧称“任务驾驶舱”时也使用。
       required: false
       runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
+      replaces:
+        id: task-cockpit
+        target: skills/buildr/task-cockpit
+        runtimePath: task-cockpit
+      legacyIntegrities:
+        - sha256-0ac07cea3870e19c75e097a6f1df556242c8e11488419bd5f9a3bfa52f36c061
     - id: capability-adaptation
       path: package/targets/workspace/skills/buildr/capability-adaptation
       target: skills/buildr/capability-adaptation
@@ -229,9 +235,9 @@ workspaceFiles:
   - package/targets/workspace/skills/contracts/buildr/task-finish/v1.md => skills/contracts/buildr/task-finish/v1.md copy
   - package/targets/workspace/skills/contracts/buildr/task-asset-review/v1.md => skills/contracts/buildr/task-asset-review/v1.md copy
   - package/targets/workspace/skills/buildr/task-triage/SKILL.md => skills/buildr/task-triage/SKILL.md copy
-  - package/targets/workspace/skills/buildr/task-cockpit/SKILL.md => skills/buildr/task-cockpit/SKILL.md copy
-  - package/targets/workspace/skills/buildr/task-cockpit/agents/openai.yaml => skills/buildr/task-cockpit/agents/openai.yaml copy
-  - package/targets/workspace/skills/buildr/task-cockpit/assets/task-cockpit-template.html => skills/buildr/task-cockpit/assets/task-cockpit-template.html copy
+  - package/targets/workspace/skills/buildr/task-board/SKILL.md => skills/buildr/task-board/SKILL.md copy
+  - package/targets/workspace/skills/buildr/task-board/agents/openai.yaml => skills/buildr/task-board/agents/openai.yaml copy
+  - package/targets/workspace/skills/buildr/task-board/assets/task-board-template.html => skills/buildr/task-board/assets/task-board-template.html copy
   - package/targets/workspace/skills/buildr/capability-adaptation/SKILL.md => skills/buildr/capability-adaptation/SKILL.md copy
   - package/targets/workspace/skills/buildr/capability-adaptation/agents/openai.yaml => skills/buildr/capability-adaptation/agents/openai.yaml copy
   - package/targets/workspace/skills/buildr/task-asset-review/SKILL.md => skills/buildr/task-asset-review/SKILL.md copy

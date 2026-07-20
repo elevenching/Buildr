@@ -102,7 +102,7 @@ test('证据胶囊支持 worktree 清理后继续核查并标记 session 限制'
   for (const required of [
     '最终 commit / diff',
     '归档 OpenSpec change',
-    '稳定文件或任务驾驶舱',
+    '稳定文件或任务看板',
     '证据限制',
     '证据耐久性较弱',
   ]) {

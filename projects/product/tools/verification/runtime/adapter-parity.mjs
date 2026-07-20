@@ -143,8 +143,8 @@ for (const agent of supportedAdapters) {
   const root = adapterSkillRoots.get(agent);
   assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-asset-review', 'SKILL.md')), `${agent} must render task-asset-review`);
   assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'capability-adaptation', 'SKILL.md')), `${agent} must render capability-adaptation`);
-  assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-cockpit', 'agents', 'openai.yaml')), `${agent} must preserve task-cockpit OpenAI vendor metadata in the complete Skill inventory`);
-  assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-cockpit', 'assets', 'task-cockpit-template.html')), `${agent} must render task-cockpit template asset`);
+  assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-board', 'agents', 'openai.yaml')), `${agent} must preserve task-board OpenAI vendor metadata in the complete Skill inventory`);
+  assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-board', 'assets', 'task-board-template.html')), `${agent} must render task-board template asset`);
   assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-asset-review', 'agents', 'openai.yaml')), `${agent} must render task-asset-review agents metadata`);
   const completeRuntime = path.join(workspace, root, 'skills', 'complete-runtime-skill');
   for (const relative of ['SKILL.md', 'agents/openai.yaml', 'examples/sample.md', 'references/guide.md', 'scripts/run.sh', 'templates/template.txt']) {

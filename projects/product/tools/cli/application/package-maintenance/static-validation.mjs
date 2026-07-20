@@ -538,6 +538,12 @@ export function createPackageStaticValidator(deps) {
       problems.push('builtins.rules must declare required buildr-core at rules/buildr/core.md.');
     }
 
+    const currentSkillIds = new Set(manifest.builtins.skills.map((skill) => skill.id).filter(Boolean));
+    const currentSkillTargets = new Set(manifest.builtins.skills.map((skill) => skill.target).filter(Boolean));
+    const currentSkillRuntimePaths = new Set(manifest.builtins.skills.map((skill) => skill.runtimePath || skill.id).filter(Boolean));
+    const replacementPredecessors = new Set();
+    const replacementTargets = new Set();
+    const replacementRuntimePaths = new Set();
     for (const skill of manifest.builtins.skills) {
       const label = `builtins.skills.${skill.id || '<missing>'}`;
       for (const [field, entries] of [['provides', skill.provides || []], ['requires', skill.requires || []]]) {
@@ -555,6 +561,25 @@ export function createPackageStaticValidator(deps) {
       if (!skill.id || !skill.path || !skill.target || !skill.description || typeof skill.required !== 'boolean') {
         problems.push(`${label} must include id, path, target, description, and required.`);
         continue;
+      }
+      if (skill.replaces !== undefined) {
+        const replacement = skill.replaces;
+        if (!isPlainObject(replacement) || typeof replacement.id !== 'string' || typeof replacement.target !== 'string' || typeof replacement.runtimePath !== 'string') {
+          problems.push(`${label}.replaces must include id, target, and runtimePath.`);
+        } else {
+          if (!/^[A-Za-z0-9._-]+$/.test(replacement.id) || replacement.id === skill.id) problems.push(`${label}.replaces.id must be a distinct valid asset id.`);
+          if (!replacement.target.startsWith('skills/buildr/') || path.isAbsolute(replacement.target) || replacement.target.split('/').includes('..') || replacement.target === skill.target) problems.push(`${label}.replaces.target must be a distinct relative skills/buildr/ path.`);
+          if (!/^[A-Za-z0-9._-]+$/.test(replacement.runtimePath)) problems.push(`${label}.replaces.runtimePath must be a valid runtime Skill path.`);
+          if (currentSkillIds.has(replacement.id)) problems.push(`${label}.replaces.id must not also be a current builtin identity: ${replacement.id}`);
+          if (currentSkillTargets.has(replacement.target)) problems.push(`${label}.replaces.target must not also be a current builtin target: ${replacement.target}`);
+          if (currentSkillRuntimePaths.has(replacement.runtimePath)) problems.push(`${label}.replaces.runtimePath must not also be a current builtin runtime path: ${replacement.runtimePath}`);
+          if (replacementPredecessors.has(replacement.id)) problems.push(`Duplicate builtin Skill replacement predecessor: ${replacement.id}`);
+          if (replacementTargets.has(replacement.target)) problems.push(`Duplicate builtin Skill replacement target: ${replacement.target}`);
+          if (replacementRuntimePaths.has(replacement.runtimePath)) problems.push(`Duplicate builtin Skill replacement runtime path: ${replacement.runtimePath}`);
+          replacementPredecessors.add(replacement.id);
+          replacementTargets.add(replacement.target);
+          replacementRuntimePaths.add(replacement.runtimePath);
+        }
       }
       if (builtinIds.has(`skill:${skill.id}`)) problems.push(`Duplicate builtin skill id: ${skill.id}`);
       builtinIds.add(`skill:${skill.id}`);
@@ -745,7 +770,7 @@ export function createPackageStaticValidator(deps) {
           '证据胶囊',
           '最终 commit / diff',
           '归档 OpenSpec change',
-          '稳定文件或任务驾驶舱',
+          '稳定文件或任务看板',
           '证据耐久性较弱',
           '“收尾”不授权写入 Rule、Skill 或其他组织资产',
         ]) {
@@ -761,12 +786,13 @@ export function createPackageStaticValidator(deps) {
         }
         if (skillContent.includes('buildr openspec')) problems.push('task-triage source must not hard-code OpenSpec contract guard commands; installed Components contribute them at render time.');
       }
-      if (skill.id === 'task-cockpit') {
+      if (skill.id === 'task-board') {
         for (const requiredText of [
-          'openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html',
+          'openspec/knowledge/task-boards/yyyy-MM-dd-<task-id>.html',
           'Agent 单向维护',
           '不是 OpenSpec change 的翻译',
-          '驾驶舱（任务看板）',
+          '任务看板',
+          '既有 `task-cockpits/` 页面保持原路径和原内容',
           '至少关联一个已经创建并核实路径的 OpenSpec change',
           '`changes` 必须非空',
           '`dependencyPool`',
@@ -776,19 +802,19 @@ export function createPackageStaticValidator(deps) {
           '技术细节',
           '不猜测百分比',
           '可点击入口',
-          'assets/task-cockpit-template.html',
+          'assets/task-board-template.html',
         ]) {
-          if (!skillContent.includes(requiredText)) problems.push(`task-cockpit Skill must include ${JSON.stringify(requiredText)}.`);
+          if (!skillContent.includes(requiredText)) problems.push(`task-board Skill must include ${JSON.stringify(requiredText)}.`);
         }
-        const templatePath = path.join(skillDir, 'assets', 'task-cockpit-template.html');
+        const templatePath = path.join(skillDir, 'assets', 'task-board-template.html');
         if (!existsFile(templatePath)) {
-          problems.push('task-cockpit Skill must include assets/task-cockpit-template.html.');
+          problems.push('task-board Skill must include assets/task-board-template.html.');
         } else {
           const templateContent = fs.readFileSync(templatePath, 'utf8');
-          for (const requiredText of ['id="cockpit-data"', 'data-tab="overview"', 'data-tab="progress"', 'data-tab="solution"', 'data-tab="technical"', '由 Agent 单向维护 · 页面只读', '"changes"', '"batches"', '"dependencyPool"', '"businessPlan"', '"technicalPlan"', '"details"']) {
-            if (!templateContent.includes(requiredText)) problems.push(`task-cockpit template must include ${JSON.stringify(requiredText)}.`);
+          for (const requiredText of ['id="board-data"', 'data-tab="overview"', 'data-tab="progress"', 'data-tab="solution"', 'data-tab="technical"', '由 Agent 单向维护 · 页面只读', '"changes"', '"batches"', '"dependencyPool"', '"businessPlan"', '"technicalPlan"', '"details"']) {
+            if (!templateContent.includes(requiredText)) problems.push(`task-board template must include ${JSON.stringify(requiredText)}.`);
           }
-          if (/https?:\/\//.test(templateContent)) problems.push('task-cockpit template must not depend on external HTTP resources.');
+          if (/https?:\/\//.test(templateContent)) problems.push('task-board template must not depend on external HTTP resources.');
         }
       }
       if (skill.id === 'openspec-contract-guard') {
@@ -805,8 +831,8 @@ export function createPackageStaticValidator(deps) {
     if (!manifest.builtins.skills.some((skill) => skill.id === 'task-finish' && skill.required === false)) {
       problems.push('builtins.skills must declare optional task-finish.');
     }
-    if (!manifest.builtins.skills.some((skill) => skill.id === 'task-cockpit' && skill.required === false)) {
-      problems.push('builtins.skills must declare optional task-cockpit.');
+    if (!manifest.builtins.skills.some((skill) => skill.id === 'task-board' && skill.required === false)) {
+      problems.push('builtins.skills must declare optional task-board.');
     }
     if (!manifest.builtins.skills.some((skill) => skill.id === 'task-asset-review' && skill.required === false)) {
       problems.push('builtins.skills must declare optional task-asset-review.');
@@ -853,9 +879,9 @@ export function createPackageStaticValidator(deps) {
         if (!taskFinish || taskFinish.source !== 'buildr' || taskFinish.state !== 'installed' || taskFinish.enabled !== true) {
           problems.push('Workspace skills baseline must declare enabled installed Buildr task-finish.');
         }
-        const taskCockpit = baselineSkills.find((entry) => entry.id === 'task-cockpit');
-        if (!taskCockpit || taskCockpit.source !== 'buildr' || taskCockpit.state !== 'installed' || taskCockpit.enabled !== true) {
-          problems.push('Workspace skills baseline must declare enabled installed Buildr task-cockpit.');
+        const taskBoard = baselineSkills.find((entry) => entry.id === 'task-board');
+        if (!taskBoard || taskBoard.source !== 'buildr' || taskBoard.state !== 'installed' || taskBoard.enabled !== true) {
+          problems.push('Workspace skills baseline must declare enabled installed Buildr task-board.');
         }
         const taskAssetReview = baselineSkills.find((entry) => entry.id === 'task-asset-review');
         if (!taskAssetReview || taskAssetReview.source !== 'buildr' || taskAssetReview.state !== 'installed' || taskAssetReview.enabled !== true) {

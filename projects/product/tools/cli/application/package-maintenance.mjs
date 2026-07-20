@@ -24,6 +24,7 @@ import { createPackageOutput } from './package-maintenance/output.mjs';
 import { createPackageSmokeChecks } from './package-maintenance/smoke-checks.mjs';
 import { createPackageStaticValidator } from './package-maintenance/static-validation.mjs';
 import { createBuiltinReceipts } from './package-maintenance/builtin-receipts.mjs';
+import { createBuiltinReplacement } from './package-maintenance/builtin-replacement.mjs';
 import { createPackageSyncPlan } from './package-maintenance/sync-plan.mjs';
 import { createBuiltinLifecycle } from './package-maintenance/builtin-lifecycle.mjs';
 import { PACKAGE_VERIFIER_ENV, selectPackageVerifiers } from './package-maintenance/verification-registry.mjs';
@@ -102,6 +103,7 @@ export function registerApplicationPackageMaintenance(runtime) {
     fromSnapshot: receiptFromSnapshot,
     resolveState: resolveBuiltinState,
   } = createBuiltinReceipts({ atomicWriteJson, collectFiles, crypto, ensureDirectory, existsDirectory, existsFile, fs, isPlainObject, path, toPosixRelative });
+  const { handleSkillReplacement } = createBuiltinReplacement({ builtinReceiptKey, builtinSnapshot, copyDirectoryIfChanged, existsDirectory, path });
 
   const { packageBuiltinMutationPaths, builtinSyncPlanSignature } = createPackageSyncPlan({ assertSafeSyncMutationPaths, missingAncestorForMutation, mutationPathFingerprint, packageRegistryMutationPaths, path, readPackageManifest, targetPathFromBuiltin, toPosixRelative });
 
@@ -244,6 +246,7 @@ export function registerApplicationPackageMaintenance(runtime) {
       const desired = builtinSkillEntry(builtin);
       const newSnapshot = builtinSnapshot(sourceDir, 'skill');
       const liveSnapshot = builtinSnapshot(targetDir, 'skill');
+      if (handleSkillReplacement({ builtin, changed, checkOnly, desired, existing, findings, liveSnapshot, newSnapshot, receiptByKey, removeDirectory: (directory) => fs.rmSync(directory, { recursive: true, force: true }), removeReceipt, skillsById, skillsManifest, sourceDir, targetDir, updateReceipt, targetRoot })) continue;
       const state = resolveBuiltinState({ type: 'skill', builtin, liveSnapshot, newSnapshot, oldReceipt: receiptByKey.get(builtinReceiptKey('skill', builtin.id)), isRestore, required: builtin.required === true });
       const status = isUninstalled && !isRestore ? 'uninstalled' : state.status;
       findings.push({ type: 'skill', id: builtin.id, required: builtin.required === true, status, path: builtin.target });

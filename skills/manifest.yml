@@ -203,12 +203,12 @@ skills:
       - trae-work
       - workbuddy
     runtimePath: openspec-archive-change
-  - id: task-cockpit
-    assetIdentity: buildr:skill:task-cockpit
-    sourceIdentity: package:skills/buildr/task-cockpit
+  - id: task-board
+    assetIdentity: buildr:skill:task-board
+    sourceIdentity: package:skills/buildr/task-board
     source: buildr
-    path: buildr/task-cockpit
-    description: 为复杂、长期、跨批次、跨 change、跨服务或团队的任务维护只读 HTML 任务驾驶舱（任务看板）、change 关联、交付批次和依赖池；用户明确要求任务看板、整体进度或长期跟踪时也使用。
+    path: buildr/task-board
+    description: 为复杂、长期、跨批次、跨 change、跨服务或团队的任务维护只读 HTML 任务看板、change 关联、交付批次和依赖池；用户明确要求任务看板、整体进度、长期跟踪，或使用旧称“任务驾驶舱”时也使用。
     enabled: true
     required: false
     state: installed
@@ -220,7 +220,7 @@ skills:
       - trae
       - trae-work
       - workbuddy
-    runtimePath: task-cockpit
+    runtimePath: task-board
   - id: task-asset-review
     assetIdentity: buildr:skill:task-asset-review
     sourceIdentity: package:skills/buildr/task-asset-review

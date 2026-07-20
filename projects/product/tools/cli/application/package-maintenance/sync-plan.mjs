@@ -24,13 +24,25 @@ export function createPackageSyncPlan({
       affected.add(target);
       const missingParent = missingAncestorForMutation(targetRoot, path.dirname(target));
       if (missingParent) affected.add(missingParent);
+      if (builtin.replaces?.target) {
+        const predecessorTarget = path.join(targetRoot, builtin.replaces.target);
+        affected.add(predecessorTarget);
+        const predecessorMissingParent = missingAncestorForMutation(targetRoot, path.dirname(predecessorTarget));
+        if (predecessorMissingParent) affected.add(predecessorMissingParent);
+      }
     }
     return assertSafeSyncMutationPaths(targetRoot, [...affected]);
   }
 
   function builtinSyncPlanSignature(targetRoot, findings, affectedPaths) {
     return JSON.stringify({
-      findings: findings.map(({ type, id, required, status, path: targetPath, component }) => ({ type, id, required, status, path: targetPath, component: component || null })),
+      findings: findings.map(({ type, id, required, status, path: targetPath, component, replacementFrom, predecessorRuntimePath, replacementRuntimePath, reason }) => ({
+        type, id, required, status, path: targetPath, component: component || null,
+        replacementFrom: replacementFrom || null,
+        predecessorRuntimePath: predecessorRuntimePath || null,
+        replacementRuntimePath: replacementRuntimePath || null,
+        reason: reason || null,
+      })),
       affectedPaths: affectedPaths.map((item) => ({ path: toPosixRelative(targetRoot, item), fingerprint: mutationPathFingerprint(item) })).sort((left, right) => left.path.localeCompare(right.path)),
     });
   }

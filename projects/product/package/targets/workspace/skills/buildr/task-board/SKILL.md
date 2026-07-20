@@ -1,17 +1,17 @@
 ---
-name: task-cockpit
-description: 为复杂、长期、跨批次、跨 change、跨服务或团队，或存在交叉依赖和多次用户判断的任务创建、更新和检查只读 HTML 任务驾驶舱（任务看板）；管理完整任务、change 关联、交付批次和依赖任务池。用户明确要求任务可视化、驾驶舱、任务看板、整体进度、任务全景或长期跟踪时也使用。简单短时任务不机械创建。
+name: task-board
+description: 为复杂、长期、跨批次、跨 change、跨服务或团队，或存在交叉依赖和多次用户判断的任务创建、更新和检查只读 HTML 任务看板；管理完整任务、change 关联、交付批次和依赖任务池。用户明确要求任务可视化、任务看板、整体进度、任务全景、长期跟踪，或沿用旧称“任务驾驶舱”时也使用。简单短时任务不机械创建。
 ---
 
-# Task Cockpit Skill
+# Task Board Skill
 
-本 Skill 由 Agent 单向维护整个任务面向用户的可视化驾驶舱（任务看板）。两种名称指向同一 artifact；看板不是 OpenSpec change 的翻译，也不替代 specs、代码、验证或外部系统事实。
+本 Skill 由 Agent 单向维护整个任务面向用户的可视化任务看板。任务看板不是 OpenSpec change 的翻译，也不替代 specs、代码、验证或外部系统事实。“任务驾驶舱”只作为旧用户意图继续路由到本 Skill，不再作为当前产品名称或 artifact 身份。
 
 ## 判断创建还是维护
 
-满足任一条件时创建或继续维护驾驶舱：
+满足任一条件时创建或继续维护任务看板：
 
-- 用户明确要求任务可视化、驾驶舱、任务看板、整体进度、任务全景或长期跟踪。
+- 用户明确要求任务可视化、任务看板、整体进度、任务全景、长期跟踪，或使用旧称“任务驾驶舱”。
 - 任务跨多个批次、change、服务、代码仓或团队。
 - 任务存在外部依赖、交叉依赖、等待事项或无法一次完成的后续阶段。
 - 任务预计跨会话持续推进，或需要多次用户判断。
@@ -23,14 +23,16 @@ description: 为复杂、长期、跨批次、跨 change、跨服务或团队，
 
 1. 从 Buildr workspace root、Project registry 和任务实际范围解析拥有任务的 Project，不根据当前目录猜测。
 2. 使用稳定、简短的 kebab-case `task-id`。每个看板至少关联一个已经创建并核实路径的 OpenSpec change；尚无 change 时先按 `task-triage` 进入 change-flow，不用未来名称冒充真实关联。
-3. 查找 `projects/<project>/openspec/knowledge/task-cockpits/*-<task-id>.html`；存在时继续更新，不按更新时间创建新文件。
+3. 查找 `projects/<project>/openspec/knowledge/task-boards/*-<task-id>.html`；存在时继续更新，不按更新时间创建新文件。
 4. 首次创建时使用 Project 所在环境的本地日期，路径固定为：
 
    ```text
-   projects/<project>/openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html
+   projects/<project>/openspec/knowledge/task-boards/yyyy-MM-dd-<task-id>.html
    ```
 
-5. 以当前 runtime `SKILL.md` 所在目录为基准，从相对路径 `assets/task-cockpit-template.html` 复制模板到目标位置，替换内嵌 `#cockpit-data` JSON。完整目录投射是 Buildr runtime contract；不要绕回 workspace 源目录、依赖 `agents/openai.yaml` 定位资源或重新手写模板。保持单文件，不引用 CDN、远端脚本、远端字体或远端图片。
+5. 以当前 runtime `SKILL.md` 所在目录为基准，从相对路径 `assets/task-board-template.html` 复制模板到目标位置，替换内嵌 `#board-data` JSON。完整目录投射是 Buildr runtime contract；不要绕回 workspace 源目录、依赖 `agents/openai.yaml` 定位资源或重新手写模板。保持单文件，不引用 CDN、远端脚本、远端字体或远端图片。
+
+既有 `task-cockpits/` 页面保持原路径和原内容。产品升级、workspace 初始化或同步、Skill 替换和 runtime 投射都不得移动、转换、覆盖或重写这些历史 HTML；新任务只在 `task-boards/` 下创建页面。
 
 ## 核实任务事实
 
@@ -116,7 +118,7 @@ description: 为复杂、长期、跨批次、跨 change、跨服务或团队，
 ## 页面维护约束
 
 - 用户只通过 Agent 对话参与；checkbox、状态 chip、进度条和按钮只读，不回写任务事实。
-- 只修改模板内嵌 `script#cockpit-data` 的 JSON 和确有必要的任务专属文案；保持模板结构、响应式样式和导航行为稳定。
+- 只修改模板内嵌 `script#board-data` 的 JSON 和确有必要的任务专属文案；保持模板结构、响应式样式和导航行为稳定。
 - JSON 中不放 secret、token、cookie、个人敏感信息、完整思考过程或无关原始日志。
 - `updatedAt` 使用实际更新时间；状态未核实时明确写“待核实”，不伪造进度。
 - 任务完成后保留稳定入口、历史批次和 change 关联，不因 change archive 移动看板。
@@ -125,7 +127,7 @@ description: 为复杂、长期、跨批次、跨 change、跨服务或团队，
 
 创建或实质更新后：
 
-1. 确认文件名匹配 `yyyy-MM-dd-<task-id>.html`，且位于正确 Project 的 `openspec/knowledge/task-cockpits/`。
+1. 确认文件名匹配 `yyyy-MM-dd-<task-id>.html`，且位于正确 Project 的 `openspec/knowledge/task-boards/`。
 2. 检查内嵌 JSON 可解析，页面没有外部网络依赖。
 3. 用本地浏览器检查桌面和窄屏布局；确认默认首页聚焦，导航可用，技术内容后置。
 4. 确认 `changes` 非空，change 状态和路径真实，双向关联的 `batchIds` / `changeIds` 一致。

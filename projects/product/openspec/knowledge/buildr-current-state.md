@@ -124,8 +124,8 @@ Organization/Root -> Project -> Service
 - resolved `skill-url` 使用有界网络读取；默认 inactivity 和总 timeout 可通过 `BUILDR_REMOTE_SKILL_INACTIVITY_TIMEOUT_MS`、`BUILDR_REMOTE_SKILL_TOTAL_TIMEOUT_MS` 在 `1..120000` 毫秒内调整，超时保持 runtime 目标零写入。
 - `package:<id>` 是 package manifest `skillSources` 与随包 Skill resolver 使用的内部 source identity，不是用户 Skill asset id、通用 source scheme 或 `skills add` 输入格式。
 - Buildr 内置 workspace Skills 现在发布到 `skills/buildr/<skill-id>/`，并在 `skills/manifest.yml` 中以 `source: buildr`、`path`、`runtimePath`、`enabled`、`required` 和 `state` 管理。
-- 当前随包独立 workspace Skills 包括 `task-triage`、`task-cockpit`、`task-asset-review`、`task-worktree`、`task-finish` 和 `git-ops`；OpenSpec workflows 与 `openspec-contract-guard` 由 OpenSpec Component 统一交付，但仍以 Buildr builtin descriptor 提供产品元数据。
-- `task-cockpit` 为复杂、长期、跨批次或有交叉依赖的任务维护 Agent 单向更新、用户只读的单文件 HTML 任务驾驶舱（任务看板）；两种名称指向同一 artifact。默认路径为 Project `openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html`，每个看板至少关联一个真实 OpenSpec change，并可跨多个 active/archive change、code-only 工作和外部依赖。
+- 当前随包独立 workspace Skills 包括 `task-triage`、`task-board`、`task-asset-review`、`task-worktree`、`task-finish` 和 `git-ops`；OpenSpec workflows 与 `openspec-contract-guard` 由 OpenSpec Component 统一交付，但仍以 Buildr builtin descriptor 提供产品元数据。
+- `task-board` 为复杂、长期、跨批次或有交叉依赖的任务维护 Agent 单向更新、用户只读的单文件 HTML 任务看板。新页面默认路径为 Project `openspec/knowledge/task-boards/yyyy-MM-dd-<task-id>.html`，每个看板至少关联一个真实 OpenSpec change，并可跨多个 active/archive change、code-only 工作和外部依赖。旧称“任务驾驶舱”只保留为用户意图兼容；既有 `task-cockpits/` HTML 保持原路径和原内容，不参与升级迁移。
 - `task-asset-review` 基于当前 session 可观察节点和最终 Git/OpenSpec/验证证据反思目标一致性、路径、证据、scope/授权、token/工具成本与复用机会；它按需核对候选目标 Skill 的正文、metadata、模板、脚本、manifest、runtime 投射和真实产物，输出完整覆盖、部分覆盖、存在冲突或尚无资产。执行质量反馈与 Rule/Skill 候选分层，OpenSpec 只作证据，合格候选生成可在 worktree 清理后继续核查的证据胶囊。它不读取隐藏推理、不保存完整任务轨迹、不依赖 Hook，也不自动写入组织资产。
 - 任务看板优先展示普通用户可理解的目标、当前结论、当前批次、已完成、下一步和阻塞，再逐层展示 change 关联、交付批次、依赖池、业务/技术方案与已完成复杂任务的技术细节。它是 task-scoped working knowledge，不替代 canonical specs、active change、代码和验证证据。
 - `task-triage` 判断驾驶舱是“不需要”“创建”还是“继续维护”；驾驶舱首次创建、实质更新、用户询问进度、任务暂停或完成时，Agent 回复提供可点击绝对路径和 workspace 相对路径。

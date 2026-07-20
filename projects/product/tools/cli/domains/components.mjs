@@ -877,7 +877,7 @@ export function registerDomainsComponents(runtime) {
     return declared;
   }
 
-  function managedRuntimeSkillOrphans(targetRoot, agent) {
+  function managedRuntimeSkillOrphans(targetRoot, agent, options = {}) {
     const runtimeRoot = getRuntimeAdapter(agent).traits.skills.root;
     const skillsRoot = path.join(targetRoot, runtimeRoot, 'skills');
     const declared = declaredRuntimeSkillPaths(targetRoot, agent);
@@ -890,13 +890,13 @@ export function registerDomainsComponents(runtime) {
       const expectedReceipt = skillProjectionReceiptTarget(targetRoot, runtimeRoot, agent, receipt.runtimePath);
       if (path.resolve(expectedReceipt) !== path.resolve(receiptFile)) throw new Error(`Runtime Skill projection receipt target mismatch: ${receiptFile}`);
       receiptRuntimePaths.add(receipt.runtimePath);
-      if (declared.has(receipt.runtimePath)) continue;
+      if (declared.has(receipt.runtimePath) && options.runtimePath !== receipt.runtimePath) continue;
       const targetDir = path.join(skillsRoot, ...receipt.runtimePath.split('/'));
       orphans.push({ runtimePath: receipt.runtimePath, path: toPosixRelative(targetRoot, targetDir), targetDir, receipt, receiptFile });
     }
     for (const runtimePath of listManagedDirectories(skillsRoot)) {
       if (receiptRuntimePaths.has(runtimePath)) continue;
-      if (declared.has(runtimePath)) continue;
+      if (declared.has(runtimePath) && options.runtimePath !== runtimePath) continue;
       const targetDir = path.join(skillsRoot, runtimePath);
       if (fs.lstatSync(targetDir).isSymbolicLink()) continue;
       const skillFile = path.join(targetDir, 'SKILL.md');
@@ -910,7 +910,7 @@ export function registerDomainsComponents(runtime) {
     if (scope !== '.') return [];
     const removals = [];
     const conflicts = [];
-    for (const orphan of managedRuntimeSkillOrphans(targetRoot, agent)) {
+    for (const orphan of managedRuntimeSkillOrphans(targetRoot, agent, options)) {
       if (options.runtimePath && orphan.runtimePath !== options.runtimePath) continue;
       if (orphan.receipt) {
         const actualFiles = existsDirectory(orphan.targetDir) ? collectFiles(orphan.targetDir) : [];

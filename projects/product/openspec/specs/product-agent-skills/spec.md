@@ -296,7 +296,7 @@ Buildr 产品内置 Skill MUST 在用户只表达卸载对象而未明确 Compon
 - **AND** 产品入口 MUST NOT 作为具有全部 capabilities required dependencies 的 workspace manifest consumer
 
 ### Requirement: 产品入口按 capability 路由用户意图
-产品入口 Buildr Skill MUST 将跨 Skill 用户意图路由到已解析 capability provider，并 MUST NOT 把 builtin Skill id 当作不可替换入口。
+产品入口 Buildr Skill MUST 将跨 Skill 用户意图路由到已解析 capability provider，并 MUST NOT 把 builtin Skill id 当作不可替换入口；尚未声明 capability contract 的当前 builtin MUST 使用无歧义的当前 identity routing，并 MUST 将 legacy 名称意图收敛到当前入口。
 
 #### Scenario: 完整 sync 注入 routing evidence
 - **WHEN** `buildr sync <agent>` 在已初始化 workspace 中同时投射产品入口 Buildr Skill 和 workspace Skills
@@ -331,10 +331,15 @@ Buildr 产品内置 Skill MUST 在用户只表达卸载对象而未明确 Compon
 - **THEN** Buildr Skill MUST route to that provider without requiring an identically named builtin
 - **AND** provider substitution MUST survive update、sync and runtime render
 
-#### Scenario: 未进入首批 contracts 的 builtin
-- **WHEN** 用户意图路由到 `task-triage`、`task-cockpit` 或其他尚未声明 capability contract 的 builtin
-- **THEN** 产品入口 Buildr Skill MUST 继续使用现有 identity routing
+#### Scenario: 未进入 capability contracts 的当前 builtin
+- **WHEN** 用户意图路由到 `task-triage`、`task-board` 或其他尚未声明 capability contract 的当前 builtin
+- **THEN** 产品入口 Buildr Skill MUST 使用当前 identity routing
 - **AND** Buildr MUST NOT 声称该 builtin 已支持透明 provider substitution
+
+#### Scenario: 旧任务驾驶舱意图路由到当前入口
+- **WHEN** 用户仍使用“任务驾驶舱”或 `task-cockpit` 表达复杂任务可视化意图
+- **THEN** 产品入口 Buildr Skill MUST 路由到 `task-board`
+- **AND** runtime discovery MUST NOT 同时提供可被误选的受管 `task-cockpit` 入口
 
 ### Requirement: Buildr Skill 使用 workspace source 与两种 render destination
 产品入口 Buildr Skill MUST 将 Skill 源资产维护统一路由到 workspace，并 MUST 根据用户意图区分 user 与 workspace render destination。
