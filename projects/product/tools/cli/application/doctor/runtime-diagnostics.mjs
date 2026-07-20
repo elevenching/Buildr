@@ -80,11 +80,22 @@ export function createRuntimeDiagnostics(deps) {
               commands: check.repairCommands,
             });
           }
-          if (findings.some((finding) => finding.status === 'warning')) {
+          const runtimeWarnings = findings.filter((finding) => finding.status === 'warning');
+          if (runtimeWarnings.length > 0) {
+            const userActionRequired = runtimeWarnings.some((finding) => finding.userActionRequired !== false);
+            const runtimeFindingCodes = [...new Set(runtimeWarnings.map((finding) => finding.code).filter(Boolean))];
+            const evidenceLevels = [...new Set(runtimeWarnings.map((finding) => finding.evidence).filter(Boolean))];
+            const opaqueSources = [...new Set(runtimeWarnings.flatMap((finding) => finding.opaqueSources || []))];
             addDoctorFinding(result, 'warning', `runtime.${codeId}_warning`, `${adapter.displayName} runtime 存在警告：${scope}`, {
               path: toPosixRelative(targetRoot, check.targetRoot),
               agent,
-              suggestion: '优先查看 doctor 输出中的 runtime findings；需要 adapter 细节时再运行 runtime check。',
+              userActionRequired,
+              runtimeFindingCodes,
+              ...(evidenceLevels.length === 1 ? { evidence: evidenceLevels[0] } : evidenceLevels.length > 1 ? { evidence: evidenceLevels } : {}),
+              ...(opaqueSources.length > 0 ? { opaqueSources } : {}),
+              suggestion: userActionRequired
+                ? '优先查看 doctor 输出中的 runtime findings；需要 adapter 细节时再运行 runtime check。'
+                : '该 warning 表示 runtime 可观测性边界，无需通过 sync 或 render 修复；需要细节时运行 runtime check。',
             });
           }
           if (findings.some((finding) => finding.status === 'conflict')) {

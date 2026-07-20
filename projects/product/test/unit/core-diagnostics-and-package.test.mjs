@@ -43,6 +43,74 @@ test('runtime doctor 过滤 info 并汇总全部 finding status', () => {
   assert.equal(recorded[0][4].mustNotUseFallbackAdapter, true);
 });
 
+function diagnoseRuntimeWarnings(runtimeFindings) {
+  const result = { findings: [] };
+  const diagnostics = createRuntimeDiagnostics({
+    RUNTIME_CHECKERS: {},
+    SUPPORTED_AGENT_IDS: ['codex'],
+    UNSUPPORTED_AGENT_GUIDANCE: { message: 'unsupported ', nextStep: 'choose supported' },
+    addDoctorFinding: (target, status, code, message, details = {}) => target.findings.push({ status, code, message, ...details }),
+    componentRegistryPath: () => '',
+    existsFile: () => true,
+    getRuntimeAdapter: () => ({ id: 'codex', displayName: 'Codex', traits: { checker: {} } }),
+    isSupportedAgent: (agent) => agent === 'codex',
+    managedRuntimeSkillOrphans: () => [],
+    packageComponentsStatus: () => ({ components: [], ownership: [], findings: [] }),
+    path,
+    runCommandsCheck: () => ({ findings: [] }),
+    runtimeImplementation: () => () => ({
+      targetRoot: '/workspace',
+      findings: runtimeFindings,
+      repairCommands: [],
+      environmentChecks: {},
+      activation: {},
+    }),
+    toPosixRelative: () => '.',
+  });
+  diagnostics.diagnoseRuntime(result, '/workspace', [{ scope: '.' }], { agent: 'codex' });
+  return result;
+}
+
+test('runtime doctor 聚合 warning 时保留 actionability 与来源摘要', () => {
+  const nonActionable = diagnoseRuntimeWarnings([{
+    status: 'warning',
+    code: 'runtime.skill_visibility_incomplete',
+    evidence: 'partial',
+    opaqueSources: ['admin', 'system', 'plugin'],
+    userActionRequired: false,
+  }]);
+  assert.deepEqual(nonActionable.findings[0], {
+    status: 'warning',
+    code: 'runtime.codex_warning',
+    message: 'Codex runtime 存在警告：.',
+    path: '.',
+    agent: 'codex',
+    userActionRequired: false,
+    runtimeFindingCodes: ['runtime.skill_visibility_incomplete'],
+    evidence: 'partial',
+    opaqueSources: ['admin', 'system', 'plugin'],
+    suggestion: '该 warning 表示 runtime 可观测性边界，无需通过 sync 或 render 修复；需要细节时运行 runtime check。',
+  });
+  assert.deepEqual(buildDoctorHealth({ workspace: { identity: { state: 'valid' } }, findings: nonActionable.findings }), {
+    workspaceValid: true,
+    ready: true,
+    actionRequired: false,
+    actionableCount: 0,
+  });
+  assert.deepEqual(buildDoctorRepairPlan(nonActionable.findings), []);
+
+  const actionable = diagnoseRuntimeWarnings([{ status: 'warning', code: 'runtime.manual_check', userActionRequired: true }]);
+  assert.equal(actionable.findings[0].userActionRequired, true);
+  assert.deepEqual(actionable.findings[0].runtimeFindingCodes, ['runtime.manual_check']);
+
+  const mixed = diagnoseRuntimeWarnings([
+    { status: 'warning', code: 'runtime.skill_visibility_incomplete', userActionRequired: false },
+    { status: 'warning', code: 'runtime.manual_check' },
+  ]);
+  assert.equal(mixed.findings[0].userActionRequired, true);
+  assert.deepEqual(mixed.findings[0].runtimeFindingCodes, ['runtime.skill_visibility_incomplete', 'runtime.manual_check']);
+});
+
 test('doctor scope parser 只接受 root/project 层级并稳定发现显式 scope', () => {
   const diagnostics = createScopeDiagnostics({
     addDoctorFinding: () => {},

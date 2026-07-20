@@ -95,6 +95,26 @@ test('doctor 严格报告 workspace identity 与独立 readiness', (t) => {
   assert.ok(absent.findings.some((finding) => finding.code === 'workspace.not_initialized'));
 });
 
+test('Codex partial inventory warning 保持可见但不降低 doctor readiness', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-doctor-partial-inventory-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  run(['init', '--agent', 'codex', '--target', root, '--name', 'doctor-partial-inventory', '--profile', 'team'], { json: false });
+
+  const report = run(['doctor', '--agent', 'codex', '--target', root, '--json']);
+  const warning = report.findings.find((finding) => finding.code === 'runtime.codex_warning');
+  assert.ok(warning);
+  assert.equal(warning.userActionRequired, false);
+  assert.deepEqual(warning.runtimeFindingCodes, ['runtime.skill_visibility_incomplete']);
+  assert.equal(warning.evidence, 'partial');
+  assert.deepEqual(warning.opaqueSources, ['admin', 'system', 'plugin']);
+  assert.equal(report.summary.warning, 1);
+  assert.equal(report.health.ready, true);
+  assert.equal(report.health.actionRequired, false);
+  assert.equal(report.health.actionableCount, 0);
+  assert.deepEqual(report.repairPlan, []);
+  assert.deepEqual(report.nextSteps, []);
+});
+
 test('doctor 对未登记 Project 只报告登记根因并输出去重 repair plan', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-doctor-orphan-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
