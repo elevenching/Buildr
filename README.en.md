@@ -8,7 +8,9 @@ What limits an Agent's results is not just the model's capability, but also what
 
 Buildr is a work asset management tool for the AI era. It turns the work facts and methods of individuals and organizations into work assets, so Agents can build on what has already been accumulated and move work from idea to delivery in one window.
 
-The broader the work facts and capabilities available to an Agent, the more it can do; the more proven methods accumulate, the more reliable and higher-quality its work becomes.
+Anyone entering an organization can start with a single natural-language instruction, with an Agent preparing the work environment and moving into the task.
+
+The broader the work facts available to an Agent, the more it can do; the more proven work methods accumulate, the more reliable and higher-quality its work becomes.
 
 You direct. Agents build. You own the assets. You can switch Agents.
 
@@ -28,7 +30,7 @@ Team collaboration works the same way. Product maintains PRDs, Specs, and projec
 
 Different teams and tasks use different Agents. If Rules and Skills are locked inside one Agent tool, switching Agents means rebuilding everything.
 
-Buildr is not another Agent and does not compete with one. It keeps work assets in an independent Workspace controlled by an individual or organization, then generates the native entry point each Agent needs. You switch the Agent, not what you have accumulated.
+Buildr is not another Agent, and it does not try to do the Agent's job. It prepares the work assets and entry points Agents need, then leaves the work to the Agent. The assets remain in an independent Workspace controlled by an individual or organization. You switch the Agent, not what you have accumulated.
 
 Buildr currently works with seven Agent types—one asset set, different entry points.
 
