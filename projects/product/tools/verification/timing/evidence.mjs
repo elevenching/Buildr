@@ -104,6 +104,7 @@ export function createVerificationTimingSummary(options) {
       platform: process.platform,
       arch: process.arch,
       ci: process.env.CI === 'true',
+      ...(options.schedulingMode ? { schedulingMode: options.schedulingMode } : {}),
     },
     summaryPath: path.resolve(options.timingOutput),
   };

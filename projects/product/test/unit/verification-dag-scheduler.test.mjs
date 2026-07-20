@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { runVerificationDag } from '../../tools/verification/dag-scheduler.mjs';
+import { parseVerificationSchedulingMode, runVerificationDag } from '../../tools/verification/dag-scheduler.mjs';
 
-const step = (id, dependsOn = [], concurrencyClass = 'default') => ({ id, name: id, dependsOn, concurrencyClass });
+const step = (id, dependsOn = [], concurrencyClass = 'default', schedulingCostMs) => ({
+  id, name: id, dependsOn, concurrencyClass, ...(schedulingCostMs == null ? {} : { schedulingCostMs }),
+});
 const plan = (steps) => ({ steps });
 
 test('scheduler 遵守全局与 class 上限并按 plan 顺序返回', async () => {
@@ -72,6 +74,50 @@ test('scheduler 记录 queued、started、finished 与 queue duration', async ()
       queueDurationMs: 30,
     },
   ]);
+});
+
+test('scheduler 优先启动高成本 ready step、稳定处理同成本并按 plan 顺序返回', async () => {
+  const started = [];
+  const results = await runVerificationDag(plan([
+    step('low', [], 'default', 1),
+    step('high-a', [], 'default', 10),
+    step('high-b', [], 'default', 10),
+  ]), {
+    concurrency: { global: 1, classes: { default: 1, exclusive: 1 } },
+    onStart: (item) => started.push(item.id),
+    execute: async () => ({ status: 'passed', exitCode: 0, durationMs: 1 }),
+  });
+  assert.deepEqual(started, ['high-a', 'high-b', 'low']);
+  assert.deepEqual(results.map((item) => item.id), ['low', 'high-a', 'high-b']);
+});
+
+test('scheduler 不为尚未 ready 的高成本 step 空置容量', async () => {
+  const started = [];
+  await runVerificationDag(plan([
+    step('root', [], 'default', 1),
+    step('high', ['root'], 'default', 100),
+    step('ready', [], 'default', 50),
+  ]), {
+    concurrency: { global: 1, classes: { default: 1, exclusive: 1 } },
+    onStart: (item) => started.push(item.id),
+    execute: async () => ({ status: 'passed', exitCode: 0, durationMs: 1 }),
+  });
+  assert.deepEqual(started, ['ready', 'root', 'high']);
+});
+
+test('declaration 模式复现 plan 启动顺序并拒绝未知模式', async () => {
+  const started = [];
+  await runVerificationDag(plan([
+    step('first', [], 'default', 1), step('second', [], 'default', 100),
+  ]), {
+    concurrency: { global: 1, classes: { default: 1, exclusive: 1 } },
+    schedulingMode: 'declaration',
+    onStart: (item) => started.push(item.id),
+    execute: async () => ({ status: 'passed', exitCode: 0, durationMs: 1 }),
+  });
+  assert.deepEqual(started, ['first', 'second']);
+  assert.equal(parseVerificationSchedulingMode(), 'cost');
+  assert.throws(() => parseVerificationSchedulingMode('unknown'), /Invalid verification scheduling mode/);
 });
 
 test('exclusive step 不与其他 step 重叠', async () => {

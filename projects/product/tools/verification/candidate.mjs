@@ -6,11 +6,13 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { executePlan } from './plan-runner.mjs';
+import { parseVerificationSchedulingMode } from './dag-scheduler.mjs';
 import { createVerificationPlan } from './planner.mjs';
 import { CANDIDATE_TOTAL_BUDGET_MS } from './timing/budgets.mjs';
 import { collectVerificationSourceIdentity, createVerificationEvidencePaths, writeVerificationTimingEvidence } from './timing/evidence.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const schedulingMode = parseVerificationSchedulingMode(process.env.BUILDR_VERIFICATION_SCHEDULING ?? 'cost');
 const executionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-candidate-verification-'));
 const evidence = createVerificationEvidencePaths('candidate');
 const source = collectVerificationSourceIdentity(productRoot);
@@ -31,6 +33,7 @@ function writeSummary(status) {
     prefix: 'verify-product',
     stream: process.stdout,
     errorStream: process.stderr,
+    schedulingMode,
   });
 }
 
@@ -46,6 +49,7 @@ try {
     stream: process.stdout,
     errorStream: process.stderr,
     prefix: 'verify-product',
+    schedulingMode,
   });
   results = execution.results;
   passed = execution.passed;

@@ -24,6 +24,7 @@ export async function executePlan(plan, options) {
   const results = await runVerificationDag(plan, {
     execute,
     concurrency: options.concurrency,
+    schedulingMode: options.schedulingMode,
     onStart: (step) => {
       options.stream?.write(`\n[${prefix}] ${step.id}: ${step.name}\n`);
       options.onStart?.(step);

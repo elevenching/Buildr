@@ -82,11 +82,11 @@ test('registry validation 在启动前拒绝重复、未知依赖、未知 execu
     { ...base, id: 'a' },
     { ...base, id: 'c', dependsOn: ['d'] },
     { ...base, id: 'd', dependsOn: ['c'] },
-    { ...base, id: 'a', executor: { type: 'mystery' } },
+    { ...base, id: 'a', executor: { type: 'mystery' }, schedulingCostMs: 0 },
   ];
   const result = validateVerificationRegistry(invalid);
   assert.equal(result.ok, false);
-  for (const code of ['duplicate_or_missing_id', 'missing_inputs', 'unknown_executor', 'dependency_cycle']) {
+  for (const code of ['duplicate_or_missing_id', 'missing_inputs', 'unknown_executor', 'invalid_scheduling_cost', 'dependency_cycle']) {
     assert.ok(result.findings.some((finding) => finding.code === code), `missing ${code}`);
   }
 });

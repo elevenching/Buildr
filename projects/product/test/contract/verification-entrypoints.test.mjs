@@ -65,6 +65,16 @@ test('candidate verification retains every release gate and split package steps'
   const candidate = read('tools/verification/candidate.mjs');
   assert.ok(wrapper.includes('tools/verification/candidate.mjs'));
   assert.ok(candidate.includes("profiles: ['candidate']"));
+  assert.ok(candidate.includes('BUILDR_VERIFICATION_SCHEDULING'));
+  assert.ok(candidate.includes('schedulingMode'));
+  const invalidScheduling = spawnSync(process.execPath, [path.join(productRoot, 'tools', 'verification', 'candidate.mjs')], {
+    cwd: productRoot,
+    encoding: 'utf8',
+    env: { ...process.env, BUILDR_VERIFICATION_SCHEDULING: 'unknown' },
+  });
+  assert.equal(invalidScheduling.status, 1);
+  assert.match(invalidScheduling.stderr, /Invalid verification scheduling mode/);
+  assert.doesNotMatch(`${invalidScheduling.stdout}${invalidScheduling.stderr}`, /\[verify-product\]/);
   assert.ok(candidate.split(/\r?\n/).length < 100);
   const candidatePlan = createVerificationPlan({ profiles: ['candidate'] });
   for (const stage of [

@@ -1,5 +1,12 @@
 import { VERIFICATION_CONCURRENCY } from './registry.mjs';
 
+export const VERIFICATION_SCHEDULING_MODES = Object.freeze(['cost', 'declaration']);
+
+export function parseVerificationSchedulingMode(value = 'cost') {
+  if (!VERIFICATION_SCHEDULING_MODES.includes(value)) throw new Error(`Invalid verification scheduling mode: ${value}`);
+  return value;
+}
+
 function failedDependency(step, results) {
   return (step.dependsOn ?? []).find((id) => results.has(id) && results.get(id).status !== 'passed');
 }
@@ -15,6 +22,8 @@ export async function runVerificationDag(plan, options = {}) {
   const queuedAtMs = now();
   const queuedAt = new Date(queuedAtMs).toISOString();
   const limits = options.concurrency ?? VERIFICATION_CONCURRENCY;
+  const schedulingMode = parseVerificationSchedulingMode(options.schedulingMode);
+  const planIndex = new Map(plan.steps.map((step, index) => [step.id, index]));
   const pending = new Map(plan.steps.map((step) => [step.id, step]));
   const active = new Map();
   const activeByClass = new Map();
@@ -66,6 +75,14 @@ export async function runVerificationDag(plan, options = {}) {
     active.set(step.id, { step, promise });
   };
 
+  const pendingInSchedulingOrder = () => [...pending.values()].sort((left, right) => {
+    if (schedulingMode === 'cost') {
+      const costDifference = (right.schedulingCostMs ?? 0) - (left.schedulingCostMs ?? 0);
+      if (costDifference !== 0) return costDifference;
+    }
+    return planIndex.get(left.id) - planIndex.get(right.id);
+  });
+
   while (pending.size > 0 || active.size > 0) {
     let progressed = false;
     for (const step of [...pending.values()]) {
@@ -90,7 +107,7 @@ export async function runVerificationDag(plan, options = {}) {
       options.onComplete?.(result, step);
       progressed = true;
     }
-    for (const step of [...pending.values()]) {
+    for (const step of pendingInSchedulingOrder()) {
       if (!dependenciesPassed(step, results) || !capacityAvailable(step)) continue;
       launch(step);
       progressed = true;

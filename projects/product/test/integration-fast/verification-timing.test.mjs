@@ -28,6 +28,7 @@ test('timing summary 保留向后兼容的 step 调度时间轴', () => {
     source: {},
     startedAt: 1000,
     finishedAt: 1200,
+    schedulingMode: 'cost',
     timingOutput: path.join(os.tmpdir(), 'buildr-scheduling-summary.json'),
     results: [{
       name: 'scheduled',
@@ -50,6 +51,7 @@ test('timing summary 保留向后兼容的 step 调度时间轴', () => {
     finishedAt: '1970-01-01T00:00:01.150Z',
     queueDurationMs: 50,
   });
+  assert.equal(summary.environment.schedulingMode, 'cost');
 });
 
 test('verification timing reporter emits a versioned machine-readable summary', () => {
