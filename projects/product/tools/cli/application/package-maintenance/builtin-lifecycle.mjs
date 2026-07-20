@@ -175,14 +175,35 @@ export function createBuiltinLifecycle(deps) {
     const component = packageBuiltinComponent(id);
     if (component) throw new Error(`Buildr builtin ${id} is managed by Component ${component}. Use buildr component install ${component} --agent <agent> --target ${targetRoot}.`);
     const result = syncPackageBuiltins(targetRoot, { restoreId: id });
+    const outcome = result.restoreOutcomes.find((item) => item.id === id) || null;
     if (!result.findings.some((finding) => finding.id === id)) throw new Error(`Buildr builtin not found in package: ${id}`);
+    if (!outcome || outcome.status !== 'restored') {
+      const reason = outcome?.reason || result.findings.find((finding) => finding.id === id)?.reason || 'restore did not establish the requested Builtin state';
+      throw new Error(`Buildr builtin restore blocked: ${id}: ${reason}`);
+    }
     console.log(`已恢复 Buildr builtin：${id}`);
+    if (outcome.replacementFrom) {
+      console.log(`  replacement: ${outcome.replacementFrom} -> ${id}`);
+      console.log('  下一步：运行 buildr sync <agent> --target <dir> 收敛当前 Agent runtime。');
+    }
     for (const file of result.changed) console.log(`  ${file}`);
   }
 
   function builtinRestore(args) {
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
-    const result = withWorkspaceMutation(targetRoot, 'builtin.restore', [path.join(targetRoot, 'rules'), path.join(targetRoot, 'skills'), path.join(targetRoot, 'commands'), path.join(targetRoot, 'components'), path.join(targetRoot, '.buildr', 'builtin-receipts.json')], () => builtinRestoreUnsafe(args));
+    assertInitializedBuildrWorkspace(targetRoot);
+    const [id] = positionalArgs(args);
+    if (!id) throw new Error('Missing builtin id');
+    const component = packageBuiltinComponent(id);
+    if (component) throw new Error(`Buildr builtin ${id} is managed by Component ${component}. Use buildr component install ${component} --agent <agent> --target ${targetRoot}.`);
+    const preflight = syncPackageBuiltins(targetRoot, { restoreId: id, checkOnly: true });
+    const finding = preflight.findings.find((item) => item.id === id) || null;
+    const outcome = preflight.restoreOutcomes.find((item) => item.id === id) || null;
+    if (!finding) throw new Error(`Buildr builtin not found in package: ${id}`);
+    if (!outcome || outcome.status !== 'ready') {
+      throw new Error(`Buildr builtin restore blocked: ${id}: ${outcome?.reason || finding.reason || 'restore preflight did not establish a writable plan'} (${outcome?.path || finding.path})`);
+    }
+    const result = withWorkspaceMutation(targetRoot, 'builtin.restore', preflight.affectedPaths, () => builtinRestoreUnsafe(args));
     runMutationDoctor(targetRoot);
     return result;
   }

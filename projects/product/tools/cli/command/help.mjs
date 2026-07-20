@@ -241,7 +241,8 @@ export function registerCommandHelp(runtime) {
     'builtin restore': [
       'Usage: buildr builtin restore <id> --target <dir>',
       '',
-      '恢复 optional Buildr 内置能力。',
+      '恢复 optional Buildr 内置能力；该命令表示明确放弃此 Builtin 的本地修改。',
+      '当当前 Builtin 声明 predecessor 时，只接管 manifest 可证明为 Buildr-managed 的旧 identity；随后运行 sync 收敛 Agent runtime。',
     ],
     update: [
       'Usage: buildr update [--json]',

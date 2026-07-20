@@ -144,6 +144,91 @@ test('用户修改过 legacy Skill 时 sync 零写入并请求判断', () => {
   }
 });
 
+test('显式 restore 接管 Buildr-managed 未知 legacy 内容并由后续 sync 收敛 runtime', () => {
+  const fixture = createLegacyWorkspace({ withRuntime: true });
+  try {
+    fs.appendFileSync(path.join(fixture.workspace, 'skills', 'buildr', 'task-cockpit', 'SKILL.md'), '\n旧版官方内容不在当前 legacyIntegrities 中\n');
+    assertSyncStopsWithoutWrites(fixture);
+
+    const restored = runBuildr(['builtin', 'restore', 'task-board', '--target', fixture.workspace]);
+    assert.match(restored.stdout, /已恢复 Buildr builtin：task-board/);
+    assert.match(restored.stdout, /replacement: task-cockpit -> task-board/);
+    assert.equal(fs.existsSync(path.join(fixture.workspace, 'skills', 'buildr', 'task-cockpit')), false);
+    assert.equal(fs.existsSync(path.join(fixture.workspace, 'skills', 'buildr', 'task-board', 'SKILL.md')), true);
+    assert.equal(fs.readFileSync(fixture.historicalPage, 'utf8'), legacyPageContent);
+
+    const manifest = fs.readFileSync(path.join(fixture.workspace, 'skills', 'manifest.yml'), 'utf8');
+    assert.match(manifest, /  - id: task-board/);
+    assert.doesNotMatch(manifest, /  - id: task-cockpit/);
+    const receipts = JSON.parse(fs.readFileSync(path.join(fixture.workspace, '.buildr', 'builtin-receipts.json'), 'utf8'));
+    assert.equal(receipts.builtins.some((item) => item.id === 'task-cockpit'), false);
+    assert.equal(receipts.builtins.some((item) => item.id === 'task-board'), true);
+
+    runBuildr(['sync', 'codex', '--target', fixture.workspace]);
+    assert.equal(fs.existsSync(path.join(fixture.workspace, '.agents', 'skills', 'task-cockpit')), false);
+    assert.equal(fs.existsSync(path.join(fixture.workspace, '.agents', 'skills', 'task-board', 'SKILL.md')), true);
+    assert.equal(fs.readFileSync(fixture.historicalPage, 'utf8'), legacyPageContent);
+
+    const repeated = runBuildr(['builtin', 'restore', 'task-board', '--target', fixture.workspace]);
+    assert.match(repeated.stdout, /已恢复 Buildr builtin：task-board/);
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('replacement restore 对 ownership、target 和 missing 冲突保持零写入且不假报成功', async (t) => {
+  async function assertRestoreBlocked(fixture, mutate, expected = /Buildr builtin restore blocked: task-board/) {
+    try {
+      mutate(fixture.workspace);
+      const before = treeDigest(fixture.workspace);
+      const result = runBuildr(['builtin', 'restore', 'task-board', '--target', fixture.workspace], { allowFailure: true });
+      assert.notEqual(result.status, 0);
+      assert.match(`${result.stdout}${result.stderr}`, expected);
+      assert.doesNotMatch(`${result.stdout}${result.stderr}`, /已恢复 Buildr builtin：task-board/);
+      assert.equal(treeDigest(fixture.workspace), before);
+      assert.equal(fs.readFileSync(fixture.historicalPage, 'utf8'), legacyPageContent);
+    } finally {
+      fs.rmSync(fixture.root, { recursive: true, force: true });
+    }
+  }
+
+  await t.test('manifest target mismatch', () => assertRestoreBlocked(createLegacyWorkspace(), (workspace) => {
+    const manifestFile = path.join(workspace, 'skills', 'manifest.yml');
+    fs.writeFileSync(manifestFile, fs.readFileSync(manifestFile, 'utf8').replace('path: buildr/task-cockpit', 'path: buildr/task-cockpit-other'));
+  }));
+  await t.test('foreign manifest source', () => assertRestoreBlocked(createLegacyWorkspace(), (workspace) => {
+    const manifestFile = path.join(workspace, 'skills', 'manifest.yml');
+    fs.writeFileSync(manifestFile, fs.readFileSync(manifestFile, 'utf8').replace(/(  - id: task-cockpit[\s\S]*?    source:) buildr/, '$1 external'));
+  }, /must not combine path with source.*skills\/manifest\.yml/));
+  await t.test('replacement target occupied', () => assertRestoreBlocked(createLegacyWorkspace(), (workspace) => {
+    const target = path.join(workspace, 'skills', 'buildr', 'task-board');
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, 'SKILL.md'), 'foreign target\n');
+  }));
+  await t.test('predecessor source missing', () => assertRestoreBlocked(createLegacyWorkspace(), (workspace) => {
+    fs.rmSync(path.join(workspace, 'skills', 'buildr', 'task-cockpit'), { recursive: true, force: true });
+  }));
+});
+
+test('显式 replacement restore mutation 失败时回滚且不输出成功', () => {
+  const fixture = createLegacyWorkspace({ withRuntime: true });
+  try {
+    fs.appendFileSync(path.join(fixture.workspace, 'skills', 'buildr', 'task-cockpit', 'SKILL.md'), '\nunknown legacy\n');
+    const before = treeDigest(fixture.workspace);
+    const result = runBuildr(['builtin', 'restore', 'task-board', '--target', fixture.workspace], {
+      allowFailure: true,
+      env: { BUILDR_FAULT_AFTER_MUTATION_WRITE: '1' },
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /Injected Buildr mutation failure/);
+    assert.doesNotMatch(`${result.stdout}${result.stderr}`, /已恢复 Buildr builtin：task-board/);
+    assert.equal(treeDigest(fixture.workspace), before);
+    assert.equal(fs.readFileSync(fixture.historicalPage, 'utf8'), legacyPageContent);
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
 test('legacy source missing 或 replacement source 已存在时 preflight 零写入', async (t) => {
   await t.test('legacy source missing', () => {
     const fixture = createLegacyWorkspace();
