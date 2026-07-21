@@ -7,11 +7,16 @@
 ```text
 bin/                         npm executable 薄入口
 src/
+  domain/
+    workspace/               Workspace 实体、UUID 格式与纯字段约束
   application/               用例、跨模块组合和产品 verifier
     domains/                 现有领域操作 handler；尚非纯领域模型
+    workspace/               Workspace 查询、修改、迁移和 prompt 用例
   infrastructure/            filesystem、network、platform、Agent runtime adapters
+    filesystem/              Manifest repository、路径、YAML、revision 与 transaction primitive
   interfaces/
     cli/                     CLI registry、help、参数与输出 adapter
+    local-app/               loopback HTTP 与离线 Workspace Web 页面
 test/
   unit/                      小粒度单元测试
   contract/                  静态和公开契约测试
@@ -24,7 +29,7 @@ package/                      Buildr 向 Workspace/runtime 交付的源资产
 
 `bin/buildr.mjs` 只启动 `src/interfaces/cli/main.mjs`。Product 根 `buildr` 是 checkout convenience entry，也委托同一个 bin；npm 安装、checkout 执行与本机安装因此共享一套 implementation。
 
-`src/application/domains/` 保留原有 Rules、Skills、Commands、Components、Workspace、OpenSpec 和 runtime 操作模块。它们目前同时包含用例编排、文件读取和 mutation，因此属于应用 handler，而不是纯 `domain`。只有 Workspace、Project、Service 等真正与存储无关的实体、值对象和约束出现后，才建立 `src/domain/`；不得为了目录对称把带 filesystem/runtime 依赖的模块伪装成领域模型。
+`src/application/domains/` 保留原有 Rules、Skills、Commands、Components、Project/Service workspace 操作、OpenSpec 和 runtime handler。它们目前同时包含用例编排、文件读取和 mutation，因此不是纯 `domain`。Workspace 已完成首个垂直切片：`src/domain/workspace/` 只表达 `id/name/description` 与纯约束，`src/application/workspace/` 持有用例，`src/infrastructure/filesystem/workspace-manifest-repository.mjs` 持有 YAML/path/revision，`src/interfaces/local-app/` 持有 HTTP/Web。不得为了目录对称为 Project、Service 建立空 Domain，或把 filesystem/runtime 依赖伪装成领域模型。
 
 ## 依赖方向与所有权
 
@@ -57,7 +62,7 @@ infrastructure/runtime/render-claude-code.mjs
   -> infrastructure/runtime/skills/{arguments,manifests,contributions,sources,render-plan}.mjs
 ```
 
-CLI command 只在 `src/interfaces/cli/registry.mjs` 登记一次。领域操作由 `src/application/compose-runtime.mjs` 装配；新增命令不得在入口直接实现 mutation，也不得建立第二份 registry。
+CLI command 只在 `src/interfaces/cli/registry.mjs` 登记一次。领域操作由 `src/application/compose-runtime.mjs` 装配；`buildr app` 的 HTTP interface 由 CLI interface 在同一 composition 边界注册，Application 不反向依赖 Interfaces。新增命令不得在入口直接实现 mutation，也不得建立第二份 registry。
 
 ## Product verifier 与仓库 verification
 

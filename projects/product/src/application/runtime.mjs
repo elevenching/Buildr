@@ -23,6 +23,8 @@ export function registerApplicationRuntime(runtime) {
   const productRoot = (...args) => runtime.productRoot(...args);
   const toPosixRelative = (...args) => runtime.toPosixRelative(...args);
   const assertInitializedBuildrWorkspace = (...args) => runtime.assertInitializedBuildrWorkspace(...args);
+  const workspaceMigrationPlan = (...args) => runtime.workspaceMigrationPlan(...args);
+  const migrateWorkspaceMetadata = (...args) => runtime.migrateWorkspaceMetadata(...args);
 
   function renderRuntime(agent, args, options = {}) {
     const renderArgs = [...args];
@@ -137,9 +139,10 @@ export function registerApplicationRuntime(runtime) {
   }
 
   function buildSyncSourcePlan(targetRoot, agent) {
+    const workspace = workspaceMigrationPlan(targetRoot);
     const builtins = syncPackageBuiltins(targetRoot, { checkOnly: true });
     const components = syncPackageComponents(targetRoot, { checkOnly: true });
-    const affectedPaths = assertSafeSyncMutationPaths(targetRoot, [...builtins.affectedPaths, ...components.affectedPaths]);
+    const affectedPaths = assertSafeSyncMutationPaths(targetRoot, [...workspace.affectedPaths, ...builtins.affectedPaths, ...components.affectedPaths]);
     const needsDecision = [
       ...builtins.findings.filter((finding) => !finding.component && !finding.required && ['modified', 'missing'].includes(finding.status)),
       ...replacementRuntimePreflight(targetRoot, agent, builtins.findings),
@@ -147,9 +150,10 @@ export function registerApplicationRuntime(runtime) {
     return {
       builtins,
       components,
+      workspace,
       affectedPaths,
       needsDecision,
-      signature: JSON.stringify({ builtins: builtins.signature, components: components.signature }),
+      signature: JSON.stringify({ workspace: workspace.signature, builtins: builtins.signature, components: components.signature }),
     };
   }
 
@@ -172,6 +176,7 @@ export function registerApplicationRuntime(runtime) {
     assertSyncSourcePlanReady(preflight);
     let lockedPlan = null;
     const updated = withWorkspaceMutation(targetRoot, `buildr.sync:${agent}`, preflight.affectedPaths, () => {
+      const workspaceMigration = migrateWorkspaceMetadata(targetRoot);
       const sourceUpdate = syncPackageBuiltins(targetRoot);
       const components = syncPackageComponents(targetRoot, { plans: lockedPlan.components.plans });
       if (components.errors.length) {
@@ -182,6 +187,7 @@ export function registerApplicationRuntime(runtime) {
         throw new Error(`sync 暂停：以下 optional Buildr 内置能力需要用户决策。\n- ${needsDecision.map((item) => `${item.type}:${item.id} (${item.status})`).join('\n- ')}`);
       }
       sourceUpdate.changed.push(...components.changed);
+      sourceUpdate.changed.unshift(...workspaceMigration.changed);
       return sourceUpdate;
     }, {
       preSnapshot() {

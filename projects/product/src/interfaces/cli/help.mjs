@@ -11,7 +11,8 @@ export function registerCommandHelp(runtime) {
   function usage() {
     const runtimeIds = SUPPORTED_AGENT_IDS.join('|');
     console.error('Usage:');
-    console.error(`  buildr init [--agent <${runtimeIds}>] [--target <dir>] [--name <name>] [--profile <personal|team|company>]`);
+    console.error(`  buildr init [--agent <${runtimeIds}>] [--target <dir>] [--name <name>] [--description <text>] [--profile <personal|team|company>]`);
+    console.error('  buildr app [--target <workspace>] [--port <port>]');
     console.error('  buildr project create <project> [--target <dir>] [--repo <git-url>] [--title <text>] [--description <text>]');
     console.error('  buildr service create <project>/<service> <repo-ref> [--target <dir>] [--type <type>] [--branch <branch>]');
     console.error('  buildr doctor [--agent <agent>] [--target <dir>] [--scope <.|projects/project[/services/service[/path...]]>] [--json] [--include-info] [--verbose]');
@@ -57,6 +58,7 @@ export function registerCommandHelp(runtime) {
       '',
       'Public workspace commands:',
       '  init                 初始化 Buildr workspace；传入 --agent 时一次完成 runtime 与最终 doctor。',
+      '  app                  启动仅限本机访问的 Buildr Workspace 可视化应用。',
       '  version              输出当前 Buildr CLI package version；支持 --json。',
       '  project create       创建或登记 Project。',
       '  service create       创建或登记 Service。',
@@ -82,11 +84,20 @@ export function registerCommandHelp(runtime) {
       '表面分类说明用途与支持边界，不是权限或安全限制；以上命令仍可执行并可查看主题帮助。',
     ],
     init: [
-      `Usage: buildr init [--agent <${SUPPORTED_AGENT_IDS.join('|')}>] [--target <dir>] [--name <name>] [--profile <personal|team|company>]`,
+      `Usage: buildr init [--agent <${SUPPORTED_AGENT_IDS.join('|')}>] [--target <dir>] [--name <name>] [--description <text>] [--profile <personal|team|company>]`,
       '',
       '首次 onboarding 推荐传入 --agent：初始化源资产后复用完整 sync，并以最终 doctor 通过作为完成条件。',
       '不传 --agent 时只初始化源资产；已有 workspace 的日常更新继续使用 buildr sync <agent>。',
+      '未提供 --description 时写入明确 TODO，并由 doctor 提示补全。',
       '--help 只输出帮助，不会写入文件。',
+    ],
+    app: [
+      'Usage: buildr app [--target <workspace>] [--port <port>]',
+      '',
+      '启动只监听 127.0.0.1 的本机可视化应用；默认选择可用端口并打印 URL，不自动打开浏览器。',
+      'Workspace 页面只允许修改 name 和 description；创建 Workspace 只生成可复制 Agent 指令。',
+      '旧 Workspace metadata 可以只读查看，完成 canonical sync 迁移后才能从页面保存。',
+      '该应用不提供数据库、远程服务或 Agent session connector。',
     ],
     version: [
       'Usage: buildr version [--json]',
@@ -298,6 +309,7 @@ export function registerCommandHelp(runtime) {
     if (domain === 'render') return 'render';
     if (domain === 'sync') return 'sync';
     if (domain === 'doctor') return 'doctor';
+    if (domain === 'app') return 'app';
     if (domain === 'init') return 'init';
     if (domain === 'rules' && action === 'render') {
       return 'rules render';

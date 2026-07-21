@@ -284,7 +284,9 @@ projectFiles:
 
 templateVariables:
   - name
+  - description
   - profile
+  - workspaceId
   - project
 
 forbiddenPatterns:

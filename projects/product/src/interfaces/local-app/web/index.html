@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="buildr-session" content="__BUILDR_SESSION_TOKEN__">
+  <title>Buildr Workspace</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Buildr Workspace 首页"><span class="brand-mark">B</span><span>Buildr</span></a>
+    <span class="local-badge">本机应用</span>
+  </header>
+  <main>
+    <section class="hero">
+      <p class="eyebrow">WORKSPACE</p>
+      <h1 id="workspace-title">正在读取 Workspace…</h1>
+      <p id="workspace-description" class="hero-copy">Buildr 正在从本地文件系统读取真实信息。</p>
+      <div id="migration-alert" class="alert hidden" role="status"></div>
+    </section>
+
+    <div class="layout">
+      <section class="card primary-card">
+        <div class="section-heading">
+          <div><p class="eyebrow">基本信息</p><h2>Workspace 信息</h2></div>
+          <span id="save-state" class="state">尚未修改</span>
+        </div>
+        <form id="workspace-form">
+          <label>名称<input id="workspace-name" name="name" autocomplete="off" required></label>
+          <label>说明<textarea id="workspace-description-input" name="description" rows="5" required></textarea></label>
+          <div class="actions"><button id="save-button" class="button primary" type="submit">保存修改</button></div>
+        </form>
+      </section>
+
+      <aside class="card details-card">
+        <p class="eyebrow">技术信息</p>
+        <h2>当前事实</h2>
+        <dl>
+          <div><dt>Workspace ID</dt><dd id="workspace-id">—</dd></div>
+          <div><dt>本地目录</dt><dd id="workspace-root">—</dd></div>
+          <div><dt>Schema</dt><dd id="workspace-schema">—</dd></div>
+          <div><dt>Revision</dt><dd id="workspace-revision">—</dd></div>
+        </dl>
+      </aside>
+    </div>
+
+    <section class="card create-card">
+      <div class="section-heading">
+        <div><p class="eyebrow">AGENT ACTION</p><h2>创建另一个 Workspace</h2></div>
+        <span class="state">生成指令</span>
+      </div>
+      <p class="section-copy">Buildr 不会从页面直接初始化目录。填写目标后生成完整指令，再复制到 Agent 对话框执行。</p>
+      <form id="prompt-form" class="prompt-grid">
+        <label>名称<input id="prompt-name" autocomplete="off" required></label>
+        <label>目标位置（可选）<input id="prompt-target" autocomplete="off" placeholder="不确定时留空，由 Agent 询问"></label>
+        <label class="full">说明<textarea id="prompt-description" rows="4" required></textarea></label>
+        <div class="actions full"><button class="button secondary" type="submit">生成可复制指令</button></div>
+      </form>
+      <div id="prompt-result" class="prompt-result hidden">
+        <textarea id="prompt-output" rows="12" readonly></textarea>
+        <div class="copy-row"><button id="copy-button" class="button primary" type="button">复制指令</button><span id="copy-state">复制后仍需交给 Agent 执行，并不代表 Workspace 已创建。</span></div>
+      </div>
+    </section>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>

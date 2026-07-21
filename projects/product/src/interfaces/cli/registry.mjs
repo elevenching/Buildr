@@ -3,9 +3,11 @@ import { createRuntime } from '../../application/compose-runtime.mjs';
 import { registerCommandHelp } from './help.mjs';
 import { isVersionRequest, printVersion } from './identity.mjs';
 import { printCliError } from './diagnostics.mjs';
+import { registerLocalWorkspaceAppInterface } from '../local-app/http/server.mjs';
 
 export const COMMAND_REGISTRY = [
   { key: 'init', match: ({ domain }) => domain === 'init', run: (r, c) => r.initBuildr(c.argv.slice(3)) },
+  { key: 'app', match: ({ domain }) => domain === 'app', run: (r, c) => r.startLocalWorkspaceApp(c.argv.slice(3)) },
   { key: 'bootstrap guide', match: ({ domain, action }) => domain === 'bootstrap' && action === 'guide', run: (r) => r.bootstrapGuide() },
   { key: 'package check', match: ({ domain, action }) => domain === 'package' && action === 'check', run: (r) => r.packageCheck() },
   { key: 'package build', match: ({ domain, action }) => domain === 'package' && action === 'build', run: (r, c) => r.packageBuild(c.argv.slice(4)) },
@@ -88,6 +90,7 @@ function runScopedRender(r, context) {
 
 export function dispatch(argv = process.argv) {
   const runtime = createRuntime();
+  registerLocalWorkspaceAppInterface(runtime);
   registerCommandHelp(runtime);
   const rawArgs = argv.slice(2);
   const commandCandidates = ['version', 'help', ...COMMAND_REGISTRY.map((item) => item.key)];

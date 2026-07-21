@@ -137,6 +137,8 @@ Install to Buildr, render to Agent runtime.
 
 Buildr 资产是源头；Agent runtime 是面向当前 Agent 的可重建入口。Workspace 就是 Buildr 治理的工作目录，也是 Skill 唯一 source authority；Project 是业务、依赖、适用性和 capability context，不是 Skill 安装隔离层。Skill 只在 workspace `skills/` 维护，再显式 render 到当前工作目录的 `workspace` destination 或个人的 `user` destination。Buildr 在写入前检查同名 identity、ownership、receipt 与完整目录 digest；冲突会阻止整次写入。
 
+当前本地产品通过 `buildr app` 提供人类可读的 Workspace 视图。页面复用与 CLI 相同的应用用例，只允许查看并修改 `name`、`description` 这类低风险 metadata；创建新 Workspace 只生成交给 Agent 的完整 prompt，不绕过 Agent 对目录、Git、授权和 runtime 的判断。文件系统仍是本地 Workspace 的事实载体，页面不建立第二套数据库状态。
+
 不同 Agent 的处理方式不同：
 
 - Supported adapter 由 Buildr 随产品发布的静态 registry 唯一声明；每个 adapter 明确声明 user/workspace destination roots、可观测 discovery roots、inventory evidence 与 activation，并完整实现 Rules entry、产品 Buildr Skill、workspace Skills、install plans 和 runtime check。

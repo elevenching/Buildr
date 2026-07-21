@@ -1,4 +1,5 @@
 import { registerWorkspaceInfrastructure } from '../infrastructure/filesystem/index.mjs';
+import { registerWorkspaceManifestRepository } from '../infrastructure/filesystem/workspace-manifest-repository.mjs';
 import { registerDomainsRuntime } from './domains/runtime.mjs';
 import { registerDomainsWorkspace } from './domains/workspace.mjs';
 import { registerDomainsComponents } from './domains/components.mjs';
@@ -12,10 +13,12 @@ import { registerApplicationPackageMaintenance } from './package-maintenance.mjs
 import { registerApplicationWorkspaceOperations } from './workspace-operations.mjs';
 import { registerApplicationRuntime } from './runtime.mjs';
 import { registerApplicationCliUpdate } from './cli-update.mjs';
+import { registerWorkspaceApplication } from './workspace/workspace-application.mjs';
 import * as platform from '../infrastructure/platform.mjs';
 
 const REGISTRATIONS = [
   registerWorkspaceInfrastructure,
+  registerWorkspaceManifestRepository,
   registerDomainsRuntime,
   registerDomainsWorkspace,
   registerDomainsComponents,
@@ -25,6 +28,7 @@ const REGISTRATIONS = [
   registerApplicationDoctor,
   registerDomainsPackageAssets,
   registerDomainsSkills,
+  registerWorkspaceApplication,
   registerApplicationPackageMaintenance,
   registerApplicationWorkspaceOperations,
   registerApplicationCliUpdate,

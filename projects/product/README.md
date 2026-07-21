@@ -11,8 +11,10 @@ Workspace 等同于 Buildr 治理的工作目录，也是 Skill 的唯一 source
 ```bash
 npm install --global @buildr-ai/buildr@next
 buildr runtime list --json
-buildr init --agent <agent> --target . --name <name> --profile <personal|team|company>
+buildr init --agent <agent> --target . --name <name> --description <description> --profile <personal|team|company>
 ```
+
+初始化后可运行 `buildr app --target .`，在只监听本机的页面中查看 Workspace，并受控修改名称和说明；新建 Workspace 的页面入口只生成可复制给 Agent 的指令。
 
 当前公开试用版本是 [`0.1.0-rc.3`](https://github.com/elevenching/Buildr/releases/tag/v0.1.0-rc.3)。使用反馈请提交 [GitHub Issue](https://github.com/elevenching/Buildr/issues/new/choose)，安全漏洞请按 [SECURITY.md](https://github.com/elevenching/Buildr/blob/main/SECURITY.md) 私下报告。
 

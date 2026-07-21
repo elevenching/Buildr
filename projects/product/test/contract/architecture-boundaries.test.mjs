@@ -43,3 +43,21 @@ test('Product platform namespace 只允许 composition root 聚合', () => {
   visit(sourceRoot);
   assert.deepEqual(violations, []);
 });
+
+test('Workspace Domain 保持纯净且 local app 静态资源随 src 交付', () => {
+  const domain = fs.readFileSync(path.join(productRoot, 'src/domain/workspace/workspace.mjs'), 'utf8');
+  assert.doesNotMatch(domain, /node:|yaml|filesystem|http|process|runtime|repository/i);
+  for (const relative of [
+    'src/interfaces/local-app/http/server.mjs',
+    'src/interfaces/local-app/web/index.html',
+    'src/interfaces/local-app/web/styles.css',
+    'src/interfaces/local-app/web/app.js',
+  ]) {
+    assert.ok(fs.existsSync(path.join(productRoot, relative)), `missing ${relative}`);
+  }
+  const packageJson = JSON.parse(fs.readFileSync(path.join(productRoot, 'package.json'), 'utf8'));
+  assert.ok(packageJson.files.includes('src/'));
+  assert.equal(fs.existsSync(path.join(productRoot, 'tools')), false);
+  assert.equal(fs.existsSync(path.join(productRoot, 'src/domain/project')), false);
+  assert.equal(fs.existsSync(path.join(productRoot, 'src/domain/service')), false);
+});

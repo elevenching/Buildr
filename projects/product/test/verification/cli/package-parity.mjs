@@ -33,6 +33,14 @@ function snapshot(directory) {
   return result;
 }
 
+function normalizeWorkspaceSnapshot(value) {
+  const workspaceId = value['.buildr/workspace.yml']?.match(/^id:\s*([0-9a-f-]{36})$/m)?.[1];
+  const skillsWorkspaceId = value['skills/manifest.yml']?.match(/^workspaceId:\s*([0-9a-f-]{36})$/m)?.[1];
+  assert.ok(workspaceId, 'Workspace metadata must contain a UUID');
+  assert.equal(skillsWorkspaceId, workspaceId, 'Workspace and Skills manifests must share one UUID');
+  return Object.fromEntries(Object.entries(value).map(([file, content]) => [file, content.replaceAll(workspaceId, '<workspace-id>')]));
+}
+
 try {
   const packDir = path.join(root, 'pack');
   const prefix = path.join(root, 'prefix');
@@ -47,11 +55,14 @@ try {
   const installed = spawn('npm', ['install', '--prefix', prefix, tarball]);
   assert.equal(installed.status, 0, installed.stderr);
   const packagedCli = path.join(prefix, 'node_modules', '.bin', 'buildr');
+  for (const relative of ['index.html', 'styles.css', 'app.js']) {
+    assert.ok(fs.existsSync(path.join(prefix, 'node_modules', '@buildr-ai', 'buildr', 'src', 'interfaces', 'local-app', 'web', relative)), `packaged local app asset is missing: ${relative}`);
+  }
 
   const runPackaged = (args) => spawn(packagedCli, args);
   for (const args of [
     [], ['--version'], ['-V'], ['version'], ['version', '--json'],
-    ['help', 'doctor'], ['service', 'create'], ['doctr'], ['doctr', '--json'],
+    ['help', 'doctor'], ['help', 'app'], ['help', 'init'], ['service', 'create'], ['doctr'], ['doctr', '--json'],
     ['runtime', 'list', '--json'],
   ]) {
     const checkout = runCheckout(args);
@@ -69,7 +80,7 @@ try {
     result = runner(['project', 'create', 'demo', '--target', workspace]);
     assert.equal(result.status, 0, result.stderr);
   }
-  assert.deepEqual(snapshot(packagedWorkspace), snapshot(checkoutWorkspace));
+  assert.deepEqual(normalizeWorkspaceSnapshot(snapshot(packagedWorkspace)), normalizeWorkspaceSnapshot(snapshot(checkoutWorkspace)));
 
   console.log('CLI package parity verification passed: help, failures, JSON discovery, and workspace mutations match checkout and npm tarball entrypoints.');
 } finally {

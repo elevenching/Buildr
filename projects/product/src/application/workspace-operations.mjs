@@ -31,6 +31,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
   const syncPackageComponents = (...args) => runtime.syncPackageComponents(...args);
   const readPackageManifest = (...args) => runtime.readPackageManifest(...args);
   const parseManifestFileEntry = (...args) => runtime.parseManifestFileEntry(...args);
+  const parseYamlDocument = (...args) => runtime.parseYamlDocument(...args);
   const diagnoseRules = (...args) => runtime.diagnoseRules(...args);
   const assertName = (...args) => runtime.assertName(...args);
   const assertAgentId = (...args) => runtime.assertAgentId(...args);
@@ -56,6 +57,9 @@ export function registerApplicationWorkspaceOperations(runtime) {
   const ensureRootRequiredBlock = (...args) => runtime.ensureRootRequiredBlock(...args);
   const assertInitializedBuildrWorkspace = (...args) => runtime.assertInitializedBuildrWorkspace(...args);
   const addDoctorFinding = (...args) => runtime.addDoctorFinding(...args);
+  const createWorkspaceId = (...args) => runtime.createWorkspaceId(...args);
+  const renderWorkspaceManifest = (...args) => runtime.renderWorkspaceManifest(...args);
+  const diagnoseWorkspaceMetadata = (...args) => runtime.diagnoseWorkspaceMetadata(...args);
 
   function bootstrapGuide() {
     const guidePath = path.join(packageRoot(), 'bootstrap', 'guide.md');
@@ -204,6 +208,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
     };
 
     diagnoseWorkspace(result, targetRoot);
+    if (result.workspace?.initialized) diagnoseWorkspaceMetadata(result, targetRoot);
     diagnoseMutations(result, targetRoot);
     if (result.workspace?.initialized) diagnoseRules(result, targetRoot);
     const registry = diagnoseProjectRegistry(result, targetRoot);
@@ -262,9 +267,11 @@ export function registerApplicationWorkspaceOperations(runtime) {
   function initBuildr(args) {
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
     const name = optionValue(args, '--name', path.basename(targetRoot));
+    const description = optionValue(args, '--description', 'TODO: 请补充 Workspace 的管理范围和用途。');
     const profile = optionValue(args, '--profile', 'team');
     const agent = optionValue(args, '--agent', null);
     assertName(name, 'Workspace name');
+    if (!description.trim()) throw new Error('Workspace description must be a non-empty string.');
     assertName(profile, 'Workspace profile');
     if (agent !== null) {
       assertAgentId(agent);
@@ -281,13 +288,27 @@ export function registerApplicationWorkspaceOperations(runtime) {
       ensureDirectory(path.join(targetRoot, relativeDir));
     }
 
-    const variables = { name, profile };
+    const workspaceId = createWorkspaceId();
+    const variables = { name, description, profile, workspaceId };
+    let skillsBaseline = null;
     for (const rawEntry of manifest.workspaceFiles) {
       const entry = parseManifestFileEntry(rawEntry, 'workspaceFiles');
+      if (entry.target === '.buildr/workspace.yml') continue;
+      if (entry.target === 'skills/manifest.yml') {
+        skillsBaseline = parseYamlDocument(fs.readFileSync(path.resolve(runtime.productRoot(), entry.source), 'utf8'), entry.source);
+        continue;
+      }
       writeMappedFileIfMissing(targetRoot, targetRoot, entry, variables, created);
     }
+    trackWrite(targetRoot, path.join(targetRoot, '.buildr', 'workspace.yml'), renderWorkspaceManifest({
+      workspace: { id: workspaceId, name, description },
+      compatibility: { kind: 'organization', profile },
+    }), created);
     ensureRootRequiredBlock(targetRoot, changed);
-    trackWrite(targetRoot, path.join(targetRoot, 'skills', 'manifest.yml'), renderSkillsManifestYaml([]), created);
+    trackWrite(targetRoot, path.join(targetRoot, 'skills', 'manifest.yml'), renderSkillsManifestYaml({
+      ...(skillsBaseline || { schemaVersion: 'buildr.skills/v3', skills: [] }),
+      workspaceId,
+    }), created);
     const componentResult = syncPackageComponents(targetRoot);
     if (componentResult.errors.length) throw new Error(componentResult.errors.map((item) => item.error).join('\n'));
     changed.push(...componentResult.changed);
@@ -309,6 +330,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
 
     console.log(`Initialized Buildr root organization context at ${targetRoot}`);
     console.log(`Name: ${name}`);
+    console.log(`Description: ${description}`);
     console.log(`Profile: ${profile}`);
     printResult('Workspace assets initialized', targetRoot, created, changed);
     if (agent !== null) {

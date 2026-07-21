@@ -47,11 +47,14 @@ if (/function\s+(?:doctor|packageCheck|createProject|skillsAdd|componentInstall)
 
 const requiredRuntime = [
   'interfaces/cli/main.mjs', 'interfaces/cli/registry.mjs', 'interfaces/cli/help.mjs',
+  'interfaces/local-app/http/server.mjs', 'interfaces/local-app/web/app.js',
   'application/compose-runtime.mjs', 'application/doctor.mjs', 'application/package-maintenance.mjs',
+  'application/workspace/workspace-application.mjs', 'domain/workspace/workspace.mjs',
   'application/domains/workspace.mjs', 'application/domains/rules.mjs', 'application/domains/skills.mjs',
   'application/domains/commands.mjs', 'application/domains/components.mjs', 'application/domains/openspec.mjs',
   'application/domains/runtime.mjs', 'application/json-contracts.mjs',
   'infrastructure/platform.mjs', 'infrastructure/product-layout.mjs', 'infrastructure/process.mjs', 'infrastructure/filesystem/index.mjs',
+  'infrastructure/filesystem/workspace-manifest-repository.mjs',
   'infrastructure/runtime/adapter-contract.mjs', 'infrastructure/runtime/render-claude-code.mjs',
   'application/doctor/scope-diagnostics.mjs', 'application/doctor/service-diagnostics.mjs',
   'application/doctor/runtime-diagnostics.mjs', 'application/package-maintenance/static-validation.mjs',
@@ -180,7 +183,7 @@ if (fs.existsSync(registry)) {
   const duplicates = keys.filter((key, index) => keys.indexOf(key) !== index);
   if (duplicates.length) problems.push(`duplicate command registry keys: ${[...new Set(duplicates)].join(', ')}`);
   const expectedKeys = [
-    'init', 'bootstrap guide', 'package check', 'package build', 'project create', 'service create',
+    'init', 'app', 'bootstrap guide', 'package check', 'package build', 'project create', 'service create',
     'doctor', 'mutation recover', 'runtime list', 'commands check', 'commands add', 'commands remove',
     'openspec baseline create', 'openspec check', 'component list', 'component check', 'component install',
     'component uninstall', 'rules add', 'rules remove', 'builtin list', 'builtin uninstall', 'builtin restore',

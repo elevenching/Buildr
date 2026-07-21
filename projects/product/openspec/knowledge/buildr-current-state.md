@@ -10,9 +10,11 @@
 Organization/Root -> Project -> Service
 ```
 
-- `buildr init --agent <agent> --target <dir> --name <name> --profile <profile>` 是推荐首次入口：将目标目录初始化为 Buildr root，并复用完整 sync 管线准备当前 Agent runtime 与最终 doctor；不带 `--agent` 时只初始化源资产。
+- `buildr init --agent <agent> --target <dir> --name <name> [--description <description>] --profile <profile>` 是推荐首次入口：将目标目录初始化为 Buildr root，并复用完整 sync 管线准备当前 Agent runtime 与最终 doctor；不带 `--agent` 时只初始化源资产。未提供 description 时写入明确 TODO，由 doctor 提示补全。
 - Buildr root 是个人或组织的 Organization 上下文实例。
-- `.buildr/workspace.yml` 记录 schema version、kind、name 和 profile。
+- `.buildr/workspace.yml` 使用 `buildr.workspace/v1`，记录稳定 UUID `id`、`name`、`description` 以及只读兼容 metadata；`skills/manifest.yml.workspaceId` 必须引用同一 UUID。
+- `buildr app --target <workspace> [--port <port>]` 只监听 loopback，提供 Workspace 查看、`name/description` 受控修改和新增 Workspace 可复制 Agent prompt。旧 metadata 只读展示，页面启动不会静默迁移。
+- `buildr sync <agent>` 在 source transaction 中显式迁移 legacy Workspace metadata；两处 identity 冲突、非法 schema 或迁移失败时 fail closed 并回滚。
 - Project 路径为 `projects/<project>/`。
 - Service 默认 repo 路径为 `projects/<project>/services/<service>/`。
 - 共享、基础或平台服务通过普通 Project 表达，例如 `foundation` 或 `platform`。
@@ -205,7 +207,7 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 ## CLI Internal Architecture
 
 - npm bin `bin/buildr.mjs` 是薄 executable，只负责 bootstrap 与顶层错误处理；help 和唯一命令登记位于 `src/interfaces/cli/`。
-- `src/` 按 command、application composition、domains、shared infrastructure 单向分层。doctor、sync/update 和 package maintenance 在 application 层聚合领域结果；领域模块之间不直接 import。
+- `src/` 按 Domain、Application、Infrastructure、Interfaces 单向分层。Workspace 是首个纯 Domain：实体与字段约束位于 `src/domain/workspace`，用例位于 `src/application/workspace`，Manifest repository 位于 `src/infrastructure/filesystem`，CLI/HTTP/Web 位于 `src/interfaces`；Project、Service 尚未抽取纯 Domain。
 - `packageCheck` 的静态发布校验、临时 workspace smoke runner 和 composition handler 已分离，但 `buildr package check` 的统一输出和失败语义不变。
 - npm tarball 递归包含 `src/` runtime dependency closure，内部模块不通过 package `exports` 暴露，也不是稳定 public JavaScript API。
 - 产品验证通过 architecture、compatibility、checkout/npm package parity 和递归 managed mutation verifiers 保护薄入口、command 唯一登记、依赖方向、发布完整性、行为兼容和直接写入边界。
@@ -218,7 +220,7 @@ CLI identity 可通过 `buildr --version`、`buildr -V`、`buildr version` 或 `
 
 | 分类 | 命令 |
 |---|---|
-| public onboarding / daily | `buildr init --agent <agent>`、纯源资产 `buildr init`、`buildr project create`、`buildr service create`、`buildr doctor`、`buildr runtime list`、`buildr sync <agent>` |
+| public onboarding / daily | `buildr init --agent <agent>`、纯源资产 `buildr init`、`buildr app`、`buildr project create`、`buildr service create`、`buildr doctor`、`buildr runtime list`、`buildr sync <agent>` |
 | public CLI lifecycle | `buildr version`、`buildr update/check` |
 | public asset lifecycle | `buildr commands add/remove/check`、`buildr component list/check/install/uninstall`、`buildr rules add/remove`、`buildr skills add/remove`、`buildr builtin list/uninstall/restore` |
 | public advanced / repair | `buildr mutation recover`、`buildr runtime check <agent>`、`buildr render <agent>`、`buildr rules render <agent>`（仅 Rules writesFiles adapters）、`buildr skills render <agent>`、`buildr skill install <agent>`、`buildr bootstrap guide` |
