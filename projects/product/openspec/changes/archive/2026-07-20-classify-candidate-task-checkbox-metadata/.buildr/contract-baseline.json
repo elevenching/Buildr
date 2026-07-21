@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "classify-candidate-task-checkbox-metadata",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-5f751bc1a3aa86f36e6b5c91fee91299e18fac86b14a2481982319dfd296a140",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "最终 Candidate 任务勾选作为可审计验证结果元数据",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "OpenSpec apply 协调最终验证任务标记",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "产品验证覆盖 Candidate task metadata 分类",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "Candidate evidence 与验证结果元数据 transition 分离",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

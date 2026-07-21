@@ -1,0 +1,183 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+
+export const RUNTIME_SKILL_PROJECTION_SCHEMA_V1 = 'buildr.runtime-skill-projection/v1';
+export const RUNTIME_SKILL_PROJECTION_SCHEMA = 'buildr.skill-projection/v2';
+export const SUPPORTED_SKILL_SOURCE_ENTRIES = Object.freeze([
+  'SKILL.md',
+  'agents',
+  'assets',
+  'examples',
+  'references',
+  'scripts',
+  'templates',
+]);
+
+const SUPPORTED_SKILL_SOURCE_ENTRY_SET = new Set(SUPPORTED_SKILL_SOURCE_ENTRIES);
+const SHA256_PATTERN = /^sha256-[a-f0-9]{64}$/;
+
+function toPosix(value) {
+  return value.split(path.sep).join('/');
+}
+
+export function sha256Integrity(content) {
+  return `sha256-${crypto.createHash('sha256').update(content).digest('hex')}`;
+}
+
+export function ownerExecutable(mode) {
+  return (mode & 0o100) === 0o100;
+}
+
+function assertSafeRelativeFile(relative, label) {
+  const normalized = path.posix.normalize(relative.replaceAll('\\', '/'));
+  if (!relative || path.posix.isAbsolute(normalized) || normalized === '..' || normalized.startsWith('../') || normalized !== relative.replaceAll('\\', '/')) {
+    throw new Error(`${label} must stay inside the Skill directory: ${relative}`);
+  }
+  return normalized;
+}
+
+function inspectSourceEntry(sourceDir, absolute, relative, files) {
+  const stat = fs.lstatSync(absolute);
+  if (stat.isSymbolicLink()) throw new Error(`Skill source must not contain symbolic links: ${path.join(sourceDir, relative)}`);
+  if (stat.isDirectory()) {
+    for (const child of fs.readdirSync(absolute).sort()) {
+      inspectSourceEntry(sourceDir, path.join(absolute, child), path.posix.join(relative, child), files);
+    }
+    return;
+  }
+  if (!stat.isFile()) throw new Error(`Skill source must contain only regular files and directories: ${path.join(sourceDir, relative)}`);
+  files.push({
+    relativePath: assertSafeRelativeFile(relative, 'Skill source file'),
+    sourceFile: absolute,
+    content: fs.readFileSync(absolute),
+    executable: ownerExecutable(stat.mode),
+  });
+}
+
+export function enumerateSkillSourceFiles(sourceDir) {
+  if (!sourceDir) return [];
+  const rootStat = fs.lstatSync(sourceDir);
+  if (rootStat.isSymbolicLink()) throw new Error(`Skill source directory must not be a symbolic link: ${sourceDir}`);
+  if (!rootStat.isDirectory()) throw new Error(`Skill source directory does not exist: ${sourceDir}`);
+  const entries = fs.readdirSync(sourceDir).sort();
+  const unknown = entries.filter((entry) => !SUPPORTED_SKILL_SOURCE_ENTRY_SET.has(entry));
+  if (unknown.length) throw new Error(`Skill source contains unsupported top-level entries: ${unknown.join(', ')}`);
+  const files = [];
+  for (const entry of entries) inspectSourceEntry(sourceDir, path.join(sourceDir, entry), entry, files);
+  if (!files.some((file) => file.relativePath === 'SKILL.md')) throw new Error(`Skill source must contain SKILL.md: ${sourceDir}`);
+  return files.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+}
+
+function decodeBase64(content, label) {
+  if (typeof content !== 'string' || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(content)) {
+    throw new Error(`runtime write base64 content is invalid: ${label}`);
+  }
+  return Buffer.from(content, 'base64');
+}
+
+export function runtimeWriteBuffer(item, source = false) {
+  const contentKey = source ? 'sourceContent' : 'content';
+  const encodingKey = source ? 'sourceContentEncoding' : 'contentEncoding';
+  const content = item[contentKey];
+  if (content === undefined || content === null) return null;
+  const encoding = item[encodingKey] || 'utf8';
+  if (encoding === 'utf8') return Buffer.from(content, 'utf8');
+  if (encoding === 'base64') return decodeBase64(content, item.targetFile);
+  throw new Error(`runtime write content encoding is invalid: ${item.targetFile}`);
+}
+
+export function runtimeWriteMode(item) {
+  if (item.mode === undefined) return null;
+  if (item.mode !== 0 && item.mode !== 0o100) throw new Error(`runtime write mode is invalid: ${item.targetFile}`);
+  return item.mode;
+}
+
+export function runtimeFileMatches(file, integrity, executable) {
+  if (!fs.existsSync(file) || !fs.lstatSync(file).isFile() || fs.lstatSync(file).isSymbolicLink()) return false;
+  if (sha256Integrity(fs.readFileSync(file)) !== integrity) return false;
+  return executable === undefined || ownerExecutable(fs.statSync(file).mode) === executable;
+}
+
+export function skillProjectionReceiptTarget(targetRoot, runtimeRoot, adapterId, runtimePath) {
+  const normalized = assertSafeRelativeFile(`${runtimePath}.json`, 'Skill runtime path');
+  const adapter = assertSafeRelativeFile(`${adapterId}.json`, 'Skill adapter id').slice(0, -5);
+  return path.join(targetRoot, runtimeRoot, 'buildr', 'skill-projection-receipts', adapter, ...normalized.split('/'));
+}
+
+function receiptInventoryIntegrity(files) {
+  return sha256Integrity(Buffer.from(JSON.stringify(files), 'utf8'));
+}
+
+export function buildSkillProjectionReceipt({ adapterId, destination = 'workspace', skillId, runtimePath, sources, assetIdentity, sourceIdentity, sourceWorkspaceId, sourceDigest, renderDigest, files }) {
+  const inventory = files.map((file) => ({
+    path: assertSafeRelativeFile(file.path, 'Skill receipt file'),
+    integrity: file.integrity,
+    executable: file.executable === true,
+  })).sort((left, right) => left.path.localeCompare(right.path));
+  return {
+    schemaVersion: RUNTIME_SKILL_PROJECTION_SCHEMA,
+    agent: adapterId,
+    adapterId,
+    destination,
+    skillId: skillId || runtimePath,
+    runtimePath,
+    assetIdentity,
+    sourceIdentity,
+    sourceWorkspaceId,
+    sourceDigest,
+    renderDigest: renderDigest || receiptInventoryIntegrity(inventory),
+    sources: [...new Set(sources)].sort(),
+    files: inventory,
+    integrity: receiptInventoryIntegrity(inventory),
+  };
+}
+
+export function renderSkillProjectionReceipt(receipt) {
+  return `${JSON.stringify(receipt, null, 2)}\n`;
+}
+
+export function parseSkillProjectionReceipt(content, label = 'runtime Skill projection receipt') {
+  let receipt;
+  try { receipt = JSON.parse(content); }
+  catch (error) { throw new Error(`Invalid ${label} JSON: ${error.message}`); }
+  const supportedSchema = [RUNTIME_SKILL_PROJECTION_SCHEMA_V1, RUNTIME_SKILL_PROJECTION_SCHEMA].includes(receipt?.schemaVersion);
+  if (!receipt || !supportedSchema || typeof receipt.adapterId !== 'string' || typeof receipt.runtimePath !== 'string' || !Array.isArray(receipt.sources) || !Array.isArray(receipt.files) || !SHA256_PATTERN.test(receipt.integrity || '')) {
+    throw new Error(`Invalid ${label} schema.`);
+  }
+  if (receipt.schemaVersion === RUNTIME_SKILL_PROJECTION_SCHEMA && (!['user', 'workspace'].includes(receipt.destination) || typeof receipt.skillId !== 'string' || typeof receipt.assetIdentity !== 'string' || typeof receipt.sourceIdentity !== 'string' || typeof receipt.sourceWorkspaceId !== 'string' || !SHA256_PATTERN.test(receipt.sourceDigest || '') || !SHA256_PATTERN.test(receipt.renderDigest || ''))) throw new Error(`Invalid ${label} v2 identity or digest evidence.`);
+  const seen = new Set();
+  const files = receipt.files.map((file) => {
+    if (!file || typeof file.path !== 'string' || !SHA256_PATTERN.test(file.integrity || '') || typeof file.executable !== 'boolean') throw new Error(`Invalid ${label} file entry.`);
+    const relative = assertSafeRelativeFile(file.path, 'Skill receipt file');
+    if (seen.has(relative)) throw new Error(`Duplicate ${label} file entry: ${relative}`);
+    seen.add(relative);
+    return { path: relative, integrity: file.integrity, executable: file.executable };
+  }).sort((left, right) => left.path.localeCompare(right.path));
+  if (receiptInventoryIntegrity(files) !== receipt.integrity) throw new Error(`Invalid ${label} inventory integrity.`);
+  return { ...receipt, files };
+}
+
+export function readSkillProjectionReceipt(file, expected = {}) {
+  if (!fs.existsSync(file)) return null;
+  if (fs.lstatSync(file).isSymbolicLink() || !fs.lstatSync(file).isFile()) throw new Error(`Runtime Skill projection receipt must be a regular file: ${file}`);
+  const receipt = parseSkillProjectionReceipt(fs.readFileSync(file, 'utf8'), file);
+  if (expected.adapterId && receipt.adapterId !== expected.adapterId) throw new Error(`Runtime Skill projection receipt adapter mismatch: ${file}`);
+  if (expected.runtimePath && receipt.runtimePath !== expected.runtimePath) throw new Error(`Runtime Skill projection receipt path mismatch: ${file}`);
+  return receipt;
+}
+
+export function buildCompanionWrite(targetFile, sourceFile, relativePath, content, executable, metadata = {}) {
+  const encoded = content.toString('base64');
+  return {
+    targetFile,
+    content: encoded,
+    contentEncoding: 'base64',
+    sourceContent: encoded,
+    sourceContentEncoding: 'base64',
+    mode: executable ? 0o100 : 0,
+    sourceFile,
+    skillRelativePath: toPosix(relativePath),
+    ...metadata,
+  };
+}

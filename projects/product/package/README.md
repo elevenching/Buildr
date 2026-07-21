@@ -19,10 +19,13 @@
 
 ```bash
 projects/product/buildr package check
+cd projects/product && npm run test:focus -- package-static
 projects/product/tools/verification/onboarding/init.mjs
 projects/product/tools/verification/onboarding/repository.mjs
-projects/product/tools/verify-buildr-product-mvp
+(cd projects/product && npm run test:focus -- workspace-lifecycle ownership-recovery runtime-reconciliation)
 (cd projects/product && openspec validate --all --strict)
 ```
 
-`verify-repository-onboarding.mjs` 会复制一个不含 `node_modules` 与 Agent runtime 的临时候选树，从开发 checkout installer 开始验证 `runtime list -> init --agent codex`，并独立读取 doctor JSON 证明最终状态。
+统一 `test:focus` 使用 `package-static`、`package-workspace`、`package-commands`、`package-rules`、`package-skills`、`package-runtime` 六个稳定 step id 定点重跑；它们不是随 npm 包承诺的用户 CLI 参数。无 selector 的 `buildr package check` 仍聚合全部阶段。
+
+repository onboarding 会复制一个不含 `node_modules` 与 Agent runtime 的临时候选树，验证开发 checkout installer、runtime discovery 和 update source 识别。完整 `init -> sync -> doctor` 的安装后生命周期由 release tarball smoke 持有。

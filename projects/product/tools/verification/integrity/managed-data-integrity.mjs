@@ -27,9 +27,68 @@ function run(args, options = {}) {
 function git(args, cwd = fixtureRoot) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
   if (result.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${result.stderr}`);
+  return result.stdout.trim();
+}
+
+function initializeGitBaseline(root) {
+  git(['init'], root);
+  git(['config', 'user.name', 'Buildr Verification'], root);
+  git(['config', 'user.email', 'buildr-verification@example.com'], root);
+  git(['add', '-A'], root);
+  git(['commit', '-m', 'fixture baseline'], root);
+}
+
+function assertNoMutationTransaction(root, label) {
+  const stateRoot = path.join(root, '.buildr', 'mutations');
+  const entries = fs.existsSync(stateRoot) ? fs.readdirSync(stateRoot, { withFileTypes: true }) : [];
+  if (entries.some((entry) => entry.isDirectory()) || fs.existsSync(path.join(stateRoot, 'lock.json'))) {
+    throw new Error(`${label} created a mutation transaction or lock.`);
+  }
+}
+
+function verifyOptionalBuiltinPreflight(mode) {
+  const root = path.join(fixtureRoot, `optional-${mode}`);
+  run(['init', '--target', root, '--name', `optional-${mode}`]);
+  const skillRoot = path.join(root, 'skills', 'buildr', 'task-asset-review');
+  const skillFile = path.join(skillRoot, 'SKILL.md');
+  if (mode === 'modified') fs.appendFileSync(skillFile, '\nuser modification\n');
+  else fs.rmSync(skillRoot, { recursive: true, force: true });
+  initializeGitBaseline(root);
+  const beforeStatus = git(['status', '--porcelain=v1', '--untracked-files=all'], root);
+  const beforeContent = mode === 'modified' ? fs.readFileSync(skillFile, 'utf8') : null;
+  const result = run(['sync', 'codex', '--target', root], { expectFailure: true, env: { BUILDR_FAIL_IF_MUTATION_STARTED: '1' } });
+  const output = `${result.stdout}\n${result.stderr}`;
+  if (!output.includes(`skill:task-asset-review (${mode})`)) throw new Error(`Optional Builtin ${mode} did not report the expected decision point.`);
+  if (output.includes('Injected failure because workspace mutation started')) throw new Error(`Optional Builtin ${mode} entered workspace mutation.`);
+  assertNoMutationTransaction(root, `Optional Builtin ${mode}`);
+  if (git(['status', '--porcelain=v1', '--untracked-files=all'], root) !== beforeStatus) throw new Error(`Optional Builtin ${mode} changed Git status.`);
+  if (mode === 'modified' && fs.readFileSync(skillFile, 'utf8') !== beforeContent) throw new Error('Modified optional Builtin content changed during preflight.');
+  if (mode === 'missing' && fs.existsSync(skillRoot)) throw new Error('Missing optional Builtin was restored before user decision.');
+}
+
+function verifyComponentConflictPreflight() {
+  const root = path.join(fixtureRoot, 'component-conflict');
+  run(['init', '--target', root, '--name', 'component-conflict']);
+  fs.rmSync(path.join(root, 'components'), { recursive: true, force: true });
+  fs.rmSync(path.join(root, 'commands', 'buildr', 'openspec'), { recursive: true, force: true });
+  const skillFile = path.join(root, 'skills', 'openspec', 'openspec-propose', 'SKILL.md');
+  fs.appendFileSync(skillFile, '\nlegacy user edit\n');
+  initializeGitBaseline(root);
+  const beforeStatus = git(['status', '--porcelain=v1', '--untracked-files=all'], root);
+  const beforeContent = fs.readFileSync(skillFile, 'utf8');
+  const result = run(['sync', 'codex', '--target', root], { expectFailure: true, env: { BUILDR_FAIL_IF_MUTATION_STARTED: '1' } });
+  const output = `${result.stdout}\n${result.stderr}`;
+  if (!output.includes('Component 源资产存在冲突') || !output.includes('Legacy Component migration')) throw new Error('Component conflict preflight did not report the reconcile issue.');
+  if (output.includes('Injected failure because workspace mutation started')) throw new Error('Component conflict entered workspace mutation.');
+  assertNoMutationTransaction(root, 'Component conflict');
+  if (git(['status', '--porcelain=v1', '--untracked-files=all'], root) !== beforeStatus) throw new Error('Component conflict changed Git status.');
+  if (fs.readFileSync(skillFile, 'utf8') !== beforeContent) throw new Error('Component conflict changed the user-edited member.');
 }
 
 try {
+  verifyOptionalBuiltinPreflight('modified');
+  verifyOptionalBuiltinPreflight('missing');
+  verifyComponentConflictPreflight();
   run(['init', '--target', workspace, '--name', 'integrity-fixture']);
 
   for (const id of ['.', '..']) {
@@ -84,9 +143,36 @@ try {
   run(['service', 'create', 'git-project/api', `file://${serviceRemoteB}`, '--target', workspace], { expectFailure: true });
   if (fs.readFileSync(serviceManifest, 'utf8') !== serviceRegistryBefore) throw new Error('Service identity conflict mutated metadata.');
 
+  const serviceRoot = path.join(workspace, 'projects', 'git-project', 'services', 'api');
+  git(['config', 'user.name', 'Buildr Verification'], serviceRoot);
+  git(['config', 'user.email', 'buildr-verification@example.com'], serviceRoot);
+  fs.writeFileSync(path.join(serviceRoot, 'keep.txt'), 'keep\n');
+  git(['add', 'keep.txt'], serviceRoot);
+  git(['commit', '-m', 'service fixture'], serviceRoot);
+  const serviceHead = git(['rev-parse', 'HEAD'], serviceRoot);
+  const serviceStatus = git(['status', '--porcelain=v1', '--untracked-files=all'], serviceRoot);
+  run(['sync', 'codex', '--target', workspace], { expectFailure: true, env: { BUILDR_FAULT_AFTER_MUTATION_WRITE: '1' } });
+  if (!fs.existsSync(path.join(serviceRoot, 'keep.txt')) || fs.readFileSync(path.join(serviceRoot, 'keep.txt'), 'utf8') !== 'keep\n') throw new Error('Sync rollback changed nested Service repository content.');
+  if (git(['rev-parse', 'HEAD'], serviceRoot) !== serviceHead || git(['status', '--porcelain=v1', '--untracked-files=all'], serviceRoot) !== serviceStatus) throw new Error('Sync rollback changed nested Service repository Git state.');
+  assertNoMutationTransaction(workspace, 'Nested Service rollback');
+
   run(['component', 'uninstall', 'openspec', '--agent', 'codex', '--target', workspace], { expectFailure: true, env: { BUILDR_FAULT_AFTER_MUTATION_WRITE: '1' } });
   run(['component', 'check', 'openspec', '--target', workspace, '--json']);
   if (!fs.existsSync(path.join(workspace, 'components', 'buildr', 'openspec', 'component.yml'))) throw new Error('Component rollback lost installed definition.');
+
+  const coreFile = path.join(workspace, 'rules', 'buildr', 'core.md');
+  const coreBeforeRestore = `${fs.readFileSync(coreFile, 'utf8')}\nuser restore fixture\n`;
+  fs.writeFileSync(coreFile, coreBeforeRestore);
+  const rollbackFailure = run(['builtin', 'restore', 'buildr-core', '--target', workspace], { expectFailure: true, env: { BUILDR_FAULT_AFTER_MUTATION_WRITE: '1', BUILDR_FAULT_MUTATION_RESTORE_REMOVE: '1' } });
+  if (!`${rollbackFailure.stdout}\n${rollbackFailure.stderr}`.includes('Rollback failed')) throw new Error('Injected restore removal failure did not preserve a rollback-failed transaction.');
+  const failedTransaction = fs.readdirSync(path.join(workspace, '.buildr', 'mutations'), { withFileTypes: true }).find((entry) => entry.isDirectory());
+  if (!failedTransaction) throw new Error('Rollback failure did not preserve its transaction directory.');
+  run(['mutation', 'recover', failedTransaction.name, '--target', workspace]);
+  if (fs.readFileSync(coreFile, 'utf8') !== coreBeforeRestore) throw new Error('Mutation recover did not restore the transaction pre-state.');
+  const repeatedRecover = run(['mutation', 'recover', failedTransaction.name, '--target', workspace]);
+  if (!repeatedRecover.stdout.includes('已经恢复')) throw new Error('Repeated mutation recover was not reported as a proven no-op.');
+  run(['mutation', 'recover', 'unknown-transaction', '--target', workspace], { expectFailure: true });
+  run(['builtin', 'restore', 'buildr-core', '--target', workspace]);
 
   const transactionId = 'fixture-transaction';
   const transactionRoot = path.join(workspace, '.buildr', 'mutations', transactionId);

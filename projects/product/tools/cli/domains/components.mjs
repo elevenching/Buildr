@@ -9,6 +9,12 @@ import {
   isSupportedAgent,
 } from '../shared/platform.mjs';
 import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../shared/json-contracts.mjs';
+import {
+  readSkillProjectionReceipt,
+  runtimeFileMatches,
+  sha256Integrity,
+  skillProjectionReceiptTarget,
+} from '../../runtime/skills/projection-files.mjs';
 
 export function registerDomainsComponents(runtime) {
   const renderRuntime = (...args) => runtime.renderRuntime(...args);
@@ -21,6 +27,9 @@ export function registerDomainsComponents(runtime) {
   const builtinRuleEntry = (...args) => runtime.builtinRuleEntry(...args);
   const builtinSkillEntry = (...args) => runtime.builtinSkillEntry(...args);
   const sourcePathFromBuiltin = (...args) => runtime.sourcePathFromBuiltin(...args);
+  const missingAncestorForMutation = (...args) => runtime.missingAncestorForMutation(...args);
+  const mutationPathFingerprint = (...args) => runtime.mutationPathFingerprint(...args);
+  const assertSafeSyncMutationPaths = (...args) => runtime.assertSafeSyncMutationPaths(...args);
   const isValidAssetId = (...args) => runtime.isValidAssetId(...args);
   const listManagedDirectories = (...args) => runtime.listManagedDirectories(...args);
   const rulesManifestPath = (...args) => runtime.rulesManifestPath(...args);
@@ -44,6 +53,9 @@ export function registerDomainsComponents(runtime) {
   const existsDirectory = (...args) => runtime.existsDirectory(...args);
   const existsFile = (...args) => runtime.existsFile(...args);
   const assertInitializedBuildrWorkspace = (...args) => runtime.assertInitializedBuildrWorkspace(...args);
+  const commandRemovalBlockers = (...args) => runtime.commandRemovalBlockers(...args);
+  const parseCommandsManifestYaml = (...args) => runtime.parseCommandsManifestYaml(...args);
+  const validateCommandsManifest = (...args) => runtime.validateCommandsManifest(...args);
 
   function componentRegistryPath(targetRoot) {
     return path.join(targetRoot, 'components', 'manifest.yml');
@@ -519,10 +531,44 @@ export function registerDomainsComponents(runtime) {
       const live = assetIntegrity(path.join(targetRoot, member));
       if (live && live !== oldIntegrity.get(member)) issues.push(`Removed Component member is modified: ${member}.`);
     }
+    issues.push(...commandCollectionReferenceIssues(targetRoot, [...oldMembers].filter((member) => !nextMembers.has(member) && member.startsWith('commands/'))));
     const receiptPath = `components/buildr/${record.entry.id}/component.yml`;
     const receiptSymlink = workspaceSymlinkSegment(targetRoot, receiptPath);
     if (receiptSymlink) issues.push(`Component receipt path crosses a symbolic link: ${receiptSymlink}.`);
     return { registry, existingEntry, oldDefinition, restoring, issues, nextMembers, oldMembers };
+  }
+
+  function commandCollectionReferenceIssues(targetRoot, members) {
+    const issues = [];
+    for (const member of members) {
+      const file = path.join(targetRoot, member);
+      if (!existsFile(file)) continue;
+      let manifest;
+      try {
+        manifest = parseCommandsManifestYaml(fs.readFileSync(file, 'utf8'));
+      } catch (error) {
+        issues.push(`Command collection cannot be parsed before removal: ${member}: ${error.message}`);
+        continue;
+      }
+      const validationErrors = validateCommandsManifest(manifest);
+      if (validationErrors.length) {
+        issues.push(`Command collection is invalid before removal: ${member}: ${validationErrors.join('; ')}`);
+        continue;
+      }
+      for (const command of manifest.commands) {
+        // A legacy workspace default stored on the Component-owned definition
+        // disappears with that definition. Component lifecycle only needs to
+        // protect independent Project references (and unverifiable contexts).
+        const blockers = commandRemovalBlockers(targetRoot, command.id, [file])
+          .filter((item) => item.kind !== 'workspace-default');
+        if (blockers.length) issues.push(`Command definition ${command.id} from ${member} is still referenced or cannot be safely checked: ${blockers.map((item) => {
+          if (item.kind === 'project') return `Project ${item.project} (${item.path})`;
+          if (item.kind === 'invalid-project-context') return `unverifiable Project context${item.project ? ` ${item.project}` : ''} (${item.path})`;
+          return `workspace default (${item.path})`;
+        }).join(', ')}.`);
+      }
+    }
+    return issues;
   }
 
   function removeEmptyCommandCollectionParents(targetRoot, file) {
@@ -590,9 +636,7 @@ export function registerDomainsComponents(runtime) {
     changed.push(member);
   }
 
-  function applyPackageComponent(targetRoot, packageManifest, record) {
-    const plan = buildComponentReconcilePlan(targetRoot, packageManifest, record);
-    if (plan.issues.length) throw new Error(`Component ${record.entry.id} cannot be reconciled:\n- ${plan.issues.join('\n- ')}`);
+  function componentReconcileAffectedPaths(targetRoot, record, plan) {
     const componentPath = `components/buildr/${record.entry.id}`;
     const definitionTarget = path.join(targetRoot, componentPath, 'component.yml');
     const affected = [
@@ -602,6 +646,19 @@ export function registerDomainsComponents(runtime) {
       componentRegistryPath(targetRoot),
       definitionTarget,
     ];
+    for (const target of [...affected]) {
+      const missingParent = missingAncestorForMutation(targetRoot, path.dirname(target));
+      if (missingParent) affected.push(missingParent);
+    }
+    return assertSafeSyncMutationPaths(targetRoot, affected);
+  }
+
+  function applyPackageComponent(targetRoot, packageManifest, record, preparedPlan = null) {
+    const plan = preparedPlan || buildComponentReconcilePlan(targetRoot, packageManifest, record);
+    if (plan.issues.length) throw new Error(`Component ${record.entry.id} cannot be reconciled:\n- ${plan.issues.join('\n- ')}`);
+    const componentPath = `components/buildr/${record.entry.id}`;
+    const definitionTarget = path.join(targetRoot, componentPath, 'component.yml');
+    const affected = componentReconcileAffectedPaths(targetRoot, record, plan);
     return withWorkspaceMutation(targetRoot, `component.reconcile:${record.entry.id}`, affected, () => {
       const changed = [];
       const rulesManifest = readRulesManifestForWrite(targetRoot);
@@ -654,14 +711,14 @@ export function registerDomainsComponents(runtime) {
     return { targetRoot, components, findings: inventory.findings, ownership: inventory.ownership };
   }
 
-  function syncPackageComponents(targetRoot, options = {}) {
+  function planPackageComponentsSync(targetRoot, options = {}) {
     const packageManifest = readPackageManifest();
-    const checkOnly = options.checkOnly === true;
     const onlyId = options.onlyId || null;
     const status = packageComponentsStatus(targetRoot, packageManifest);
-    if (checkOnly) return { targetRoot, changed: [], findings: status.components, errors: status.findings };
-    const changed = [];
     const findings = [];
+    const errors = status.findings.map((item) => ({ id: item.id || null, error: item.error || item.message || item.code || 'Component inventory is invalid.' }));
+    const plans = [];
+    const affectedPaths = [];
     const registry = readComponentsManifestForWrite(targetRoot);
     for (const entry of packageManifest.components) {
       if (onlyId && entry.id !== onlyId) continue;
@@ -675,7 +732,52 @@ export function registerDomainsComponents(runtime) {
         continue;
       }
       try {
-        const result = applyPackageComponent(targetRoot, packageManifest, packageComponentDefinition(entry));
+        const record = packageComponentDefinition(entry);
+        const plan = buildComponentReconcilePlan(targetRoot, packageManifest, record);
+        if (plan.issues.length) throw new Error(`Component ${entry.id} cannot be reconciled:\n- ${plan.issues.join('\n- ')}`);
+        const componentAffectedPaths = componentReconcileAffectedPaths(targetRoot, record, plan);
+        plans.push({ id: entry.id, record, plan, affectedPaths: componentAffectedPaths });
+        affectedPaths.push(...componentAffectedPaths);
+        findings.push({ id: entry.id, status: 'installed', required: entry.required === true });
+      } catch (error) {
+        const finding = { id: entry.id, status: 'blocked', required: entry.required === true, error: error.message };
+        findings.push(finding);
+        errors.push(finding);
+      }
+    }
+    const safeAffectedPaths = assertSafeSyncMutationPaths(targetRoot, affectedPaths);
+    const signature = JSON.stringify({
+      findings,
+      errors: errors.map(({ id, error }) => ({ id, error })),
+      affectedPaths: safeAffectedPaths.map((item) => ({ path: toPosixRelative(targetRoot, item), fingerprint: mutationPathFingerprint(item) })).sort((left, right) => left.path.localeCompare(right.path)),
+    });
+    return { targetRoot, changed: [], findings, errors, plans, affectedPaths: safeAffectedPaths, signature };
+  }
+
+  function syncPackageComponents(targetRoot, options = {}) {
+    const packageManifest = readPackageManifest();
+    const checkOnly = options.checkOnly === true;
+    const onlyId = options.onlyId || null;
+    if (checkOnly) return planPackageComponentsSync(targetRoot, options);
+    const changed = [];
+    const findings = [];
+    const registry = readComponentsManifestForWrite(targetRoot);
+    const preparedPlans = new Map((options.plans || []).map((item) => [item.id, item]));
+    for (const entry of packageManifest.components) {
+      if (onlyId && entry.id !== onlyId) continue;
+      const installed = registry.components.find((item) => item.id === entry.id);
+      if (installed && (installed.enabled === false || installed.state === 'uninstalled') && !options.restore) {
+        findings.push({ id: entry.id, status: 'uninstalled', required: entry.required === true });
+        continue;
+      }
+      if (!installed && entry.defaultEnabled !== true && !options.restore) {
+        findings.push({ id: entry.id, status: 'available', required: entry.required === true });
+        continue;
+      }
+      try {
+        const prepared = preparedPlans.get(entry.id);
+        const record = prepared?.record || packageComponentDefinition(entry);
+        const result = applyPackageComponent(targetRoot, packageManifest, record, prepared?.plan || null);
         changed.push(...result.changed);
         findings.push({ id: entry.id, status: 'installed', required: entry.required === true });
       } catch (error) {
@@ -775,14 +877,26 @@ export function registerDomainsComponents(runtime) {
     return declared;
   }
 
-  function managedRuntimeSkillOrphans(targetRoot, agent) {
+  function managedRuntimeSkillOrphans(targetRoot, agent, options = {}) {
     const runtimeRoot = getRuntimeAdapter(agent).traits.skills.root;
     const skillsRoot = path.join(targetRoot, runtimeRoot, 'skills');
-    if (!existsDirectory(skillsRoot)) return [];
     const declared = declaredRuntimeSkillPaths(targetRoot, agent);
     const orphans = [];
+    const receiptRoot = path.join(targetRoot, runtimeRoot, 'buildr', 'skill-projection-receipts', agent);
+    const receiptRuntimePaths = new Set();
+    for (const receiptFile of existsDirectory(receiptRoot) ? collectFiles(receiptRoot) : []) {
+      if (!receiptFile.endsWith('.json')) continue;
+      const receipt = readSkillProjectionReceipt(receiptFile, { adapterId: agent });
+      const expectedReceipt = skillProjectionReceiptTarget(targetRoot, runtimeRoot, agent, receipt.runtimePath);
+      if (path.resolve(expectedReceipt) !== path.resolve(receiptFile)) throw new Error(`Runtime Skill projection receipt target mismatch: ${receiptFile}`);
+      receiptRuntimePaths.add(receipt.runtimePath);
+      if (declared.has(receipt.runtimePath) && options.runtimePath !== receipt.runtimePath) continue;
+      const targetDir = path.join(skillsRoot, ...receipt.runtimePath.split('/'));
+      orphans.push({ runtimePath: receipt.runtimePath, path: toPosixRelative(targetRoot, targetDir), targetDir, receipt, receiptFile });
+    }
     for (const runtimePath of listManagedDirectories(skillsRoot)) {
-      if (declared.has(runtimePath)) continue;
+      if (receiptRuntimePaths.has(runtimePath)) continue;
+      if (declared.has(runtimePath) && options.runtimePath !== runtimePath) continue;
       const targetDir = path.join(skillsRoot, runtimePath);
       if (fs.lstatSync(targetDir).isSymbolicLink()) continue;
       const skillFile = path.join(targetDir, 'SKILL.md');
@@ -792,11 +906,45 @@ export function registerDomainsComponents(runtime) {
     return orphans;
   }
 
-  function buildRuntimeOrphanRemovalPlan(targetRoot, agent, scope = '.') {
+  function buildRuntimeOrphanRemovalPlan(targetRoot, agent, scope = '.', options = {}) {
     if (scope !== '.') return [];
     const removals = [];
     const conflicts = [];
-    for (const orphan of managedRuntimeSkillOrphans(targetRoot, agent)) {
+    for (const orphan of managedRuntimeSkillOrphans(targetRoot, agent, options)) {
+      if (options.runtimePath && orphan.runtimePath !== options.runtimePath) continue;
+      if (orphan.receipt) {
+        const actualFiles = existsDirectory(orphan.targetDir) ? collectFiles(orphan.targetDir) : [];
+        const expectedByPath = new Map(orphan.receipt.files.map((file) => [file.path, file]));
+        const unknown = actualFiles.filter((file) => !expectedByPath.has(toPosixRelative(orphan.targetDir, file)));
+        const modified = actualFiles.filter((file) => {
+          const expected = expectedByPath.get(toPosixRelative(orphan.targetDir, file));
+          return expected && !runtimeFileMatches(file, expected.integrity, expected.executable);
+        });
+        if (unknown.length || modified.length) {
+          conflicts.push(`${orphan.path}: ${unknown.length ? `包含非 Buildr 管理的额外文件 ${unknown.map((file) => toPosixRelative(orphan.targetDir, file)).join(', ')}` : ''}${unknown.length && modified.length ? '；' : ''}${modified.length ? `受管文件已修改 ${modified.map((file) => toPosixRelative(orphan.targetDir, file)).join(', ')}` : ''}`);
+          continue;
+        }
+        for (const [relative, expected] of expectedByPath) {
+          const file = path.join(orphan.targetDir, ...relative.split('/'));
+          if (!existsFile(file)) continue;
+          removals.push({
+            type: 'file',
+            path: file,
+            expectedIntegrity: expected.integrity,
+            expectedExecutable: expected.executable,
+            pruneEmptyRoot: orphan.targetDir,
+            source: `runtime Skill ${orphan.runtimePath}`,
+          });
+        }
+        removals.push({
+          type: 'file',
+          path: orphan.receiptFile,
+          expectedIntegrity: sha256Integrity(fs.readFileSync(orphan.receiptFile)),
+          pruneEmptyRoot: path.dirname(orphan.receiptFile),
+          source: `runtime Skill projection receipt ${orphan.runtimePath}`,
+        });
+        continue;
+      }
       const files = collectFiles(orphan.targetDir);
       if (files.length !== 1 || files[0] !== path.join(orphan.targetDir, 'SKILL.md')) {
         conflicts.push(`${orphan.path}: 包含非 Buildr 管理的额外文件`);
@@ -807,7 +955,7 @@ export function registerDomainsComponents(runtime) {
     const runtimeRoot = getRuntimeAdapter(agent).traits.skills.root;
     const plansRoot = path.join(targetRoot, runtimeRoot, 'buildr', 'skill-install-plans');
     const declaredPlans = declaredRuntimeInstallPlanIds(targetRoot, agent);
-    if (existsDirectory(plansRoot)) {
+    if (!options.runtimePath && existsDirectory(plansRoot)) {
       for (const name of fs.readdirSync(plansRoot).sort()) {
         if (!name.endsWith('.md') || declaredPlans.has(name.slice(0, -3))) continue;
         const file = path.join(plansRoot, name);
@@ -890,6 +1038,8 @@ export function registerDomainsComponents(runtime) {
     const integrity = componentIntegrityMap(definition);
     const modified = componentMemberPaths(definition).filter((member) => assetIntegrity(path.join(targetRoot, member)) !== integrity.get(member));
     if (modified.length) throw new Error(`Component ${id} has modified or missing members and cannot be uninstalled:\n- ${modified.join('\n- ')}`);
+    const commandReferenceIssues = commandCollectionReferenceIssues(targetRoot, componentMemberPaths(definition).filter((member) => member.startsWith('commands/')));
+    if (commandReferenceIssues.length) throw new Error(`Component ${id} cannot be uninstalled while Command definitions are referenced:\n- ${commandReferenceIssues.join('\n- ')}`);
     const packageManifest = readPackageManifest();
     const reason = optionValue(args, '--reason', null);
     const affected = [
@@ -917,6 +1067,6 @@ export function registerDomainsComponents(runtime) {
     console.log('doctor 通过。');
   }
 
-  Object.assign(runtime, { componentRegistryPath, parseComponentsManifestYaml, validateComponentsManifest, renderComponentsManifestYaml, readComponentsManifestForWrite, writeComponentsManifest, parseComponentDefinitionYaml, renderComponentDefinitionYaml, componentIntegrityMap, componentMemberPaths, parseSkillContributionDeclaration, validateComponentDefinition, assetIntegrity, readComponentDefinition, componentDefinitionFile, workspaceSymlinkSegment, componentInventory, componentOwnerForMember, packageComponentEntry, packageComponentDefinition, componentMemberKind, componentBuiltinForMember, packageComponentSourcePath, validatePackageComponentMembers, legacyComponentMemberDecision, isAdoptableLegacyComponentMember, buildComponentReconcilePlan, removeEmptyCommandCollectionParents, removeComponentMember, installComponentMember, applyPackageComponent, packageComponentsStatus, syncPackageComponents, assertWorkspaceComponentScope, componentListOrCheck, installWorkspaceComponent, declaredRuntimeSkillPaths, declaredRuntimeInstallPlanIds, managedRuntimeSkillOrphans, buildRuntimeOrphanRemovalPlan, reconcileComponentRuntime, componentInstall, componentUninstall });
+  Object.assign(runtime, { componentRegistryPath, parseComponentsManifestYaml, validateComponentsManifest, renderComponentsManifestYaml, readComponentsManifestForWrite, writeComponentsManifest, parseComponentDefinitionYaml, renderComponentDefinitionYaml, componentIntegrityMap, componentMemberPaths, parseSkillContributionDeclaration, validateComponentDefinition, assetIntegrity, readComponentDefinition, componentDefinitionFile, workspaceSymlinkSegment, componentInventory, componentOwnerForMember, packageComponentEntry, packageComponentDefinition, componentMemberKind, componentBuiltinForMember, packageComponentSourcePath, validatePackageComponentMembers, legacyComponentMemberDecision, isAdoptableLegacyComponentMember, buildComponentReconcilePlan, commandCollectionReferenceIssues, removeEmptyCommandCollectionParents, removeComponentMember, installComponentMember, componentReconcileAffectedPaths, applyPackageComponent, packageComponentsStatus, planPackageComponentsSync, syncPackageComponents, assertWorkspaceComponentScope, componentListOrCheck, installWorkspaceComponent, declaredRuntimeSkillPaths, declaredRuntimeInstallPlanIds, managedRuntimeSkillOrphans, buildRuntimeOrphanRemovalPlan, reconcileComponentRuntime, componentInstall, componentUninstall });
   return runtime;
 }

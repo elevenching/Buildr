@@ -29,20 +29,20 @@ for (const entry of packageManifest.files.filter((file) => file.startsWith('tool
 productionFiles.sort();
 const allowed = new Map([
   ['tools/cli/shared/infrastructure.mjs', new Set([
-    'atomicWriteFile', 'snapshotMutationPath', 'restoreMutationSnapshot', 'withWorkspaceMutation',
+    'atomicWriteFile', 'snapshotMutationPath', 'removeMutationRestoreTarget', 'restoreMutationSnapshot', 'withWorkspaceMutation',
   ])],
   ['tools/cli/domains/workspace.mjs', new Set(['createProject', 'createService'])],
   ['tools/cli/domains/rules.mjs', new Set(['rulesRemoveUnsafe'])],
-  ['tools/cli/domains/skills.mjs', new Set(['copySupportedSkillSource', 'skillsRemoveUnsafe'])],
+  ['tools/cli/domains/skills.mjs', new Set(['copySupportedSkillSource', 'skillsRemoveUnsafe', 'applyProjectSkillMigration'])],
   ['tools/cli/domains/components.mjs', new Set(['removeComponentMember', 'installComponentMember'])],
   ['tools/cli/domains/package-assets.mjs', new Set(['convergeServiceManifest', 'convergeRegistryManifests'])],
-  ['tools/cli/application/package-maintenance.mjs', new Set([
-    'syncPackageBuiltins', 'builtinUninstallUnsafe',
-  ])],
+  ['tools/cli/application/package-maintenance.mjs', new Set(['syncPackageBuiltins'])],
+  ['tools/cli/application/package-maintenance/builtin-lifecycle.mjs', new Set(['builtinUninstallUnsafe'])],
   ['tools/cli/application/package-maintenance/output.mjs', new Set(['buildPackageOutput', 'packageBuild'])],
   ['tools/cli/application/package-maintenance/smoke-checks.mjs', new Set([
     'verifyRecursiveRules', 'verifyWorkspaceAssetLifecycle', 'verifyInitializedWorkspace',
-    'verifyExistingAgentsCompatibility', 'runPackageSmokeChecks',
+    'verifyExistingAgentsCompatibility', 'runPackageWorkspaceSmoke', 'runPackageDomainIntegration',
+    'runPackageAggregateSmoke',
   ])],
   ['tools/cli/application/workspace-operations.mjs', new Set(['mutationRecover'])],
   ['tools/runtime/adapter-contract.mjs', new Set(['reconcileRuntimePlan'])],

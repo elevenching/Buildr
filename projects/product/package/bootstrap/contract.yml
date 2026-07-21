@@ -44,7 +44,7 @@ bootstrapGuideForbiddenText:
   - buildr runtime check claude-code
 
 buildrSkillPath: package/targets/runtime/skills/buildr/SKILL.md
-buildrSkillMaxLines: 160
+buildrSkillMaxLines: 175
 buildrSkillRequiredSections:
   - Buildr 是什么
   - 执行循环
@@ -94,9 +94,14 @@ buildrSkillRequiredText:
   - buildr builtin list
   - 请联系 Buildr 作者反馈该 Agent
   - task-worktree
+  - task-verification
   - task-finish
-  - task-cockpit
-  - git-ops
+  - task-board
+  - task-asset-review
+  - capability-adaptation
+  - buildr.git-single-operation/v1
+  - buildr.git-workspace-update/v1
+  - buildr.task-verification/v1
   - components/manifest.yml
   - buildr component install
   - buildr component uninstall

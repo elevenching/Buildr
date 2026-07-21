@@ -14,7 +14,7 @@ Agent 在 `{{project}}` Project 中的最小运行规则。
 |------|------|------|
 | Project rules | `AGENTS.md` | 当前 Project 的 Agent 工作规则 |
 | OpenSpec | `openspec/` | Project 事实、能力规范、变更和归档 |
-| Skills | `skills/`、`skills/manifest.yml` | Project 级 Skills 源 |
+| Capability context | `capabilities.yml` | 引用 workspace Skill，并声明 Project requirements、bindings 与 applicability；不存储 Skill 源 |
 | Service registry | `services/manifest.yml` | 当前项目 service repo registry |
 | Service repos | `services/<service>/` | 独立 Git repo，业务代码由自身 Git 管理 |
 

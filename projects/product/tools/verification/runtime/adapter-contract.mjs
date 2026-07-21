@@ -7,7 +7,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  ADAPTER_VERIFICATION_LEVELS,
   ADAPTER_TRAIT_CATALOG,
   REQUIRED_RENDER_CAPABILITIES,
   RUNTIME_ADAPTERS,
@@ -22,6 +21,7 @@ import {
   selectAdapterImplementation,
   validateRuntimePlan,
 } from '../../runtime/adapter-contract.mjs';
+import { validateSkillPublication } from '../../runtime/skills/publication.mjs';
 import { resolveSkillContributions } from '../../runtime/render-claude-code.mjs';
 import { assembleRuntimeProjection } from '../../runtime/projection.mjs';
 
@@ -29,9 +29,14 @@ const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const repositoryRoot = path.resolve(productRoot, '../..');
 
 assert.deepEqual(SUPPORTED_AGENT_IDS, ['claude-code', 'codex', 'cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']);
-assert.deepEqual(ADAPTER_VERIFICATION_LEVELS, ['documented', 'verified']);
 assert.deepEqual(ADAPTER_TRAIT_CATALOG.rules, ['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']);
 assert.equal(runtimeDiscoveryPayload().adapterTraitCatalog, ADAPTER_TRAIT_CATALOG);
+assert.deepEqual(RUNTIME_ADAPTERS.codex.traits.skills.publicationExtensions, [
+  { path: 'agents/openai.yaml', format: 'openai-skill-metadata' },
+]);
+for (const adapterId of SUPPORTED_AGENT_IDS.filter((id) => id !== 'codex')) {
+  assert.deepEqual(RUNTIME_ADAPTERS[adapterId].traits.skills.publicationExtensions || [], [], `${adapterId} must not consume OpenAI Skill metadata`);
+}
 for (const adapter of Object.values(RUNTIME_ADAPTERS)) {
   assert.ok(adapter.traits);
   assert.deepEqual(Object.keys(adapter.renderCapabilities), REQUIRED_RENDER_CAPABILITIES);
@@ -79,8 +84,11 @@ for (const adapterId of ['cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']) {
   const adapter = RUNTIME_ADAPTERS[adapterId];
   assert.ok(adapter.evidence.rules, `${adapterId} must retain runtime-specific Rules evidence`);
   assert.ok(adapter.evidence.skills, `${adapterId} must retain runtime-specific Skills evidence`);
-  assert.equal(adapter.evidence.verificationLevel, adapterId === 'workbuddy' ? 'verified' : 'documented');
-  assert.equal(adapter.evidence.smokeStatus, adapterId === 'workbuddy' ? 'passed' : 'pending');
+  assert.equal(typeof adapter.evidence.rules, 'string');
+  assert.equal(typeof adapter.evidence.skills, 'string');
+  assert.equal('verificationLevel' in adapter.evidence, false);
+  assert.equal('smokeStatus' in adapter.evidence, false);
+  assert.equal('smoke' in adapter.evidence, false);
   assert.deepEqual(adapter.planRuntime(createRuntimeContext({
     adapterId,
     targetRoot: path.join(os.tmpdir(), `buildr-${adapterId}-evidence`),
@@ -107,13 +115,11 @@ assert.equal(RUNTIME_ADAPTERS.trae.traits.checker.versionProbe.kind, 'manual');
 assert.equal(RUNTIME_ADAPTERS.trae.traits.skills.root, '.agents');
 assert.equal(RUNTIME_ADAPTERS.cursor.traits.rules.format, 'cursor-mdc');
 assert.equal(RUNTIME_ADAPTERS['trae-work'].traits.rules.placement, 'root-index');
-assert.equal(RUNTIME_ADAPTERS['trae-work'].traits.checker.prerequisites[0].code, 'runtime.trae_work_rules_import_unverified');
+assert.deepEqual(RUNTIME_ADAPTERS['trae-work'].traits.checker.prerequisites || [], []);
 assert.equal(RUNTIME_ADAPTERS.workbuddy.traits.rules.maxChars, 8000);
 assert.equal(RUNTIME_ADAPTERS.workbuddy.traits.skills.root, '.codebuddy');
 assert.deepEqual(RUNTIME_ADAPTERS.workbuddy.traits.surfaces, [{ kind: 'desktop' }, { kind: 'cli', variant: 'desktop-bundled' }]);
-assert.equal(RUNTIME_ADAPTERS.workbuddy.evidence.smoke.surface, 'desktop-bundled-cli');
-assert.equal(RUNTIME_ADAPTERS.workbuddy.evidence.smoke.rules.siblingIsolated, 'pass');
-assert.equal(RUNTIME_ADAPTERS.workbuddy.evidence.smoke.skill.result, 'SMOKE_SKILL_DISCOVERED_19AF');
+assert.deepEqual(Object.keys(RUNTIME_ADAPTERS.workbuddy.evidence).sort(), ['rules', 'skills']);
 assert.ok(adapterDoc.includes('`.codebuddy/skills`'));
 
 assert.throws(() => getRuntimeAdapter('fake-runtime'), /Unsupported Agent runtime/);
@@ -160,9 +166,22 @@ const fakeValue = {
 };
 assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, rules: { ...fakeValue.traits.rules, kind: 'unknown' } } }, { implementations: fakeImplementations }), /rules trait is invalid/);
 assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, skills: { ...fakeValue.traits.skills, root: '../escape' } } }, { implementations: fakeImplementations }), /skills root is unsafe/);
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, skills: { ...fakeValue.traits.skills, publicationExtensions: [{ path: '../escape', format: 'openai-skill-metadata' }] } } }, { implementations: fakeImplementations }), /publicationExtensions\[0\] path is unsafe/);
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, skills: { ...fakeValue.traits.skills, publicationExtensions: [{ path: 'agents\/openai.yaml', format: 'unknown' }] } } }, { implementations: fakeImplementations }), /publicationExtensions\[0\] format is invalid/);
+assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, skills: { ...fakeValue.traits.skills, publicationExtensions: [{ path: 'agents\/openai.yaml', format: 'openai-skill-metadata' }, { path: 'agents\/openai.yaml', format: 'openai-skill-metadata' }] } } }, { implementations: fakeImplementations }), /duplicate path/);
 assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, rules: { kind: 'native-root', implementation: 'fake-rules' } } }, { implementations: fakeImplementations }), /do not cover recursive scope/);
 assert.throws(() => createRuntimeAdapterDescriptor({ ...fakeValue, traits: { ...fakeValue.traits, rules: { ...fakeValue.traits.rules, implementation: 'missing' } } }, { implementations: fakeImplementations }), /no registered rules implementation/);
 assert.throws(() => createRuntimeAdapterRegistry([fakeDescriptor, fakeDescriptor], { testOnly: true, implementations: fakeImplementations }), /duplicate adapter id/);
+
+const publicationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-skill-publication-'));
+assert.deepEqual(validateSkillPublication(RUNTIME_ADAPTERS['claude-code'], { skillId: 'demo', skillDir: publicationRoot }), []);
+assert.deepEqual(validateSkillPublication(RUNTIME_ADAPTERS.codex, { skillId: 'demo', skillDir: publicationRoot }), [], 'missing optional OpenAI metadata must not block Codex publication');
+fs.mkdirSync(path.join(publicationRoot, 'agents'));
+fs.writeFileSync(path.join(publicationRoot, 'agents', 'openai.yaml'), 'interface:\n  display_name: Demo\n');
+assert.match(validateSkillPublication(RUNTIME_ADAPTERS.codex, { skillId: 'demo', skillDir: publicationRoot }).join('\n'), /short_description must be a non-empty string/);
+fs.writeFileSync(path.join(publicationRoot, 'agents', 'openai.yaml'), 'interface:\n  display_name: Demo\n  short_description: Demo skill\n  default_prompt: Use $demo.\n');
+assert.deepEqual(validateSkillPublication(RUNTIME_ADAPTERS.codex, { skillId: 'demo', skillDir: publicationRoot }), []);
+fs.rmSync(publicationRoot, { recursive: true, force: true });
 
 const codex = RUNTIME_ADAPTERS.codex;
 const root = path.join(os.tmpdir(), 'buildr-invalid-plan');
@@ -170,6 +189,9 @@ const context = createRuntimeContext({ adapterId: 'codex', targetRoot: root, sco
 const valid = codex.planRuntime(context);
 assert.throws(() => validateRuntimePlan({ ...valid, writes: [{ targetFile: path.join(root, '..', 'escape'), content: 'bad' }] }, codex), /outside target root/);
 assert.throws(() => validateRuntimePlan({ ...valid, capabilityEvidence: [] }, codex), /missing capability evidence/);
+assert.throws(() => validateRuntimePlan({ ...valid, writes: [{ targetFile: path.join(root, 'invalid-base64'), content: '***', contentEncoding: 'base64' }] }, codex), /base64 content is invalid/);
+assert.throws(() => validateRuntimePlan({ ...valid, writes: [{ targetFile: path.join(root, 'invalid-mode'), content: 'bad', mode: 0o111 }] }, codex), /mode is invalid/);
+assert.throws(() => validateRuntimePlan({ ...valid, writes: [{ targetFile: path.join(root, 'invalid-commit'), content: 'bad', commitLast: 'yes' }] }, codex), /commitLast must be boolean/);
 
 const symlinkPlanRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-runtime-plan-symlink-'));
 const symlinkPlanOutside = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-runtime-plan-outside-'));
@@ -195,6 +217,47 @@ assert.equal(reconcileRuntimePlan(adoptionPlan).changed.length, 1);
 fs.writeFileSync(targetFile, 'user content\n');
 assert.throws(() => reconcileRuntimePlan(reconcilePlan), /no files were changed/);
 assert.equal(fs.readFileSync(targetFile, 'utf8'), 'user content\n');
+
+const binaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-runtime-binary-'));
+const binaryFile = path.join(binaryRoot, '.agents', 'skills', 'demo', 'assets', 'sample.bin');
+const staleFile = path.join(binaryRoot, '.agents', 'skills', 'demo', 'assets', 'stale.bin');
+const receiptFile = path.join(binaryRoot, '.agents', 'buildr', 'skill-projection-receipts', 'codex', 'demo.json');
+fs.mkdirSync(path.dirname(staleFile), { recursive: true });
+fs.writeFileSync(staleFile, Buffer.from([9, 8, 7]));
+const staleIntegrity = `sha256-${crypto.createHash('sha256').update(fs.readFileSync(staleFile)).digest('hex')}`;
+const binaryPlan = createRuntimePlan({
+  adapterId: 'codex',
+  targetRoot: binaryRoot,
+  scope: '.',
+  writes: [
+    { targetFile: binaryFile, content: Buffer.from([0, 255, 16]).toString('base64'), contentEncoding: 'base64', mode: 0o100, source: 'binary fixture' },
+    { targetFile: receiptFile, content: '{"committed":true}\n', source: 'receipt fixture', commitLast: true },
+  ],
+  nativeAssets: [],
+  removals: [{ targetFile: staleFile, expectedIntegrity: staleIntegrity, expectedExecutable: false }],
+  capabilityEvidence: evidence,
+});
+const binaryResult = reconcileRuntimePlan(binaryPlan);
+assert.deepEqual(fs.readFileSync(binaryFile), Buffer.from([0, 255, 16]));
+assert.equal((fs.statSync(binaryFile).mode & 0o100) === 0o100, true);
+assert.equal(fs.existsSync(staleFile), false);
+assert.equal(binaryResult.changed.at(-1), receiptFile, 'commitLast receipt must be written after payload files and stale removals');
+
+const guardedRemoval = path.join(binaryRoot, '.agents', 'skills', 'demo', 'assets', 'guarded.bin');
+const untouchedWrite = path.join(binaryRoot, '.agents', 'skills', 'demo', 'assets', 'untouched.bin');
+fs.writeFileSync(guardedRemoval, Buffer.from([1, 2, 3]));
+const guardedPlan = createRuntimePlan({
+  adapterId: 'codex',
+  targetRoot: binaryRoot,
+  scope: '.',
+  writes: [{ targetFile: untouchedWrite, content: 'new\n', source: 'guarded fixture' }],
+  nativeAssets: [],
+  removals: [{ targetFile: guardedRemoval, expectedIntegrity: staleIntegrity, expectedExecutable: false }],
+  capabilityEvidence: evidence,
+});
+assert.throws(() => reconcileRuntimePlan(guardedPlan), /no files were changed/);
+assert.equal(fs.existsSync(untouchedWrite), false, 'removal conflicts must stop every write during preflight');
+assert.deepEqual(fs.readFileSync(guardedRemoval), Buffer.from([1, 2, 3]));
 
 const componentRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-runtime-component-'));
 const componentDir = path.join(componentRoot, 'components', 'workspace', 'demo');

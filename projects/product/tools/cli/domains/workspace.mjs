@@ -472,7 +472,6 @@ export function registerDomainsWorkspace(runtime) {
           const entry = parseManifestFileEntry(rawEntry, 'projectFiles');
           writeMappedFileIfMissing(targetRoot, projectRoot, entry, variables, created);
         }
-        trackWrite(targetRoot, path.join(projectRoot, 'skills', 'manifest.yml'), renderSkillsManifestYaml([]), created);
         trackWrite(targetRoot, servicesManifestPath(projectRoot), renderServicesManifestYaml({ schemaVersion: 'buildr.services/v1', project, services: {} }), created);
 
         const repoMetadata = repoRef ? { kind: 'git', url: repoRef, remote: 'origin', defaultBranch: gitDefaultBranch(projectRoot) }

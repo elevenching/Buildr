@@ -20,6 +20,10 @@ export function registerDomainsCommands(runtime) {
   const existsDirectory = (...args) => runtime.existsDirectory(...args);
   const existsFile = (...args) => runtime.existsFile(...args);
   const assertInitializedBuildrWorkspace = (...args) => runtime.assertInitializedBuildrWorkspace(...args);
+  const parseProjectsYaml = (...args) => runtime.parseProjectsYaml(...args);
+  const projectsManifestPath = (...args) => runtime.projectsManifestPath(...args);
+
+  const PROJECT_COMMANDS_SCHEMA = 'buildr.project-commands/v1';
 
   function normalizeCommandCollection(collection) {
     if (!collection) return null;
@@ -67,6 +71,64 @@ export function registerDomainsCommands(runtime) {
   function parseCommandsManifestYaml(content) {
     const manifest = parseYamlDocument(content, 'commands manifest');
     return manifest;
+  }
+
+  function projectCommandsPath(targetRoot, project) {
+    return path.join(targetRoot, 'projects', project, 'commands.yml');
+  }
+
+  function parseProjectCommandsYaml(content, file = 'commands.yml') {
+    return parseYamlDocument(content, file);
+  }
+
+  function validateProjectCommandsDocument(document) {
+    const errors = [];
+    if (!isPlainObject(document)) return ['Project commands document must be an object.'];
+    if (document.schemaVersion !== PROJECT_COMMANDS_SCHEMA) errors.push(`Project commands schemaVersion must be ${PROJECT_COMMANDS_SCHEMA}.`);
+    if (!Array.isArray(document.requirements)) return [...errors, 'Project commands document must declare requirements as an array.'];
+    const ids = new Set();
+    const allowedKeys = new Set(['id', 'required', 'version', 'purpose']);
+    document.requirements.forEach((requirement, index) => {
+      const label = `requirements[${index}]`;
+      if (!isPlainObject(requirement)) {
+        errors.push(`${label} must be an object.`);
+        return;
+      }
+      for (const key of Object.keys(requirement)) if (!allowedKeys.has(key)) errors.push(`${label}.${key} is not a supported Project Command requirement field.`);
+      if (!isValidAssetId(requirement.id)) errors.push(`${label}.id must contain only letters, digits, dots, underscores, or dashes.`);
+      else if (ids.has(requirement.id)) errors.push(`Duplicate Project Command requirement id: ${requirement.id}.`);
+      else ids.add(requirement.id);
+      if (requirement.required !== undefined && typeof requirement.required !== 'boolean') errors.push(`${label}.required must be a boolean.`);
+      if (requirement.version !== undefined && (typeof requirement.version !== 'string' || !parseVersionConstraint(requirement.version))) errors.push(`${label}.version is invalid: ${requirement.version}.`);
+      if (requirement.purpose !== undefined && typeof requirement.purpose !== 'string') errors.push(`${label}.purpose must be a string when provided.`);
+    });
+    return errors;
+  }
+
+  function renderProjectCommandsYaml(document = {}) {
+    const requirements = document.requirements || [];
+    const lines = [`schemaVersion: ${PROJECT_COMMANDS_SCHEMA}`];
+    if (requirements.length === 0) return `${lines.concat('requirements: []').join('\n')}\n`;
+    lines.push('requirements:');
+    for (const requirement of requirements) {
+      lines.push(`  - id: ${quoteYaml(requirement.id)}`);
+      if (requirement.required !== undefined) lines.push(`    required: ${quoteYaml(Boolean(requirement.required))}`);
+      if (requirement.version !== undefined) lines.push(`    version: ${quoteYaml(requirement.version)}`);
+      if (requirement.purpose !== undefined) lines.push(`    purpose: ${quoteYaml(requirement.purpose)}`);
+    }
+    return `${lines.join('\n')}\n`;
+  }
+
+  function repeatedOptionValues(args, flag) {
+    const values = [];
+    for (let index = 0; index < args.length; index += 1) {
+      if (args[index] !== flag) continue;
+      const value = args[index + 1];
+      if (!value || value.startsWith('--')) throw new Error(`Missing value for ${flag}`);
+      values.push(value);
+      index += 1;
+    }
+    return values;
   }
 
   function isPlainObject(value) {
@@ -146,9 +208,7 @@ export function registerDomainsCommands(runtime) {
             }
           }
           const { constraint, args } = command.version;
-          if (!constraint || typeof constraint !== 'string') {
-            errors.push(`${label}.version.constraint is required when version is declared.`);
-          } else if (!parseVersionConstraint(constraint)) {
+          if (constraint !== undefined && (typeof constraint !== 'string' || !parseVersionConstraint(constraint))) {
             errors.push(`${label}.version.constraint is invalid: ${constraint}.`);
           }
           if (!Array.isArray(args) || !args.every((arg) => typeof arg === 'string')) {
@@ -181,7 +241,7 @@ export function registerDomainsCommands(runtime) {
       }
       if (command.version) {
         lines.push('    version:');
-        lines.push(`      constraint: ${quoteYaml(command.version.constraint)}`);
+        if (command.version.constraint !== undefined) lines.push(`      constraint: ${quoteYaml(command.version.constraint)}`);
         lines.push(`      args: ${quoteYaml(command.version.args)}`);
       }
       if (command.installHint !== undefined) {
@@ -352,6 +412,19 @@ export function registerDomainsCommands(runtime) {
     if (existingIndex === -1) {
       throw new Error(`Command not found in ${relativeManifest}: ${id}`);
     }
+    const blockers = commandRemovalBlockers(targetRoot, id, [manifestPath]);
+    if (blockers.length) {
+      const blockerLabel = (item) => {
+        if (item.kind === 'project') return `Project ${item.project}`;
+        if (item.kind === 'invalid-project-context') return `unverifiable Project context${item.project ? ` ${item.project}` : ''}`;
+        return 'workspace default';
+      };
+      const error = new Error(`Command definition ${id} 仍被 requirements 引用或引用关系不可验证，保持零写入：\n${blockers.map((item) => `- ${blockerLabel(item)}: ${item.path}`).join('\n')}\n先解除或修复对应 requirement，再重试删除。`);
+      error.code = 'command_definition_referenced';
+      error.reason = 'command_definition_referenced';
+      error.references = blockers;
+      throw error;
+    }
     manifest.commands.splice(existingIndex, 1);
     writeCommandsManifest(targetRoot, manifest, collection);
     printCommandsMutationReceipt(
@@ -451,8 +524,122 @@ export function registerDomainsCommands(runtime) {
     return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableValue(value[key])]));
   }
 
+  function commandDefinitionIdentity(command) {
+    return {
+      id: command.id,
+      executable: command.executable,
+      purpose: command.purpose,
+      name: command.name || null,
+      description: command.description || null,
+      versionArgs: command.version?.args || null,
+      installHint: command.installHint || null,
+    };
+  }
+
   function normalizedCommandSignature(command) {
-    return JSON.stringify(stableValue(command));
+    return JSON.stringify(stableValue(commandDefinitionIdentity(command)));
+  }
+
+  function readRegisteredProjects(targetRoot) {
+    const registryPath = projectsManifestPath(targetRoot);
+    if (!existsFile(registryPath)) return { path: 'projects/manifest.yml', projects: {} };
+    const registry = parseProjectsYaml(fs.readFileSync(registryPath, 'utf8'));
+    return { path: toPosixRelative(targetRoot, registryPath), projects: registry.projects || {} };
+  }
+
+  function intersectVersionConstraints(rawConstraints) {
+    const constraints = rawConstraints.filter(Boolean).map((raw) => ({ ...parseVersionConstraint(raw), raw }));
+    if (constraints.some((constraint) => !constraint.operator)) return { compatible: false, constraint: null, constraints: rawConstraints };
+    let exact = null;
+    let lower = null;
+    let upper = null;
+    for (const constraint of constraints) {
+      if (constraint.operator === '=') {
+        if (exact && compareVersions(exact.version, constraint.version) !== 0) return { compatible: false, constraint: null, constraints: rawConstraints };
+        exact = constraint;
+      } else if (constraint.operator === '>' || constraint.operator === '>=') {
+        if (!lower || compareVersions(constraint.version, lower.version) > 0 || (compareVersions(constraint.version, lower.version) === 0 && constraint.operator === '>')) lower = constraint;
+      } else if (constraint.operator === '<' || constraint.operator === '<=') {
+        if (!upper || compareVersions(constraint.version, upper.version) < 0 || (compareVersions(constraint.version, upper.version) === 0 && constraint.operator === '<')) upper = constraint;
+      }
+    }
+    if (exact && constraints.some((constraint) => !versionSatisfies(exact.version, constraint))) return { compatible: false, constraint: null, constraints: rawConstraints };
+    if (lower && upper) {
+      const comparison = compareVersions(lower.version, upper.version);
+      if (comparison > 0 || (comparison === 0 && (lower.operator === '>' || upper.operator === '<'))) return { compatible: false, constraint: null, constraints: rawConstraints };
+    }
+    const merged = exact?.raw || [lower?.raw, upper?.raw].filter(Boolean).join(' ') || null;
+    return { compatible: true, constraint: merged, constraints: rawConstraints };
+  }
+
+  function readProjectRequirementRecords(targetRoot, result) {
+    const registry = readRegisteredProjects(targetRoot);
+    const records = [];
+    for (const project of Object.keys(registry.projects).sort()) {
+      const file = projectCommandsPath(targetRoot, project);
+      const relative = toPosixRelative(targetRoot, file);
+      if (!existsFile(file)) {
+        addCommandsFinding(result, 'info', 'commands.project_context_missing', `Project ${project} 尚未创建 commands.yml，按空 requirements 兼容。`, {
+          path: relative,
+          project,
+          suggestion: `运行 buildr project create ${project} --target ${targetRoot} 安全补齐空 Commands context。`,
+          userActionRequired: false,
+        });
+        continue;
+      }
+      try {
+        const document = parseProjectCommandsYaml(fs.readFileSync(file, 'utf8'), relative);
+        const errors = validateProjectCommandsDocument(document);
+        if (errors.length) {
+          for (const message of errors) addCommandsFinding(result, 'error', 'commands.project_requirements_invalid', message, { path: relative, project, reason: 'project_requirements_invalid' });
+          continue;
+        }
+        for (const requirement of document.requirements) records.push({
+          id: requirement.id,
+          required: requirement.required !== false,
+          version: requirement.version || null,
+          purpose: requirement.purpose || null,
+          project,
+          source: relative,
+          provenance: { kind: 'project', project, path: relative },
+        });
+      } catch (error) {
+        addCommandsFinding(result, 'error', 'commands.project_requirements_invalid', `Project Commands context 不可解析：${error.message}`, { path: relative, project, reason: 'project_requirements_invalid' });
+      }
+    }
+    return { registry, records };
+  }
+
+  function commandRemovalBlockers(targetRoot, commandId, removedManifestPaths = []) {
+    const removed = new Set(removedManifestPaths.map((file) => path.resolve(file)));
+    const remaining = listCommandsManifestPaths(targetRoot).filter((file) => !removed.has(path.resolve(file))).some((file) => {
+      try {
+        const manifest = parseCommandsManifestYaml(fs.readFileSync(file, 'utf8'));
+        return validateCommandsManifest(manifest).length === 0 && manifest.commands.some((command) => command.id === commandId && command.enabled !== false && command.state !== 'uninstalled');
+      } catch {
+        return false;
+      }
+    });
+    if (remaining) return [];
+    const blockers = [];
+    const result = createCommandsCheckResult(targetRoot);
+    const { records } = readProjectRequirementRecords(targetRoot, result);
+    for (const finding of result.findings.filter((item) => item.status === 'error')) {
+      blockers.push({ kind: 'invalid-project-context', project: finding.project || null, path: finding.path, reason: finding.reason });
+    }
+    for (const record of records.filter((item) => item.id === commandId)) blockers.push({ kind: 'project', project: record.project, path: record.source });
+    for (const file of removed) {
+      if (!existsFile(file)) continue;
+      try {
+        const manifest = parseCommandsManifestYaml(fs.readFileSync(file, 'utf8'));
+        for (const command of manifest.commands.filter((item) => item.id === commandId && (item.required !== undefined || item.version?.constraint))) {
+          blockers.push({ kind: 'workspace-default', path: toPosixRelative(targetRoot, file) });
+        }
+      } catch {
+        // Existing validation will report malformed manifests before mutation.
+      }
+    }
+    return blockers;
   }
 
   function finalizeCommandsCheckResult(result) {
@@ -475,8 +662,13 @@ export function registerDomainsCommands(runtime) {
       .slice(0, 10);
   }
 
-  function runCommandsCheck(targetRoot) {
+  function runCommandsCheck(targetRoot, options = {}) {
     const result = createCommandsCheckResult(targetRoot);
+    result.catalog = { definitions: [], manifests: result.manifests };
+    result.requirements = [];
+    result.effectiveConstraints = [];
+    result.observations = [];
+    result.context = { projects: [...(options.projects || [])] };
     const rootManifestPath = commandsManifestPath(targetRoot);
     const manifestPaths = listCommandsManifestPaths(targetRoot);
     result.manifest.exists = existsFile(rootManifestPath);
@@ -513,9 +705,10 @@ export function registerDomainsCommands(runtime) {
           } else if (existing.signature === signature) {
             existing.sources.push(relative);
           } else {
-            addCommandsFinding(result, 'error', 'commands.collection_conflict', `Command ${command.id} 在多个 collection 中声明冲突。`, {
+            addCommandsFinding(result, 'error', 'commands.catalog_identity_conflict', `Command ${command.id} 在多个 catalog collection 中的 definition identity 冲突。`, {
               commandId: command.id,
               sources: [...existing.sources, relative],
+              reason: 'command_catalog_identity_conflict',
               suggestion: '统一重复 Command 的有效字段，或删除其中一个声明。',
             });
           }
@@ -535,6 +728,70 @@ export function registerDomainsCommands(runtime) {
         });
         continue;
       }
+      result.catalog.definitions.push({ ...commandDefinitionIdentity(command), sources, provenance: sources.map((source) => ({ kind: 'workspace-catalog', path: source })) });
+      if (command.required !== undefined || command.version?.constraint) result.requirements.push({
+        id: command.id,
+        required: command.required !== false,
+        version: command.version?.constraint || null,
+        project: null,
+        source: sources[0],
+        provenance: { kind: 'workspace-default', paths: sources },
+        legacyCatalogConstraint: Boolean(command.version?.constraint),
+      });
+    }
+
+    const selectedProjects = options.projects || [];
+    const duplicateProjects = selectedProjects.filter((project, index) => selectedProjects.indexOf(project) !== index);
+    const { registry, records } = readProjectRequirementRecords(targetRoot, result);
+    for (const project of duplicateProjects) addCommandsFinding(result, 'error', 'commands.project_context_invalid', `Project context 重复：${project}`, { project, reason: 'duplicate_project_context' });
+    for (const project of selectedProjects) {
+      if (!isValidAssetId(project) || !registry.projects[project]) addCommandsFinding(result, 'error', 'commands.project_context_invalid', `Project context 未登记或不安全：${project}`, { project, reason: 'invalid_project_context' });
+    }
+    result.requirements.push(...records.map((record) => ({ ...record, applicable: selectedProjects.includes(record.project) })));
+
+    for (const requirement of records) {
+      if (!commandsById.has(requirement.id)) addCommandsFinding(result, 'error', 'commands.definition_missing', `Project ${requirement.project} 引用不存在的 Command definition：${requirement.id}`, {
+        commandId: requirement.id,
+        project: requirement.project,
+        path: requirement.source,
+        reason: 'command_definition_missing',
+        suggestion: `先在 workspace catalog 登记 ${requirement.id}，或从 ${requirement.source} 删除该引用。`,
+      });
+    }
+
+    const applicable = result.requirements.filter((requirement) => requirement.project === null || requirement.applicable === true);
+    const grouped = new Map();
+    for (const requirement of applicable) {
+      if (!grouped.has(requirement.id)) grouped.set(requirement.id, []);
+      grouped.get(requirement.id).push(requirement);
+    }
+    for (const [id, requirements] of grouped) {
+      const merged = intersectVersionConstraints(requirements.map((requirement) => requirement.version).filter(Boolean));
+      const effective = {
+        id,
+        required: requirements.some((requirement) => requirement.required),
+        constraint: merged.constraint,
+        constraints: merged.constraints,
+        compatible: merged.compatible,
+        provenance: requirements.map((requirement) => requirement.provenance),
+        projects: [...new Set(requirements.map((requirement) => requirement.project).filter(Boolean))],
+      };
+      result.effectiveConstraints.push(effective);
+      if (!merged.compatible) addCommandsFinding(result, 'error', 'commands.requirement_conflict', `Command ${id} 的 Project version constraints 不兼容。`, {
+        commandId: id,
+        projects: effective.projects,
+        constraints: effective.constraints,
+        provenance: effective.provenance,
+        reason: 'command_requirement_conflict',
+        suggestion: '调整对应 Project commands.yml，使版本要求存在可证明交集。',
+      });
+    }
+
+    const sourceErrors = result.findings.some((finding) => finding.status === 'error');
+    if (!sourceErrors) for (const effective of result.effectiveConstraints) {
+      const record = commandsById.get(effective.id);
+      if (!record) continue;
+      const { command, sources } = record;
       const item = {
         id: command.id,
         name: command.name || command.id,
@@ -544,21 +801,26 @@ export function registerDomainsCommands(runtime) {
         installHint: command.installHint || null,
         status: 'ok',
         executablePath: null,
-        version: command.version ? {
-          constraint: command.version.constraint,
+        version: command.version?.args && effective.constraint ? {
+          constraint: effective.constraint,
+          constraints: effective.constraints,
           args: command.version.args,
           current: null,
         } : null,
         message: '命令行工具可用。',
         difference: null,
         sources,
+        requirements: effective.provenance,
+        reason: 'command_available',
       };
       result.commands.push(item);
+      result.observations.push(item);
 
       const executablePath = findExecutableOnPath(command.executable);
       item.executablePath = executablePath;
       if (!executablePath) {
         item.status = 'warning';
+        item.reason = 'command_executable_missing';
         item.message = `当前本机找不到 executable：${command.executable}`;
         item.difference = { expected: command.executable, actual: null };
         addCommandsFinding(result, 'warning', 'commands.executable_missing', item.message, {
@@ -567,12 +829,21 @@ export function registerDomainsCommands(runtime) {
           commandId: command.id,
           executable: command.executable,
           installHint: command.installHint || null,
+          reason: item.reason,
+          provenance: effective.provenance,
           suggestion: command.installHint || '根据组织约定安装该命令行工具。',
         });
         continue;
       }
 
-      if (!command.version) continue;
+      if (!effective.constraint) continue;
+      if (!command.version?.args) {
+        item.status = 'warning';
+        item.reason = 'command_version_probe_missing';
+        item.message = `Command ${command.id} 有版本要求但 catalog definition 未声明 version probe args。`;
+        addCommandsFinding(result, 'warning', 'commands.version_probe_missing', item.message, { commandId: command.id, sources, expected: effective.constraint, reason: 'command_version_probe_missing' });
+        continue;
+      }
 
       const versionCheck = spawnSync(command.executable, command.version.args, {
         encoding: 'utf8',
@@ -583,6 +854,7 @@ export function registerDomainsCommands(runtime) {
       const currentVersion = parseVersion(output);
       if (!currentVersion) {
         item.status = 'warning';
+        item.reason = 'command_version_unknown';
         item.message = `无法从版本输出判断 ${command.id} 的版本。`;
         item.difference = { expected: command.version.constraint, actual: output || null };
         addCommandsFinding(result, 'warning', 'commands.version_unknown', item.message, {
@@ -592,25 +864,30 @@ export function registerDomainsCommands(runtime) {
           executable: command.executable,
           versionArgs: command.version.args,
           installHint: command.installHint || null,
+          reason: item.reason,
+          provenance: effective.provenance,
           suggestion: command.installHint || '根据组织约定确认或升级该命令行工具。',
         });
         continue;
       }
 
       item.version.current = currentVersion.join('.');
-      const constraint = parseVersionConstraint(command.version.constraint);
-      if (!versionSatisfies(currentVersion, constraint)) {
+      const satisfies = effective.constraints.every((raw) => versionSatisfies(currentVersion, parseVersionConstraint(raw)));
+      if (!satisfies) {
         item.status = 'warning';
-        item.message = `${command.id} 当前版本 ${item.version.current} 不满足 ${command.version.constraint}。`;
-        item.difference = { expected: command.version.constraint, actual: item.version.current };
+        item.reason = 'command_version_unsatisfied';
+        item.message = `${command.id} 当前版本 ${item.version.current} 不满足 ${effective.constraint}。`;
+        item.difference = { expected: effective.constraint, actual: item.version.current };
         addCommandsFinding(result, 'warning', 'commands.version_unsatisfied', item.message, {
           path: sources[0],
           sources,
           commandId: command.id,
           executable: command.executable,
-          expected: command.version.constraint,
+          expected: effective.constraint,
           actual: item.version.current,
           installHint: command.installHint || null,
+          reason: item.reason,
+          provenance: effective.provenance,
           suggestion: command.installHint || '根据组织约定升级该命令行工具。',
         });
       }
@@ -645,9 +922,11 @@ export function registerDomainsCommands(runtime) {
   }
 
   function commandsCheck(args) {
+    assertNoUnknownOptions(args, new Set(['--target', '--project', '--json']), new Set(['--json']));
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
     const json = hasFlag(args, '--json');
-    const result = runCommandsCheck(targetRoot);
+    const projects = repeatedOptionValues(args, '--project');
+    const result = runCommandsCheck(targetRoot, { projects });
     if (json) {
       process.stdout.write(`${JSON.stringify(withJsonSchema(PUBLIC_JSON_SCHEMAS.commandsCheck, result), null, 2)}\n`);
     } else {
@@ -656,6 +935,6 @@ export function registerDomainsCommands(runtime) {
     process.exitCode = result.ok ? 0 : 1;
   }
 
-  Object.assign(runtime, { normalizeCommandCollection, commandsManifestPath, assertSafeCommandCollectionTarget, listCommandsManifestPaths, parseCommandsManifestYaml, isPlainObject, validateCommandsManifest, renderCommandsManifestYaml, readCommandsManifestForWrite, writeCommandsManifest, parseVersionArgs, assertNoUnknownOptions, positionalArgs, buildCommandEntry, printCommandsMutationReceipt, commandsAddUnsafe, commandsAdd, commandsRemoveUnsafe, commandsRemove, parseVersionConstraint, parseVersion, compareVersions, versionSatisfies, findExecutableOnPath, createCommandsCheckResult, addCommandsFinding, stableValue, normalizedCommandSignature, finalizeCommandsCheckResult, runCommandsCheck, printCommandsCheckReport, commandsCheck });
+  Object.assign(runtime, { PROJECT_COMMANDS_SCHEMA, normalizeCommandCollection, commandsManifestPath, projectCommandsPath, assertSafeCommandCollectionTarget, listCommandsManifestPaths, parseCommandsManifestYaml, parseProjectCommandsYaml, validateProjectCommandsDocument, renderProjectCommandsYaml, isPlainObject, validateCommandsManifest, renderCommandsManifestYaml, readCommandsManifestForWrite, writeCommandsManifest, parseVersionArgs, repeatedOptionValues, assertNoUnknownOptions, positionalArgs, buildCommandEntry, printCommandsMutationReceipt, commandsAddUnsafe, commandsAdd, commandsRemoveUnsafe, commandsRemove, parseVersionConstraint, parseVersion, compareVersions, versionSatisfies, intersectVersionConstraints, findExecutableOnPath, createCommandsCheckResult, addCommandsFinding, stableValue, commandDefinitionIdentity, normalizedCommandSignature, readRegisteredProjects, readProjectRequirementRecords, commandRemovalBlockers, finalizeCommandsCheckResult, runCommandsCheck, printCommandsCheckReport, commandsCheck });
   return runtime;
 }

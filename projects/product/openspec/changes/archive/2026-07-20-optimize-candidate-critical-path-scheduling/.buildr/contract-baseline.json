@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "optimize-candidate-critical-path-scheduling",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-0ea52f56013ff04120849b32b95dfa7da981046a2dd0e7ad568e0ccd63483beb",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "product-verification-quality",
+      "title": "产品验证步骤必须由统一 registry 声明",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品验证步骤必须由统一 registry 声明\nBuildr Product MUST 使用单一 verification registry 声明所有可编排 step 的稳定 id、显示名称、执行命令、输入路径、真实执行依赖、profile/group、预算、并发类别和 artifact 需求，并 MUST 在执行前验证 registry 完整性；`dependsOn` MUST NOT 用于表达 profile 完整性或建议门禁顺序。\n\n#### Scenario: registry 定义合法\n- **WHEN** fast、focus、changed 或 Candidate 解析 verification registry\n- **THEN** 每个 step id MUST 唯一且引用的依赖、profile、group、concurrency class 和 executor MUST 已登记\n- **AND** dependency graph MUST 无环\n- **AND** 声明消费候选 artifact 的 step MUST 依赖对应 artifact producer\n\n#### Scenario: registry 定义非法\n- **WHEN** registry 存在重复 id、未知依赖、依赖环、artifact consumer 缺失 producer 依赖或缺失执行信息\n- **THEN** planner MUST 在启动任何验证进程前 fail closed\n- **AND** 诊断 MUST 标识无效 step 与原因\n\n#### Scenario: step 只需要共同通过而不消费输出\n- **WHEN** 两个 verifier 由同一 Fast 或 Candidate profile 选择但彼此不消费输出\n- **THEN** registry MUST NOT 仅为了固定运行顺序在二者之间声明 `dependsOn`\n- **AND** scheduler MAY 按并发类别并行执行二者\n"
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "验证 DAG 必须有界调度并保留失败传播",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 验证 DAG 必须有界调度并保留失败传播\nBuildr verification scheduler MUST 只在 step 的全部依赖通过且 concurrency class 有容量时启动该 step，并 MUST 保留 passed、failed 与 blocked step 的独立结果。\n\n#### Scenario: 独立 steps 并发\n- **WHEN** 多个 ready steps 使用允许并发的类别且未超过类别和全局上限\n- **THEN** scheduler MUST 并行执行它们\n- **AND** 输出顺序 MUST 按稳定拓扑顺序呈现，不依赖进程完成先后\n\n#### Scenario: 依赖 step 失败\n- **WHEN** 一个 step 返回非零状态\n- **THEN** scheduler MUST 将直接或传递依赖该 step 的未启动 steps 标记为 blocked\n- **AND** 与失败 step 无依赖关系且已经启动的 steps MUST 保留实际结果\n- **AND** 整体执行 MUST 返回非零状态\n"
+    }
+  ]
+}

@@ -76,7 +76,7 @@ Rules 和 Skills 分别选择：
 
 1. 根 AGENTS.md 是否生效；
 2. 进入子目录后，子目录 AGENTS.md 是否生效且兄弟目录不泄漏；
-3. project Skill 是否能被发现；
+3. workspace destination 中的测试 Skill 是否能被发现；
 4. 修改 Rule/Skill 后是否需要 reload 或新会话。
 
 如果产品随包提供 headless/print CLI，可以用它执行只读 smoke，但必须记录准确 surface。对 sibling isolation，应同时保存实际工具调用路径或其他可审计证据；Agent 自己声称“没有读取”不算单独充分证据。

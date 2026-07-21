@@ -19,7 +19,7 @@ function run(args, options = {}) {
 }
 
 const helpTopics = [
-  [], ['init'], ['project', 'create'], ['service', 'create'], ['doctor'],
+  [], ['version'], ['init'], ['project', 'create'], ['service', 'create'], ['doctor'],
   ['mutation', 'recover'], ['runtime', 'list'], ['runtime', 'check'],
   ['commands', 'add'], ['commands', 'remove'], ['commands', 'check'],
   ['openspec', 'baseline', 'create'], ['openspec', 'check'],
@@ -28,7 +28,7 @@ const helpTopics = [
   ['builtin', 'list'], ['builtin', 'uninstall'], ['builtin', 'restore'],
   ['update'], ['update', 'check'], ['package', 'check'], ['package', 'build'],
   ['bootstrap', 'guide'], ['render'], ['sync'], ['skill', 'install'],
-  ['skills', 'add'], ['skills', 'remove'], ['skills', 'render'],
+  ['skills', 'add'], ['skills', 'remove'], ['skills', 'bind'], ['skills', 'unbind'], ['skills', 'render'],
 ];
 
 for (const topic of helpTopics) {
@@ -39,13 +39,21 @@ for (const topic of helpTopics) {
     assert.match(result.stdout, /Usage:/, `help missing Usage: buildr ${topic.join(' ')}`);
     assert.equal(result.stderr, '', `help wrote stderr: buildr ${topic.join(' ')}`);
     assert.deepEqual(fs.readdirSync(cwd), [], `help changed filesystem: buildr ${topic.join(' ')}`);
+    if (topic.length > 0) {
+      const commandHelp = run(['help', ...topic], { cwd });
+      assert.equal(commandHelp.status, 0, `command help failed: buildr help ${topic.join(' ')}`);
+      assert.equal(commandHelp.stdout, result.stdout, `help forms differ: ${topic.join(' ')}`);
+      assert.equal(commandHelp.stderr, '');
+    }
   } finally {
     fs.rmSync(cwd, { recursive: true, force: true });
   }
 }
 
 for (const [args, expected] of [
-  [['unknown'], /Usage:/],
+  [['unknown'], /Unknown command: unknown/],
+  [['help', 'unknown'], /Unknown help topic: unknown/],
+  [['-v'], /Unknown option: -v/],
   [['project', 'create'], /Missing project ref/],
   [['service', 'create'], /Missing service ref/],
   [['render', 'unsupported'], /Unsupported Agent runtime: unsupported/],
@@ -55,6 +63,27 @@ for (const [args, expected] of [
   assert.notEqual(result.status, 0, `invalid command unexpectedly passed: ${args.join(' ')}`);
   assert.match(`${result.stdout}${result.stderr}`, expected, `invalid command diagnostic drifted: ${args.join(' ')}`);
 }
+
+const packageVersion = JSON.parse(fs.readFileSync(path.join(productRoot, 'package.json'), 'utf8')).version;
+for (const args of [['--version'], ['-V'], ['version']]) {
+  const result = run(args);
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout.trim(), packageVersion);
+  assert.equal(result.stderr, '');
+}
+const versionJson = run(['version', '--json']);
+assert.equal(versionJson.status, 0);
+assert.deepEqual(JSON.parse(versionJson.stdout), {
+  schemaVersion: 'buildr.version/v1',
+  package: '@buildr-ai/buildr',
+  version: packageVersion,
+});
+const unknownJson = run(['doctr', '--json']);
+assert.equal(unknownJson.status, 2);
+assert.equal(unknownJson.stderr, '');
+assert.equal(JSON.parse(unknownJson.stdout).schemaVersion, 'buildr.cli-error/v1');
+assert.equal(JSON.parse(unknownJson.stdout).error.code, 'cli.unknown_command');
+assert.deepEqual(JSON.parse(unknownJson.stdout).suggestions, ['doctor']);
 
 const runtime = run(['runtime', 'list', '--json']);
 assert.equal(runtime.status, 0);
@@ -89,4 +118,4 @@ try {
   fs.rmSync(workspace, { recursive: true, force: true });
 }
 
-console.log(`CLI compatibility verification passed: ${helpTopics.length} help topics, invalid inputs, JSON discovery, and workspace mutation.`);
+console.log(`CLI compatibility verification passed: ${helpTopics.length} help topics, package identity, actionable failures, JSON discovery, and workspace mutation.`);

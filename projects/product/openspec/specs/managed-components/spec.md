@@ -2,7 +2,6 @@
 
 ## Purpose
 定义 Buildr 在 workspace 范围内以 Component 统一管理 Rules、Skills、Command collections 及其自然语言贡献的当前契约，覆盖来源登记、完整性与所有权校验、事务化生命周期、runtime 投射边界，以及随包 OpenSpec Component 的交付方式。
-
 ## Requirements
 ### Requirement: Workspace 管理 Component 源资产
 Buildr MUST 支持在 workspace 级维护 Component，并将 Component 作为一个或多个 Rules、Skills 和 Command collections 的统一生命周期单元。
@@ -254,3 +253,23 @@ Buildr MUST 在 Component 安装、更新、卸载、check、doctor 和 runtime 
 - **THEN** doctor MUST 保留 Component-specific error 和可执行修复建议
 - **AND** doctor MUST 继续执行不消费该 Component 内容的 source asset 和 runtime 只读诊断
 - **AND** Buildr MUST NOT 将需要该 Component 内容的 mutation 报告为完整成功
+
+### Requirement: Component 只拥有 workspace Command catalog collection
+Buildr Component MUST 只把 workspace `commands/<collection>/manifest.yml` 作为 Command member，并 MUST NOT 拥有 Project requirements 或 machine state。
+
+#### Scenario: Component 安装 Command collection
+- **WHEN** Component definition 声明 Command collection member
+- **THEN** Component MAY 物化 workspace catalog definitions
+- **AND** MUST NOT 创建或修改任一 Project `commands.yml`
+- **AND** MUST NOT 安装 binary、写入凭证或生成 machine observation source
+
+#### Scenario: Component 卸载被引用 collection
+- **WHEN** Component 卸载或更新将删除某个 Command 的最后一个有效 definition
+- **AND** 任一 Project requirement 仍引用该 Command ID
+- **THEN** Buildr MUST 在 source transaction 前阻止整个 Component mutation
+- **AND** MUST 列出引用 Projects 和解除引用 nextActions
+
+#### Scenario: Component definition 冲突
+- **WHEN** Component definition 与用户或其他 Component catalog collection 使用同一 Command ID 但 identity 字段不同
+- **THEN** Buildr MUST 报告 catalog ownership/identity conflict
+- **AND** Project requirement MUST NOT 用于选择其中一个 definition

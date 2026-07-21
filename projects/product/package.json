@@ -1,6 +1,6 @@
 {
   "name": "@buildr-ai/buildr",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.0-rc.6",
   "private": false,
   "description": "Buildr CLI for managing Agent workspace assets.",
   "license": "MIT",
@@ -49,6 +49,7 @@
     "README.md",
     "docs/agent-runtime-adapters.md",
     "docs/cli-reference.md",
+    "docs/skill-capability-contracts.md",
     "docs/cli-architecture.md",
     "docs/known-limitations.md",
     "package/"
@@ -56,8 +57,12 @@
   "scripts": {
     "test": "./tools/verify-buildr-product-fast",
     "test:fast": "./tools/verify-buildr-product-fast",
-    "test:unit": "node --test test/*.test.mjs",
-    "test:affected": "./tools/verify-buildr-product-affected",
+    "test:unit": "node --test test/unit/*.test.mjs",
+    "test:contract": "node --test test/contract/*.test.mjs",
+    "test:integration:fast": "node --test test/integration-fast/*.test.mjs",
+    "coverage:unit": "node tools/verification/unit-coverage.mjs",
+    "test:changed": "node tools/verification/changed.mjs",
+    "test:focus": "node tools/verification/focus.mjs",
     "test:candidate": "./tools/verify-buildr-product",
     "test:release": "node tools/verification/release/release-smoke.mjs",
     "pack:check": "npm pack --dry-run"

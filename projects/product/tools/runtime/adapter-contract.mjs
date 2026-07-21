@@ -1,5 +1,12 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import {
+  ownerExecutable,
+  runtimeFileMatches,
+  runtimeWriteBuffer,
+  runtimeWriteMode,
+} from './skills/projection-files.mjs';
 
 export const REQUIRED_RENDER_CAPABILITIES = Object.freeze([
   'rules-entry',
@@ -9,7 +16,7 @@ export const REQUIRED_RENDER_CAPABILITIES = Object.freeze([
   'runtime-check',
 ]);
 
-export const ADAPTER_VERIFICATION_LEVELS = Object.freeze(['documented', 'verified']);
+export const SKILL_PUBLICATION_FORMATS = Object.freeze(['openai-skill-metadata']);
 
 export const ADAPTER_TRAIT_CATALOG = Object.freeze({
   rules: Object.freeze(['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']),
@@ -74,6 +81,47 @@ function isSafeRuntimeRoot(value) {
   return normalized !== '.' && normalized !== '..' && !normalized.startsWith('../') && normalized === value.replaceAll('\\', '/').replace(/\/$/, '');
 }
 
+function isSafeSkillRelativePath(value) {
+  if (typeof value !== 'string' || value.length === 0 || path.isAbsolute(value)) return false;
+  const posix = value.replaceAll('\\', '/');
+  const normalized = path.posix.normalize(posix);
+  return normalized !== '.' && normalized !== '..' && !normalized.startsWith('../') && normalized === posix.replace(/\/$/, '');
+}
+
+function validateSkillPublicationExtensions(skills, label, errors) {
+  if (skills.publicationExtensions === undefined) return;
+  if (!Array.isArray(skills.publicationExtensions)) {
+    errors.push(`${label} publicationExtensions must be an array`);
+    return;
+  }
+  const paths = new Set();
+  for (const [index, extension] of skills.publicationExtensions.entries()) {
+    const extensionLabel = `${label} publicationExtensions[${index}]`;
+    if (!isSafeSkillRelativePath(extension?.path)) errors.push(`${extensionLabel} path is unsafe: ${extension?.path || '<missing>'}`);
+    if (!SKILL_PUBLICATION_FORMATS.includes(extension?.format)) errors.push(`${extensionLabel} format is invalid: ${extension?.format || '<missing>'}`);
+    if (paths.has(extension?.path)) errors.push(`${label} publicationExtensions contains duplicate path: ${extension?.path}`);
+    paths.add(extension?.path);
+  }
+}
+
+function normalizeSkillDestinations(skills) {
+  const workspace = skills.destinations?.workspace || { supported: true, root: skills.root };
+  const user = skills.destinations?.user || { supported: true, root: skills.root };
+  return {
+    workspace,
+    user,
+    discovery: skills.discovery || {
+      evidence: 'partial',
+      roots: [
+        { source: 'workspace', destination: 'workspace' },
+        { source: 'user', destination: 'user' },
+      ],
+      opaqueSources: ['admin', 'system', 'plugin'],
+      precedence: 'not-guaranteed',
+    },
+  };
+}
+
 function normalizeImplementationCatalog(value = {}) {
   return {
     rules: new Set(value.rules || BUILTIN_ADAPTER_IMPLEMENTATIONS.rules),
@@ -116,6 +164,14 @@ function validateAdapterTraits(descriptor, options = {}) {
   if (!skills?.implementation || !implementations.skills.has(skills.implementation)) errors.push(`adapter ${descriptor.id} has no registered skills implementation: ${skills?.implementation || '<missing>'}`);
   if (!isSafeRuntimeRoot(skills?.root)) errors.push(`adapter ${descriptor.id} skills root is unsafe: ${skills?.root || '<missing>'}`);
   if (skills?.kind === 'agents-compatible' && skills.root !== '.agents') errors.push(`adapter ${descriptor.id} agents-compatible skills root must be .agents`);
+  validateSkillPublicationExtensions(skills || {}, `adapter ${descriptor.id} skills`, errors);
+  const destinations = normalizeSkillDestinations(skills || {});
+  for (const destination of ['workspace', 'user']) {
+    const entry = destinations[destination];
+    if (entry.supported !== false && !isSafeRuntimeRoot(entry.root)) errors.push(`adapter ${descriptor.id} ${destination} Skill destination root is unsafe: ${entry.root || '<missing>'}`);
+  }
+  if (!['complete', 'partial'].includes(destinations.discovery.evidence)) errors.push(`adapter ${descriptor.id} Skill discovery evidence must be complete or partial`);
+  if (!Array.isArray(destinations.discovery.roots)) errors.push(`adapter ${descriptor.id} Skill discovery roots must be an array`);
 
   if (!Array.isArray(traits.surfaces) || traits.surfaces.length === 0) errors.push(`adapter ${descriptor.id} surfaces are required`);
   for (const surface of traits.surfaces || []) {
@@ -180,6 +236,8 @@ function runtimeTargets(traits) {
 }
 
 export function createRuntimeAdapterDescriptor(value, options = {}) {
+  value = structuredClone(value);
+  value.traits.skills.destinations = normalizeSkillDestinations(value.traits.skills);
   const traitErrors = validateAdapterTraits(value, options);
   if (traitErrors.length > 0) throw new Error(`Invalid runtime adapter descriptor ${value.id || '<missing>'}:\n- ${traitErrors.join('\n- ')}`);
   const traits = freeze(structuredClone(value.traits));
@@ -203,12 +261,20 @@ export function createRuntimeAdapterDescriptor(value, options = {}) {
   return freeze(descriptor);
 }
 
+export function skillDestinationRoot(adapterOrId, destination, workspaceRoot, options = {}) {
+  const adapter = typeof adapterOrId === 'string' ? getRuntimeAdapter(adapterOrId) : adapterOrId;
+  if (!['workspace', 'user'].includes(destination)) throw new Error(`Unsupported Skill destination: ${destination}. Use workspace or user.`);
+  const descriptor = adapter.traits.skills.destinations[destination];
+  if (!descriptor || descriptor.supported === false) throw new Error(`Skill destination ${destination} is unsupported for ${adapter.id}.`);
+  return path.resolve(destination === 'workspace' ? workspaceRoot : (options.userHome || os.homedir()), descriptor.root);
+}
+
 function recommendedCommands(id) {
   return {
     doctor: `buildr doctor --agent ${id} --target <dir> --json`,
     syncWorkspaceEntry: `buildr sync ${id} --target <dir>`,
     renderScope: `buildr render ${id} --scope <workspace-relative-path> --target <dir>`,
-    renderSkillsScope: `buildr skills render ${id} --scope <scope> --target <dir>`,
+    renderSkillsScope: `buildr skills render ${id} --destination workspace --target <workspace>`,
     renderRulesScope: `buildr rules render ${id} --scope <scope> --target <dir>`,
     runtimeCheckScope: `buildr runtime check ${id} --scope <workspace-relative-path> --target <dir>`,
     installProductSkill: `buildr skill install ${id} --target <dir>`,
@@ -258,7 +324,7 @@ const DESCRIPTORS = [
       doctor: 'buildr doctor --agent claude-code --target <dir> --json',
       syncWorkspaceEntry: 'buildr sync claude-code --target <dir>',
       renderScope: 'buildr render claude-code --scope <workspace-relative-path> --target <dir>',
-      renderSkillsScope: 'buildr skills render claude-code --scope <scope> --target <dir>',
+      renderSkillsScope: 'buildr skills render claude-code --destination workspace --target <workspace>',
       renderRulesScope: 'buildr rules render claude-code --scope <scope> --target <dir>',
       runtimeCheckScope: 'buildr runtime check claude-code --scope <workspace-relative-path> --target <dir>',
       installProductSkill: 'buildr skill install claude-code --target <dir>',
@@ -273,7 +339,12 @@ const DESCRIPTORS = [
         implementation: 'native-recursive',
         diagnostics: { missingStatus: 'missing', missingPath: 'AGENTS.md', missingCode: 'runtime.codex_rules_missing', label: 'Codex native AGENTS.md rule asset', okCode: 'runtime.codex_rules_ok' },
       },
-      skills: { kind: 'agents-compatible', implementation: 'filesystem-skills', root: '.agents' },
+      skills: {
+        kind: 'agents-compatible',
+        implementation: 'filesystem-skills',
+        root: '.agents',
+        publicationExtensions: [{ path: 'agents/openai.yaml', format: 'openai-skill-metadata' }],
+      },
       surfaces: [{ kind: 'cli' }, { kind: 'desktop' }],
       activation: { rules: 'path-read', skills: 'session-start' },
       checker: { kind: 'projection', implementation: 'projection', resultKey: 'codex', installationProbe: { kind: 'none' }, versionProbe: { kind: 'none' } },
@@ -282,7 +353,7 @@ const DESCRIPTORS = [
       doctor: 'buildr doctor --agent codex --target <dir> --json',
       syncWorkspaceEntry: 'buildr sync codex --target <dir>',
       renderScope: 'buildr render codex --scope <workspace-relative-path> --target <dir>',
-      renderSkillsScope: 'buildr skills render codex --scope <scope> --target <dir>',
+      renderSkillsScope: 'buildr skills render codex --destination workspace --target <workspace>',
       runtimeCheckScope: 'buildr runtime check codex --scope <workspace-relative-path> --target <dir>',
       installProductSkill: 'buildr skill install codex --target <dir>',
     },
@@ -298,7 +369,7 @@ const DESCRIPTORS = [
       },
       skills: { kind: 'agents-compatible', implementation: 'filesystem-skills', root: '.agents' },
       surfaces: [{ kind: 'ide' }, { kind: 'cli' }],
-      activation: { rules: 'path-read', skills: 'session-start', reloadGuidance: 'Start a new Cursor chat after adding or changing project Skills; reopen the chat if project-rule discovery is stale.' },
+      activation: { rules: 'path-read', skills: 'session-start', reloadGuidance: 'Start a new Cursor chat after adding or changing workspace destination Skills; reopen the chat if project-rule discovery is stale.' },
       checker: {
         kind: 'projection', implementation: 'projection', resultKey: 'cursor',
         installationProbe: { kind: 'manual', guidance: 'Confirm Cursor IDE or Cursor Agent CLI is installed for the surface you are using.' },
@@ -306,7 +377,7 @@ const DESCRIPTORS = [
       },
     },
     recommendedCommands: recommendedCommands('cursor'),
-    evidence: { verificationLevel: 'documented', rules: 'official-documentation-with-version-drift-mitigation', skills: 'official-documentation', smokeStatus: 'pending' },
+    evidence: { rules: 'official-documentation-with-version-drift-mitigation', skills: 'official-documentation' },
   }),
   createRuntimeAdapterDescriptor({
     id: 'qoder',
@@ -327,7 +398,7 @@ const DESCRIPTORS = [
       },
     },
     recommendedCommands: recommendedCommands('qoder'),
-    evidence: { verificationLevel: 'documented', rules: 'official-documentation-and-local-intake', skills: 'official-documentation-and-local-intake', smokeStatus: 'pending' },
+    evidence: { rules: 'official-documentation-and-local-intake', skills: 'official-documentation-and-local-intake' },
   }),
   createRuntimeAdapterDescriptor({
     id: 'trae',
@@ -348,7 +419,7 @@ const DESCRIPTORS = [
       },
     },
     recommendedCommands: recommendedCommands('trae'),
-    evidence: { verificationLevel: 'documented', rules: 'installed-product-and-local-intake', skills: 'installed-product-and-local-intake', smokeStatus: 'pending' },
+    evidence: { rules: 'installed-product-and-local-intake', skills: 'installed-product-and-local-intake' },
   }),
   createRuntimeAdapterDescriptor({
     id: 'trae-work',
@@ -366,13 +437,10 @@ const DESCRIPTORS = [
         kind: 'projection', implementation: 'projection', resultKey: 'traeWork',
         installationProbe: { kind: 'command', executable: 'defaults', args: ['read', '/Applications/TRAE SOLO.app/Contents/Info', 'CFBundleIdentifier'], timeoutMs: 3000 },
         versionProbe: { kind: 'command', executable: 'defaults', args: ['read', '/Applications/TRAE SOLO.app/Contents/Info', 'CFBundleShortVersionString'], timeoutMs: 3000 },
-        prerequisites: [
-          { code: 'runtime.trae_work_rules_import_unverified', message: 'TRAE Work Rules import and reference traversal cannot be proven from projection state.', guidance: 'Enable the desktop Rules import toggle for CLAUDE.local.md, start a new conversation, and run the documented reference-bridge smoke.' },
-        ],
       },
     },
     recommendedCommands: recommendedCommands('trae-work'),
-    evidence: { verificationLevel: 'documented', rules: 'official-documentation-and-local-intake', skills: 'official-documentation-and-local-intake', smokeStatus: 'pending' },
+    evidence: { rules: 'official-documentation-and-local-intake', skills: 'official-documentation-and-local-intake' },
   }),
   createRuntimeAdapterDescriptor({
     id: 'workbuddy',
@@ -393,22 +461,7 @@ const DESCRIPTORS = [
       },
     },
     recommendedCommands: recommendedCommands('workbuddy'),
-    evidence: {
-      verificationLevel: 'verified',
-      rules: 'installed-source-code-5.2.5',
-      skills: 'installed-product-docs-and-source',
-      smokeStatus: 'passed',
-      smoke: {
-        observedAt: '2026-07-13',
-        productVersion: '5.2.5',
-        runtimeVersion: '2.106.4',
-        surface: 'desktop-bundled-cli',
-        rules: { root: 'pass', project: 'pass', active: 'pass', siblingIsolated: 'pass' },
-        skill: { status: 'pass', result: 'SMOKE_SKILL_DISCOVERED_19AF' },
-        activation: { rules: 'session-start', skills: 'session-start' },
-        evidence: 'Headless task from the WorkBuddy desktop bundle plus an audited tool transcript; no sibling Rule file was read.',
-      },
-    },
+    evidence: { rules: 'installed-source-code', skills: 'installed-product-docs-and-source' },
   }),
 ];
 
@@ -430,11 +483,8 @@ export function validateAdapterDescriptor(descriptor, options = {}) {
   if (!descriptor.implementation || !['string', 'object'].includes(typeof descriptor.implementation)) errors.push(`adapter ${descriptor.id} implementation entry is required`);
   if (!descriptor.recommendedCommands || typeof descriptor.recommendedCommands !== 'object') errors.push(`adapter ${descriptor.id} recommendedCommands are required`);
   const evidence = descriptor.evidence || {};
-  if (Object.keys(evidence).length > 0) {
-    if (!ADAPTER_VERIFICATION_LEVELS.includes(evidence.verificationLevel)) errors.push(`adapter ${descriptor.id} evidence verificationLevel is invalid: ${evidence.verificationLevel || '<missing>'}`);
-    if (!['pending', 'passed'].includes(evidence.smokeStatus)) errors.push(`adapter ${descriptor.id} evidence smokeStatus is invalid: ${evidence.smokeStatus || '<missing>'}`);
-    if (evidence.verificationLevel === 'verified' && evidence.smokeStatus !== 'passed') errors.push(`adapter ${descriptor.id} verified evidence requires a passed smoke`);
-    if (evidence.smokeStatus === 'passed' && evidence.verificationLevel !== 'verified') errors.push(`adapter ${descriptor.id} passed smoke requires verified evidence`);
+  for (const key of ['verificationLevel', 'smokeStatus', 'smoke']) {
+    if (Object.hasOwn(evidence, key)) errors.push(`adapter ${descriptor.id} evidence must not encode runtime smoke state: ${key}`);
   }
   return errors;
 }
@@ -557,9 +607,21 @@ export function validateRuntimePlan(plan, adapter = getRuntimeAdapter(plan?.adap
   for (const item of plan?.writes || []) {
     try { assertRuntimeTargetPath(plan.targetRoot, item.targetFile, 'runtime write target'); }
     catch (error) { errors.push(error.message); }
-    if (typeof item.content !== 'string') errors.push(`runtime write content must be text: ${item.targetFile}`);
+    if (typeof item.content !== 'string') errors.push(`runtime write content must be a string: ${item.targetFile}`);
+    try {
+      runtimeWriteBuffer(item);
+      runtimeWriteMode(item);
+      if (item.sourceContent !== undefined) runtimeWriteBuffer(item, true);
+    } catch (error) {
+      errors.push(error.message);
+    }
+    if (item.commitLast !== undefined && typeof item.commitLast !== 'boolean') errors.push(`runtime write commitLast must be boolean: ${item.targetFile}`);
+    if (item.previousIntegrity !== undefined && !/^sha256-[a-f0-9]{64}$/.test(item.previousIntegrity)) errors.push(`runtime write previous integrity is invalid: ${item.targetFile}`);
+    if (item.previousExecutable !== undefined && typeof item.previousExecutable !== 'boolean') errors.push(`runtime write previous executable is invalid: ${item.targetFile}`);
     const existing = writes.get(path.resolve(item.targetFile));
-    if (existing && existing.content !== item.content) errors.push(`runtime writes contain conflicting target: ${item.targetFile}`);
+    const identity = JSON.stringify([item.contentEncoding || 'utf8', item.content, item.mode ?? null]);
+    const existingIdentity = existing && JSON.stringify([existing.contentEncoding || 'utf8', existing.content, existing.mode ?? null]);
+    if (existing && existingIdentity !== identity) errors.push(`runtime writes contain conflicting target: ${item.targetFile}`);
     else writes.set(path.resolve(item.targetFile), item);
   }
   const removals = new Set();
@@ -567,6 +629,8 @@ export function validateRuntimePlan(plan, adapter = getRuntimeAdapter(plan?.adap
     const targetFile = typeof item === 'string' ? item : item.targetFile;
     try { assertRuntimeTargetPath(plan.targetRoot, targetFile, 'runtime removal target'); }
     catch (error) { errors.push(error.message); }
+    if (typeof item !== 'string' && item.expectedIntegrity !== undefined && !/^sha256-[a-f0-9]{64}$/.test(item.expectedIntegrity)) errors.push(`runtime removal integrity is invalid: ${targetFile}`);
+    if (typeof item !== 'string' && item.expectedExecutable !== undefined && typeof item.expectedExecutable !== 'boolean') errors.push(`runtime removal executable is invalid: ${targetFile}`);
     if (writes.has(path.resolve(targetFile))) errors.push(`runtime target cannot be written and removed: ${targetFile}`);
     if (removals.has(path.resolve(targetFile))) errors.push(`runtime removals contain duplicate target: ${targetFile}`);
     removals.add(path.resolve(targetFile));
@@ -615,9 +679,26 @@ export function reconcileRuntimePlan(plan, options = {}) {
   const removed = [];
   for (const item of plan.writes) {
     if (!fs.existsSync(item.targetFile)) continue;
-    const current = fs.readFileSync(item.targetFile, 'utf8');
-    const matches = current === item.content || item.matchesCurrent?.(current) === true;
-    if (!matches && current !== item.sourceContent && item.isManaged && !item.isManaged(current)) conflicts.push(item);
+    const current = fs.readFileSync(item.targetFile);
+    const expected = runtimeWriteBuffer(item);
+    const expectedMode = runtimeWriteMode(item);
+    const modeMatches = expectedMode === null || ownerExecutable(fs.statSync(item.targetFile).mode) === (expectedMode === 0o100);
+    const currentText = (item.contentEncoding || 'utf8') === 'utf8' ? current.toString('utf8') : null;
+    const matches = (current.equals(expected) && modeMatches) || (currentText !== null && item.matchesCurrent?.(currentText) === true);
+    const source = runtimeWriteBuffer(item, true);
+    const sourceMatches = source !== null && current.equals(source);
+    const previousMatches = item.previousIntegrity
+      ? runtimeFileMatches(item.targetFile, item.previousIntegrity, item.previousExecutable)
+      : false;
+    if (!matches && !sourceMatches && !previousMatches && item.isManaged) {
+      const managedInput = currentText === null ? current : currentText;
+      if (!item.isManaged(managedInput)) conflicts.push(item);
+    }
+  }
+  for (const removal of plan.removals) {
+    const item = typeof removal === 'string' ? { targetFile: removal } : removal;
+    if (!fs.existsSync(item.targetFile) || !item.expectedIntegrity) continue;
+    if (!runtimeFileMatches(item.targetFile, item.expectedIntegrity, item.expectedExecutable)) conflicts.push(item);
   }
   const findings = [...plan.findings];
   for (const item of conflicts) findings.push(diagnosticFinding(item, 'conflict', plan));
@@ -625,17 +706,30 @@ export function reconcileRuntimePlan(plan, options = {}) {
   if (!compareOnly && plannedConflicts.length > 0) {
     throw new Error(`Runtime reconcile found conflict(s); no files were changed:\n- ${plannedConflicts.map((finding) => finding.message || finding.path).sort().join('\n- ')}`);
   }
-  for (const item of plan.writes) {
-    if (conflicts.includes(item)) continue;
-    const current = fs.existsSync(item.targetFile) ? fs.readFileSync(item.targetFile, 'utf8') : null;
-    const status = current === null ? 'missing' : current === item.content || item.matchesCurrent?.(current) === true ? 'ok' : 'stale';
+  const reconcileWrite = (item) => {
+    if (conflicts.includes(item)) return;
+    const current = fs.existsSync(item.targetFile) ? fs.readFileSync(item.targetFile) : null;
+    const expected = runtimeWriteBuffer(item);
+    const expectedMode = runtimeWriteMode(item);
+    const currentText = current !== null && (item.contentEncoding || 'utf8') === 'utf8' ? current.toString('utf8') : null;
+    const modeMatches = current === null || expectedMode === null || ownerExecutable(fs.statSync(item.targetFile).mode) === (expectedMode === 0o100);
+    const status = current === null
+      ? 'missing'
+      : (current.equals(expected) && modeMatches) || (currentText !== null && item.matchesCurrent?.(currentText) === true)
+        ? 'ok'
+        : 'stale';
     findings.push(diagnosticFinding(item, status, plan));
     if (!compareOnly && status !== 'ok') {
       fs.mkdirSync(path.dirname(item.targetFile), { recursive: true });
-      fs.writeFileSync(item.targetFile, item.content, 'utf8');
+      fs.writeFileSync(item.targetFile, expected);
+      if (expectedMode !== null) {
+        const currentMode = fs.statSync(item.targetFile).mode;
+        fs.chmodSync(item.targetFile, expectedMode === 0o100 ? currentMode | 0o100 : currentMode & ~0o100);
+      }
       changed.push(item.targetFile);
     }
-  }
+  };
+  for (const item of plan.writes.filter((write) => write.commitLast !== true)) reconcileWrite(item);
   for (const nativeAsset of plan.nativeAssets) {
     const item = typeof nativeAsset === 'string' ? { targetFile: nativeAsset, source: nativeAsset } : nativeAsset;
     const status = fs.existsSync(item.targetFile) ? 'ok' : 'missing';
@@ -643,13 +737,25 @@ export function reconcileRuntimePlan(plan, options = {}) {
   }
   for (const removal of plan.removals) {
     const item = typeof removal === 'string' ? { targetFile: removal } : removal;
+    if (conflicts.includes(item)) continue;
     if (!fs.existsSync(item.targetFile)) continue;
     if (item.isManaged && !item.isManaged(item.type === 'directory' ? null : fs.readFileSync(item.targetFile, 'utf8'))) continue;
     findings.push(diagnosticFinding(item, 'orphan', plan));
     if (!compareOnly) {
       fs.rmSync(item.targetFile, { recursive: item.type === 'directory', force: true });
       removed.push(item.targetFile);
+      if (item.pruneEmptyRoot) {
+        const root = path.resolve(item.pruneEmptyRoot);
+        let current = path.dirname(path.resolve(item.targetFile));
+        while ((current === root || current.startsWith(`${root}${path.sep}`)) && current !== path.dirname(root)) {
+          if (!fs.existsSync(current) || fs.readdirSync(current).length > 0) break;
+          fs.rmdirSync(current);
+          if (current === root) break;
+          current = path.dirname(current);
+        }
+      }
     }
   }
+  for (const item of plan.writes.filter((write) => write.commitLast === true)) reconcileWrite(item);
   return { targetRoot: plan.targetRoot, adapterId: plan.adapterId, scope: plan.scope, changed, removed, findings, repairs: plan.repairs, warnings: plan.warnings, ruleActions: plan.ruleActions };
 }

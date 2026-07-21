@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fetchRemoteText } from '../../shared/fetch-remote-text.mjs';
 import { resolveSkillContributions } from './contributions.mjs';
-import { isSourceLabel, parseSkillsManifest } from './manifests.mjs';
+import { isSourceLabel, parseSkillsManifestDocument } from './manifests.mjs';
 import { ensureFile, normalizeRelativePath, packageRoot, parseSkillFrontmatterName, parseSkillFrontmatterNameFromContent, productRoot, unquoteYamlScalar } from './primitives.mjs';
 
 function readPackageSkillEntries(section, runtime) {
@@ -73,15 +73,18 @@ function readPackageSkillEntries(section, runtime) {
         throw new Error(`${section} entries must include id and path in ${manifestPath}`);
       }
       const skillPath = normalizeRelativePath(skill.path);
-      const sourceFile = path.join(productRoot(), skillPath, 'SKILL.md');
+      const sourceDir = path.join(productRoot(), skillPath);
+      const sourceFile = path.join(sourceDir, 'SKILL.md');
       ensureFile(sourceFile, `Package Skill SKILL.md not found: ${sourceFile}`);
       const result = {
         id: skill.id,
+        sourceDir,
         sourceFile,
         origin: section === 'agentSkills' ? 'product' : 'package',
         runtime,
         displaySource: `${skillPath}/SKILL.md`,
       };
+      if (section === 'agentSkills') result.workspaceId = 'buildr-product';
       if (section === 'skillSources') {
         if (skill.runtimePath !== undefined) result.runtimePath = normalizeRelativePath(skill.runtimePath).split(path.sep).join('/');
         result.sourceKind = 'source';
@@ -149,6 +152,18 @@ function resolveSkillUrl(skill, layerOrigin) {
   };
 }
 
+function describeSkillUrl(skill, layerOrigin) {
+  return {
+    id: skill.id,
+    origin: layerOrigin,
+    sourceKind: 'resolved',
+    resolved: skill.resolved,
+    source: skill.source,
+    displaySource: skill.resolved.url,
+    runtimePath: skill.id,
+  };
+}
+
 function resolveAgentInstallSkill(skill, layerOrigin, manifestPath) {
   return {
     id: skill.id,
@@ -186,7 +201,8 @@ function loadLayer(manifestPath, options = {}) {
   const layerOrigin = options.origin ?? 'workspace';
   const packageSourcesById = options.packageSourcesById ?? new Map();
   const seen = new Set();
-  return parseSkillsManifest(manifestPath).map((skill) => {
+  const document = parseSkillsManifestDocument(manifestPath);
+  return document.skills.map((skill) => {
     if (seen.has(skill.id)) {
       throw new Error(`Duplicate skill id in same manifest: ${skill.id} (${manifestPath})`);
     }
@@ -201,15 +217,18 @@ function loadLayer(manifestPath, options = {}) {
       if (skill.path !== undefined && isSourceLabel(skill.source)) {
         // source is an ownership label; resolve the local path below.
       } else {
-      return resolveReferencedSkill(skill, packageSourcesById, runtime);
+      return decorateResolvedSkill(resolveReferencedSkill(skill, packageSourcesById, runtime), skill, manifestPath, options.scope, document.workspaceId);
       }
     }
     const hasLocalSourceLabel = skill.path !== undefined && typeof skill.source === 'string' && isSourceLabel(skill.source);
     if (skill.install?.mode === 'agent' || (skill.source !== undefined && skill.resolved === undefined && !hasLocalSourceLabel)) {
-      return resolveAgentInstallSkill(skill, layerOrigin, manifestPath);
+      return decorateResolvedSkill(resolveAgentInstallSkill(skill, layerOrigin, manifestPath), skill, manifestPath, options.scope, document.workspaceId);
     }
     if (skill.resolved !== undefined) {
-      return resolveSkillUrl(skill, layerOrigin);
+      const resolved = options.resolveRemote === false
+        ? describeSkillUrl(skill, layerOrigin)
+        : resolveSkillUrl(skill, layerOrigin);
+      return decorateResolvedSkill(resolved, skill, manifestPath, options.scope, document.workspaceId);
     }
     const skillPath = normalizeRelativePath(skill.path);
     const sourceDir = path.join(manifestDir, skillPath);
@@ -220,14 +239,28 @@ function loadLayer(manifestPath, options = {}) {
       throw new Error(`Skill id does not match SKILL.md frontmatter name: ${skill.id} != ${sourceName}`);
     }
     const runtimePath = skill.runtimePath !== undefined ? normalizeRelativePath(skill.runtimePath) : skillPath;
-    return {
+    return decorateResolvedSkill({
       id: skill.id,
+      sourceDir,
       sourceFile,
       origin: isSourceLabel(skill.source) ? skill.source : layerOrigin,
       sourceKind: 'path',
       runtimePath: runtimePath.split(path.sep).join('/'),
-    };
+    }, skill, manifestPath, options.scope, document.workspaceId);
   }).filter(Boolean);
+}
+
+function decorateResolvedSkill(resolved, manifestEntry, manifestPath, declaredScope, workspaceId) {
+  return {
+    ...resolved,
+    assetIdentity: manifestEntry.assetIdentity,
+    sourceIdentity: manifestEntry.sourceIdentity,
+    workspaceId,
+    provides: manifestEntry.provides || [],
+    requires: manifestEntry.requires || [],
+    manifestPath,
+    declaredScope: declaredScope || (path.dirname(path.dirname(manifestPath)).endsWith(`${path.sep}skills`) ? '.' : undefined),
+  };
 }
 
 export function resolveSkills(organizationRoot, projectRoot, options = {}) {
@@ -237,28 +270,31 @@ export function resolveSkills(organizationRoot, projectRoot, options = {}) {
   if (options.includeWorkspace !== false && fs.existsSync(organizationManifest)) {
     layers.push(organizationManifest);
   }
-  if (projectRoot) {
-    const projectManifest = path.join(projectRoot, 'skills', 'manifest.yml');
-    if (fs.existsSync(projectManifest)) {
-      layers.push(projectManifest);
-    }
-  }
+  // Project is a business/capability context. Legacy Project Skill manifests
+  // are intentionally excluded until the explicit migration command moves them.
 
   const productSkillsById = new Map(readPackageAgentSkills(runtime).map((skill) => [skill.id, skill]));
   const packageSourcesById = new Map(readPackageSkillSources(runtime).map((skill) => [skill.id, skill]));
   const resolved = new Map();
   for (const manifestPath of layers) {
-    const layerOrigin = projectRoot && manifestPath.startsWith(projectRoot) ? 'project' : 'workspace';
-    for (const skill of loadLayer(manifestPath, { runtime, layerOrigin, packageSourcesById })) {
+    const layerOrigin = 'workspace';
+    const scope = '.';
+    for (const skill of loadLayer(manifestPath, {
+      runtime,
+      layerOrigin,
+      packageSourcesById,
+      scope,
+      resolveRemote: options.resolveRemote,
+    })) {
       const productSkill = productSkillsById.get(skill.id);
       if (productSkill) {
         const displaySource = skill.sourceFile ?? skill.displaySource ?? skill.resolved?.url ?? skill.source?.url ?? 'skills/manifest.yml';
-        throw new Error(`Skill id conflict: ${skill.id} is provided by product Agent Skill (${productSkill.displaySource}) and workspace/project Skill (${displaySource}). Rename the workspace/project Skill.`);
+        throw new Error(`Skill id conflict: ${skill.id} is provided by product Agent Skill (${productSkill.displaySource}) and workspace Skill (${displaySource}). Rename the workspace Skill.`);
       }
       resolved.set(skill.id, skill);
     }
   }
-  for (const contribution of resolveSkillContributions(organizationRoot)) {
+  for (const contribution of options.includeContributions === false ? [] : resolveSkillContributions(organizationRoot)) {
     const target = resolved.get(contribution.skillId);
     if (!target) continue;
     if (contribution.placement === 'slot') {

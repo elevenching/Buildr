@@ -7,10 +7,13 @@ import {
   getRuntimeAdapter,
   isSupportedAgent,
   RUNTIME_CHECKERS,
+  assembleRuntimeProjection,
 } from '../shared/platform.mjs';
 import { createRuntimeDiagnostics } from './doctor/runtime-diagnostics.mjs';
 import { createScopeDiagnostics } from './doctor/scope-diagnostics.mjs';
 import { createServiceDiagnostics } from './doctor/service-diagnostics.mjs';
+import { createCapabilityDiagnostics } from './doctor/capability-diagnostics.mjs';
+import { buildDoctorHealth, buildDoctorRepairPlan } from './doctor/result-model.mjs';
 
 export function registerApplicationDoctor(runtime) {
   const runCommandsCheck = (...args) => runtime.runCommandsCheck(...args);
@@ -36,6 +39,7 @@ export function registerApplicationDoctor(runtime) {
   const existsDirectory = (...args) => runtime.existsDirectory(...args);
   const existsFile = (...args) => runtime.existsFile(...args);
   const addDoctorFinding = (...args) => runtime.addDoctorFinding(...args);
+  const buildrWorkspaceIdentity = (...args) => runtime.buildrWorkspaceIdentity(...args);
 
   const {
     scopeParts,
@@ -69,6 +73,7 @@ export function registerApplicationDoctor(runtime) {
     servicesManifestPath,
     toPosixRelative,
     validateProjectsRegistry,
+    buildrWorkspaceIdentity,
   });
   const {
     diagnoseServicesMetadata,
@@ -94,6 +99,7 @@ export function registerApplicationDoctor(runtime) {
     runtimeFindingsForDoctor,
     summarizeRuntimeFindings,
     addUnsupportedAgentFinding,
+    detectManagedRuntimeAgents,
     diagnoseRuntime,
     diagnoseCommands,
     diagnoseComponents,
@@ -102,8 +108,10 @@ export function registerApplicationDoctor(runtime) {
     SUPPORTED_AGENT_IDS,
     UNSUPPORTED_AGENT_GUIDANCE,
     addDoctorFinding,
+    assembleRuntimeProjection,
     componentRegistryPath,
     existsFile,
+    fs,
     getRuntimeAdapter,
     isSupportedAgent,
     managedRuntimeSkillOrphans,
@@ -113,6 +121,7 @@ export function registerApplicationDoctor(runtime) {
     runtimeImplementation,
     toPosixRelative,
   });
+  const { diagnoseSkillCapabilities, printCapabilityReport } = createCapabilityDiagnostics({ addDoctorFinding, isSupportedAgent, path });
 
   function diagnoseSkillsManifestSchemas(result, targetRoot, scopes) {
     const checked = new Set();
@@ -126,12 +135,18 @@ export function registerApplicationDoctor(runtime) {
       if (checked.has(relative) || !existsFile(manifestPath)) continue;
       checked.add(relative);
       const schemaVersion = readSkillManifestSchemaVersion(manifestPath);
-      if (schemaVersion !== 'buildr.skills/v1') {
-        addDoctorFinding(result, 'warning', 'skills.schema_version_invalid', `Skills manifest schemaVersion 缺失或不支持：${relative}`, {
+      const isWorkspace = scopeRoot === targetRoot;
+      if (isWorkspace && schemaVersion === 'buildr.skills/v3') continue;
+      const manifestText = fs.readFileSync(manifestPath, 'utf8');
+      const hasV2OnlyKeys = /^(?:contracts|bindings):/m.test(manifestText);
+      const supportedLegacy = ['buildr.skills/v1', 'buildr.skills/v2'].includes(schemaVersion) || (schemaVersion === null && !hasV2OnlyKeys);
+      const projectLegacy = !isWorkspace && supportedLegacy;
+      addDoctorFinding(result, supportedLegacy ? 'warning' : 'error', projectLegacy ? 'skills.project_assets_legacy' : supportedLegacy ? 'skills.schema_version_legacy' : 'skills.schema_version_invalid', `${projectLegacy ? 'Legacy Project Skill source 等待显式迁移' : supportedLegacy ? 'Skills manifest 等待事务化升级' : 'Skills manifest schemaVersion 不支持'}：${relative}`, {
           path: relative,
-          suggestion: '运行 buildr update 或 buildr sync 补齐 schemaVersion: buildr.skills/v1。',
+          supportedVersions: ['buildr.skills/v1', 'buildr.skills/v2', 'buildr.skills/v3'],
+          suggestion: projectLegacy ? '运行 buildr skills migrate-project-assets --check，审阅后再 --apply。' : supportedLegacy ? '运行 buildr update 或 buildr sync 迁移 workspace manifest 到 schemaVersion: buildr.skills/v3。' : '先更新 Buildr CLI；不要用当前版本重写该 manifest。',
+          userActionRequired: true,
         });
-      }
     }
   }
 
@@ -142,31 +157,43 @@ export function registerApplicationDoctor(runtime) {
     }
     result.summary = counts;
     result.ok = counts.error === 0;
-    result.nextSteps = result.findings
-      .filter((finding) => finding.suggestion && finding.userActionRequired !== false)
-      .map((finding) => ({ code: finding.code, suggestion: finding.suggestion, command: finding.command, commands: finding.commands }))
-      .slice(0, 10);
+    result.repairPlan = buildDoctorRepairPlan(result.findings);
+    result.health = buildDoctorHealth(result);
+    result.nextSteps = result.repairPlan.slice(0, 10).map((step) => ({
+      code: step.codes[0],
+      codes: step.codes,
+      suggestion: step.suggestion,
+      ...(step.commands?.length === 1 ? { command: step.commands[0] } : {}),
+      ...(step.commands?.length > 1 ? { commands: step.commands } : {}),
+    }));
   }
 
   function printDoctorReport(result) {
     console.log(`Buildr doctor for ${result.targetRoot}`);
     console.log(`Status: ok=${result.summary.ok} info=${result.summary.info} warning=${result.summary.warning} error=${result.summary.error}`);
+    console.log(`Health: workspaceValid=${result.health.workspaceValid} ready=${result.health.ready} actionRequired=${result.health.actionRequired} actionable=${result.health.actionableCount}`);
     console.log('');
 
     if (result.findings.length === 0) {
       console.log('[ok] 未发现问题。');
-      return;
-    }
-
-    for (const finding of result.findings) {
-      const location = finding.path ? ` (${finding.path})` : '';
-      console.log(`[${finding.status}] ${finding.code}${location} - ${finding.message}`);
-      if (finding.suggestion) console.log(`  建议：${finding.suggestion}`);
-      if (finding.command) console.log(`  命令：${finding.command}`);
-      if (finding.commands) {
-        for (const command of finding.commands) console.log(`  命令：${command}`);
+    } else {
+      for (const finding of result.findings) {
+        const location = finding.path ? ` (${finding.path})` : '';
+        console.log(`[${finding.status}] ${finding.code}${location} - ${finding.message}`);
       }
     }
+
+    if (result.repairPlan.length > 0) {
+      console.log('');
+      console.log('Repair plan:');
+      for (const step of result.repairPlan) {
+        console.log(`${step.id} [${step.priority}] ${step.codes.join(', ')}`);
+        if (step.suggestion) console.log(`  建议：${step.suggestion}`);
+        for (const command of step.commands || []) console.log(`  命令：${command}`);
+      }
+    }
+
+    printCapabilityReport(result);
   }
 
   Object.assign(runtime, {
@@ -190,10 +217,12 @@ export function registerApplicationDoctor(runtime) {
     runtimeFindingsForDoctor,
     summarizeRuntimeFindings,
     addUnsupportedAgentFinding,
+    detectManagedRuntimeAgents,
     diagnoseRuntime,
     diagnoseCommands,
     diagnoseComponents,
     diagnoseSkillsManifestSchemas,
+    diagnoseSkillCapabilities,
     finalizeDoctorResult,
     printDoctorReport,
   });

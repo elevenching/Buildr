@@ -1,3 +1,5 @@
+import { capabilityKey, parseCapabilityContract, validateCapabilityIdentity } from '../../../runtime/skills/manifests.mjs';
+
 export function createPackageStaticValidator(deps) {
   const {
     LEGACY_PACKAGE_PATHS,
@@ -29,7 +31,20 @@ export function createPackageStaticValidator(deps) {
     validatePackageComponentMembers,
     validateProjectsRegistry,
     validateSkillManifestEntries,
+    getRuntimeAdapter,
+    validateSkillPublication,
   } = deps;
+
+  function validateAdapterPublications(skill, skillDir, problems) {
+    for (const runtime of skill.runtimes || []) {
+      try {
+        const adapter = getRuntimeAdapter(runtime);
+        problems.push(...validateSkillPublication(adapter, { skillId: skill.id, skillDir }));
+      } catch (error) {
+        problems.push(error.message);
+      }
+    }
+  }
 
   function validateWorkspaceSkillsBaseline(root, problems) {
     const workspaceSkillsRoot = path.join(root, 'skills');
@@ -348,21 +363,46 @@ export function createPackageStaticValidator(deps) {
       const skillContent = fs.readFileSync(skillFile, 'utf8');
       if (skill.id === 'buildr') {
         for (const requiredText of [
-          '提交、拉取、合并、rebase、checkout/switch、reset、推送',
-          'post-transition doctor',
+          'buildr.git-single-operation/v1',
+          'buildr.git-workspace-update/v1',
+          'Buildr Capability Bindings',
+          'capabilities` graph',
           'Agent 是 Buildr 功能的默认操作入口',
           '询问用户是否由 Agent 立即同步',
-          'buildr sync <agent> --target <workspace-root>',
-          '手动同步命令作为备选',
+          '准确手动命令作为备选',
           '当前 session 是否重新发现新资产由 Agent runtime 决定',
           '用户要求“更新 Buildr”或“同步 Buildr”时',
           'buildr skill install <agent> --target <dir>',
           '用户要求“更新 workspace”或“同步 workspace”时',
           '用户明确要求“只更新 CLI”时',
+          '解析 `buildr.git-workspace-update/v1`',
+          '不自动 stash、rebase、覆盖，也不继续 sync',
+          '不重复询问 sync',
+          '不是 Git workspace，直接运行 sync',
+          '先加载 `capability-adaptation` 判断是否触达或产生跨 Skill 稳定依赖边界',
+          '产品入口 Buildr Skill 只对自身已命中的 Buildr 管理意图执行内部能力路由',
+          '顶层 capability 的 binding 只选择 provider，不自动产生 Agent 意图命中',
+          '单项 capability blocked 不得阻塞',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`Buildr Agent Skill must include ${JSON.stringify(requiredText)}.`);
         }
+        for (const [relativePath, requiredTexts] of [
+          ['package/bootstrap/guide.md', ['解析 `buildr.git-workspace-update/v1` binding', '不自动 stash、rebase、覆盖，也不继续 sync', '不重复询问 sync', '非 Git workspace 跳过 Git provider', '不是 `buildr sync` 的隐式 Git 行为']],
+          ['docs/cli-reference.md', ['解析 `buildr.git-workspace-update/v1` binding', 'Agent 不自动 stash、rebase 或覆盖', '不重复询问 sync', '非 Git workspace 直接 sync', '不隐式执行 Git 更新']],
+          ['tools/runtime/skills/render-plan.mjs', ['解析 `buildr.git-workspace-update/v1` selected provider', '非 Git workspace 直接运行 sync']],
+        ]) {
+          const contractPath = path.join(root, relativePath);
+          if (!existsFile(contractPath)) {
+            problems.push(`Workspace update intent contract file is missing: ${relativePath}`);
+            continue;
+          }
+          const contractContent = fs.readFileSync(contractPath, 'utf8');
+          for (const requiredText of requiredTexts) {
+            if (!contractContent.includes(requiredText)) problems.push(`${relativePath} must include ${JSON.stringify(requiredText)}.`);
+          }
+        }
       }
+      validateAdapterPublications(skill, skillDir, problems);
       files.push(skillFile);
     }
 
@@ -412,6 +452,36 @@ export function createPackageStaticValidator(deps) {
   function validatePackageBuiltins(context, skillSourceIds) {
     const { root, manifest, files, problems } = context;
     const builtinIds = new Set();
+    const contractIds = new Set();
+    for (const [index, contract] of (manifest.capabilityContracts || []).entries()) {
+      const label = `capabilityContracts[${index}]`;
+      try {
+        validateCapabilityIdentity(contract.id, contract.version, label);
+        if (!contract.path || !contract.target || !contract.description) throw new Error(`${label} must include path, target, and description`);
+        const key = capabilityKey(contract.id, contract.version);
+        if (contractIds.has(key)) throw new Error(`Duplicate package capability contract: ${key}`);
+        contractIds.add(key);
+        const sourceFile = path.resolve(root, contract.path);
+        parseCapabilityContract(sourceFile, contract);
+        files.push(sourceFile);
+      } catch (error) {
+        problems.push(error.message);
+      }
+    }
+    const bindingIds = new Set();
+    for (const [index, binding] of (manifest.initialSkillBindings || []).entries()) {
+      const label = `initialSkillBindings[${index}]`;
+      try {
+        validateCapabilityIdentity(binding.capability, binding.version, label);
+        const key = capabilityKey(binding.capability, binding.version);
+        if (!contractIds.has(key)) throw new Error(`${label} references undeclared contract: ${key}`);
+        if (!binding.provider) throw new Error(`${label}.provider is required`);
+        if (bindingIds.has(key)) throw new Error(`Duplicate initial Skill binding: ${key}`);
+        bindingIds.add(key);
+      } catch (error) {
+        problems.push(error.message);
+      }
+    }
     function validateLegacyIntegrities(builtin, label) {
       if (builtin.legacyIntegrities === undefined) return;
       if (!Array.isArray(builtin.legacyIntegrities)) {
@@ -455,6 +525,8 @@ export function createPackageStaticValidator(deps) {
             '取得所需授权后直接执行',
             '不把命令或操作步骤作为默认结果要求用户代为执行',
             '才提供准确的手动操作作为兜底',
+            '创建、修改、替换或卸载 Skill 前必须检查相关 `provides`、`requires`',
+            '不得绕过已知依赖直接激活',
           ]) {
             if (!coreContent.includes(requiredText)) problems.push(`Buildr Core must include ${JSON.stringify(requiredText)}.`);
           }
@@ -466,12 +538,48 @@ export function createPackageStaticValidator(deps) {
       problems.push('builtins.rules must declare required buildr-core at rules/buildr/core.md.');
     }
 
+    const currentSkillIds = new Set(manifest.builtins.skills.map((skill) => skill.id).filter(Boolean));
+    const currentSkillTargets = new Set(manifest.builtins.skills.map((skill) => skill.target).filter(Boolean));
+    const currentSkillRuntimePaths = new Set(manifest.builtins.skills.map((skill) => skill.runtimePath || skill.id).filter(Boolean));
+    const replacementPredecessors = new Set();
+    const replacementTargets = new Set();
+    const replacementRuntimePaths = new Set();
     for (const skill of manifest.builtins.skills) {
       const label = `builtins.skills.${skill.id || '<missing>'}`;
+      for (const [field, entries] of [['provides', skill.provides || []], ['requires', skill.requires || []]]) {
+        for (const [index, declaration] of entries.entries()) {
+          try {
+            validateCapabilityIdentity(declaration.capability, declaration.version, `${label}.${field}[${index}]`);
+            if (!contractIds.has(capabilityKey(declaration.capability, declaration.version))) throw new Error(`${label}.${field}[${index}] references undeclared contract`);
+            if (field === 'requires' && !['required', 'optional'].includes(declaration.mode)) throw new Error(`${label}.${field}[${index}].mode must be required or optional`);
+          } catch (error) {
+            problems.push(error.message);
+          }
+        }
+      }
       validateLegacyIntegrities(skill, label);
       if (!skill.id || !skill.path || !skill.target || !skill.description || typeof skill.required !== 'boolean') {
         problems.push(`${label} must include id, path, target, description, and required.`);
         continue;
+      }
+      if (skill.replaces !== undefined) {
+        const replacement = skill.replaces;
+        if (!isPlainObject(replacement) || typeof replacement.id !== 'string' || typeof replacement.target !== 'string' || typeof replacement.runtimePath !== 'string') {
+          problems.push(`${label}.replaces must include id, target, and runtimePath.`);
+        } else {
+          if (!/^[A-Za-z0-9._-]+$/.test(replacement.id) || replacement.id === skill.id) problems.push(`${label}.replaces.id must be a distinct valid asset id.`);
+          if (!replacement.target.startsWith('skills/buildr/') || path.isAbsolute(replacement.target) || replacement.target.split('/').includes('..') || replacement.target === skill.target) problems.push(`${label}.replaces.target must be a distinct relative skills/buildr/ path.`);
+          if (!/^[A-Za-z0-9._-]+$/.test(replacement.runtimePath)) problems.push(`${label}.replaces.runtimePath must be a valid runtime Skill path.`);
+          if (currentSkillIds.has(replacement.id)) problems.push(`${label}.replaces.id must not also be a current builtin identity: ${replacement.id}`);
+          if (currentSkillTargets.has(replacement.target)) problems.push(`${label}.replaces.target must not also be a current builtin target: ${replacement.target}`);
+          if (currentSkillRuntimePaths.has(replacement.runtimePath)) problems.push(`${label}.replaces.runtimePath must not also be a current builtin runtime path: ${replacement.runtimePath}`);
+          if (replacementPredecessors.has(replacement.id)) problems.push(`Duplicate builtin Skill replacement predecessor: ${replacement.id}`);
+          if (replacementTargets.has(replacement.target)) problems.push(`Duplicate builtin Skill replacement target: ${replacement.target}`);
+          if (replacementRuntimePaths.has(replacement.runtimePath)) problems.push(`Duplicate builtin Skill replacement runtime path: ${replacement.runtimePath}`);
+          replacementPredecessors.add(replacement.id);
+          replacementTargets.add(replacement.target);
+          replacementRuntimePaths.add(replacement.runtimePath);
+        }
       }
       if (builtinIds.has(`skill:${skill.id}`)) problems.push(`Duplicate builtin skill id: ${skill.id}`);
       builtinIds.add(`skill:${skill.id}`);
@@ -504,6 +612,24 @@ export function createPackageStaticValidator(deps) {
         problems.push(error.message);
       }
       const skillContent = fs.readFileSync(skillFile, 'utf8');
+      validateAdapterPublications(skill, skillDir, problems);
+      if (skill.id === 'capability-adaptation') {
+        for (const requiredText of [
+          'Agent 工作能力适配',
+          '用户无需知道这些资产名称',
+          '判断的是稳定协作边界，不是用户是否说出 capability 名字',
+          '先开发候选，再改变当前实现',
+          '候选不满足 contract、组合验证失败',
+          '在新 binding ready 之前不卸载旧 provider',
+          '使用记录的旧 binding 恢复选择',
+          '不让产品入口的某项 route blocked 扩大为整个 Buildr Skill blocked',
+        ]) {
+          if (!skillContent.includes(requiredText)) problems.push(`capability-adaptation Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        if ((skill.provides || []).length > 0 || (skill.requires || []).length > 0) {
+          problems.push('capability-adaptation is a management Skill and must not declare provides/requires.');
+        }
+      }
       if (skill.id === 'task-worktree') {
         for (const requiredText of [
           '<workspace-root>/.worktrees/<task-id>',
@@ -511,24 +637,18 @@ export function createPackageStaticValidator(deps) {
           '不得静默回退到 `/tmp`',
           'propose 和创建 change artifacts 前',
           'artifacts、实现和合并前候选验证都只能写入该 worktree',
-          '验证证据边界',
-          '最终候选 Git tree',
-          '三级验证门禁',
-          '单任务最小反馈',
-          '任务组受影响范围验证',
-          '最终候选完整验证',
-          '同一候选状态不机械重复该底层检查',
-          '修复期间优先重跑失败项和受影响专项检查',
-          'wait、poll 或 resume 继续同一进程',
-          '暂时无输出不得触发相同命令重复启动',
-          '不在主开发分支重复运行相同 E2E',
-          '候选 tree 已改变时沿用旧验证结果',
+          '候选边界交接',
+          '不执行三级验证',
+          'selected task-verification provider',
+          '`treeChanged` 结果证据',
+          '不监控普通编辑',
+          '不把 task checkout lifecycle contract 扩张为内容监控、Git integration 或验证执行 contract',
           '不从未合并 task checkout 更新主自举 workspace',
           '新 worktree checkout 完成后',
-          '复用 Git Ops 的“工作区转换后的 Buildr 环境检查”',
-          '复用既有 worktree 且没有发生 tree 转换时，不重复运行该检查',
-          '复用同步询问、Agent 执行和手动兜底边界',
-          '用户确认前不执行 sync',
+          'required Core workspace-transition invariant',
+          '复用既有 worktree且没有发生 tree 转换时不重复检查',
+          '产品入口 Buildr Skill 完成具体 doctor、sync 询问、Agent 执行和手动兜底边界',
+          '不依赖 `git-ops`',
           '不把手动命令作为默认处理方式',
           '不沿用普通开发任务的保守保留策略',
           '远端 ref 与本地候选提交一致',
@@ -538,36 +658,82 @@ export function createPackageStaticValidator(deps) {
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`task-worktree Skill must include ${JSON.stringify(requiredText)}.`);
         }
+        for (const uniqueText of [
+          '实际自举 workspace 的 sync 是独立的状态变更',
+          '本机 `buildr` 若指向即将删除的 task worktree',
+        ]) {
+          const count = skillContent.split(uniqueText).length - 1;
+          if (count !== 1) problems.push(`task-worktree Skill must include ${JSON.stringify(uniqueText)} exactly once, found ${count}.`);
+        }
+        for (const forbiddenText of [
+          '改变候选内容时必须返回 `treeChanged: true`，旧 evidence 随即失效',
+          '不因 checkout 或 commit hash 改变而机械重复验证',
+          '候选 tree 已改变时沿用旧验证结果',
+        ]) {
+          if (skillContent.includes(forbiddenText)) problems.push(`task-worktree Skill must not own verification decision ${JSON.stringify(forbiddenText)}.`);
+        }
+      }
+      if (skill.id === 'task-verification') {
+        for (const requiredText of [
+          '本 Skill 是 `buildr.task-verification/v1` 的默认 provider',
+          'Rules/AGENTS',
+          'minimal',
+          'affected',
+          'candidate',
+          'verifier-reported',
+          'wrapper-measured',
+          '单调时钟',
+          '不得把各检查 `durationMs` 相加推算 `totalDurationMs`',
+          'wait、poll 或 resume 同一进程',
+          'candidateIdentity',
+          'totalDurationMs',
+          'timingSource',
+          'slowestCheck',
+          'failedChecks',
+          'skippedChecks',
+          'evidenceReference',
+          'evidenceRetention',
+          'cleanupAfter',
+          'cleanupStatus',
+          'cleanupReference',
+          'operation: inspect | execute | cleanup',
+          'taskVerificationExecuteCalls',
+          'candidateExecutorCalls',
+          '用户无需主动点名本 Skill',
+          'task-worktree` 不负责这项清理',
+          '最终候选验证尚未执行',
+          '不依赖 `task-worktree`、`git-ops`',
+        ]) {
+          if (!skillContent.includes(requiredText)) problems.push(`task-verification Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        if (!skill.provides?.some((entry) => entry.capability === 'buildr.task-verification' && entry.version === 1)) {
+          problems.push('task-verification must provide buildr.task-verification/v1.');
+        }
+        for (const forbiddenText of ['npm run test:candidate` 作为所有项目', '必须使用 Git worktree', 'provider: task-worktree']) {
+          if (skillContent.includes(forbiddenText)) problems.push(`task-verification Skill must not include ${JSON.stringify(forbiddenText)}.`);
+        }
       }
       if (skill.id === 'git-ops') {
         for (const requiredText of [
-          '最终候选 Git tree',
-          'rebase 前后必须比较最终候选 Git tree',
-          '改变已验证 tree 时，原验证结果失效',
-          '相同 tree',
-          '不因 checkout、commit hash 或分支名称改变而重复运行相同验证',
-          '工作区转换后的 Buildr 环境检查',
-          '`pull`、`merge`、`rebase`、`checkout`、`switch`、`reset`、`cherry-pick`、`revert`、`stash apply` 和 `stash pop`',
+          '不执行项目 Candidate 验证',
+          '输入与最终 candidate content identity',
+          'tree 等价性信号',
+          '由 selected task-verification provider 或其 consumer',
+          'Workspace tree transition result',
+          '`treeChanged` 结果证据',
           '`fetch`、`push` 和普通 `commit`',
-          '.buildr/workspace.yml',
-          'buildr doctor --agent <agent> --target <workspace-root> --json',
-          'doctor 无需用户处理时，不提醒用户执行 `render` 或 `sync`',
-          'Rules、Skills、Commands、Components、Contributions 和 Agent runtime',
-          '询问用户是否由 Agent 立即同步当前 workspace 和 Agent runtime',
-          'buildr sync <agent> --target <workspace-root>',
-          '把占位符替换为已解析的实际值并正确引用路径',
-          '用户确认前不得执行 sync',
-          '用户确认后，调用 Buildr Skill',
-          '不得把手动命令作为默认处理方式',
-          '按对应 Buildr 生命周期询问并在取得授权后由 Agent 执行可完成的动作',
-          '只有用户选择手动方式，或 Agent 因工具不可用、权限、登录态、外部环境等原因无法完成时',
-          '用户选择手动后不假设操作成功',
-          '再次验证',
-          '当前 session 是否重新发现新资产由 Agent runtime 决定',
-          'Git hook、daemon、文件 watcher 或定时任务',
-          '后续进入 Buildr 工作流时由基线 doctor 兜底',
+          'required Core workspace-transition invariant',
+          '本 provider 不拥有或复制该 Buildr 操作手册',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`git-ops Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        for (const forbiddenText of [
+          '改变已验证 tree 时，原验证结果失效',
+          '集成前重新运行受影响的验证',
+          '复用已有验证结果',
+          '不因 checkout、commit hash 或分支名称改变而重复运行相同验证',
+        ]) {
+          if (skillContent.includes(forbiddenText)) problems.push(`git-ops Skill must not own Candidate verification decision ${JSON.stringify(forbiddenText)}.`);
         }
         for (const routedIntent of ['pull', 'checkout', 'switch', 'reset', 'cherry-pick', 'revert', 'stash']) {
           if (!skill.description.includes(routedIntent)) problems.push(`git-ops builtin description must route ${routedIntent}.`);
@@ -591,64 +757,131 @@ export function createPackageStaticValidator(deps) {
         for (const requiredText of [
           '一次性授权',
           'openspec status --change <id> --json',
+          '用户已经确认的目标、纠正和决策',
+          '任务范围内仍有未记录语义、实现偏差或验证缺口时',
+          'OpenSpec contract sidebar 只证明已记录契约',
+          '任务资产审查门控',
+          '不得调用工具、重新读取任务文件或加载完整 selected asset-review provider',
+          '用户纠正过 Agent 的工作边界、资产职责、scope 或授权范围',
+          '初始假设被代码、命令、测试或用户反馈推翻',
+          '无效重复或明显 token 浪费',
+          '静默跳过完整审查',
+          '复用当前候选 tree 已有的有效审查结果',
+          '审查成功不是 archive、commit、integration、push 或 cleanup 的新增前置条件',
+          '“收尾”不构成 Rule 或 Skill 写入授权',
           'new blank line at EOF',
           '恰好以一个换行结束',
           'git rev-parse HEAD^{tree}',
-          'fast-forward-only',
+          'selected task-integration provider',
+          'selected task-verification provider',
+          'implementationCandidateIdentity',
+          'deliveryTreeIdentity',
+          'same-content',
+          'closeout-metadata-only',
+          'implementation-changed',
+          'taskVerificationExecuteCalls',
+          'candidateExecutorCalls',
+          'selected worktree-lifecycle provider',
+          'required dependency 为 `blocked`',
           '不删除远端任务分支',
           '工作目录切换到主 workspace',
           '修复期间已经优先重跑失败项和受影响专项检查',
           '候选重新稳定后完成一次新的最终完整验证',
           'wait、poll 或 resume 同一进程',
           '暂时无输出不得启动第二个相同验证',
+          '`timingSource`',
+          '最慢检查',
+          '跳过项',
           '停止尚未执行的 archive、commit、rebase、merge、push 或 cleanup',
-          '成功 rebase 后若最终已检出内容实际变化',
-          'fast-forward-only 集成完成后',
-          '复用 Git Ops 的“工作区转换后的 Buildr 环境检查”',
-          '复用同步询问、Agent 执行和手动兜底边界',
-          '用户确认前不执行 sync',
-          '确认后由 Agent 执行并验证',
-          '手动命令只作备选',
+          'provider 返回 `treeChanged: true`',
+          '本 Skill 不复制这些策略',
+          'placement、retention、cleanup preconditions 和删除顺序由该 provider',
           '<!-- buildr:skill-contributions pre-spec-sync -->',
           '<!-- buildr:skill-contributions post-spec-sync -->',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`task-finish Skill must include ${JSON.stringify(requiredText)}.`);
         }
+        for (const forbiddenPolicy of ['fast-forward-only', '默认 rebase 到最新目标分支', '不创建 merge commit']) {
+          if (skillContent.includes(forbiddenPolicy)) problems.push(`task-finish must not copy Git provider policy: ${forbiddenPolicy}`);
+        }
         if (skillContent.includes('buildr openspec')) problems.push('task-finish source must not hard-code OpenSpec contract guard commands; installed Components contribute them at render time.');
       }
+      if (skill.id === 'task-asset-review') {
+        for (const requiredText of [
+          '用户明确要求复盘',
+          'Finish consumer 只在自身轻量资格判断命中后调用 selected provider',
+          '用户原始目标、纠正和明确决策',
+          'subagent 的任务划分、证据和最终报告',
+          '不得声称读取模型隐藏推理、chain-of-thought 或内部 deliberation',
+          '不得为了审查采集或保存完整原始对话、完整工具日志、逐节点回放或完整任务轨迹',
+          '重建简短执行轮廓',
+          '目标一致性',
+          '路径效率',
+          '证据质量',
+          '边界质量',
+          '成本质量',
+          '复用机会',
+          '无效全量搜索、重复工具、重复完整验证、过度 subagent',
+          '必要成本',
+          '执行质量反馈',
+          '资产沉淀建议',
+          '候选目标资产的源文件、manifest、随附模板、脚本、metadata',
+          '完整覆盖',
+          '部分覆盖',
+          '存在冲突',
+          '尚无资产',
+          'runtime 投射只能证明同步状态',
+          '不得输出 Specs 候选',
+          '普通 follow-up',
+          '证据胶囊',
+          '最终 commit / diff',
+          '归档 OpenSpec change',
+          '稳定文件或任务看板',
+          '证据耐久性较弱',
+          '“收尾”不授权写入 Rule、Skill 或其他组织资产',
+        ]) {
+          if (!skillContent.includes(requiredText)) problems.push(`task-asset-review Skill must include ${JSON.stringify(requiredText)}.`);
+        }
+        for (const forbiddenText of ['安装 runtime Hook', '启动 daemon', '启动 watcher', '接入事件总线']) {
+          if (skillContent.includes(forbiddenText)) problems.push(`task-asset-review Skill must not instruct Agents to ${JSON.stringify(forbiddenText)}.`);
+        }
+      }
       if (skill.id === 'task-triage') {
-        for (const requiredText of ['OpenSpec change 状态', 'artifact 或 task 进度', '下一步或阻塞原因', 'openspec status --change <id> --json', '文档正文使用中文', 'openspec-*` Skills', '实现型任务的验证编排', '有语义的任务组', '完整候选验证放在全部实现', '不得把 Buildr 产品仓的 package check', '<!-- buildr:skill-contributions change-ready -->']) {
+        for (const requiredText of ['OpenSpec change 状态', 'artifact 或 task 进度', '下一步或阻塞原因', 'openspec status --change <id> --json', '文档正文使用中文', 'openspec-*` Skills', '实现型任务的验证节点规划', 'selected `buildr.task-verification/v1` provider', '有语义的任务组', '完整候选验证放在全部实现', '不得把 Buildr 产品仓的 package check', '<!-- buildr:skill-contributions change-ready -->']) {
           if (!skillContent.includes(requiredText)) problems.push(`task-triage Skill must include ${JSON.stringify(requiredText)}.`);
         }
         if (skillContent.includes('buildr openspec')) problems.push('task-triage source must not hard-code OpenSpec contract guard commands; installed Components contribute them at render time.');
       }
-      if (skill.id === 'task-cockpit') {
+      if (skill.id === 'task-board') {
         for (const requiredText of [
-          'openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html',
+          'openspec/knowledge/task-boards/yyyy-MM-dd-<task-id>.html',
           'Agent 单向维护',
           '不是 OpenSpec change 的翻译',
+          '任务看板',
+          '既有 `task-cockpits/` 页面保持原路径和原内容',
+          '至少关联一个已经创建并核实路径的 OpenSpec change',
+          '`changes` 必须非空',
+          '`dependencyPool`',
           '首页',
           '推进',
           '方案',
           '技术细节',
           '不猜测百分比',
           '可点击入口',
-          'assets/task-cockpit-template.html',
+          'assets/task-board-template.html',
         ]) {
-          if (!skillContent.includes(requiredText)) problems.push(`task-cockpit Skill must include ${JSON.stringify(requiredText)}.`);
+          if (!skillContent.includes(requiredText)) problems.push(`task-board Skill must include ${JSON.stringify(requiredText)}.`);
         }
-        const templatePath = path.join(skillDir, 'assets', 'task-cockpit-template.html');
-        const metadataPath = path.join(skillDir, 'agents', 'openai.yaml');
+        const templatePath = path.join(skillDir, 'assets', 'task-board-template.html');
         if (!existsFile(templatePath)) {
-          problems.push('task-cockpit Skill must include assets/task-cockpit-template.html.');
+          problems.push('task-board Skill must include assets/task-board-template.html.');
         } else {
           const templateContent = fs.readFileSync(templatePath, 'utf8');
-          for (const requiredText of ['id="cockpit-data"', 'data-tab="overview"', 'data-tab="progress"', 'data-tab="solution"', 'data-tab="technical"', '由 Agent 单向维护 · 页面只读']) {
-            if (!templateContent.includes(requiredText)) problems.push(`task-cockpit template must include ${JSON.stringify(requiredText)}.`);
+          for (const requiredText of ['id="board-data"', 'data-tab="overview"', 'data-tab="progress"', 'data-tab="solution"', 'data-tab="technical"', '由 Agent 单向维护 · 页面只读', '"changes"', '"batches"', '"dependencyPool"', '"businessPlan"', '"technicalPlan"', '"details"']) {
+            if (!templateContent.includes(requiredText)) problems.push(`task-board template must include ${JSON.stringify(requiredText)}.`);
           }
-          if (/https?:\/\//.test(templateContent)) problems.push('task-cockpit template must not depend on external HTTP resources.');
+          if (/https?:\/\//.test(templateContent)) problems.push('task-board template must not depend on external HTTP resources.');
         }
-        if (!existsFile(metadataPath)) problems.push('task-cockpit Skill must include agents/openai.yaml.');
       }
       if (skill.id === 'openspec-contract-guard') {
         for (const requiredText of ['buildr openspec baseline create', '--stage pre-sync', '--stage post-sync', '不修改外部 `openspec-*` Skills']) {
@@ -664,8 +897,14 @@ export function createPackageStaticValidator(deps) {
     if (!manifest.builtins.skills.some((skill) => skill.id === 'task-finish' && skill.required === false)) {
       problems.push('builtins.skills must declare optional task-finish.');
     }
-    if (!manifest.builtins.skills.some((skill) => skill.id === 'task-cockpit' && skill.required === false)) {
-      problems.push('builtins.skills must declare optional task-cockpit.');
+    if (!manifest.builtins.skills.some((skill) => skill.id === 'task-verification' && skill.required === false)) {
+      problems.push('builtins.skills must declare optional task-verification.');
+    }
+    if (!manifest.builtins.skills.some((skill) => skill.id === 'task-board' && skill.required === false)) {
+      problems.push('builtins.skills must declare optional task-board.');
+    }
+    if (!manifest.builtins.skills.some((skill) => skill.id === 'task-asset-review' && skill.required === false)) {
+      problems.push('builtins.skills must declare optional task-asset-review.');
     }
 
     for (const command of manifest.builtins.commands) {
@@ -688,6 +927,8 @@ export function createPackageStaticValidator(deps) {
         '不得在每个普通任务后运行产品总验证或临时 workspace E2E',
         '继续等待同一进程，不重复启动相同命令',
         '修复循环优先重跑失败项和受影响检查',
+        'selected `buildr.task-verification/v1` provider',
+        '测量验证自身 wall-clock 并向用户报告',
         '不作为相同 tree 后续 Git 动作的重复产品验证门禁',
         '使用 `task-finish` 编排',
         '不授权 force push、merge commit、远端任务分支删除',
@@ -709,9 +950,17 @@ export function createPackageStaticValidator(deps) {
         if (!taskFinish || taskFinish.source !== 'buildr' || taskFinish.state !== 'installed' || taskFinish.enabled !== true) {
           problems.push('Workspace skills baseline must declare enabled installed Buildr task-finish.');
         }
-        const taskCockpit = baselineSkills.find((entry) => entry.id === 'task-cockpit');
-        if (!taskCockpit || taskCockpit.source !== 'buildr' || taskCockpit.state !== 'installed' || taskCockpit.enabled !== true) {
-          problems.push('Workspace skills baseline must declare enabled installed Buildr task-cockpit.');
+        const taskVerification = baselineSkills.find((entry) => entry.id === 'task-verification');
+        if (!taskVerification || taskVerification.source !== 'buildr' || taskVerification.state !== 'installed' || taskVerification.enabled !== true) {
+          problems.push('Workspace skills baseline must declare enabled installed Buildr task-verification.');
+        }
+        const taskBoard = baselineSkills.find((entry) => entry.id === 'task-board');
+        if (!taskBoard || taskBoard.source !== 'buildr' || taskBoard.state !== 'installed' || taskBoard.enabled !== true) {
+          problems.push('Workspace skills baseline must declare enabled installed Buildr task-board.');
+        }
+        const taskAssetReview = baselineSkills.find((entry) => entry.id === 'task-asset-review');
+        if (!taskAssetReview || taskAssetReview.source !== 'buildr' || taskAssetReview.state !== 'installed' || taskAssetReview.enabled !== true) {
+          problems.push('Workspace skills baseline must declare enabled installed Buildr task-asset-review.');
         }
         const gitOps = baselineSkills.find((entry) => entry.id === 'git-ops');
         for (const routedIntent of ['pull', 'checkout', 'switch', 'reset', 'cherry-pick', 'revert', 'stash']) {

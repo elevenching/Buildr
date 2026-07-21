@@ -22,6 +22,7 @@ Organization/Root -> Project -> Service
 - 未合并候选产品只验证临时 workspace 或 task worktree 自身，不更新主自举 workspace。完整验证绑定最终候选 Git tree；commit、相同 tree 集成、push 和 worktree 清理复用该结果，tree 改变后才在集成前重验受影响部分。
 - 当前内置 `task-finish` workspace Skill 独占完整“收尾”意图：在当前轮次授权常规 OpenSpec 同步归档、相关校验、提交、必要的本地未推送 rebase、fast-forward 集成、目标分支 push 和本地 worktree/任务分支清理；高风险或语义不确定动作仍停止确认。
 - `task-finish` 是 Buildr 自有收尾编排 Skill，不修改外部 `openspec-*` Skills；OpenSpec Component 已安装时，runtime renderer 向其稳定 slots 贡献 canonical sync 前的 pre-sync check 和 sync 后 archive 前的 post-sync check。Component 卸载后这些说明消失，通用 `task-finish` 仍保留其余职责。
+- `task-finish` 在任务资产审查前先对齐用户已确认目标和决策、change artifacts、最终实现、Git diff 与验证结果，再复用 OpenSpec contract sidebar 证明已记录契约一致性；任务确认完成后只根据当前上下文执行无工具轻量资格判断，命中强信号时才条件调用 optional `task-asset-review`，审查不可用或失败不会阻塞正常收尾。
 - 实际自举 workspace 的 sync 是独立状态变更，执行后按 Buildr Core 运行 doctor，不作为相同 tree 的第二轮产品 E2E；CLI update 只更新当前 Product checkout 或 registry package，不读取 workspace。
 - Agent 采用 OpenSpec workflow 时，必须在动作前说明 change id、change 路径和 create/explore/apply/sync/archive 动作。
 
@@ -56,7 +57,7 @@ Organization/Root -> Project -> Service
 - `package/targets/runtime/` 只放直接安装到 Agent runtime 的产品交付源。
 - `buildr init` 按 `workspaceDirectories` 和 `workspaceFiles` 生成 root baseline；可选 `--agent` 在此后复用现有 sync，不复制 update/render/doctor 实现。
 - `buildr project create` 按 `projectDirectories` 和 `projectFiles` 生成 Project baseline。
-- npm package 当前版本为 `0.1.0`，使用 MIT License 且允许本地或后续 registry 打包安装；开发 checkout installer 会在依赖缺失时使用 lockfile 执行 `npm ci --omit=dev`。
+- npm package 当前发布基线为 `0.1.0-rc.5`，使用 MIT License 且允许本地或 registry 打包安装；开发 checkout installer 会在依赖缺失时使用 lockfile 执行 `npm ci --omit=dev`。
 - canonical Agent 首次路径为 `runtime list -> init --agent <agent>`；高层 init 已包含完整 sync 和最终 doctor。repository onboarding verifier 会在不含 `node_modules` 和 Agent runtime 的候选树中验证该单命令闭环，并独立读取 doctor JSON。
 - root `AGENTS.md` 现在只作为规则入口，必须包含 Buildr required block 并引用 `rules/buildr/core.md`。
 - 目标 workspace 已存在 root `AGENTS.md` 时，Buildr 只补齐或修复 Buildr required block，不覆盖用户正文，也不再写入 `AGENTS.workspace.md`。
@@ -75,16 +76,16 @@ Organization/Root -> Project -> Service
 - Sidebar 是 Buildr 对外部能力的独立、可卸载增强模式；`openspec-contract-guard` 是 OpenSpec sidebar 的能力主体，Contributions 是接入上游 actions 与 Buildr task workflows 的连接点。
 - Skill Contribution 由 Component definition 声明目标 Skill、placement 和 fragment；Buildr 自有 Skill 可使用稳定 slot，外部 Skill 使用 prepend/append boundary composition。fragment 纳入 integrity，只在 enabled installed Component 的 runtime render 中组合，不修改 workspace Skill 源。可选目标 Skill未安装时跳过，无效 placement、缺失 slot 或 fragment integrity 不一致时 fail closed。
 - Skill Contribution 是自然语言内容组合，不执行命令；当前不支持 Project/Service Component、远程 registry、依赖求解、权限或可执行 Hook。
-- Component 集合预检通过后，成员、Rules/Skills manifests、Component registry 和安装 definition 通过统一 source transaction 提交；中途失败回滚，definition 仍是最后成功物化回执。runtime reconcile 保持在 source commit 之后。
+- `buildr sync` 在创建 mutation lock、transaction 或 backup 前完成 Builtin 与 Component 的只读集合预检；optional Builtin 或 Component 冲突需要用户决策时保持 workspace 与 Git 状态不变。Component 集合预检复用真实 reconcile plan，通过后成员、Rules/Skills manifests、Component registry 和安装 definition 才进入统一 source transaction；中途失败回滚，definition 仍是最后成功物化回执。runtime reconcile 保持在 source commit 之后。
 
 ## Managed Data Integrity
 
 - `.`、`..`、路径分隔符和控制字符不能作为 Buildr 资产 identity；普通 id 中的点只作为字符，不参与路径导航。
 - Buildr 只删除经过 scope、ownership 和 symlink 验证的精确受管成员；workspace 根、Product 根、当前目录、home、文件系统根和 Rules/Skills/Commands/Components 等集合根受保护。该保护不阻止正常 Rule、Skill、Builtin 或 Component 卸载。
 - manifest 和 OpenSpec contract sidecar 使用 atomic writer；Buildr YAML 由成熟 parser 按真实 YAML 语义读取，再执行封闭 schema 校验和 canonical render。
-- workspace source mutation 使用 `.buildr/mutations/` 保存单写者 lock、journal、staging 和 backup。普通失败恢复操作前状态；异常残留阻塞后续 source mutation。
+- workspace source mutation 使用 `.buildr/mutations/` 保存单写者 lock、journal、staging 和 backup。sync transaction 只 snapshot plan 声明的精确受管文件、成员和原本缺失的目录，不把整个 `projects/`、已有 Project/Services 根或独立 Service repo 根纳入递归恢复。普通失败通过有限删除重试和恢复结果校验恢复操作前状态；异常残留阻塞后续 source mutation。
 - init/sync 幂等确保 root `.gitignore` 包含 `/.buildr/mutations/`，避免事务临时状态进入 Git 变更视图，但不忽略 `.buildr/workspace.yml`。
-- doctor 使用 `mutation.transaction_incomplete` 或 `mutation.lock_orphaned` 报告 operation、phase、affected paths 和 next action；可证明 journal 完整时使用 `buildr mutation recover <transaction-id> --target <workspace>` 恢复旧状态。
+- doctor 使用 `mutation.transaction_incomplete` 或 `mutation.lock_orphaned` 报告 operation、phase、affected paths 和 next action；可证明 journal 完整时使用 `buildr mutation recover <transaction-id> --target <workspace>` 恢复旧状态。失败 recover 保留完整材料并可再次执行；成功后写入轻量 recovery receipt，同一 transaction ID 再次 recover 是不修改 workspace 的成功 no-op。
 - runtime 仍是可重建结果：source transaction 成功后 runtime reconcile 失败不会回滚源资产，而是返回失败并要求 render、sync 或 doctor 修复。
 
 ## Builtins / Rules
@@ -111,9 +112,10 @@ Organization/Root -> Project -> Service
 - `package/bootstrap/guide.md` 是 Buildr Skill 不可用、未安装或损坏时的兜底入口。
 - `package/bootstrap/contract.yml` 校验 Buildr Skill、bootstrap guide 和生成后 runtime Skill 的入口不回退。
 
-## Workspace / Project Skills
+## Workspace Skills 与 Project capability context
 
-- workspace/project Skills 源资产由 `skills/manifest.yml` 维护。
+- Workspace 等同于工作目录，是 Skill 唯一 source authority；`buildr.skills/v3` 在根 `skills/manifest.yml` 保存 workspaceId、assetIdentity、sourceIdentity、contracts、默认 bindings 和全部 Skill entries。
+- Project 不保存 Skill content。固定 `projects/<project>/capabilities.yml` 使用 `buildr.project-capabilities/v1` 表达 requirements、Project bindings 和 workspace Skill applicability；legacy Project manifests 只由 `skills migrate-project-assets --check/--apply` 显式事务迁移。
 - 本地作者型 Skill 使用 `path` 指向完整 Skill 源目录，目录至少包含 `SKILL.md`。
 - 远端发布型 Skill 可先用 `source` 登记信息源，再用 `resolved` 登记已解析安装源。
 - `skills add --source <skill-dir>` 装载或登记完整本地 Skill 源目录。
@@ -122,13 +124,14 @@ Organization/Root -> Project -> Service
 - resolved `skill-url` 使用有界网络读取；默认 inactivity 和总 timeout 可通过 `BUILDR_REMOTE_SKILL_INACTIVITY_TIMEOUT_MS`、`BUILDR_REMOTE_SKILL_TOTAL_TIMEOUT_MS` 在 `1..120000` 毫秒内调整，超时保持 runtime 目标零写入。
 - `package:<id>` 是 package manifest `skillSources` 与随包 Skill resolver 使用的内部 source identity，不是用户 Skill asset id、通用 source scheme 或 `skills add` 输入格式。
 - Buildr 内置 workspace Skills 现在发布到 `skills/buildr/<skill-id>/`，并在 `skills/manifest.yml` 中以 `source: buildr`、`path`、`runtimePath`、`enabled`、`required` 和 `state` 管理。
-- 当前随包独立 workspace Skills 包括 `task-triage`、`task-cockpit`、`task-worktree`、`task-finish` 和 `git-ops`；OpenSpec workflows 与 `openspec-contract-guard` 由 OpenSpec Component 统一交付，但仍以 Buildr builtin descriptor 提供产品元数据。
-- `task-cockpit` 为复杂、长期、跨阶段或有交叉依赖的任务维护 Agent 单向更新、用户只读的单文件 HTML 驾驶舱；默认路径为 Project `openspec/knowledge/task-cockpits/yyyy-MM-dd-<task-id>.html`，稳定入口可以关联多个 active/archive change、code-only 工作和外部依赖。
-- 任务驾驶舱优先展示普通用户可理解的目标、当前结论、阶段、已完成、下一步和阻塞，再逐层展示推进、方案与技术细节。它是 task-scoped working knowledge，不替代 canonical specs、active change、代码和验证证据。
+- 当前随包独立 workspace Skills 包括 `task-triage`、`task-board`、`task-asset-review`、`task-worktree`、`task-finish` 和 `git-ops`；OpenSpec workflows 与 `openspec-contract-guard` 由 OpenSpec Component 统一交付，但仍以 Buildr builtin descriptor 提供产品元数据。
+- `task-board` 为复杂、长期、跨批次或有交叉依赖的任务维护 Agent 单向更新、用户只读的单文件 HTML 任务看板。新页面默认路径为 Project `openspec/knowledge/task-boards/yyyy-MM-dd-<task-id>.html`，每个看板至少关联一个真实 OpenSpec change，并可跨多个 active/archive change、code-only 工作和外部依赖。旧称“任务驾驶舱”只保留为用户意图兼容；既有 `task-cockpits/` HTML 保持原路径和原内容，不参与升级迁移。
+- `task-asset-review` 基于当前 session 可观察节点和最终 Git/OpenSpec/验证证据反思目标一致性、路径、证据、scope/授权、token/工具成本与复用机会；它按需核对候选目标 Skill 的正文、metadata、模板、脚本、manifest、runtime 投射和真实产物，输出完整覆盖、部分覆盖、存在冲突或尚无资产。执行质量反馈与 Rule/Skill 候选分层，OpenSpec 只作证据，合格候选生成可在 worktree 清理后继续核查的证据胶囊。它不读取隐藏推理、不保存完整任务轨迹、不依赖 Hook，也不自动写入组织资产。
+- 任务看板优先展示普通用户可理解的目标、当前结论、当前批次、已完成、下一步和阻塞，再逐层展示 change 关联、交付批次、依赖池、业务/技术方案与已完成复杂任务的技术细节。它是 task-scoped working knowledge，不替代 canonical specs、active change、代码和验证证据。
 - `task-triage` 判断驾驶舱是“不需要”“创建”还是“继续维护”；驾驶舱首次创建、实质更新、用户询问进度、任务暂停或完成时，Agent 回复提供可点击绝对路径和 workspace 相对路径。
 - 产品入口 Buildr Skill 仍位于 `package/targets/runtime/skills/buildr/SKILL.md`，不进入 workspace `skills/manifest.yml`，也不硬编码可卸载 Component 所拥有的专用 Skill 路由。
-- `buildr skills render <agent> --scope <scope>` 渲染 workspace/project Skills 和 Skill install plans；它不安装产品内置 Buildr Skill。
-- `buildr skills render codex|cursor` 渲染 workspace/project Skills 到 `.agents/skills/`；其他 adapter 使用 descriptor 声明的 `.claude`、`.qoder`、`.trae` 或 `.codebuddy` root。
+- `buildr skills render <agent> --destination workspace|user --target <workspace>` 从同一 workspace authority 投射 Skills 和 install plans；默认 workspace，`init`/`sync` 不隐式写 user destination。
+- adapter descriptor 声明两种 destination roots、可观测 discovery roots、inventory evidence 和 activation。Buildr 用 v2 receipt、source/render digest 和有效 inventory 分类幂等、更新、user satisfaction、外部等价、foreign owner 与 name conflict；blocking conflict 整次零写入，`--replace` 不自动 adopt/transfer。
 
 ## Commands
 
@@ -148,7 +151,7 @@ Organization/Root -> Project -> Service
 - `buildr doctor --agent <agent> --json`：按当前 Agent runtime 过滤 runtime diagnostics。
 - `buildr doctor`：人类可读诊断报告。
 
-Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime list --json` 确认 adapter，再优先使用 `buildr doctor --agent <agent> --json` 建立事实基线；未传 `--agent` 的 doctor 保留为 CLI 兼容入口，不作为当前 Agent 主流程。
+Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime list --json` 确认 adapter，再优先使用 `buildr doctor --agent <agent> --json` 建立事实基线；未传 `--agent` 的 doctor 只按 Buildr managed marker/receipt 发现并诊断 present runtime inventory，未选中 runtime drift 不影响通用 workspace readiness，也不作为当前 Agent 主流程。
 
 尚未初始化的 workspace 例外：adapter 确认后直接运行 `buildr init --agent <agent>`，并使用该命令内置的最终 doctor 结果，不重复运行独立 sync 或 doctor。
 
@@ -176,22 +179,25 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 - Agent runtime 文件是可重建渲染产物，不是长期资产源。
 - `service create` 不向 service repo 写入 `CLAUDE.md`、`.claude/` 或其他 runtime 文件。
 - adapter required render capabilities 固定为 `rules-entry`、`product-buildr-skill`、`workspace-project-skills`、`skill-install-plans` 和 `runtime-check`。
-- supported adapter descriptor 由受约束 traits 组合：Rules 为 `native-recursive`、`native-root`、`reference-bridge` 或 `vendor-rule-files`，Skills 为 `agents-compatible` 或 `vendor-root`，并显式声明 surface、activation 和 checker；组合不完整或部分 Rules scope 不得注册为 supported。
-- Codex 当前原生使用全部已发现的 `AGENTS.md`，Rules render 零写入；Codex Skills adapter 将 enabled Skills 渲染到 `.agents/skills/<skill-id>/`。
+- supported adapter descriptor 由受约束 traits 组合：Rules 为 `native-recursive`、`native-root`、`reference-bridge` 或 `vendor-rule-files`，Skills 为 `agents-compatible` 或 `vendor-root`，并可声明受约束的可选 Skill publication extensions；descriptor 还须显式声明 surface、activation 和 checker。组合不完整、extension path/format 非法或部分 Rules scope 不得注册为 supported。
+- Codex 当前原生使用全部已发现的 `AGENTS.md`，Rules render 零写入；Codex Skills adapter 将 enabled Skills 的完整受支持目录渲染到 `.agents/skills/<skill-id>/`。
+- 本地作者型和 package Skill 会投射 `SKILL.md` 以及 `agents/`、`assets/`、`examples/`、`references/`、`scripts/`、`templates/` 下的普通文件；`SKILL.md` 继续派生 managed marker、contributions、capability bindings 和 adapter context，随附文件保持原始字节与 owner executable 状态。`resolved.kind: skill-url` 仍是单文件 `SKILL.md` 来源。
+- Skill 可移植核心和 Codex 发布都只要求有效 `SKILL.md`，其 `name` 与 `description` 用于发现和路由；随附目录均为可选。Codex/OpenAI profile 只在 `agents/openai.yaml` 已存在时校验该 UI extension，缺失不阻塞、不生成、不反写；其他 adapter 只在完整目录投射中保留已有文件而不消费。Skill 执行资源相对于当前 runtime `SKILL.md` 所在目录解析。
+- 每个 adapter 在自身 runtime metadata 区维护版本化 Skill projection receipt。render、sync、runtime check、doctor 和 Component lifecycle 复用相同 inventory；active stale 与 orphan 只在文件仍匹配旧 receipt 时清理，已修改文件或未知用户文件触发零部分写入 conflict。缺少 receipt 的旧版仅 `SKILL.md` 投射继续保守兼容。
 - Claude Code adapter 支持 `skill install`、`runtime check`、`rules render` 和 `skills render`。
 - Cursor、Qoder、TRAE 使用 `vendor-rule-files`：分别生成各 source scope 的 `.cursor/rules/buildr.mdc`、root `.qoder/rules/buildr/*.md`、各 source scope 的 `.trae/rules/buildr.md`；TRAE Work 与 WorkBuddy 使用 root-index reference bridge，目标分别为 `CLAUDE.local.md` 和 `CODEBUDDY.md`。
-- TRAE Work Rules import/reference traversal 无法仅由 projection 证明，checker 保持 prerequisite warning。新增 adapter 使用 `documented` / `verified` 两级证据：WorkBuddy 5.2.5 已通过桌面包内置 CodeBuddy CLI 2.106.4 的一次性新任务 marker smoke，等级为 `verified`；Cursor、Qoder、TRAE 与 TRAE Work 已由官方资料、本机观察或 discovery 源码认证为 `documented`，真实产品 smoke 保持 `pending`。GUI 自动点击、私有数据库抓取和重复 reload 测试不属于常规 adapter 完成门槛。
+- 新增 adapter 保留 Rules/Skills 的官方资料、安装包源码或本机 intake provenance，并由自动 contract/parity 验证 Buildr 的投射和维护边界。Descriptor 不维护 `documented`/`verified`、`pending`/`passed` 或品牌历史 marker smoke；TRAE Work checker 只报告 projection、environment probe 和 activation guidance，不把产品级真实 Agent 验证缺口作为当前 workspace prerequisite。
 - Claude Code rules render 在每个 source 同目录生成 `@AGENTS.md` reference bridge，不复制规则全文；reconcile 先校验全部 conflict 再写入，并清理 source 已删除的 Buildr-managed orphan bridge。
 - reference bridge 中旧 hash 过期只作为 metadata info，不构成 action-required stale。
-- 当前实现已通过本地 Codex runtime adapter 验证 `.agents/skills/<skill-id>/SKILL.md` 渲染结构；实际扫描行为仍以当前 Codex 产品版本为准。
+- 当前实现已通过全部 supported adapters 的完整 Skill 目录投射契约与 parity 验证；Agent 产品是否在当前 session 发现新 Skill 仍以对应产品版本和 activation 行为为准。
 
 ## CLI Update / Workspace Sync / Builtin
 
 - `buildr update` 根据 executable 来源更新 Buildr CLI 自身：开发 checkout 使用 Git fetch 与安全 fast-forward/rebase，registry package 使用 npm 更新同一 package identity；它不接收 workspace target，不执行 sync、render 或 doctor。
-- `buildr update check --json` 输出 mode、current、available、status、blockingReasons 和 nextActions；来源无法证明、Git dirty/shared/conflict 或 registry/prefix 受阻时 fail closed。
+- `buildr update check --json` 输出 mode、current、available、status、blockingReasons 和 nextActions；development checkout 还分别报告 Git `sourceStatus` 与 registry `versionStatus`，upstream 一致但 package version 落后于对应发布渠道时报告 `version-stale` 且不自动修改 checkout。来源无法证明、Git dirty/shared/conflict 或 registry/prefix 受阻时 fail closed。
 - `buildr builtin list --target <dir> --json` 查看内置能力状态。
 - `buildr builtin uninstall <id> --target <dir>` 卸载 optional 内置能力；required 能力会被拒绝。
-- 当前随包 optional Skills 卸载会删除源文件，并删除 `.claude/skills/` 和 `.agents/skills/` 下的 runtime 渲染结果。
+- 当前随包 optional Skills 卸载会删除源文件；各 supported adapter 下一次全量 render/sync 根据 projection receipt 安全删除完整 runtime Skill，遇到已修改受管文件或未知用户文件时保留现场并报告 conflict。
 - `buildr builtin restore <id> --target <dir>` 从当前产品包恢复指定内置能力。
 - `buildr sync <agent> --target <dir>` 是七个 supported adapter 的 workspace 同步主路径：同步 Buildr 产品能力、安装产品入口 Buildr Skill、准备当前 Agent 的 workspace 入口 runtime，并用 `doctor --agent <agent>` 复查；它不更新 CLI。
 - 默认 `sync` 从 canonical `.` 递归 reconcile 整个受管理 workspace Rules 子树；组合 `render` 的 Rules 使用完整 canonical scope，Skills scope 折叠到所属 Root/Project。
@@ -208,10 +214,12 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 
 当前可执行命令按产品表面分类如下。分类是 help/docs 中的用途事实，不是权限或安全限制；maintenance/workflow 命令仍可执行并可查看主题帮助。
 
+CLI identity 可通过 `buildr --version`、`buildr -V`、`buildr version` 或 `buildr version --json` 读取，事实来自当前实际执行 package metadata。`buildr help <command...>` 与 flag help 共用 canonical topic；未知路由使用简洁 stderr diagnostics，或在请求 `--json` 时输出 `buildr.cli-error/v1` 单对象并以 2 退出。`-v` 和 Shell completion 当前不属于公开版本入口。
+
 | 分类 | 命令 |
 |---|---|
 | public onboarding / daily | `buildr init --agent <agent>`、纯源资产 `buildr init`、`buildr project create`、`buildr service create`、`buildr doctor`、`buildr runtime list`、`buildr sync <agent>` |
-| public CLI lifecycle | `buildr update/check` |
+| public CLI lifecycle | `buildr version`、`buildr update/check` |
 | public asset lifecycle | `buildr commands add/remove/check`、`buildr component list/check/install/uninstall`、`buildr rules add/remove`、`buildr skills add/remove`、`buildr builtin list/uninstall/restore` |
 | public advanced / repair | `buildr mutation recover`、`buildr runtime check <agent>`、`buildr render <agent>`、`buildr rules render <agent>`（仅 Rules writesFiles adapters）、`buildr skills render <agent>`、`buildr skill install <agent>`、`buildr bootstrap guide` |
 | internal workflow | `buildr openspec baseline create`、`buildr openspec check` |
@@ -223,6 +231,12 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 
 当前产品验证入口包括：
 
+- `cd projects/product && npm run test:unit`（同进程直接 unit owner）
+- `cd projects/product && npm run test:contract`（源码、manifest、docs、Skills 与 entrypoint 静态契约）
+- `cd projects/product && npm run test:integration:fast`（真实 CLI/Git 子进程的低成本集成）
+- `cd projects/product && npm run coverage:unit -- --summary <path>`（独立 unit-only coverage 观测，不作为当前全局发布阈值）
+- `cd projects/product && npm run test:changed -- --plan`（根据 Git diff 生成最小可解释 DAG）
+- `cd projects/product && npm run test:focus -- <step-id|group:<group>>`（统一定点重跑入口，不自动附加 Fast）
 - `projects/product/buildr package check`
 - `projects/product/tools/verification/onboarding/repository.mjs`
 - `projects/product/tools/verification/onboarding/init.mjs`
@@ -231,14 +245,14 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 - `projects/product/tools/verification/cli/architecture.mjs`
 - `projects/product/tools/verification/cli/compatibility.mjs`
 - `projects/product/tools/verification/cli/package-parity.mjs`
-- `projects/product/tools/verify-buildr-product-mvp`
+- `cd projects/product && npm run test:focus -- workspace-lifecycle ownership-recovery runtime-reconciliation`（按稳定 step id 重跑 Workspace E2E；完整 Candidate 强制运行全部 suites）
 - `projects/product/tools/verification/openspec/contract.mjs`
 - `projects/product/tools/verification/openspec/contract-audit.mjs`
 - `projects/product/tools/verification/release/open-source-candidate.mjs`
 - `(cd projects/product && openspec validate --all --strict)`
 - `npm pack --dry-run`
 
-`projects/product/tools/verify-buildr-product` 聚合以上产品级门禁；repository verifier 会从无依赖、无 runtime 的临时候选树开始，npm E2E 会从 tarball 安装后的 `buildr` 执行 `sync codex` 和最终 doctor。
+`projects/product/tools/verify-buildr-product` 聚合以上产品级门禁并包含 docs quality；repository verifier 从无依赖、无 runtime 的临时候选树验证开发 CLI 安装和 update source，release smoke 从 tarball 安装后的 `buildr` 执行完整 init、sync、doctor、optional uninstall 生命周期。
 
 开源候选 verifier 会检查 tracked candidate 的敏感模式、内部来源、占位 URL、异常大文件、中文/英文 README canonical token、公开 package metadata 和 npm tarball 禁止路径。产品完整验证会记录该阶段耗时，Buildr Product Project 的完成报告需说明总耗时、最慢阶段、失败阶段（如有）和 timing summary 路径。
 
@@ -246,7 +260,7 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 
 - 官方公开源码 identity 是 `https://github.com/elevenching/Buildr`，中文 `README.md` 是 canonical 产品入口，`README.en.md` 是唯一要求维护的英文翻译；其他文档继续按 Project 管理语言维护。
 - 官方 npm package identity 是 `@buildr-ai/buildr`，executable 仍是 `buildr`。prerelease 映射 `next`，稳定版本映射 `latest`，release tag 必须与 package version 一致。
-- Buildr Product Project 发布任务从目标 package version 派生 `release-<version>` task id、`tasks/release-<version>` 分支和 canonical worktree；新建 worktree 先运行 Product Project `npm ci`。`dev -> main` squash merge 后只有 `main`、`dev` 与已验证 candidate tree identity 完全一致时，才使用不改变 tree 的发布专用 merge commit 幂等衔接 `main -> dev`；该特例不扩展通用 Git Ops/Task Finish 授权。
+- Buildr Product Project 发布任务从准备时最新 `origin/dev` 记录 immutable candidate base，再从目标 package version 派生 `release-<version>` task id、`tasks/release-<version>` 分支和 canonical worktree；新建 worktree 先运行 Product Project `npm ci`。版本和发布材料必须先 fast-forward 回 dev；需要排除 dev 内容时先独立撤销，不能从旧 ancestor 发布。pre-main/post-main convergence checker验证 base、version、main/dev tree、ancestry 与 release task hygiene 后，才允许 PR、history bridge 和 tag；该特例不扩展通用 Git Ops/Task Finish 授权。
 - `.github/workflows/publish.yml` 使用 GitHub-hosted Node、`npm-production` Environment 和 OIDC 权限准备受控发布；第一阶段不自动 push 公开 GitHub、不创建 tag、不执行首次 npm publish。
 
 ## Current Limits

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "clarify-capability-routing-semantics",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-c1fc9a807f9ee3ccf2ca5659eb610275a6fc288b17ce931a3e41acb9cdd8d9d7",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "skill-capability-contracts",
+      "title": "Capability 关系必须按路由、依赖和执行协作分层",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

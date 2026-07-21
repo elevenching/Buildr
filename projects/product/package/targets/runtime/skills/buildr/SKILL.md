@@ -1,17 +1,16 @@
 ---
 name: buildr
-description: 在 Buildr workspace 中安装、更新或同步 Buildr、更新或同步 workspace、诊断和维护组织工作资产时使用，覆盖 Buildr CLI 与产品入口 Skill、组织（Organization/Root）、项目（Project）、服务（Service）、组件（Components）、规则（Rules）、技能（Skills）、命令（Commands）、内置能力（Builtins）和 Agent runtime 渲染。
+description: 在 Buildr workspace 中安装、更新或同步 Buildr、更新或同步 workspace、诊断和维护组织工作资产，用户要求采用内部流程、调整工作方式、修改或替换 Skill 行为，或要求复盘任务、总结可沉淀的 Skill/Rule 时使用；覆盖 Buildr CLI 与产品入口 Skill、组织（Organization/Root）、项目（Project）、服务（Service）、组件（Components）、规则（Rules）、技能（Skills）、命令（Commands）、内置能力（Builtins）、工作能力适配和 Agent runtime 渲染。
 ---
-
 # Buildr Skill
 
 ## Buildr 是什么
 
 Buildr 是为组织和 Agent 构建的工作资产治理系统。
 
-它把散落在员工个人经验、文档、仓库和工具中的工作内容、工作能力与工作方式，沉淀为可共享、可审计、可适配不同 Agent 的工作区（workspace）源资产。Rules、Skills、Commands、Projects 和 Services 等是当前资产形式，不是工作资产概念的封闭边界。Agent 是这些资产的主要使用者；人通过 Agent 表达目标、提供业务判断并确认重要决策。
+它把散落在员工个人经验、文档、仓库和工具中的工作事实与工作方法，沉淀为可共享、可审计、可适配不同 Agent 的工作区（workspace）源资产。工作事实回答“干的是什么”，工作方法回答“怎么干”；Rules、Skills、Commands、Projects、Services 和专业能力等是当前示例，不是工作资产概念的封闭边界。Agent 是这些资产的主要使用者；人通过 Agent 表达目标、提供业务判断并确认重要决策。
 
-Buildr workspace 是组织（Organization/Root）资产根；Agent runtime 是面向当前 Agent 的可重建入口。Buildr 组织并投射 Agent 可发现、可选择、可使用的工作资产，不替 Agent 构造 context window；Agent 根据当前任务发现并选择相关内容，形成任务上下文。本机状态和临时提示不由 Buildr 维护。
+Buildr workspace 是组织（Organization/Root）资产根；Agent runtime 是面向当前 Agent 的可重建入口。Buildr 不成为另一个 Agent，也不接管 Agent 的理解、推理和任务执行。Buildr 组织并投射 Agent 可发现、可选择、可使用的工作资产，不替 Agent 构造 context window；Agent 根据当前任务发现并选择相关内容，形成任务上下文并推进工作。本机状态和临时提示不由 Buildr 维护。
 
 Agent 使用本 Skill 判断用户意图属于哪类 Buildr 资产，并通过 Buildr CLI 完成维护、诊断和按需渲染。事实状态以 `buildr runtime list --json`、`buildr doctor --agent <agent> --target <dir> --json`、manifest、CLI 帮助和 CLI 错误输出为准。
 
@@ -25,31 +24,40 @@ Agent 是 Buildr 功能的默认操作入口。Agent 能在当前工具、权限
 2. 运行或参考 `buildr runtime list --json` 获取受支持的 Agent runtime；识别当前 Agent，并将后续 `<agent>` 固定为支持列表中对应的参数。
 3. 如果当前 Agent 无法和支持列表对齐，停止 Buildr 操作，并请联系 Buildr 作者反馈该 Agent。
 4. 判断 workspace 是否已初始化。未初始化时运行 `buildr init --agent <agent> --target <dir> --name <name> --profile <personal|team|company>`，并使用命令内置的最终 doctor 结果；已有 workspace 运行 `buildr doctor --agent <agent> --target <dir> --json` 建立事实基线。不要省略 `--agent`。
-5. 根据用户目标和 doctor 结果选择资产类型：组织（Organization/Root）、项目（Project）、服务（Service）、组件（Components）、规则（Rules）、命令（Commands）、技能（Skills）、内置能力（Builtins）或 Agent runtime 渲染。
-6. 执行对应维护动作。用户要求“更新 Buildr”或“同步 Buildr”时，先运行 `buildr update`；成功后重新解析当前 `buildr` 入口，再运行 `buildr skill install <agent> --target <dir>`，不因此同步整个 workspace。用户明确要求“只更新 CLI”时只运行 `update`。用户要求“更新 workspace”或“同步 workspace”时运行 `buildr sync <agent> --target <dir>`，不先更新 CLI。update 受阻时不得继续用旧 CLI 安装 Buildr Skill。
+5. 根据用户目标和 doctor 结果选择资产类型：组织（Organization/Root）、项目（Project）、服务（Service）、组件（Components）、规则（Rules）、命令（Commands）、技能（Skills）、内置能力（Builtins）、工作能力适配或 Agent runtime 渲染。用户要求采用内部流程、调整工作方式、修改或替换 Skill 行为时，不要求用户指出 Skill/capability；先加载 `capability-adaptation` 判断是否触达或产生跨 Skill 稳定依赖边界。
+6. 执行对应维护动作。用户要求“更新 Buildr”或“同步 Buildr”时，先运行 `buildr update`；成功后重新解析当前 `buildr` 入口，再运行 `buildr skill install <agent> --target <dir>`，不因此同步整个 workspace。用户明确要求“只更新 CLI”时只运行 `update`。用户要求“更新 workspace”或“同步 workspace”时，先判断 workspace root 是否由 Git 管理：如果是，解析 `buildr.git-workspace-update/v1` 并读取 selected provider，安全更新本地 checkout 后直接运行 `buildr sync <agent> --target <dir>`；如果不是 Git workspace，直接运行 sync。该意图不先更新 CLI。required capability blocked 时停止并报告 reason/nextActions，不回退到已卸载 builtin。update 受阻时不得继续用旧 CLI 安装 Buildr Skill。
 7. 状态变更后确认最新 doctor 结果；`init --agent`、`sync` 和 Component install/uninstall 已包含最终 doctor，其他变更再运行 `buildr doctor --agent <agent> --target <dir> --json`。只有 doctor 指向专项问题，或用户明确要求细查时，才运行 `commands check` 或 `runtime check`。
 8. 优先使用 Buildr CLI；复杂参数以当前 manifest、CLI 帮助和 CLI 错误输出为准。
 
 ## 任务路由
 
+Agent runtime 先根据 Skill description 和用户目标发现入口 Skill。本 Skill 只有在 Buildr 管理意图与自身 description 匹配后才会被加载；它不是所有用户意图之前的全局 dispatcher，也不拦截 prompt。“收尾”等专业意图通常由 Agent 直接命中对应入口 Skill，再由该 Skill 读取自身的受管 capability bindings。
+
+本 Skill 已加载后，完整 sync 生成的 `Buildr Capability Bindings` 是当前 scope 的受管路由证据。证据缺失、不适用或 runtime check 显示 stale 时，在已初始化 workspace 先运行当前 Agent doctor 读取 `capabilities` graph；`ready` 只表示结构可路由。调用 provider 前读取 contract 和 selected provider。不得根据 Skill id、description 或安装顺序猜测 provider conformance，也不需要 capability dispatch 命令。
+
 | 用户意图 | 资产类型 |
 |---|---|
 | 初始化、修复或诊断 Buildr workspace | 组织（Organization/Root） |
 | 更新或同步 Buildr | Buildr CLI update + 产品入口 Buildr Skill install |
-| 更新或同步 workspace，或恢复内置能力 | 内置能力（Builtins）/ Agent runtime 渲染 |
+| 更新或同步 Git workspace | `buildr.git-workspace-update/v1` selected provider；更新后直接 sync |
+| 恢复内置能力 | 内置能力（Builtins）/ Agent runtime 渲染 |
 | 接入业务、产品线、系统或长期工作单元 | 项目（Project） |
 | 接入代码仓、服务仓或可执行资产 | 服务（Service） |
-| 复杂、长期、跨阶段或有交叉依赖的任务可视化与持续进度入口 | `task-cockpit` Skill |
-| 代码开发、实现、构建、测试或任务 worktree 生命周期 | `task-worktree` Skill |
-| 完成已验证任务、自动归档集成并清理 task worktree | `task-finish` Skill |
-| 提交、拉取、合并、rebase、checkout/switch、reset、推送、发布或其他单项 Git 操作 | `git-ops` Skill |
+| 复杂、长期、跨批次或有交叉依赖的任务看板、change 关联与持续进度入口 | `task-board` Skill |
+| 复盘任务执行质量、核对现有资产真实覆盖、总结可沉淀的 Skill/Rule | `buildr.task-asset-review/v1` selected provider；optional 不可用时按 consumer 声明降级 |
+| 运行测试、验证改动、判断开发验证是否完成、报告验证耗时，或实现任务到达验证/完成节点 | `buildr.task-verification/v1` selected provider；用户无需主动点名该能力 |
+| 创建、定位、保留、迁移入口或清理 task worktree | `buildr.task-worktree-lifecycle/v1` selected provider |
+| 完成已验证任务、自动归档集成并清理 task worktree | `buildr.task-finish/v1` selected provider |
+| 提交、拉取、合并、rebase、checkout/switch、reset、推送、发布或其他单项 Git 操作 | `buildr.git-single-operation/v1` selected provider |
 | 统一安装、更新和卸载一组 workspace Rules、Skills、Command collections | 组件（Components） |
 | 沉淀每次会话必须遵守的约束 | 规则（Rules） |
 | 沉淀可复用任务流程或操作能力 | 技能（Skills） |
 | 声明组织复用的外部命令行工具 | 命令（Commands） |
 | 当前 Agent 找不到已声明规则或技能 | Agent runtime 渲染 |
 | 为 Buildr 增加新的 Agent runtime adapter | runtime trait intake + OpenSpec change |
-Agent 通过 `git-ops`、`task-worktree` 或 `task-finish` 成功改变已检出工作区内容后，由对应 Skill 在已初始化 Buildr workspace 中执行 post-transition doctor。doctor 指出 workspace sync 是合适修复动作时，询问用户是否由 Agent 立即同步，同时提供手动同步命令作为备选；用户确认后由 Agent 执行 `buildr sync <agent> --target <workspace-root>` 并验证最终 doctor。当前 session 是否重新发现新资产由 Agent runtime 决定。
+| 采用内部流程、调整工作方式、修改或替换 Skill 行为 | `capability-adaptation` Skill；先识别跨 Skill 稳定依赖边界，再开发、验证和激活 |
+产品入口 Buildr Skill 只对自身已命中的 Buildr 管理意图执行内部能力路由，不是同时 required 依赖全部 capabilities 的 workspace consumer。只有某类 Buildr 管理意图命中本 Skill 后，才把对应 capability 作为本次动作的 required dependency；单项 capability blocked 不得阻塞 init、doctor、Project/Service 或其他无关 Buildr 管理动作。顶层 capability 的 binding 只选择 provider，不自动产生 Agent 意图命中；替换顶层入口时必须由能力适配同时验证 selected provider 的 runtime 可发现性、description 覆盖和触发歧义。
+任一 provider 返回 `treeChanged: true` 后，遵守 required Core workspace-transition invariant：在已初始化 Buildr workspace 中针对当前 Agent 和 workspace root 运行 doctor。doctor 指出 workspace sync 是合适修复动作时，询问用户是否由 Agent 立即同步，同时提供准确手动命令作为备选；确认后由 Agent 执行 sync 并验证。当前 session 是否重新发现新资产由 Agent runtime 决定。“更新 workspace”或“同步 workspace”已包含 Git 更新与 Buildr sync 授权，不重复询问 sync；遇到本地改动、分叉、冲突、缺少 upstream 或其他需要用户决策的状态时停止，不自动 stash、rebase、覆盖，也不继续 sync。
 
 ## 资产维护
 
@@ -87,7 +95,7 @@ Agent 通过 `git-ops`、`task-worktree` 或 `task-finish` 成功改变已检出
 - 同步 workspace 产品源能力并准备当前 Agent runtime：`buildr sync <agent> --target <dir>`。
 - 查看 workspace 内置能力状态：`buildr builtin list --target <dir> --json` 或最终 doctor。
 - 卸载 optional 内置能力：`buildr builtin uninstall <id> --target <dir>`；required 能力不能卸载。
-- 恢复 optional 内置能力：`buildr builtin restore <id> --target <dir>`。
+- 恢复 optional 内置能力：`buildr builtin restore <id> --target <dir>`。该命令表示用户已确认放弃此 Builtin 的本地修改；若当前 Builtin 声明 predecessor，只能接管 manifest 可证明为 Buildr-managed 且路径匹配 package 声明的旧 identity，ownership 不明或目标冲突时仍须停止。replacement source 恢复后继续运行 `buildr sync <agent> --target <dir>` 收敛当前 Agent runtime，不要求用户手工移动 Skill 目录。
 
 ### Components
 - Component 是 workspace 级统一生命周期单元；当前不支持 Project/Service Component。registry 为 `components/manifest.yml`，成员由 installed `component.yml` 唯一声明。
@@ -117,32 +125,39 @@ Agent 通过 `git-ops`、`task-worktree` 或 `task-finish` 成功改变已检出
 
 ### Commands
 
-- Commands 源资产是 root `commands/manifest.yml` 和安全递归发现的 `commands/**/manifest.yml` collections，用于声明组织需要复用的外部命令行工具。
-- 新增或替换用 `buildr commands add`，删除用 `buildr commands remove`；`--collection <path>` 选择嵌套 collection，未传时操作根 collection。Component-owned collection 只能通过 Component 生命周期维护。
-- doctor 已聚合 Commands 基础检查；需要命令清单细节时再运行 `buildr commands check --target <dir> --json`。
-- Commands 只声明和检查，不渲染到 Agent runtime，不安装到本机。
-- 已声明但本机缺少时，按 `installHint` 或官方链接说明差异；安装、升级、登录配置必须取得用户授权。
+- Commands 分为三层：workspace `commands/manifest.yml` 与 `commands/**/manifest.yml` 是唯一 catalog definition source，Project `commands.yml` 只保存 requirement references，实际 binary/version/login 属于 user/machine environment。
+- 新增或替换 catalog definition 用 `buildr commands add`，删除用 `buildr commands remove`；`--collection <path>` 选择嵌套 collection。Component-owned collection 只能通过 Component 生命周期维护，删除最后一个仍被 Project 引用的 definition 会整次零写入。
+- 用户说明某个 Project 需要工具时，只在 `projects/<project>/commands.yml` 维护 `id`、`required`、可选 `version` 和 `purpose`；不得复制 executable、version probe 或 install hint。
+- doctor 已聚合 Commands 分层检查；单 Project 使用 `buildr commands check --project <project> --target <dir> --json`，跨 Project 重复传入 `--project`，无 Project context 只检查 workspace defaults。
+- Commands 只声明和检查，不渲染到 Agent runtime、不安装 binary，也不保存 token、cookie、登录态、license 或个人配置。
+- machine observation 不满足 requirement 时，按 catalog `installHint` 或官方链接说明差异；安装、升级和登录配置必须取得用户授权。
 
 ### Skills
 
-- Skills 源资产至少包含当前 scope 的 `skills/manifest.yml`；本地作者型 Skill 还包含 `skills/<skill-id>/`。
-- 本地作者型 Skill 适合项目专用流程、私有沉淀和未发布 Skill；远端发布型 Skill 适合已发布或外部维护的 Skill。
+- Workspace 是唯一 Skill source authority：源资产位于 workspace `skills/manifest.yml` 与 `skills/<skill-id>/`。Project 只在 `capabilities.yml` 引用 workspace Skill 并声明 requirements/bindings/applicability，不作为安装或可见性边界。
+- 本地作者型 Skill 可以只适用于某个 Project，但内容仍在 workspace 维护，由 Project applicability 表达业务范围；远端发布型 Skill 适合已发布或外部维护的 Skill。
 - Buildr 随包场景化流程通过 workspace Skills 承载；Rule 保留 Agent 价值观、边界和约束。
-- 本地作者型：`buildr skills add [<id>] --source <skill-dir> --scope <scope> --target <dir>`；删除用 `buildr skills remove <id> --scope <scope> --target <dir>`。
-- 远端发布型：先用 `buildr skills add <id> --remote-source <url> --scope <scope> --target <dir>` 登记；解析出确定安装源后用 `--resolved-source <url> --replace` 更新。
+- 本地作者型：`buildr skills add [<id>] --source <skill-dir> --target <workspace>`；删除用 `buildr skills remove <id> --target <workspace>`。旧 `--scope .` 只作 deprecated 兼容，Project scope 必须先运行 migration check。
+- 本地作者型和 package Skill 的完整源目录可包含 `SKILL.md` 以及 `agents/`、`assets/`、`examples/`、`references/`、`scripts/`、`templates/`；render 保留随附文件的原始字节与 owner executable 状态，只有 `SKILL.md` 会注入 managed marker、contributions、capability bindings 和 adapter context。
+- 通用 Skill 合法性和 Codex 发布都只要求有效 `SKILL.md`，`name` 与 `description` 承担发现和路由。adapter-specific optional extensions 由目标 runtime descriptor 独立校验：Codex/OpenAI 只校验已经存在的 `agents/openai.yaml`，缺失不阻塞、不生成也不反写；其他 adapter 可保留但不消费已有 vendor metadata。Skill 正文使用模板或脚本时，从当前 runtime `SKILL.md` 所在目录解析相对路径，核心行为不得依赖 vendor metadata。
+- Provider/consumer 声明使用可重复的 `--provides <capability>@<version>` 和 `--requires <capability>@<version>:<required|optional>`；显式选择用 `buildr skills bind <capability>@<version> --provider <skill-id> --scope <scope> --target <dir>`，取消选择用 `skills unbind`。
+- 远端发布型：先用 `buildr skills add <id> --remote-source <url> --target <workspace>` 登记；解析出确定安装源后用 `--resolved-source <url> --replace` 更新。
 - `--resolved-kind` 默认 `skill-url`，表示 URL 内容是 raw `SKILL.md`；`--version`、`--integrity` 和 `--ignore-unsupported` 等细节按 CLI 帮助和 manifest 补齐。
-- 渲染 workspace/Project 技能用 `buildr skills render <agent> --scope <scope> --target <dir>`；`buildr skill install <agent>` 只安装或修复 Buildr 产品内置 Skill。
+- 当前工作目录使用 Skill 时运行 `buildr skills render <agent> --destination workspace --target <workspace>`；用户明确要求所有 workspace 共享时才运行 `--destination user`。省略 destination 默认 workspace；`init`、`sync` 和组合 `render` 不隐式写用户层。`buildr skill install <agent>` 只安装或修复 Buildr 产品入口 Skill。
+- render 在任何写入前检查 workspace/user roots、receipts 与完整目录 inventory；`equivalent_external`、`foreign_owner`、`name_conflict` 阻止整次 mutation。首版不自动 adopt/transfer，`--replace` 也不能取得外部 ownership。
+- legacy `projects/<project>/skills/` 使用 `buildr skills migrate-project-assets --target <workspace> --check` 审阅，确认无同名异内容、未知文件或 Git boundary 后再 `--apply`。
 - render 结果分三类：本地源由 Buildr 安装，已解析远端源由 Buildr 安装，未解析远端信息源由 Buildr 生成 Agent 可读安装说明并要求 Agent 处理。
+- 完整目录投射由 adapter-specific receipt 记录受管文件 identity；源删除、卸载和重复 render 只清理仍匹配回执的文件。runtime 文件被修改或目录含未知用户文件时必须停写并保留现场。`resolved.kind: skill-url` 仍只表示单个 raw `SKILL.md`，不得推测 URL 邻近目录。
 
 ### Agent 运行时渲染
 
 - 只在当前 Agent 已确认受支持时处理 Agent runtime。
-- `buildr runtime list --json` 的静态 registry 是 supported adapter 的事实源，并输出 Rules、Skills、surface、activation 和 checker trait catalog；每个 supported adapter 必须完整覆盖 Rules entry、产品 Buildr Skill、workspace/Project Skills、Skill install plans 和 runtime check，不为 unsupported runtime 使用 alias 或 fallback。
+- `buildr runtime list --json` 的静态 registry 是 supported adapter 的事实源，并输出 user/workspace destination roots、discovery inventory evidence、activation 和 checker traits。`partial` 表示无法枚举全部 admin/system/plugin Skills，只作为 runtime scope 的 assurance metadata 保留，不构成 doctor warning 或修复动作，也不能据此宣称全局无同名项。
 - Adapter 只生成 runtime-specific 声明式计划；Buildr 通用 core 统一负责 Component 完整性后的 source assembly、计划验证、冲突预检、写入、清理和诊断。
 - 用户要求增加新 adapter 时，先从目标 Agent 收集能直接映射到 trait descriptor 的最小 intake：identity/surface、Rules kind、Skills root、activation、安装/版本 checker 和最小黑盒证据；不要调查与 adapter 无关的产品功能。
 - 新 adapter 属于 Buildr 产品 change-flow：每个 runtime 使用独立 descriptor、capability evidence 和 tests；只在现有 primitive 无法表达时增加新的静态 implementation，不能 alias 或 fallback 到其他 adapter。
-- 用户说“更新 Buildr”或“同步 Buildr”时，依次运行 `buildr update` 与新入口的 `buildr skill install <agent> --target <dir>`；用户说“只更新 CLI”时不追加 Skill install；用户说“更新 workspace”或“同步 workspace”时运行 `buildr sync <agent> --target <dir>`，不先更新 CLI。sync 默认从 `.` 递归 reconcile workspace Rules，并同步 Root/Project Skills。
-- doctor 指出特定 scope runtime 问题时，按 canonical workspace 相对 scope 运行 `render`、`rules render` 或 `runtime check`；组合 `render` 会把 Skills scope 折叠到所属 Root/Project。
+- 用户说“更新 Buildr”或“同步 Buildr”时，依次运行 `buildr update` 与新入口的 `buildr skill install <agent> --target <dir>`；用户说“只更新 CLI”时不追加 Skill install；用户说“更新 workspace”或“同步 workspace”时，Git 管理的 workspace 先复用 Git Ops 安全更新本地 checkout，再运行 `buildr sync <agent> --target <dir>`，非 Git workspace 直接 sync，且两者都不先更新 CLI。sync 只同步 workspace destination。
+- doctor 指出特定 Rules scope runtime 问题时按 canonical workspace 相对 scope 运行 `render`、`rules render` 或 `runtime check`；Skills 始终从 workspace authority 处理 destination，不折叠为 legacy Project Skill source scope。
 - `runtime check` 是专项 runtime 细查入口；只有 doctor 指向具体 runtime 问题，或用户明确要求细查时运行。
 
 ## 完成标准

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "refactor-candidate-verification",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-162cf7b382ed4a75c89f5705e0f661b613eb577f42c9bafe8ea97daf6cd3bf71",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "npm-cli-package",
+      "title": "product verification covers npm installation",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: product verification covers npm installation\nBuildr product verification MUST 测试从 product root 开始的 npm package installation path，并证明安装后的单命令 onboarding 可用。\n\n#### Scenario: Verify installed package\n- **WHEN** `tools/verify-buildr-product-mvp` runs from the Buildr product root\n- **THEN** it MUST pack the Buildr npm package from the product root, install it into a temporary prefix, execute the installed `buildr` command, and use `buildr init --agent <agent>` to verify the core onboarding loop succeeds\n- **AND** verification MUST inspect final doctor state and runtime artifacts\n"
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "验证覆盖必须具有可追踪 owner",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "Workspace E2E 必须只覆盖跨组件黄金路径",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "产品验证必须提供分层入口",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品验证必须提供分层入口\nBuildr 产品验证 MUST 提供 fast、affected 和 candidate 三层入口，使普通任务不默认执行候选版系统级验证，同时保证最终候选仍经过完整门禁。\n\n#### Scenario: 普通任务运行默认测试\n- **WHEN** 维护者或 Agent 在 Product checkout 运行 `npm test` 或 `npm run test:fast`\n- **THEN** verifier MUST 运行 unit、架构、canonical spec quality/strict 和全部 runtime adapter 低成本契约\n- **AND** verifier MUST NOT 创建临时用户 workspace、执行 npm pack/install、访问网络或运行 MVP E2E\n\n#### Scenario: 任务组运行 affected 验证\n- **WHEN** 维护者为一个或多个改动领域运行 `npm run test:affected -- <group...>`\n- **THEN** verifier MUST 先运行一次 fast 验证，再运行每个领域声明的专项 verifier\n- **AND** 同一 verifier MUST 在该次组合中最多执行一次\n\n#### Scenario: 最终候选运行完整验证\n- **WHEN** 实现、自然语言资产、生成资产和 review 修订已经冻结\n- **THEN** 维护者或 CI MUST 运行 `npm run test:candidate`\n- **AND** candidate verifier MUST 保留产品要求的安全、onboarding、package、runtime adapter、MVP、release、managed data 和 OpenSpec 门禁及 timing summary\n"
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "候选验证必须避免重复制品和无边界串行执行",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 候选验证必须避免重复制品和无边界串行执行\nBuildr candidate verifier MUST 在同一冻结候选 run 内复用不可变 npm tarball，并 MUST 对已证明使用隔离状态的昂贵阶段采用有界并行，同时保持逐阶段失败和 timing 可观察性。\n\n#### Scenario: 多个 verifier 使用候选 tarball\n- **WHEN** candidate verifier 运行 tarball inventory、package parity、MVP installed lifecycle 和 release smoke\n- **THEN** orchestrator MUST 只生成一个候选 tarball 和对应 pack metadata\n- **AND** 各 verifier MUST 使用该只读制品，但 MUST 继续使用彼此隔离的安装 prefix 和 workspace\n\n#### Scenario: standalone release smoke 没有共享制品\n- **WHEN** release smoke 在 macOS、Windows 或独立本地命令中运行且没有收到候选 tarball\n- **THEN** verifier MUST 自行执行 npm pack 并完成相同安装后生命周期\n\n#### Scenario: 并行阶段发生失败\n- **WHEN** 同一并行批次中的任一 verifier 返回非零状态\n- **THEN** candidate verifier MUST 以非零状态失败\n- **AND** timing summary MUST 保留失败 step 的名称、exitCode、durationMs 以及该批次已完成 step 的结果\n"
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "产品验证必须记录阶段耗时",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品验证必须记录阶段耗时\nBuildr 产品总验证 MUST 记录每个阶段和整体 wall-clock elapsed milliseconds，并 MUST 在成功或失败时生成可供 CI 保存的机器可读 timing summary。\n\n#### Scenario: 完整验证成功\n- **WHEN** 产品总验证全部通过\n- **THEN** 人类输出 MUST 展示每个阶段的耗时和总耗时\n- **AND** verifier MUST 写出包含 schemaVersion、steps、status、durationMs 和 totalDurationMs 的 JSON summary\n\n#### Scenario: 某阶段失败\n- **WHEN** 产品验证阶段返回非零状态\n- **THEN** timing summary MUST 记录失败阶段、非零状态和已完成阶段耗时\n- **AND** 产品验证 MUST 保持该阶段的失败退出状态\n\n#### Scenario: 耗时波动\n- **WHEN** 某阶段或总耗时高于此前运行\n- **THEN** 当前版本 MUST 只记录事实\n- **AND** verifier MUST NOT 仅因耗时增长而失败\n"
+    }
+  ]
+}

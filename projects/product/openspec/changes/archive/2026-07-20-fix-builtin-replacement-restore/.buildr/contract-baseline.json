@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "fix-builtin-replacement-restore",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-d33f4e898d96ad22b694d4685dd00d18fd6d5bd3416408211c1a3eea884ad120",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr 必须显式恢复被替代的 Builtin",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

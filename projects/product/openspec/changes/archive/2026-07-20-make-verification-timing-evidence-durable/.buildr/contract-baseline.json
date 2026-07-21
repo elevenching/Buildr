@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "make-verification-timing-evidence-durable",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-9b91ebf7a7155d7082e13c8ae5f8f77f33ecb4b9fa7883afe7a68f27b326a4ec",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "Task Finish 必须报告可信的完整验证 timing 证据",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "验证 timing 证据必须具有运行级唯一归属",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "验证人类输出必须显示完成 timing 摘要",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "Changed verification 必须生成整体 timing summary",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

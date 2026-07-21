@@ -1,5 +1,26 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import process from 'node:process';
 import { spawn } from 'node:child_process';
+
+function diagnosticBaseName(step) {
+  return String(step.diagnosticId ?? step.name ?? 'verification-step')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'verification-step';
+}
+
+export function writeVerificationDiagnostics(step, stdout, stderr) {
+  if (!step.diagnosticsDirectory) return {};
+  const directory = path.resolve(step.diagnosticsDirectory);
+  fs.mkdirSync(directory, { recursive: true });
+  const base = diagnosticBaseName(step);
+  const stdoutPath = path.join(directory, `${base}.stdout.log`);
+  const stderrPath = path.join(directory, `${base}.stderr.log`);
+  fs.writeFileSync(stdoutPath, stdout || '', 'utf8');
+  fs.writeFileSync(stderrPath, stderr || '', 'utf8');
+  return { stdoutPath, stderrPath };
+}
 
 export async function runVerificationStep(step) {
   const startedAt = Date.now();
@@ -11,13 +32,18 @@ export async function runVerificationStep(step) {
       if (settled) return;
       settled = true;
       if (error) stderr += `${error.message}\n`;
+      const durationMs = Date.now() - startedAt;
+      const budgetMs = Number.isFinite(step.budgetMs) ? step.budgetMs : undefined;
+      const diagnosticPaths = writeVerificationDiagnostics(step, stdout, stderr);
       resolve({
         name: step.name,
         status: exitCode === 0 ? 'passed' : 'failed',
         exitCode,
-        durationMs: Date.now() - startedAt,
+        durationMs,
         stdout,
         stderr,
+        ...diagnosticPaths,
+        ...(budgetMs === undefined ? {} : { budgetMs, budgetStatus: durationMs <= budgetMs ? 'within' : 'over' }),
       });
     };
     const child = spawn(step.command, step.args ?? [], {

@@ -13,7 +13,7 @@ description: 用户要求修 bug、实现或调整功能、改需求、重构、
 - 影响的是产品/业务语义、已有事实文档，还是实现细节。
 - 是否需要业务确认。
 - 后续处理方式是 `code-only`、`spec-maintenance`、`change-flow`，还是暂停确认。
-- 当前任务是否需要创建或继续维护任务驾驶舱。
+- 当前任务是否需要创建或继续维护任务看板。
 
 ## 判断步骤
 
@@ -30,10 +30,11 @@ description: 用户要求修 bug、实现或调整功能、改需求、重构、
    - 是否只是让代码符合已有 spec。
    - 是否只是把已接受的现有事实补写到文档。
 4. 输出后续处理方式。
-5. 判断任务驾驶舱：
+5. 判断任务看板：
    - 简单、短时、无持续跟踪价值时选择“不需要”。
-   - 跨阶段、跨 change、跨服务或团队，存在交叉依赖、长期跟踪或多次用户判断时选择“创建”或“继续维护”。
-   - 用户明确要求任务可视化、驾驶舱、整体进度或任务全景时，使用 `task-cockpit` Skill。
+   - 跨批次、跨 change、跨服务或团队，存在交叉依赖、长期跟踪或多次用户判断时选择“创建”或“继续维护”。
+   - 用户明确要求任务可视化、任务看板、整体进度、任务全景，或使用旧称“任务驾驶舱”时，使用 `task-board` Skill。
+   - 选择“创建”时必须已解析至少一个真实 OpenSpec change；尚无 change 时先进入 `change-flow` 创建并核实，不用 planned 名称创建空锚点看板。
 
 ## 输出格式
 
@@ -45,16 +46,17 @@ description: 用户要求修 bug、实现或调整功能、改需求、重构、
 - 是否需要业务确认：
 ```
 
-任务驾驶舱判断：
+任务看板判断：
 
 ```text
 - 选择：不需要 / 创建 / 继续维护
 - Task ID：<可确认时填写；尚未确定时明确说明>
 - 路径：<已解析路径；尚未创建或解析时明确说明>
+- 关联 change：<至少一个已核实 change id；尚未创建时明确说明>
 - 当前状态：<未创建 / 已创建 / 已更新 / 待更新 / 阻塞>
 ```
 
-选择“创建”或“继续维护”时，使用独立 `task-cockpit` Skill 创建或更新驾驶舱，不在本 Skill 中复制 HTML 信息架构和维护手册。
+选择“创建”或“继续维护”时，使用独立 `task-board` Skill 创建或更新同一份任务看板，不在本 Skill 中复制 HTML 信息架构和维护手册。
 
 如果选择或继续使用 OpenSpec，在同一回复中追加：
 
@@ -95,22 +97,25 @@ OpenSpec change 状态：
 - 一个独立业务目标使用一个 change；多个独立业务目标分别维护。
 - 选择或继续 OpenSpec change-flow 时，在用户可见回复中说明当前 change 状态、进度以及下一步或阻塞原因。
 
-## 任务驾驶舱判断
+## 任务看板判断
 
-- 驾驶舱覆盖整个任务，可以关联多个 OpenSpec change、code-only 工作、外部依赖和已完成阶段，不把当前 `tasks.md` 当作整个任务的唯一边界。
-- 驾驶舱默认位于拥有任务的 Project `openspec/knowledge/task-cockpits/`，由 `task-cockpit` Skill 解析实际 Project、日期前缀文件名和稳定路径，不得在 triage 阶段猜测。
+- 驾驶舱与任务看板是同一 artifact，覆盖整个任务；至少关联一个真实 OpenSpec change，也可以跨多个 change 并包含 code-only 工作、外部依赖和已完成批次，不把当前 `tasks.md` 当作唯一边界。
+- 看板需要创建但尚无 change 时，先进入 `change-flow`；只有 CLI 可确认 change id 和路径后才创建看板。
+- 新任务看板默认位于拥有任务的 Project `openspec/knowledge/task-boards/`，由 `task-board` Skill 解析实际 Project、日期前缀文件名和稳定路径，不得在 triage 阶段猜测。既有 `task-cockpits/` 页面保持原路径和原内容。
 - 驾驶舱由 Agent 单向维护，用户通过 Agent 对话参与；HTML 中的 checkbox 和状态只读。
-- 驾驶舱首次创建、实质更新、用户询问进度、任务暂停或完成时，Agent 回复应提供可点击入口；没有改变任务认知的短暂中间动作不机械重复链接。
+- 看板首次创建、实质更新、用户询问进度、任务暂停或完成时，Agent 回复应提供可点击入口和关联 change；没有改变任务认知的短暂中间动作不机械重复链接。
 
-## 实现型任务的验证编排
+## 实现型任务的验证节点规划
 
-为实现型 change 编写或调整 tasks 时，按共享实现区域、验证入口或失败影响面组织有语义的任务组，不按固定任务数量机械分组：
+本 Skill 只把验证节点规划进实现型 change，不选择命令、不执行验证，也不生成完成证据。为 tasks 按共享实现区域、验证入口或失败影响面组织有语义的任务组，不按固定任务数量机械分组：
 
 - 每个实现任务只安排语法、类型或直接相关测试等最小反馈检查。
 - 每个任务组完成后安排一次受影响范围验证，不为组内每项任务重复同一专项检查。
 - 将完整候选验证放在全部实现、自然语言资产、生成资产同步和 review 修订之后。
 - 具体专项检查和完整验证命令由当前 workspace 或 Project 的规则、OpenSpec 或开发文档定义；不得把 Buildr 产品仓的 package check、临时 workspace E2E 或产品总验证规定为所有项目的固定入口。
 - 安全边界、不可逆迁移或用户明确要求的即时检查不因批量编排而省略。
+
+实际执行、候选 identity、耗时测量和用户报告由 selected `buildr.task-verification/v1` provider 负责；`task-triage` 不声明该 capability dependency，因为任务语义分流和 artifacts 规划本身不应因验证 provider 暂时不可用而 blocked。
 
 <!-- buildr:skill-contributions change-ready -->
 

@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import {
   createRuntimeContext,
+  createRuntimePlan,
   getRuntimeAdapter,
   assertRuntimeTargetPath,
   reconcileRuntimePlan,
@@ -14,6 +15,9 @@ import {
   resolvePackageAgentSkill,
   resolveRenderSkills,
 } from './render-claude-code.mjs';
+import { resolveCapabilityRoutingEvidence } from './skills/capabilities.mjs';
+import { buildEffectiveSkillInventory, classifySkillCandidate } from './skills/inventory.mjs';
+import { parseSkillProjectionReceipt } from './skills/projection-files.mjs';
 import {
   buildRuleDiscoveryPlan,
   hasManagedRulesMarker,
@@ -42,16 +46,27 @@ function skillDiagnostic(item, product) {
     };
   }
   const conflict = `Refusing to overwrite non-Buildr-managed file: ${item.targetFile}`;
+  const label = item.kind === 'skill-projection-receipt'
+    ? `${product ? 'product' : 'workspace'} Skill ${item.skillId} projection receipt`
+    : `${product ? 'product Agent' : 'workspace'} Skill ${item.skillId || path.basename(path.dirname(item.targetFile))}${item.skillRelativePath && item.skillRelativePath !== 'SKILL.md' ? ` ${item.skillRelativePath}` : ''}`;
   return product
-    ? { label: 'product Agent Skill buildr', codes: { ok: 'runtime.product_skill_ok', missing: 'runtime.product_skill_missing', stale: 'runtime.product_skill_stale', conflict: 'runtime.product_skill_conflict' }, messages: { conflict }, repair: 'skill-install' }
-    : { label: `workspace Skill ${path.basename(path.dirname(item.targetFile))}`, codes: { ok: 'runtime.skill_ok', missing: 'runtime.skill_missing', stale: 'runtime.skill_stale', conflict: 'runtime.skill_conflict' }, messages: { conflict }, repair: 'skills-render' };
+    ? { label, codes: { ok: 'runtime.product_skill_ok', missing: 'runtime.product_skill_missing', stale: 'runtime.product_skill_stale', conflict: 'runtime.product_skill_conflict' }, messages: { conflict }, repair: 'skill-install' }
+    : { label, codes: { ok: 'runtime.skill_ok', missing: 'runtime.skill_missing', stale: 'runtime.skill_stale', conflict: 'runtime.skill_conflict' }, messages: { conflict }, repair: 'skills-render' };
 }
 
 function decorateSkillWrites(items, product = false) {
   return items.map((item) => ({
     ...item,
     capability: product ? 'product-buildr-skill' : item.targetFile.includes(`${path.sep}skill-install-plans${path.sep}`) ? 'skill-install-plans' : 'workspace-project-skills',
-    isManaged: (content) => hasManagedSkillMarker(content) || content.includes(INSTALL_PLAN_MARKER),
+    isManaged: item.isManaged || ((content) => hasManagedSkillMarker(content) || content.includes(INSTALL_PLAN_MARKER)),
+    diagnostic: skillDiagnostic(item, product),
+  }));
+}
+
+function decorateSkillRemovals(items, product = false) {
+  return items.map((item) => ({
+    ...item,
+    capability: product ? 'product-buildr-skill' : 'workspace-project-skills',
     diagnostic: skillDiagnostic(item, product),
   }));
 }
@@ -319,19 +334,28 @@ export function assembleRuntimeProjection(options) {
   const adapter = getRuntimeAdapter(options.adapterId);
   const selection = { productSkill: false, rules: false, workspaceSkills: false, ...(options.selection || {}) };
   const scopeInfo = resolveRuleScope(repoRoot, options.scope ?? '.');
-  const skillScope = runtimeSkillScope(scopeInfo.scope);
+  const skillScope = '.';
   const skillConflicts = [];
-  const productWrites = selection.productSkill
-    ? decorateSkillWrites(buildSkillRenderPlan(repoRoot, targetRoot, [resolvePackageAgentSkill(adapter.id, 'buildr')], adapter.id, { deferConflicts: true, conflicts: skillConflicts }), true)
-    : [];
   const workspaceSkills = selection.workspaceSkills ? resolveRenderSkills(repoRoot, skillScope, adapter.id) : [];
-  const workspaceWrites = decorateSkillWrites(buildSkillRenderPlan(repoRoot, targetRoot, workspaceSkills, adapter.id, { deferConflicts: true, conflicts: skillConflicts }));
+  const productSkill = selection.productSkill ? resolvePackageAgentSkill(adapter.id, 'buildr') : null;
+  if (productSkill && selection.workspaceSkills) productSkill.capabilityRoutingEvidence = resolveCapabilityRoutingEvidence(repoRoot, adapter.id);
+  const productProjection = productSkill
+    ? buildSkillRenderPlan(repoRoot, targetRoot, [productSkill], adapter.id, { deferConflicts: true, conflicts: skillConflicts, destination: options.destination || 'workspace' })
+    : { writes: [], removals: [] };
+  const workspaceProjection = buildSkillRenderPlan(repoRoot, targetRoot, workspaceSkills, adapter.id, { deferConflicts: true, conflicts: skillConflicts, destination: options.destination || 'workspace' });
+  const productWrites = decorateSkillWrites(productProjection.writes, true);
+  const workspaceWrites = decorateSkillWrites(workspaceProjection.writes);
+  const skillRemovals = [
+    ...decorateSkillRemovals(productProjection.removals, true),
+    ...decorateSkillRemovals(workspaceProjection.removals),
+    ...(options.removals || []),
+  ];
   const rules = selection.rules ? assembleRules(repoRoot, targetRoot, scopeInfo, adapter) : { writes: [], removals: [], nativeAssets: [], actions: [], findings: [], discovery: { boundaries: [], warnings: [] } };
   const warnings = workspaceSkills.filter((skill) => skill.resolved && !skill.resolved.integrity)
     .map((skill) => `workspace Skill ${skill.id} uses a remote resolved source without integrity.`);
   const context = createRuntimeContext({
     adapterId: adapter.id, targetRoot, scope: scopeInfo.scope,
-    rules, skills: { writes: [...productWrites, ...workspaceWrites], removals: options.removals || [] },
+    rules, skills: { writes: [...productWrites, ...workspaceWrites], removals: skillRemovals },
     findings: [...rules.findings, ...skillConflicts.map((message) => ({ status: 'conflict', path: skillScope, message, code: 'runtime.skill_conflict', userActionRequired: true }))], warnings,
   });
   return { plan: adapter.planRuntime(context), scopeInfo, discovery: rules.discovery, selection };
@@ -349,15 +373,41 @@ export function repairCommands(result, adapterId) {
   const commands = [];
   if (has('skill-install')) commands.push(`buildr skill install ${adapterId} --target ${target}`);
   if (has('rules-render')) commands.push(`buildr rules render ${adapterId} --scope ${result.scope} --target ${target}`);
-  if (has('skills-render')) commands.push(`buildr skills render ${adapterId} --scope ${runtimeSkillScope(result.scope)} --target ${target}`);
+  if (has('skills-render')) commands.push(`buildr skills render ${adapterId} --destination workspace --target ${target}`);
   return commands;
 }
 
 export function checkRuntimeProjection(options) {
   const assembled = assembleRuntimeProjection({ ...options, selection: { productSkill: true, rules: true, workspaceSkills: true } });
-  const reconciled = reconcileRuntimePlan(assembled.plan, { compareOnly: true });
-  const counts = summarize(reconciled.findings);
-  const result = { ...reconciled, counts, exitCode: counts.conflict ? 2 : counts.missing || counts.stale || counts.orphan ? 1 : 0, requestedScope: assembled.scopeInfo.requestedScope, discoveryBoundaries: assembled.discovery.boundaries };
+  const fallback = assembleRuntimeProjection({ ...options, selection: { productSkill: true } });
+  const fallbackProductWrites = new Map(fallback.plan.writes
+    .filter((item) => item.capability === 'product-buildr-skill')
+    .map((item) => [item.targetFile, item.content]));
+  let writes = assembled.plan.writes.map((item) => {
+    if (item.capability !== 'product-buildr-skill') return item;
+    const fallbackContent = fallbackProductWrites.get(item.targetFile);
+    return fallbackContent && fs.existsSync(item.targetFile) && fs.readFileSync(item.targetFile, 'utf8') === fallbackContent
+      ? { ...item, content: fallbackContent }
+      : item;
+  });
+  const candidateReceipts = writes.filter((item) => item.kind === 'skill-projection-receipt' && item.capability === 'workspace-project-skills').map((item) => ({ item, receipt: parseSkillProjectionReceipt(item.content, `candidate receipt ${item.skillId}`) }));
+  const inventory = buildEffectiveSkillInventory({ adapterId: options.adapterId, workspaceRoot: options.repoRoot, candidateIds: candidateReceipts.map(({ receipt }) => receipt.skillId) });
+  const satisfaction = candidateReceipts.map(({ receipt }) => ({ receipt, ...classifySkillCandidate({ skillId: receipt.skillId, assetIdentity: receipt.assetIdentity, renderDigest: receipt.renderDigest }, inventory, 'workspace') }));
+  const satisfiedIds = new Set(satisfaction.filter((item) => item.status === 'satisfied_by_user').map((item) => item.receipt.skillId));
+  const adapterForEvidence = getRuntimeAdapter(options.adapterId);
+  const evidenceFile = (skillId) => path.join(options.repoRoot, adapterForEvidence.traits.skills.root, 'buildr', 'skill-satisfaction', options.adapterId, `${skillId}.json`);
+  const evidenceWrites = satisfaction.filter((item) => item.status === 'satisfied_by_user').map((item) => {
+    const observed = item.observed[0];
+    const content = { schemaVersion: 'buildr.skill-satisfaction/v1', agent: options.adapterId, destination: 'workspace', skillId: item.receipt.skillId, satisfiedBy: 'user', assetIdentity: item.receipt.assetIdentity, renderDigest: item.receipt.renderDigest, userReceiptPath: observed.receiptPath };
+    return { targetFile: evidenceFile(item.receipt.skillId), content: `${JSON.stringify(content, null, 2)}\n`, source: `user:${item.receipt.skillId}`, skillId: item.receipt.skillId, capability: 'workspace-project-skills', kind: 'skill-satisfaction-evidence', isManaged: (value) => { try { return JSON.parse(value).schemaVersion === 'buildr.skill-satisfaction/v1'; } catch { return false; } }, diagnostic: { label: `workspace Skill ${item.receipt.skillId} user satisfaction evidence`, codes: { ok: 'runtime.skill_satisfied_by_user', missing: 'runtime.skill_satisfaction_missing', stale: 'runtime.skill_satisfaction_stale', conflict: 'runtime.skill_satisfaction_conflict' }, repair: 'skills-render' } };
+  });
+  writes = [...writes.filter((item) => !satisfiedIds.has(item.skillId)), ...evidenceWrites];
+  const reconciled = reconcileRuntimePlan(createRuntimePlan({ ...assembled.plan, writes, removals: assembled.plan.removals.filter((item) => !satisfiedIds.has(item.skillId)) }), { compareOnly: true });
+  const adapter = getRuntimeAdapter(options.adapterId);
+  const staleSatisfaction = satisfaction.filter((item) => item.status !== 'satisfied_by_user' && fs.existsSync(evidenceFile(item.receipt.skillId))).map((item) => ({ status: 'stale', path: toPosixRelative(options.repoRoot, evidenceFile(item.receipt.skillId)), message: `workspace Skill ${item.receipt.skillId} user satisfaction evidence is stale.`, code: 'runtime.skill_satisfaction_stale', repair: 'skills-render', userActionRequired: true }));
+  const findings = [...reconciled.findings, ...staleSatisfaction];
+  const counts = summarize(findings);
+  const result = { ...reconciled, findings, counts, exitCode: counts.conflict ? 2 : counts.missing || counts.stale || counts.orphan ? 1 : 0, requestedScope: assembled.scopeInfo.requestedScope, discoveryBoundaries: assembled.discovery.boundaries, skillInventoryEvidence: adapter.traits.skills.destinations.discovery };
   result.repairCommands = repairCommands(result, options.adapterId);
   return result;
 }

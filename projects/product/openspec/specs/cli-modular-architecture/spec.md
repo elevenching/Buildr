@@ -94,3 +94,28 @@ Buildr `tools/` MUST 将 runtime、renderer、shared helper 和专项 verificati
 - **WHEN** 使用者查看 package metadata 和 CLI 文档
 - **THEN** Buildr MUST 继续只承诺公开 CLI surface
 - **AND** `tools/runtime/`、`tools/verification/` 和 `tools/shared/` MUST NOT 被声明为稳定 package exports
+### Requirement: package maintenance 必须组合独立 verifier
+Buildr package maintenance application MUST 通过职责明确的 verifier modules 组合 package check，且每个 verifier MUST 提供稳定执行入口和结构化的成功或失败结果。
+
+#### Scenario: 检查 package maintenance facade
+- **WHEN** CLI architecture verifier 检查 package maintenance application
+- **THEN** command handler MUST 只负责建立共享 package context、调用已登记 verifier 和汇总输出
+- **AND** handler 与单个 smoke module MUST NOT 内嵌 Commands、Rules、Skills、runtime 和 workspace 生命周期的完整组合场景
+
+#### Scenario: verifier 报告失败
+- **WHEN** 任一 package verifier 发现契约问题或子进程失败
+- **THEN** verifier MUST 将问题归属到稳定 step identity
+- **AND** 聚合层 MUST 保留可定位诊断而不是仅报告无边界的 package check 失败
+
+### Requirement: 产品验证入口必须共享声明与薄执行层
+Buildr fast、affected、changed、Workspace/package selectors 和 Candidate entrypoints MUST 共享统一 step registry 与 planner/scheduler，并 MUST 将稳定 shell/npm 表面保持为薄 wrapper。
+
+#### Scenario: 检查验证入口架构
+- **WHEN** CLI architecture verifier 扫描产品验证入口
+- **THEN** step 命令、预算、依赖和 group/profile membership MUST NOT 在多个入口重复维护
+- **AND** wrapper MUST 只负责参数转交、环境前置检查和退出状态传播
+
+#### Scenario: 专项 selector 保持兼容
+- **WHEN** 维护者使用已有 affected group、Workspace suite 或 package selector
+- **THEN** selector MUST 解析为统一 registry 中的稳定 step identity
+- **AND** 未知或重复 selector MUST 保持 fail-closed 与去重行为

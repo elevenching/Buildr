@@ -8,12 +8,4 @@ if ! command -v openspec >/dev/null 2>&1; then
   exit 1
 fi
 
-cd "$product_root"
-
-npm run test:unit
-node tools/verification/cli/architecture.mjs
-node tools/verification/openspec/spec-quality.mjs
-openspec validate --all --strict
-node tools/verification/runtime/adapter-contract.mjs
-
-echo "Buildr fast verification passed."
+exec node "$product_root/tools/verification/profile.mjs" fast

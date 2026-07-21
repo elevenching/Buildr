@@ -49,7 +49,11 @@ try {
   const packagedCli = path.join(prefix, 'node_modules', '.bin', 'buildr');
 
   const runPackaged = (args) => spawn(packagedCli, args);
-  for (const args of [[], ['service', 'create'], ['runtime', 'list', '--json']]) {
+  for (const args of [
+    [], ['--version'], ['-V'], ['version'], ['version', '--json'],
+    ['help', 'doctor'], ['service', 'create'], ['doctr'], ['doctr', '--json'],
+    ['runtime', 'list', '--json'],
+  ]) {
     const checkout = runCheckout(args);
     const packaged = runPackaged(args);
     assert.equal(packaged.status, checkout.status, `exit status differs: ${args.join(' ')}`);

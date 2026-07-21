@@ -8,6 +8,7 @@ import {
   isSupportedAgent,
 } from '../shared/platform.mjs';
 import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../shared/json-contracts.mjs';
+import { DOCTOR_DIAGNOSTIC_PROFILE } from './doctor/result-model.mjs';
 
 export function registerApplicationWorkspaceOperations(runtime) {
   const discoverDoctorScopes = (...args) => runtime.discoverDoctorScopes(...args);
@@ -17,9 +18,11 @@ export function registerApplicationWorkspaceOperations(runtime) {
   const diagnoseHierarchy = (...args) => runtime.diagnoseHierarchy(...args);
   const diagnoseServices = (...args) => runtime.diagnoseServices(...args);
   const diagnoseRuntime = (...args) => runtime.diagnoseRuntime(...args);
+  const detectManagedRuntimeAgents = (...args) => runtime.detectManagedRuntimeAgents(...args);
   const diagnoseCommands = (...args) => runtime.diagnoseCommands(...args);
   const diagnoseComponents = (...args) => runtime.diagnoseComponents(...args);
   const diagnoseSkillsManifestSchemas = (...args) => runtime.diagnoseSkillsManifestSchemas(...args);
+  const diagnoseSkillCapabilities = (...args) => runtime.diagnoseSkillCapabilities(...args);
   const syncPackageBuiltins = (...args) => runtime.syncPackageBuiltins(...args);
   const finalizeDoctorResult = (...args) => runtime.finalizeDoctorResult(...args);
   const printDoctorReport = (...args) => runtime.printDoctorReport(...args);
@@ -35,8 +38,12 @@ export function registerApplicationWorkspaceOperations(runtime) {
   const printResult = (...args) => runtime.printResult(...args);
   const optionValue = (...args) => runtime.optionValue(...args);
   const ensureDirectory = (...args) => runtime.ensureDirectory(...args);
+  const atomicWriteJson = (...args) => runtime.atomicWriteJson(...args);
   const mutationStateRoot = (...args) => runtime.mutationStateRoot(...args);
   const mutationLockPath = (...args) => runtime.mutationLockPath(...args);
+  const mutationRecoveryReceiptPath = (...args) => runtime.mutationRecoveryReceiptPath(...args);
+  const restoreMutationSnapshot = (...args) => runtime.restoreMutationSnapshot(...args);
+  const removeMutationRestoreTarget = (...args) => runtime.removeMutationRestoreTarget(...args);
   const withWorkspaceMutation = (...args) => runtime.withWorkspaceMutation(...args);
   const packageRoot = (...args) => runtime.packageRoot(...args);
   const writeMappedFileIfMissing = (...args) => runtime.writeMappedFileIfMissing(...args);
@@ -109,7 +116,14 @@ export function registerApplicationWorkspaceOperations(runtime) {
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
     const transactionRoot = path.join(mutationStateRoot(targetRoot), id);
     const journalFile = path.join(transactionRoot, 'journal.json');
-    if (!existsFile(journalFile)) throw new Error(`Mutation transaction journal not found: ${id}`);
+    const recoveryReceipt = mutationRecoveryReceiptPath(targetRoot, id);
+    if (!existsFile(journalFile)) {
+      if (!existsFile(recoveryReceipt)) throw new Error(`Mutation transaction journal not found: ${id}`);
+      const recovered = JSON.parse(fs.readFileSync(recoveryReceipt, 'utf8'));
+      if (recovered.schemaVersion !== 'buildr.mutation-recovery/v1' || recovered.transactionId !== id) throw new Error(`Mutation recovery receipt is invalid: ${id}`);
+      console.log(`Buildr source mutation 已经恢复：${id}`);
+      return;
+    }
     const journal = JSON.parse(fs.readFileSync(journalFile, 'utf8'));
     if (journal.schemaVersion !== 'buildr.mutation/v1' || journal.transactionId !== id || !Array.isArray(journal.snapshots)) throw new Error(`Mutation transaction journal is invalid: ${id}`);
     const lockFile = mutationLockPath(targetRoot);
@@ -126,20 +140,23 @@ export function registerApplicationWorkspaceOperations(runtime) {
       if (snapshot.existed && !fs.existsSync(backup)) throw new Error(`Mutation backup is missing for ${snapshot.relative}`);
       return { ...snapshot, target, backup };
     });
-    for (const snapshot of restorePlan) {
-      const { target, backup } = snapshot;
-      if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
-      if (snapshot.existed) {
-        ensureDirectory(path.dirname(target));
-        fs.cpSync(backup, target, { recursive: true, preserveTimestamps: true });
-      }
+    for (const snapshot of restorePlan) restoreMutationSnapshot(snapshot);
+    atomicWriteJson(recoveryReceipt, {
+      schemaVersion: 'buildr.mutation-recovery/v1',
+      transactionId: id,
+      operation: journal.operation || null,
+      recoveredAt: new Date().toISOString(),
+      affectedPaths: journal.affectedPaths || [],
+    });
+    removeMutationRestoreTarget(transactionRoot);
+    if (lock) {
+      fs.rmSync(lockFile, { force: true });
+      if (fs.existsSync(lockFile)) throw new Error(`Mutation recovery could not remove matching lock: ${id}`);
     }
-    fs.rmSync(transactionRoot, { recursive: true, force: true });
-    if (lock) fs.rmSync(lockFile, { force: true });
     console.log(`已恢复 Buildr source mutation：${id}`);
   }
 
-  function doctor(args) {
+  function doctor(args, internalOptions = {}) {
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
     const requestedScope = optionValue(args, '--scope', null);
     const requestedAgent = optionValue(args, '--agent', null);
@@ -172,11 +189,15 @@ export function registerApplicationWorkspaceOperations(runtime) {
       projects: [],
       services: [],
       components: { items: [], ownership: {}, findings: [] },
+      capabilities: { structurallyRoutableOnly: true, graphs: [], items: [] },
       builtins: { items: [] },
       commandLineTools: null,
       runtime: Object.fromEntries(SUPPORTED_AGENT_IDS.map((agent) => [RUNTIME_ADAPTERS[agent].traits.checker.resultKey ?? agent.replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase()), []])),
       mutations: { blocked: false, lock: null, transactions: [] },
+      diagnosticProfile: DOCTOR_DIAGNOSTIC_PROFILE,
+      health: { workspaceValid: false, ready: false, actionRequired: false, actionableCount: 0 },
       findings: [],
+      repairPlan: [],
       nextSteps: [],
     };
 
@@ -193,8 +214,9 @@ export function registerApplicationWorkspaceOperations(runtime) {
     }
     diagnoseLegacyPractices(result, targetRoot, scopes, includeInfo);
     diagnoseHierarchy(result, targetRoot, scopes, registry);
-    diagnoseServices(result, targetRoot, scopes);
+    diagnoseServices(result, targetRoot, scopes, registry);
     diagnoseSkillsManifestSchemas(result, targetRoot, scopes);
+    if (result.workspace?.initialized) diagnoseSkillCapabilities(result, targetRoot, scopes, requestedAgent);
     if (result.workspace?.initialized) {
       try {
         const builtinStatus = syncPackageBuiltins(targetRoot, { checkOnly: true });
@@ -217,9 +239,13 @@ export function registerApplicationWorkspaceOperations(runtime) {
         });
       }
     }
-    diagnoseComponents(result, targetRoot, includeInfo, requestedAgent);
-    diagnoseCommands(result, targetRoot);
-    diagnoseRuntime(result, targetRoot, scopes, { includeInfo, agent: requestedAgent });
+    const detectedAgents = result.workspace?.initialized ? detectManagedRuntimeAgents(targetRoot) : [];
+    result.agentRuntime.detectedAgents = detectedAgents;
+    result.agentRuntime.checkedAgents = requestedAgent && isSupportedAgent(requestedAgent) ? [requestedAgent] : requestedAgent ? [] : detectedAgents;
+    result.agentRuntime.diagnosticMode = requestedAgent ? 'selected-runtime' : 'managed-runtime-inventory';
+    diagnoseComponents(result, targetRoot, includeInfo, requestedAgent, detectedAgents);
+    diagnoseCommands(result, targetRoot, requestedScope && requestedScope.startsWith('projects/') ? [requestedScope.split('/')[1]] : []);
+    if (internalOptions.skipRuntime !== true) diagnoseRuntime(result, targetRoot, scopes, { includeInfo, agent: requestedAgent, detectedAgents });
     finalizeDoctorResult(result);
 
     if (json) {

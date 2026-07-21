@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "evolve-task-cockpit-and-asset-review",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-06fa4ac2525ff4808c20b39e97fba87265005b67b05786ab2caaf9cefc86d5e9",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "task-triage 路由任务驾驶舱",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: task-triage 路由任务驾驶舱\nBuildr 的 task-triage Skill MUST 在理解任务意图和影响范围后判断任务驾驶舱是“不需要”“创建”还是“继续维护”，并 MUST 在需要驾驶舱时引导 Agent 使用独立 `task-cockpit` Skill，而不是在 task-triage 中复制完整可视化流程。\n\n#### Scenario: 复杂任务需要驾驶舱\n- **WHEN** task triage 发现任务跨阶段、跨 change、跨服务或团队，存在交叉依赖、长期跟踪或多次用户判断\n- **THEN** task triage MUST 将任务驾驶舱判定为“创建”或“继续维护”\n- **AND** Agent MUST 使用 `task-cockpit` 执行创建或维护\n\n#### Scenario: task triage 输出驾驶舱状态\n- **WHEN** task triage 选择创建或继续维护驾驶舱\n- **THEN** 面向用户的路径判定 MUST 在可确认时包含 task id、驾驶舱路径和当前状态\n- **AND** task triage MUST NOT 猜测尚未解析的 Project 或文件路径\n"
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Skill 可移植核心与 adapter 可选扩展分层",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Skill 执行资源相对于当前 SKILL.md 解析",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "资产审查核对源资产与实际产物",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "沉淀候选必须通过质量和作用域检查",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 沉淀候选必须通过质量和作用域检查\nAgent MUST 在向用户提出沉淀建议前，检查候选内容的证据、稳定性、可操作性、复用价值、目标 scope 以及与现有权威资产的关系。\n\n#### Scenario: 候选满足沉淀条件\n- **WHEN** 候选内容有明确证据、在任务结束后仍可能长期有效、能转化为可操作事实或做法、对后续工作有复用价值，并可确定 Organization、Project 或 Service scope\n- **THEN** Agent MUST 继续检查目标资产中是否已有重复或冲突内容\n- **AND** 检查通过后 Agent MAY 将其作为沉淀建议提交用户确认\n\n#### Scenario: 候选只是临时状态或未经验证的推断\n- **WHEN** 候选内容只适用于当前机器或 session、属于偶发错误、一次性探索过程、未经确认的推断或缺少长期复用价值\n- **THEN** Agent MUST 排除该候选\n- **AND** Agent MUST NOT 将其写入组织长期资产\n\n#### Scenario: 候选与权威事实冲突\n- **WHEN** 候选内容与现有 OpenSpec、Rule、Project/Service `AGENTS.md` 或其他权威事实冲突\n- **THEN** Agent MUST 向用户说明冲突来源和可选处理方式\n- **AND** Agent MUST NOT 自动选择其中一个事实或静默覆盖现有内容\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "任务看板关联真实 OpenSpec change",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "任务看板按交付批次和依赖池组织进度",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "任务看板区分方案与已完成技术事实",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "Buildr 提供任务驾驶舱 Skill",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr 提供任务驾驶舱 Skill\nBuildr MUST 提供 optional builtin `task-cockpit` Skill，引导 Agent 为复杂、长期、跨阶段、跨团队或存在交叉依赖的任务创建和持续维护任务驾驶舱；简单、短时且无持续跟踪价值的任务 MUST NOT 被机械要求创建驾驶舱。\n\n#### Scenario: 复杂任务创建驾驶舱\n- **WHEN** 任务跨多个阶段、change、服务或团队，存在外部依赖、需要多次用户判断，或预计跨会话持续推进\n- **THEN** Agent MUST 使用 `task-cockpit` 创建或继续维护驾驶舱\n- **AND** 驾驶舱 MUST 覆盖整个任务，而不是只展示当前 OpenSpec change\n\n#### Scenario: 简单任务不创建驾驶舱\n- **WHEN** 任务能够在短时间内完成、没有有意义的阶段或依赖，且用户没有明确要求可视化\n- **THEN** Agent MUST 继续通过简洁对话汇报\n- **AND** Agent MUST NOT 为形式完整而创建空洞驾驶舱\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "驾驶舱使用稳定的 Project knowledge 路径",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 驾驶舱使用稳定的 Project knowledge 路径\n任务驾驶舱 MUST 保存在拥有该任务的 Project `openspec/knowledge/task-cockpits/` 下，并 MUST 使用 `yyyy-MM-dd-<task-id>.html` 文件名；日期 MUST 取首次创建时的本地日期，后续更新 MUST 保持同一路径。\n\n#### Scenario: 创建 Project 任务驾驶舱\n- **WHEN** Agent 首次为 Project task id `fund-system-integration` 创建驾驶舱，且本地日期为 2026-07-16\n- **THEN** 文件路径 MUST 以 `openspec/knowledge/task-cockpits/2026-07-16-fund-system-integration.html` 结尾\n- **AND** 后续阶段或 change 变化 MUST 更新该文件而不是按更新时间创建新文件\n\n#### Scenario: 驾驶舱跨越多个 change\n- **WHEN** 一个任务包含已归档 change、当前 active change、code-only 工作或未来阶段\n- **THEN** 驾驶舱 MUST 保持稳定路径并关联这些阶段\n- **AND** OpenSpec change archive MUST NOT 使驾驶舱入口消失或被移动\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "驾驶舱聚焦重要且易懂的信息",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 驾驶舱聚焦重要且易懂的信息\n任务驾驶舱 MUST 先展示结论再展示原因，MUST 高亮当前工作、阻塞和待确认事项，并 MUST 避免复杂说明、无必要的大表格、原始命令流水和 Agent 思考过程；任务进度 MUST 基于可核实的阶段或任务数量，不得使用 Agent 主观猜测的百分比。\n\n#### Scenario: 展示任务进度\n- **WHEN** Agent 能核实任务阶段或 task checkbox 状态\n- **THEN** 驾驶舱 MUST 优先显示类似“阶段 2/4”或“任务 7/11”的可追溯进度\n- **AND** Agent MUST NOT 凭直觉显示无法解释的完成百分比\n\n#### Scenario: 存在阻塞或待确认事项\n- **WHEN** 任务因外部依赖、失败或用户判断无法继续\n- **THEN** 驾驶舱 MUST 在首页高亮阻塞事实、影响和下一项可执行动作\n- **AND** 相关信息 MUST NOT 仅埋在技术表格或历史记录中\n"
+    },
+    {
+      "capability": "task-cockpit",
+      "title": "驾驶舱模板自包含且可移植",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 驾驶舱模板自包含且可移植\nBuildr MUST 随 `task-cockpit` Skill 提供不依赖外部 CDN 的单文件 HTML 模板，模板 MUST 支持首页、推进、方案和技术细节的渐进视图，并 MUST 能在常见桌面和窄屏浏览器中阅读。\n\n#### Scenario: 离线打开驾驶舱\n- **WHEN** 用户通过本地文件路径打开生成的驾驶舱\n- **THEN** 页面 MUST 在没有网络请求的情况下展示核心内容和导航\n- **AND** 页面 MUST NOT 因缺少第三方脚本、字体或样式服务而失效\n"
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "Adapter descriptor 声明可选 Skill publication extensions",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "完整 Skill 投射区分保留与消费",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

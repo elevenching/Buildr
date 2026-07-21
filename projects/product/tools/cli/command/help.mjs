@@ -17,7 +17,7 @@ export function registerCommandHelp(runtime) {
     console.error('  buildr mutation recover <transaction-id> [--target <dir>]');
     console.error('  buildr commands add <id> --purpose <text> [--target <dir>] [--collection <path>] [--executable <name>] [--name <text>] [--description <text>] [--version-constraint <constraint>] [--version-args <args>] [--install-hint <text>] [--replace]');
     console.error('  buildr commands remove <id> [--target <dir>] [--collection <path>]');
-    console.error('  buildr commands check [--target <dir>] [--json]');
+    console.error('  buildr commands check [--project <project> ...] [--target <dir>] [--json]');
     console.error('  buildr openspec baseline create <change> --project <project> [--target <dir>] [--adopt-current] [--update] [--json]');
     console.error('  buildr openspec check <change> --stage <proposal|pre-sync|post-sync> --project <project> [--target <dir>] [--json]');
     console.error('  buildr component list [--target <dir>] [--json]');
@@ -36,11 +36,14 @@ export function registerCommandHelp(runtime) {
     console.error('  buildr package check');
     console.error('  buildr package build [--out <dir>]');
     console.error(`  buildr skill install <${runtimeIds}> --target <dir>`);
-    console.error('  buildr skills add [<id>] --source <skill-dir> --scope <.|projects/project> [--target <dir>] [--replace] [--ignore-unsupported]');
-    console.error('  buildr skills add <id> --remote-source <url> --scope <.|projects/project> [--target <dir>] [--source-kind <kind>] [--description <text>] [--replace]');
-    console.error('  buildr skills add <id> --resolved-source <url> --scope <.|projects/project> [--target <dir>] [--resolved-kind <kind>] [--remote-source <url>] [--source-kind <kind>] [--version <version>] [--integrity <hash>] [--description <text>] [--replace]');
-    console.error('  buildr skills remove <id> --scope <.|projects/project> [--target <dir>]');
-    console.error(`  buildr skills render <${runtimeIds}> --scope <.|projects/project> --target <dir>`);
+    console.error('  buildr skills add [<id>] --source <skill-dir> [--target <workspace>] [--replace] [--ignore-unsupported] [--provides <capability>@<version>] [--requires <capability>@<version>:<required|optional>]');
+    console.error('  buildr skills add <id> --remote-source <url> [--target <workspace>] [--source-kind <kind>] [--description <text>] [--replace]');
+    console.error('  buildr skills add <id> --resolved-source <url> [--target <workspace>] [--resolved-kind <kind>] [--remote-source <url>] [--source-kind <kind>] [--version <version>] [--integrity <hash>] [--description <text>] [--replace]');
+    console.error('  buildr skills remove <id> [--target <workspace>]');
+    console.error('  buildr skills bind <capability>@<version> --provider <skill-id> --scope <.|projects/project> [--target <dir>]');
+    console.error('  buildr skills unbind <capability>@<version> --scope <.|projects/project> [--target <dir>]');
+    console.error(`  buildr skills render <${runtimeIds}> [--destination workspace|user] --target <workspace> [--json]`);
+    console.error('  buildr skills migrate-project-assets --target <workspace> <--check|--apply> [--json]');
     console.error('  buildr rules add <id> [--path <rules/file.md>] --description <text> [--target <dir>] [--replace]');
     console.error('  buildr rules remove <id> [--target <dir>] [--keep-file]');
     console.error(`  buildr rules render <${RULES_RENDER_AGENT_IDS.join('|')}> --scope <.|projects/project[/services/service[/path...]]> --target <dir>`);
@@ -53,17 +56,18 @@ export function registerCommandHelp(runtime) {
       '',
       'Public workspace commands:',
       '  init                 初始化 Buildr workspace；传入 --agent 时一次完成 runtime 与最终 doctor。',
+      '  version              输出当前 Buildr CLI package version；支持 --json。',
       '  project create       创建或登记 Project。',
       '  service create       创建或登记 Service。',
       '  doctor               诊断 workspace、源资产和 Agent runtime render 状态。',
       '  mutation recover      从保留 backup 恢复不完整 source mutation。',
       '  runtime list         列出 Buildr 支持的 Agent runtime adapter。',
       '  runtime check        专项检查某个 Agent runtime render 状态。',
-      '  render               渲染指定 Agent 的 rules entry 和 workspace/project Skills。',
+      '  render               渲染指定 Agent 的 rules entry 和 workspace Skills 到工作目录。',
       '  sync                 同步 Buildr 产品能力并准备当前 Agent 的 workspace 入口 runtime。',
       '  skill install        安装产品入口 Buildr Skill。',
-      '  skills add/remove/render',
-      '  commands add/remove/check',
+      '  skills add/remove/bind/unbind/render',
+      '  commands add/remove/check  维护 workspace catalog，并按显式 Project context 检查本机环境。',
       '  component list/check/install/uninstall',
       '  rules add/remove/render',
       '  builtin list/uninstall/restore',
@@ -83,10 +87,16 @@ export function registerCommandHelp(runtime) {
       '不传 --agent 时只初始化源资产；已有 workspace 的日常更新继续使用 buildr sync <agent>。',
       '--help 只输出帮助，不会写入文件。',
     ],
+    version: [
+      'Usage: buildr version [--json]',
+      '',
+      '输出当前实际执行的 Buildr CLI package identity。也可使用 buildr --version 或 buildr -V。',
+    ],
     'project create': [
       'Usage: buildr project create <project> [--target <dir>] [--repo <git-url>] [--title <text>] [--description <text>]',
       '',
       '创建或登记 Project，并写入 Project registry: projects/manifest.yml。',
+      'Project baseline 包含 commands.yml；它只引用 workspace Command catalog，不复制 executable、probe 或 install hint。',
     ],
     'service create': [
       'Usage: buildr service create <project>/<service> <repo-ref> [--target <dir>] [--type <type>] [--branch <branch>]',
@@ -122,7 +132,7 @@ export function registerCommandHelp(runtime) {
     render: [
       `Usage: buildr render <${SUPPORTED_AGENT_IDS.join('|')}> --target <dir> [--scope <scope>]`,
       '',
-      '组合渲染 rules entry 和 workspace/project Skills；不安装产品入口 Buildr Skill。',
+      '组合渲染 rules entry 和 workspace Skills 到 workspace destination；不安装产品入口 Buildr Skill。',
     ],
     'skill install': [
       `Usage: buildr skill install <${SUPPORTED_AGENT_IDS.join('|')}> --target <dir>`,
@@ -130,36 +140,53 @@ export function registerCommandHelp(runtime) {
       '只安装或修复产品入口 Buildr Skill。',
     ],
     'skills add': [
-      'Usage: buildr skills add [<id>] --source <skill-dir> --scope <.|projects/project> [--target <dir>] [--replace] [--ignore-unsupported]',
-      'Usage: buildr skills add <id> --remote-source <url> --scope <.|projects/project> [--target <dir>] [--source-kind <kind>] [--description <text>] [--replace]',
-      'Usage: buildr skills add <id> --resolved-source <url> --scope <.|projects/project> [--target <dir>] [--resolved-kind <kind>] [--remote-source <url>] [--source-kind <kind>] [--version <version>] [--integrity <hash>] [--description <text>] [--replace]',
+      'Usage: buildr skills add [<id>] --source <skill-dir> [--target <workspace>] [--replace] [--ignore-unsupported] [--provides <capability>@<version>] [--requires <capability>@<version>:<required|optional>]',
+      'Usage: buildr skills add <id> --remote-source <url> [--target <workspace>] [--source-kind <kind>] [--description <text>] [--replace]',
+      'Usage: buildr skills add <id> --resolved-source <url> [--target <workspace>] [--resolved-kind <kind>] [--remote-source <url>] [--source-kind <kind>] [--version <version>] [--integrity <hash>] [--description <text>] [--replace]',
       '',
-      '维护 workspace/project Skills 源资产。',
+      '只维护 workspace Skills 源资产；Project 使用 capabilities.yml 引用 workspace Skill。',
     ],
     'skills remove': [
-      'Usage: buildr skills remove <id> --scope <.|projects/project> [--target <dir>]',
+      'Usage: buildr skills remove <id> [--target <workspace>]',
       '',
-      '删除 workspace/project Skills 源资产登记。',
+      '删除 workspace Skills 源资产登记。',
+    ],
+    'skills bind': [
+      'Usage: buildr skills bind <capability>@<version> --provider <skill-id> --scope <.|projects/project> [--target <dir>]',
+      '',
+      '显式选择当前 scope 的 capability provider；不会安装 Skill 或证明其行为正确。',
+    ],
+    'skills unbind': [
+      'Usage: buildr skills unbind <capability>@<version> --scope <.|projects/project> [--target <dir>]',
+      '',
+      '删除当前 scope 的显式 binding，由 resolver 重新判断唯一 provider、歧义或缺失。',
     ],
     'skills render': [
-      `Usage: buildr skills render <${SUPPORTED_AGENT_IDS.join('|')}> --scope <.|projects/project> --target <dir>`,
+      `Usage: buildr skills render <${SUPPORTED_AGENT_IDS.join('|')}> [--destination workspace|user] --target <workspace> [--json]`,
       '',
-      '只渲染 workspace/project Skills 和 Skill install plans。',
+      '--target 始终是 Skill source workspace；workspace destination 写当前工作目录 runtime，user destination 写当前 Agent 用户层。默认 workspace。',
+    ],
+    'skills migrate-project-assets': [
+      'Usage: buildr skills migrate-project-assets --target <workspace> <--check|--apply> [--json]',
+      '',
+      '显式检查或事务迁移 legacy Project Skill 源到 workspace，并生成 Project capability/applicability context。',
     ],
     'commands add': [
       'Usage: buildr commands add <id> --purpose <text> [--target <dir>] [--collection <path>] [--executable <name>] [--name <text>] [--description <text>] [--version-constraint <constraint>] [--version-args <args>] [--install-hint <text>] [--replace]',
       '',
-      '新增或替换命令行工具清单条目。',
+      '新增或替换 workspace Command catalog definition；不会修改 Project requirements 或安装 binary。',
     ],
     'commands remove': [
       'Usage: buildr commands remove <id> [--target <dir>] [--collection <path>]',
       '',
-      '删除命令行工具清单条目。',
+      '删除 workspace Command catalog definition；最后一个 definition 仍被 workspace default 或 Project requirement 引用时整次零写入。',
     ],
     'commands check': [
-      'Usage: buildr commands check [--target <dir>] [--json]',
+      'Usage: buildr commands check [--project <project> ...] [--target <dir>] [--json]',
       '',
-      '检查命令行工具清单和本机可用状态。',
+      '不传 --project 时只检查 workspace defaults；重复 --project 可表达跨 Project task context。',
+      'Project requirements 维护在 projects/<project>/commands.yml，只允许 id、required、version 和 purpose 引用字段。',
+      '输出分离 catalog、requirements、effectiveConstraints、observations 和 findings；Buildr 不 render 或安装 Commands。',
     ],
     'openspec baseline create': [
       'Usage: buildr openspec baseline create <change> --project <project> [--target <dir>] [--adopt-current] [--update] [--json]',
@@ -214,7 +241,8 @@ export function registerCommandHelp(runtime) {
     'builtin restore': [
       'Usage: buildr builtin restore <id> --target <dir>',
       '',
-      '恢复 optional Buildr 内置能力。',
+      '恢复 optional Buildr 内置能力；该命令表示明确放弃此 Builtin 的本地修改。',
+      '当当前 Builtin 声明 predecessor 时，只接管 manifest 可证明为 Buildr-managed 的旧 identity；随后运行 sync 收敛 Agent runtime。',
     ],
     update: [
       'Usage: buildr update [--json]',
@@ -246,14 +274,15 @@ export function registerCommandHelp(runtime) {
 
   function commandTopic(rawArgs) {
     const [domain, action, runtime] = rawArgs.filter((arg) => !['--help', '-h'].includes(arg));
-    if (!domain || domain === 'help') return 'root';
+    if (!domain) return 'root';
+    if (domain === 'version') return 'version';
     if (domain === 'project' && action === 'create') return 'project create';
     if (domain === 'service' && action === 'create') return 'service create';
     if (domain === 'runtime' && action === 'list') return 'runtime list';
     if (domain === 'mutation' && action === 'recover') return 'mutation recover';
     if (domain === 'runtime' && action === 'check') return 'runtime check';
     if (domain === 'skill' && action === 'install') return 'skill install';
-    if (domain === 'skills' && ['add', 'remove'].includes(action)) return `skills ${action}`;
+    if (domain === 'skills' && ['add', 'remove', 'bind', 'unbind', 'migrate-project-assets'].includes(action)) return `skills ${action}`;
     if (domain === 'skills' && action === 'render') return 'skills render';
     if (domain === 'commands' && ['add', 'remove', 'check'].includes(action)) return `commands ${action}`;
     if (domain === 'openspec' && action === 'baseline' && runtime === 'create') return 'openspec baseline create';
@@ -272,7 +301,7 @@ export function registerCommandHelp(runtime) {
     if (domain === 'rules' && action === 'render') {
       return 'rules render';
     }
-    return 'root';
+    return null;
   }
 
   HELP_TOPICS['rules render'] = [
@@ -283,12 +312,14 @@ export function registerCommandHelp(runtime) {
 
   function printHelp(rawArgs) {
     const topic = commandTopic(rawArgs);
-    const lines = HELP_TOPICS[topic] ?? HELP_TOPICS.root;
+    if (!topic) return false;
+    const lines = HELP_TOPICS[topic];
     console.log(lines.join('\n'));
+    return true;
   }
 
   function isHelpRequest(rawArgs) {
-    return rawArgs.length === 0 || rawArgs.some((arg) => arg === '--help' || arg === '-h') || (rawArgs.length === 1 && rawArgs[0] === 'help');
+    return rawArgs.length === 0 || rawArgs.some((arg) => arg === '--help' || arg === '-h') || rawArgs[0] === 'help';
   }
 
   Object.assign(runtime, { usage, commandTopic, printHelp, isHelpRequest });

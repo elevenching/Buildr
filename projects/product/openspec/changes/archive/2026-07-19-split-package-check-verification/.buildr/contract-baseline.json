@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "split-package-check-verification",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-bd428c6266fc12f085a100bbd72abf37ee16deb8d97f6118090f324ac1600cfb",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-package-assets",
+      "title": "package 验证必须按资产与行为边界拆分",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-modular-architecture",
+      "title": "package maintenance 必须组合独立 verifier",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "Candidate 必须观测独立 package 验证阶段",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

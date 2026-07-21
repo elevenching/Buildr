@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "simplify-runtime-readiness-and-retire-smoke",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-0db42fbd75226a24b87e5be63f8c7ad4d1b7550661d59e8c0d9eebd367bb91a1",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-readable-doctor",
+      "title": "doctor remains backward compatible without Agent filter",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: doctor remains backward compatible without Agent filter\nBuildr doctor MUST 保持未传 Agent runtime filter 的调用兼容性。\n\n#### Scenario: Doctor without Agent filter\n- **WHEN** Agent 运行 `buildr doctor --target <root> --json` 且不传 `--agent`\n- **THEN** doctor MAY 继续报告所有已实现 runtime adapter diagnostics\n- **AND** Buildr onboarding guidance MUST 在 Agent identity 已知后优先传入 `--agent <agent>`\n"
+    },
+    {
+      "capability": "agent-readable-doctor",
+      "title": "doctor 分离兼容成功状态与 readiness",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: doctor 分离兼容成功状态与 readiness\nBuildr doctor MUST 保留 `ok` 的既有无 error 语义，并独立报告 workspace validity、readiness 与 action requirement；聚合 finding MUST 保留其来源 findings 的 actionability。\n\n#### Scenario: 只有 actionable warning\n- **WHEN** doctor 没有发现 error 但发现至少一个需要用户行动的 warning\n- **THEN** `ok` MUST 为 true\n- **AND** `health.workspaceValid` MUST 反映 canonical workspace identity\n- **AND** `health.ready` MUST 为 false\n- **AND** `health.actionRequired` MUST 为 true\n- **AND** `health.actionableCount` MUST 包含该 warning\n\n#### Scenario: workspace 可直接继续工作\n- **WHEN** canonical workspace identity 有效且不存在需要用户行动的 warning 或 error\n- **THEN** `health.workspaceValid` MUST 为 true\n- **AND** `health.ready` MUST 为 true\n- **AND** `health.actionRequired` MUST 为 false\n\n#### Scenario: 非行动信息不降低 readiness\n- **WHEN** finding 明确设置 `userActionRequired: false`\n- **THEN** 该 finding MUST NOT 计入 `health.actionableCount`\n- **AND** 该 finding MUST NOT 单独使 `health.ready` 变为 false\n\n#### Scenario: 聚合全部非行动型 runtime warnings\n- **WHEN** 某个 scope/adapter 的全部 runtime warnings 都明确设置 `userActionRequired: false`\n- **THEN** 顶层 runtime warning MUST 保留 warning severity 和来源诊断摘要\n- **AND** 顶层 runtime warning MUST 设置 `userActionRequired: false`\n- **AND** `health.ready` MUST NOT 因该聚合 warning 变为 false\n- **AND** `repairPlan` 和 `nextSteps` MUST NOT 为该聚合 warning 生成修复动作\n\n#### Scenario: 聚合混合 runtime warnings\n- **WHEN** 某个 scope/adapter 同时包含行动型与非行动型 runtime warnings\n- **THEN** 顶层 runtime warning MUST 设置 `userActionRequired: true`\n- **AND** 顶层 finding MUST 保留全部来源 warning codes\n- **AND** `health.actionRequired` MUST 为 true\n"
+    },
+    {
+      "capability": "human-agent-onboarding",
+      "title": "公开文档提供已接入 Agent adapter 权威说明",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 公开文档提供已接入 Agent adapter 权威说明\nBuildr MUST 维护一份可由人和 Agent 从根 README 发现的已接入 Agent runtime adapter 权威文档，并使其与 `buildr runtime list --json` 的 supported adapter 事实一致。\n\n#### Scenario: README 引用 adapter 文档\n- **WHEN** 用户或 Agent 阅读根 `README.md` 或 `README.en.md` 的当前支持摘要或文档导航\n- **THEN** README MUST 链接已接入 Agent adapter 权威文档\n- **AND** README MUST 引导 Agent 使用 `buildr runtime list --json` 获取当前机器可读事实矩阵\n- **AND** README MUST NOT 复制一份容易与权威文档漂移的完整 adapter 机制表\n\n#### Scenario: Adapter 文档说明接入方式\n- **WHEN** 用户或 Agent 阅读已接入 Agent adapter 权威文档\n- **THEN** 文档 MUST 对每个 supported adapter 说明 adapter id、适用 surface、Rules 入口与生成 target、Skills root、activation/reload、checker、前置条件和已知限制\n- **AND** 文档 MUST 区分官方文档、本机观察、安装包源码和推断等证据等级\n- **AND** 文档 MUST 标明 `documented` 或 `verified` 证据等级，以及真实产品 smoke 的通过或待验证状态\n\n#### Scenario: Agent 按文档接入当前 runtime\n- **WHEN** Agent 从权威文档识别到自身 runtime 已受支持\n- **THEN** 文档 MUST 引导 Agent 使用匹配的 adapter id 运行 `buildr init --agent <agent>`、`buildr sync <agent>`、`buildr runtime check <agent>` 或相应 render 命令\n- **AND** 文档 MUST 提醒 Agent 按 adapter-specific guidance 完成 reload、新会话或 UI toggle\n- **AND** 文档 MUST 禁止为未列出的 runtime 或 surface 使用 supported fallback adapter\n"
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "runtime adapter 验证必须按契约和实现族分层",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: runtime adapter 验证必须按契约和实现族分层\nBuildr 产品验证 MUST 对全部 supported runtime adapter 执行低成本 descriptor/plan/evidence 契约，并 MUST 仅按不同投射、skills root、checker 或 cleanup 实现语义选择代表执行昂贵 CLI 生命周期。\n\n#### Scenario: 验证全部 supported adapter\n- **WHEN** fast 或 candidate verifier 运行 runtime adapter contract\n- **THEN** contract MUST 遍历全部 supported adapter 的 traits、target、activation、capability evidence 和 RuntimePlan 安全边界\n\n#### Scenario: 验证昂贵 adapter 生命周期\n- **WHEN** affected CLI 或 candidate verifier 运行 runtime adapter parity\n- **THEN** verifier MUST 覆盖 native recursive、per-source reference、same-directory vendor、central vendor 和 root-index bridge 等不同实现族\n- **AND** verifier MUST NOT 仅因多个 adapter 品牌复用同一实现而重复完整 install/render/check/idempotency 生命周期\n\n#### Scenario: scoped render 隔离无关 Project\n- **WHEN** verifier 对某个 Project 执行 scoped render 和 cleanup\n- **THEN** verifier MUST 验证无关 Project 的受管投射仍然存在且内容不变\n- **AND** 该回归 MUST 覆盖 same-directory vendor、central vendor 和 root-index bridge cleanup 模型\n"
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "新增 adapters 的 checker 报告环境与前置条件事实",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 新增 adapters 的 checker 报告环境与前置条件事实\nBuildr MUST 让每个新增 adapter 的 `runtime-check` 区分投射状态、安装/版本 probe 状态和 activation prerequisite，并且只执行随产品静态声明的有限时无 shell probe。\n\n#### Scenario: Environment probe 可自动执行\n- **WHEN** descriptor 声明静态 command installation 或 version probe\n- **THEN** runtime check MUST 使用静态 executable 和 arguments 在有限超时内执行\n- **AND** 输出 MUST 包含 probe 状态与可审计 evidence\n\n#### Scenario: Environment 只能人工确认\n- **WHEN** 目标 surface 没有稳定、安全、跨安装形态的 command probe\n- **THEN** descriptor MUST 使用 `manual` probe 并给出确认 guidance\n- **AND** runtime check MUST NOT 把该项报告为自动检查成功\n\n#### Scenario: Adapter-specific prerequisite 未确认\n- **WHEN** TRAE Work Rules import toggle、reference bridge 读取或目标版本 reload 行为无法由文件系统投射自动证明\n- **THEN** runtime check MUST 返回明确 finding 和下一步\n- **AND** Buildr MUST NOT 静默把该 prerequisite 计为 `ok`\n"
+    },
+    {
+      "capability": "workspace-first-runtime-projection",
+      "title": "每个新增 adapter 保留独立兼容证据与分层验证状态",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 每个新增 adapter 保留独立兼容证据与分层验证状态\nBuildr MUST 为每个新增 adapter 记录 runtime-specific 官方文档、本机观察或安装包源码证据，并使用 `documented` 或 `verified` 表达验证等级。supported descriptor 的 Rules、Skills 与 activation 路径至少 MUST 达到 `documented`；真实 runtime marker smoke 通过后 MAY 提升为 `verified`。\n\n#### Scenario: 自动 contract evidence\n- **WHEN** 产品验证检查新增 adapter\n- **THEN** 每个 adapter MUST 有独立 capability evidence 和 contract fixture\n- **AND** 共享 primitive 的测试结果 MUST NOT 代替具体 adapter 的五项 capability evidence\n- **AND** 自动 tests MUST 覆盖投射格式、scope 顺序、兄弟隔离、Skills root、冲突保护、清理和 checker\n\n#### Scenario: 真实产品 smoke 尚未完成\n- **WHEN** 某个新增 adapter 已有足够官方资料、随包资料、discovery 源码或可重复本机观察，但尚未完成目标产品 marker smoke\n- **THEN** descriptor 与权威文档 MUST 将验证等级标记为 `documented`，smoke 标记为 `pending`\n- **AND** 产品 MUST NOT 把该状态描述为真实 runtime 已观察通过\n- **AND** `pending` MUST NOT 要求 Buildr 自动点击 GUI、抓取应用私有数据库或重复验证 reload\n\n#### Scenario: 一次性 trait smoke\n- **WHEN** 维护者需要把 adapter 从 `documented` 提升为 `verified`\n- **THEN** Buildr MUST 生成一个只读临时 workspace 和一份一次性 `SMOKE_PROMPT.md`\n- **AND** smoke MUST 只验证投射测试无法证明的 scoped Rules 或 bridge traversal 以及 workspace destination Skill discovery\n- **AND** activation/reload MUST 默认依据独立文档证据和 checker guidance，只有存在稳定 reload 命令或证据冲突时才额外实测\n- **AND** GUI 产品 MAY 由维护者手工提交一次 Prompt，不要求产品级 UI automation\n\n#### Scenario: 真实产品 smoke 与既有证据矛盾\n- **WHEN** marker smoke 明确显示声明的 Rules 或 Skills 路径不生效\n- **THEN** adapter MUST NOT 保持 `verified` 或把失败改写为 `pending`\n- **AND** Buildr MUST 停止对应 capability 的 supported 声明，直到 descriptor、文档或实现被修正\n\n#### Scenario: Reference bridge smoke\n- **WHEN** 维护者验证 `trae-work` 或 `workbuddy` 的 `rules-entry`\n- **THEN** smoke MUST 证明目标 Agent 实际读取 bridge 引用的 root 和当前 scope `AGENTS.md`\n- **AND** smoke MUST 证明 sibling marker 未进入不相关任务\n- **AND** 仅证明 bridge 文件存在 MUST NOT 视为 `rules-entry` 已通过\n"
+    }
+  ]
+}

@@ -14,6 +14,7 @@ export function createPackageSmokeChecks(deps) {
     hasManagedRulesMarker,
     os,
     parseCommandsManifestYaml,
+    parseProjectCommandsYaml,
     parseManifestFileEntry,
     parseProjectsYaml,
     parseRulesManifestYaml,
@@ -168,8 +169,9 @@ export function createPackageSmokeChecks(deps) {
     }
   }
 
-  function verifyWorkspaceAssetLifecycle(context, tempRoot, buildrScript) {
+  function verifyWorkspaceAssetLifecycle(context, tempRoot, buildrScript, kind, finalize = true) {
     const { root, manifest, problems, parseJsonOutput } = context;
+    if (kind === 'runtime') {
     execFileSync(process.execPath, [buildrScript, 'rules', 'render', 'claude-code', '--scope', 'projects/demo', '--target', tempRoot], { cwd: root, stdio: 'ignore' });
     const oldReferenceBlock = [
       '<!-- BEGIN Buildr managed Claude Code rules bridge; hash: 0000000000000000000000000000000000000000000000000000000000000000 -->',
@@ -207,6 +209,8 @@ export function createPackageSmokeChecks(deps) {
     if (doctorWithInfo.nextSteps.some((step) => step.code === 'runtime.reference_bridge_metadata_stale')) {
       problems.push('reference bridge metadata info must not be listed as a doctor next step.');
     }
+    }
+    if (kind === 'commands') {
     const installedCommandsManifest = path.join(tempRoot, 'commands', 'manifest.yml');
     if (!existsFile(installedCommandsManifest)) {
       problems.push('buildr init did not install commands/manifest.yml.');
@@ -216,6 +220,13 @@ export function createPackageSmokeChecks(deps) {
       if (!commandsCheck.ok || !commandsCheck.manifest.valid) {
         problems.push(`Default commands manifest check failed: ${JSON.stringify(commandsCheck.summary)}`);
       }
+        if (!Array.isArray(commandsCheck.catalog?.definitions)
+          || !Array.isArray(commandsCheck.requirements)
+          || !Array.isArray(commandsCheck.effectiveConstraints)
+          || !Array.isArray(commandsCheck.observations)
+          || !Array.isArray(commandsCheck.findings)) {
+          problems.push('commands check JSON must expose catalog, requirements, effectiveConstraints, observations, and findings layers.');
+        }
         if (commandsCheck.commands.length !== 1 || commandsCheck.commands[0].id !== 'openspec'
           || !commandsCheck.commands[0].sources.includes('commands/buildr/openspec/manifest.yml')) {
           problems.push('Default workspace must aggregate the OpenSpec Component command collection.');
@@ -223,14 +234,17 @@ export function createPackageSmokeChecks(deps) {
       }
       execFileSync(process.execPath, [buildrScript, 'commands', 'add', 'demo-tool', '--purpose', '测试命令行工具维护', '--description', 'package check temporary command', '--install-hint', 'https://example.com/demo-tool', '--target', tempRoot], { cwd: root, stdio: 'ignore' });
       const commandsAfterAdd = parseJsonOutput('commands check after add', execFileSync(process.execPath, [buildrScript, 'commands', 'check', '--target', tempRoot, '--json'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
-      if (commandsAfterAdd.commands[0]?.installHint !== 'https://example.com/demo-tool' || Object.hasOwn(commandsAfterAdd.commands[0] ?? {}, 'install')) {
-        problems.push('commands add/check must use installHint and must not emit install.');
+      const demoDefinition = commandsAfterAdd.catalog?.definitions?.find((item) => item.id === 'demo-tool');
+      if (demoDefinition?.installHint !== 'https://example.com/demo-tool' || Object.hasOwn(demoDefinition ?? {}, 'install')) {
+        problems.push('commands add/check catalog must use installHint and must not emit install.');
       }
       execFileSync(process.execPath, [buildrScript, 'commands', 'remove', 'demo-tool', '--target', tempRoot], { cwd: root, stdio: 'ignore' });
       const commandsAfterRemove = parseCommandsManifestYaml(fs.readFileSync(installedCommandsManifest, 'utf8'));
       if (!Array.isArray(commandsAfterRemove.commands) || commandsAfterRemove.commands.length !== 0) {
         problems.push('commands remove must keep an empty commands array.');
       }
+    }
+    if (kind === 'rules') {
       const rulesManifestFile = path.join(tempRoot, 'rules', 'manifest.yml');
       const packageCheckRuleFile = path.join(tempRoot, 'rules', 'package-check-rule.md');
       const claudeBeforeRulesAdd = existsFile(path.join(tempRoot, 'CLAUDE.md')) ? fs.readFileSync(path.join(tempRoot, 'CLAUDE.md'), 'utf8') : null;
@@ -281,6 +295,8 @@ export function createPackageSmokeChecks(deps) {
       if (packageCheckRules.rules.some((rule) => rule.id === 'package-check-rule')) {
         problems.push('rules remove must remove the manifest entry.');
       }
+    }
+    if (kind === 'skills') {
       const packageCheckSkillSource = path.join(tempRoot, 'package-check-skill-source');
       ensureDirectory(path.join(packageCheckSkillSource, 'scripts'));
       fs.writeFileSync(path.join(packageCheckSkillSource, 'SKILL.md'), [
@@ -322,6 +338,8 @@ export function createPackageSmokeChecks(deps) {
         problems.push('skills add --resolved-source must preserve source and write resolved.kind=skill-url with install.mode=buildr.');
       }
       execFileSync(process.execPath, [buildrScript, 'skills', 'remove', 'package-check-remote', '--scope', '.', '--target', tempRoot], { cwd: root, stdio: 'ignore' });
+    }
+    if (finalize) {
       for (const rawEntry of manifest.workspaceFiles) {
         const entry = parseManifestFileEntry(rawEntry, 'workspaceFiles');
         if (!existsFile(path.join(tempRoot, entry.target))) {
@@ -332,6 +350,7 @@ export function createPackageSmokeChecks(deps) {
     const doctorResult = parseJsonOutput('doctor final', doctorJson);
     if (!doctorResult.ok) {
       problems.push(`Temporary init doctor failed: ${JSON.stringify(doctorResult.summary)}`);
+    }
     }
   }
 
@@ -359,8 +378,17 @@ export function createPackageSmokeChecks(deps) {
     if (!existsFile(path.join(tempRoot, 'projects', 'demo', 'services', 'manifest.yml'))) {
       problems.push('project create must install services/manifest.yml.');
     }
-    if (!existsFile(path.join(tempRoot, 'projects', 'demo', 'skills', 'manifest.yml'))) {
-      problems.push('project create must install project skills/manifest.yml.');
+    if (!existsFile(path.join(tempRoot, 'projects', 'demo', 'capabilities.yml')) || existsDirectory(path.join(tempRoot, 'projects', 'demo', 'skills'))) {
+      problems.push('project create must install capabilities.yml without creating a legacy Project Skill source scope.');
+    }
+    const projectCommandsFile = path.join(tempRoot, 'projects', 'demo', 'commands.yml');
+    if (!existsFile(projectCommandsFile)) {
+      problems.push('project create must install commands.yml.');
+    } else {
+      const projectCommands = parseProjectCommandsYaml(fs.readFileSync(projectCommandsFile, 'utf8'), 'projects/demo/commands.yml');
+      if (projectCommands?.schemaVersion !== 'buildr.project-commands/v1' || !Array.isArray(projectCommands.requirements)) {
+        problems.push('Project commands.yml must use buildr.project-commands/v1 with a requirements array.');
+      }
     }
     const legacyRootPractices = path.join(tempRoot, 'practices');
     const legacyProjectPractices = path.join(tempRoot, 'projects', 'demo', 'practices');
@@ -402,8 +430,6 @@ export function createPackageSmokeChecks(deps) {
       problems.push('buildr init copied product Agent Skill into workspace skills source.');
     }
 
-    verifyRecursiveRules(context, tempRoot, buildrScript);
-    verifyWorkspaceAssetLifecycle(context, tempRoot, buildrScript);
   }
 
   function verifyExistingAgentsCompatibility(context) {
@@ -443,9 +469,9 @@ export function createPackageSmokeChecks(deps) {
     }
   }
 
-  function runPackageSmokeChecks(context) {
+  function runPackageWorkspaceSmoke(context) {
     const { root } = context;
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-package-check-'));
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-package-workspace-'));
     const buildrScript = path.join(root, 'tools', 'buildr');
     try {
       execFileSync(process.execPath, [buildrScript, 'init', '--target', tempRoot, '--name', 'demo', '--profile', 'team'], { cwd: root, stdio: 'ignore' });
@@ -454,10 +480,53 @@ export function createPackageSmokeChecks(deps) {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }
     verifyExistingAgentsCompatibility(context);
+  }
+
+  function runPackageDomainIntegration(context, kind) {
+    const { root } = context;
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), `buildr-package-${kind}-`));
+    const buildrScript = path.join(root, 'tools', 'buildr');
+    try {
+      execFileSync(process.execPath, [buildrScript, 'init', '--target', tempRoot, '--name', 'assets', '--profile', 'team'], { cwd: root, stdio: 'ignore' });
+      execFileSync(process.execPath, [buildrScript, 'project', 'create', 'demo', '--target', tempRoot], { cwd: root, stdio: 'ignore' });
+      verifyWorkspaceAssetLifecycle(context, tempRoot, buildrScript, kind);
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  }
+
+  function runPackageRuntimeIntegration(context) {
+    const { root } = context;
+    runPackageDomainIntegration(context, 'runtime');
+    verifyRecursiveRules(context, null, path.join(root, 'tools', 'buildr'));
+  }
+
+  function runPackageAggregateSmoke(context) {
+    const { root } = context;
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-package-check-'));
+    const buildrScript = path.join(root, 'tools', 'buildr');
+    try {
+      execFileSync(process.execPath, [buildrScript, 'init', '--target', tempRoot, '--name', 'demo', '--profile', 'team'], { cwd: root, stdio: 'ignore' });
+      verifyInitializedWorkspace(context, tempRoot, buildrScript);
+      for (const kind of ['runtime', 'commands', 'rules', 'skills']) {
+        verifyWorkspaceAssetLifecycle(context, tempRoot, buildrScript, kind, kind === 'skills');
+      }
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+    verifyRecursiveRules(context, null, buildrScript);
+    verifyExistingAgentsCompatibility(context);
+  }
+
+  function validatePackageSupportTools(context) {
     verifyPackageSupportTools(context);
   }
 
   return {
-    runPackageSmokeChecks,
+    runPackageWorkspaceSmoke,
+    runPackageDomainIntegration,
+    runPackageRuntimeIntegration,
+    runPackageAggregateSmoke,
+    validatePackageSupportTools,
   };
 }

@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "add-task-asset-promotion-review",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-24721305cdcc17bde4a2684361bd33252abe6a1c7c2e82d7fc068f2c16e07154",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "内置任务资产审查与任务收尾保持分层",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "产品入口 Buildr Skill 路由任务资产沉淀审查",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "Buildr 提供任务资产沉淀审查 Skill",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "沉淀审查使用可观察任务节点与最终证据",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "Agent 使用结构化方法反思任务执行质量",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "沉淀候选必须通过质量和作用域检查",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "候选只映射到 Rule 或 Skill",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "审查输出区分执行质量反馈和资产建议",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "写入前必须取得用户确认",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "收尾报告保留可独立引用的候选证据",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "确认后的写回使用现有生命周期",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "当前任务审查不依赖 Hook 或轨迹存储",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

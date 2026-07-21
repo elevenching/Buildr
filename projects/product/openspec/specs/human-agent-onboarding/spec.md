@@ -100,7 +100,8 @@ Buildr MVP MUST 通过 Buildr Skill、bootstrap guide 兜底、带 Agent identit
 #### Scenario: 产品 Skill 安装不同于 workspace Skills 投射
 - **WHEN** Agent 只需要让当前 runtime 学会使用 Buildr
 - **THEN** Agent MUST 使用 `buildr skill install <agent>`
-- **AND** 当 Agent 需要投射 workspace/project Skills 时，Agent MUST 使用 `buildr skills render <agent>`
+- **AND** 当 Agent 需要投射 workspace Skills 时，Agent MUST 使用 `buildr skills render <agent> --destination workspace|user`
+- **AND** Project 专用语义 MUST 通过 `capabilities.yml` 表达而不是建立 Skill source scope
 
 #### Scenario: 讨论其他更高层入口
 - **WHEN** 需要评估 `buildr use` 等其他更高层入口
@@ -176,15 +177,6 @@ Buildr onboarding MUST 引导 Agent 在运行 runtime render、sync、skill inst
 - **AND** Agent MUST NOT 使用猜测的 adapter id 执行 render、sync、skill install 或 runtime check
 - **AND** Agent MUST NOT 使用 supported fallback adapter 代替
 - **AND** Agent MUST 告诉用户联系 Buildr 作者反馈该 Agent
-
-### Requirement: Buildr guidance names runtime render assets
-Buildr onboarding guidance MUST 说明哪些 Buildr assets 参与 Agent runtime render，哪些仍保持为 source assets。
-
-#### Scenario: Runtime render explanation
-- **WHEN** Buildr Skill、bootstrap guide、README、init output 或 doctor unsupported-Agent guidance 描述 runtime render
-- **THEN** guidance MUST 将 rules entry or bridge、product Buildr Skill、workspace/project Skills、Skill install plans 和 runtime check 说明为 adapter render capabilities
-- **AND** guidance MUST 说明 Commands、Project registry、Service registry、OpenSpec、knowledge 和 docs 保持为 Buildr source assets，除非未来 adapter 明确支持 render 它们
-- **AND** guidance MUST NOT 将 Practices 表示为 Buildr source asset
 
 ### Requirement: Buildr Skill uses runtime discovery in its main loop
 Buildr product Skill MUST 将 runtime adapter discovery 作为主执行循环的一部分。
@@ -278,8 +270,9 @@ Buildr MUST 维护一份可由人和 Agent 从根 README 发现的已接入 Agen
 #### Scenario: Adapter 文档说明接入方式
 - **WHEN** 用户或 Agent 阅读已接入 Agent adapter 权威文档
 - **THEN** 文档 MUST 对每个 supported adapter 说明 adapter id、适用 surface、Rules 入口与生成 target、Skills root、activation/reload、checker、前置条件和已知限制
-- **AND** 文档 MUST 区分官方文档、本机观察、安装包源码和推断等证据等级
-- **AND** 文档 MUST 标明 `documented` 或 `verified` 证据等级，以及真实产品 smoke 的通过或待验证状态
+- **AND** 文档 MUST 区分官方文档、本机观察、安装包源码和推断等兼容证据来源
+- **AND** 文档 MUST 说明自动 contract/parity 只能证明 Buildr 的投射与维护边界，不能证明目标 Agent 已在当前 workspace、版本或会话加载文件
+- **AND** 文档 MUST NOT 维护 `documented`/`verified`、`pending`/`passed` 或品牌历史 marker smoke 快照
 
 #### Scenario: Agent 按文档接入当前 runtime
 - **WHEN** Agent 从权威文档识别到自身 runtime 已受支持
@@ -299,3 +292,49 @@ Buildr Skill、bootstrap guide、CLI Reference 和 current-state knowledge MUST 
 - **WHEN** sync 或 render 已完成但 runtime check 报告 reload、新会话、UI toggle 或真实引用读取待确认
 - **THEN** Agent MUST 向用户说明剩余动作及其原因
 - **AND** Agent MUST NOT 把仅完成文件投射描述为当前 Agent 会话已经可用
+
+### Requirement: Onboarding 区分 Skill source authority 与 render destination
+Buildr onboarding guidance MUST 说明 workspace 是唯一 Skill source authority，并 MUST 将 user/workspace destination 解释为 Agent runtime 投射位置而不是 source scope。
+
+#### Scenario: 用户要求全局安装 Skill
+- **WHEN** 用户要求某个 workspace Skill 对其他工作目录也可用
+- **THEN** Agent MUST 说明该 Skill 仍由当前 workspace `skills/` 维护
+- **AND** MUST 取得用户级写入授权后使用 `buildr skills render <agent> --destination user`
+
+#### Scenario: 用户要求项目专用 Skill
+- **WHEN** 用户要求一个 Skill 只适用于某个 Project
+- **THEN** Agent MUST 在 workspace source authority 中维护该 Skill
+- **AND** MUST 在 Project `capabilities.yml` 中声明 applicability 或 binding
+- **AND** MUST NOT 创建 Project Skill manifest 或隐式投射用户级 Skills
+
+#### Scenario: Agent 询问 Project Skill
+- **WHEN** 用户或旧文档使用“Project Skill”描述当前能力
+- **THEN** onboarding MUST 区分 legacy Project Skill source、Project capability/applicability context 与 workspace destination
+- **AND** canonical guidance MUST NOT 把 Project 描述为当前 Skill source 或安装隔离层
+
+### Requirement: Runtime guidance 公开 Skills inventory 保证边界
+Buildr guidance MUST 说明 adapter 是否能完整观察当前 Agent Skills 集，并 MUST 区分已证明冲突、未发现冲突和可见性不完整。
+
+#### Scenario: Adapter inventory 为 partial
+- **WHEN** runtime discovery 无法枚举 plugin、system 或其他 Agent 内部 Skill 来源
+- **THEN** onboarding/runtime guidance MUST 报告 `partial` evidence 和受影响边界
+- **AND** MUST NOT 将成功 render 描述为已证明全局唯一
+
+### Requirement: Onboarding 区分 Command definition、requirement 与本机状态
+Buildr onboarding MUST 引导 Agent 将 workspace Command catalog、Project requirements 和 user/machine environment 视为不同事实层。
+
+#### Scenario: 用户声明组织认可工具
+- **WHEN** 用户希望在 workspace 中登记可复用外部 CLI
+- **THEN** Agent MUST 使用 Commands catalog 维护入口创建或更新 definition
+- **AND** MUST NOT 因登记 definition 自动把所有 Projects 标记为需要该工具
+
+#### Scenario: 用户声明 Project 需要工具
+- **WHEN** 用户说明某个 Project 需要已登记 Command
+- **THEN** Agent MUST 在该 Project `commands.yml` 增加 requirement reference
+- **AND** MUST NOT 复制 executable、probe 或 install hint
+
+#### Scenario: 用户要求安装工具
+- **WHEN** machine observation 显示 required Command 缺失或版本不满足
+- **THEN** Agent MUST 说明 requirement 来源和环境差异
+- **AND** 只有取得相应授权后 MAY 协作安装或升级
+- **AND** Buildr onboarding MUST NOT 声称 Commands add/check 会完成安装

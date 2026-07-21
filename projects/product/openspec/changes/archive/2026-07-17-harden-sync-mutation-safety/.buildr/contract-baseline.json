@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "harden-sync-mutation-safety",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-77877859d8d8c2b546870e017cbf16127ca1dc4c0e8379e89d081fda76e0c5fd",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-product-capability-sync",
+      "title": "Buildr sync 是 Agent 升级主路径",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr sync 是 Agent 升级主路径\nBuildr MUST 提供 `sync <agent>` 命令，让 Agent 使用当前 CLI package 携带的 assets 同步 workspace 产品能力并准备支持的 Agent runtime；首次 `init --agent` MUST 复用同一 sync 管线。\n\n#### Scenario: 同步 Codex\n- **WHEN** Agent 运行 `buildr sync codex --target <dir>`\n- **THEN** Buildr MUST 同步 workspace 产品能力、安装或修复产品入口 Buildr Skill、渲染 Codex runtime，并报告最终 Codex doctor 状态\n- **AND** Buildr MUST NOT 检查或更新 CLI 自身\n\n#### Scenario: 同步 Claude Code\n- **WHEN** Agent 运行 `buildr sync claude-code --target <dir>`\n- **THEN** Buildr MUST 同步 workspace 产品能力、安装或修复产品入口 Buildr Skill、渲染 Claude Code runtime，并报告最终 Claude Code doctor 状态\n- **AND** Buildr MUST NOT 检查或更新 CLI 自身\n\n#### Scenario: 高层初始化复用 sync\n- **WHEN** Agent 运行 `buildr init --agent <agent> --target <dir>`\n- **THEN** Buildr MUST 先完成 workspace 源资产初始化，再通过与 `buildr sync <agent>` 相同的管线执行产品能力同步、Component reconcile、runtime 投射和 doctor\n- **AND** Buildr MUST NOT 为初始化维护第二套 workspace reconcile、render 或 doctor 实现\n\n#### Scenario: sync 自动处理官方 Builtin 升级\n- **WHEN** sync 证明 optional Builtin 的 live 内容等于上次安装版本或已知旧版官方资产\n- **THEN** sync MUST 自动升级并继续 render 与 doctor\n- **AND** sync MUST NOT 将该差异作为用户决策点\n\n#### Scenario: sync 遇到用户决策点时停止\n- **WHEN** sync 遇到可证明的用户修改、manifest 对齐问题，或需要安装外部命令行工具\n- **THEN** sync MUST 在执行破坏性或会修改本机环境的动作前停止\n- **AND** sync MUST 提供清晰下一步，供 Agent 向用户确认\n"
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "Mutation 路径受 scope、ownership 和保护根约束",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Mutation 路径受 scope、ownership 和保护根约束\nBuildr MUST 只修改命令声明 scope 内具有明确 ownership 的目标，并保护 workspace 根、Product 根、当前目录、用户 home、文件系统根、资产集合根及其祖先。\n\n#### Scenario: 删除精确受管成员\n- **WHEN** Rule、Skill、Builtin 或 Component lifecycle 删除经过验证且位于声明集合根严格后代的受管成员\n- **THEN** Buildr MUST 允许删除该精确成员\n- **AND** Buildr MUST NOT 因其位于 workspace 根之下而阻止正常卸载\n\n#### Scenario: 拒绝删除集合根或保护根\n- **WHEN** 解析后的删除目标等于资产集合根或保护根，或者是保护根的祖先\n- **THEN** Buildr MUST 拒绝 mutation\n- **AND** Buildr MUST 在零写入状态报告被保护路径和请求操作\n\n#### Scenario: 拒绝符号链接目标\n- **WHEN** mutation 目标任一已存在路径 segment 是符号链接\n- **THEN** Buildr MUST 拒绝写入或删除\n- **AND** Buildr MUST NOT 跟随该链接推断 ownership\n"
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "Mutation 在首次写入前完成全量预检",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Mutation 在首次写入前完成全量预检\nBuildr MUST 为跨文件源资产操作建立封闭 mutation plan，并在第一次持久化写入前验证全部路径、ownership、manifest schema、integrity、repo identity 和并发锁。\n\n#### Scenario: 任一计划步骤冲突\n- **WHEN** mutation plan 的任一 write、replace 或 remove 目标无效、冲突、被修改或不属于请求操作\n- **THEN** Buildr MUST 使整个操作失败\n- **AND** plan 中所有源资产 MUST 保持操作前状态\n\n#### Scenario: 同一 workspace 并发 mutation\n- **WHEN** workspace 已存在另一个未完成 mutation 的有效锁或 transaction\n- **THEN** Buildr MUST 拒绝新的 source mutation\n- **AND** diagnostics MUST 标识现有 operation 和恢复入口\n"
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "Source mutation 原子提交或失败回滚",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Source mutation 原子提交或失败回滚\nBuildr MUST 使用原子文件替换、目录 staging、backup 和逆序 rollback，使普通进程内失败后的源资产恢复到操作前状态。\n\n#### Scenario: 多文件提交成功\n- **WHEN** mutation plan 的全部 source steps 成功\n- **THEN** Buildr MUST 提交完整的新资产与 manifest 状态\n- **AND** Buildr MUST 清理 transaction staging、backup 和 lock\n\n#### Scenario: 中间步骤失败\n- **WHEN** 任一 source commit step 抛出 I/O 或验证错误\n- **THEN** Buildr MUST 逆序回滚已应用步骤\n- **AND** 操作结束后源资产 MUST 等于操作前完整状态，或者保留可诊断 transaction 并 fail closed\n\n#### Scenario: 进程异常留下 transaction\n- **WHEN** doctor 或后续 mutation 发现未完成 transaction、staging、backup 或 lock\n- **THEN** Buildr MUST NOT 猜测成功或自动删除 backup\n- **AND** Buildr MUST 输出 operation、受影响路径、已完成步骤和可执行恢复动作\n"
+    },
+    {
+      "capability": "managed-data-integrity",
+      "title": "sync 的源资产更新必须使用安全事务",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: sync 的源资产更新必须使用安全事务\nBuildr MUST 让 `sync` 对 builtin、Builtin 安装回执、Component 和其他受管源资产的更新使用现有的 workspace mutation 事务。\n\n#### Scenario: sync 更新多个源文件\n- **WHEN** `sync` 需要新增、更新或删除多个受管源文件\n- **THEN** Buildr MUST 在写入前检查完整修改范围\n- **AND** Builtin 资产、registries 和 `.buildr/builtin-receipts.json` MUST 在同一 source transaction 中提交\n- **AND** 任一步骤失败时源资产 MUST 保持操作前状态，或者保留可诊断且停止后续写入的 transaction\n\n#### Scenario: Builtin lifecycle 更新回执\n- **WHEN** `sync`、`builtin uninstall` 或 `builtin restore` 改变独立 Builtin 状态\n- **THEN** 对应资产、manifest 和安装回执 MUST 一起提交或一起回滚\n\n#### Scenario: 源资产提交后同步运行时\n- **WHEN** `sync` 已经成功提交源资产修改\n- **THEN** Buildr MUST 再根据提交后的源状态同步运行时\n- **AND** 运行时同步失败 MUST NOT 回滚已经提交的源资产\n"
+    }
+  ]
+}
