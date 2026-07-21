@@ -506,6 +506,35 @@ export function createRuntimeAdapterRegistry(descriptors, options = {}) {
 export const RUNTIME_ADAPTERS = createRuntimeAdapterRegistry(DESCRIPTORS);
 export const SUPPORTED_AGENT_IDS = Object.freeze(Object.keys(RUNTIME_ADAPTERS));
 
+function adapterImplementationFamily(adapter) {
+  const rules = adapter.traits.rules;
+  if (rules.kind === 'native-recursive') return 'native-recursive';
+  if (rules.kind === 'reference-bridge') return rules.placement === 'root-index' ? 'root-index-bridge' : 'per-source-reference';
+  if (rules.kind === 'vendor-rule-files') {
+    return rules.targetPattern.includes(`/${adapter.traits.skills.root}/`) ? 'same-directory-vendor' : 'central-vendor';
+  }
+  throw new Error(`Runtime adapter ${adapter.id} has no registered implementation family.`);
+}
+
+export function runtimeAdapterImplementationMatrix(adapters = RUNTIME_ADAPTERS) {
+  const representatives = new Map();
+  const entries = Object.values(adapters).map((adapter) => {
+    const family = adapterImplementationFamily(adapter);
+    if (!representatives.has(family)) representatives.set(family, adapter.id);
+    return Object.freeze({ adapterId: adapter.id, family });
+  });
+  const required = ['native-recursive', 'per-source-reference', 'same-directory-vendor', 'central-vendor', 'root-index-bridge'];
+  const preferred = { 'native-recursive': 'codex', 'per-source-reference': 'claude-code', 'same-directory-vendor': 'qoder', 'central-vendor': 'cursor', 'root-index-bridge': 'workbuddy' };
+  for (const [family, adapterId] of Object.entries(preferred)) {
+    if (adapters[adapterId] && adapterImplementationFamily(adapters[adapterId]) === family) representatives.set(family, adapterId);
+  }
+  for (const family of required) if (!representatives.has(family)) throw new Error(`Runtime implementation family has no parity representative: ${family}`);
+  return Object.freeze({
+    entries: Object.freeze(entries),
+    representatives: Object.freeze(required.map((family) => Object.freeze({ family, adapterId: representatives.get(family) }))),
+  });
+}
+
 export function isSupportedAgent(agent) {
   return Object.hasOwn(RUNTIME_ADAPTERS, agent);
 }

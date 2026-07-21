@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// Candidate-only owner: release history bridge idempotency and remote races.
+
 import { bridgeMainToDev } from '../../tools/cli/application/release/bridge-main-to-dev.mjs';
 
 function git(cwd, ...args) {

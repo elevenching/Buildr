@@ -71,6 +71,8 @@ npm test
 npm run test:unit
 npm run test:contract
 npm run test:integration:fast
+npm run test:focus -- integration-candidate-recovery
+npm run test:focus -- integration-candidate-release
 npm run coverage:unit -- --summary /tmp/buildr-unit-coverage.json
 ```
 
@@ -93,6 +95,8 @@ npm run test:focus -- package-skills
 npm run test:focus -- --plan group:openspec
 npm run --silent test:focus -- --json release-tarball-smoke
 ```
+
+完整 Candidate 自动选择 `local` 或 `ci` execution profile，并在 timing summary 记录 global/class/resource 上限、step 时间线和 queue duration。性能预算只产生 warning，不把正确性通过改成失败；调度实验可显式设置 `BUILDR_VERIFICATION_PROFILE=ci-workspace-limited`，但发布使用登记的默认 profile。
 
 开发期间需要复现跨组件 workspace 生命周期问题时，通过同一个 focus 入口定点运行独立 Workspace E2E suites：
 

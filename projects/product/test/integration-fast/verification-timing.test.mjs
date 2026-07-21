@@ -31,6 +31,7 @@ test('timing summary 保留向后兼容的 step 调度时间轴', () => {
     startedAt: 1000,
     finishedAt: 1200,
     schedulingMode: 'cost',
+    executionProfile: { id: 'ci', limits: { global: 4, classes: { 'workspace-heavy': 3 }, resources: { 'workspace-saturating': 1 } } },
     timingOutput: path.join(os.tmpdir(), 'buildr-scheduling-summary.json'),
     results: [{
       name: 'scheduled',
@@ -54,6 +55,8 @@ test('timing summary 保留向后兼容的 step 调度时间轴', () => {
     queueDurationMs: 50,
   });
   assert.equal(summary.environment.schedulingMode, 'cost');
+  assert.equal(summary.environment.executionProfile, 'ci');
+  assert.deepEqual(summary.environment.concurrency.resources, { 'workspace-saturating': 1 });
 });
 
 test('verification timing reporter emits a versioned machine-readable summary', () => {
@@ -324,7 +327,9 @@ test('identified expensive candidate steps have non-blocking target budgets', ()
   for (const name of [
     'fast integration tests',
     'capability CLI integration',
-    'runtime adapter parity',
+    'Candidate integration: builtin recovery and migration',
+    'Candidate integration: release Git convergence',
+    'runtime adapter implementation-family parity',
     'package static validation',
     'package workspace smoke',
     'package Commands integration',

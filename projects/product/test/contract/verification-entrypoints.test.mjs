@@ -20,6 +20,8 @@ test('product verification exposes three gates, direct layers, and one focus ent
   assert.equal(scripts['test:unit'], 'node --test test/unit/*.test.mjs');
   assert.equal(scripts['test:contract'], 'node --test test/contract/*.test.mjs');
   assert.equal(scripts['test:integration:fast'], 'node --test test/integration-fast/*.test.mjs');
+  assert.equal(scripts['test:integration:candidate:recovery'], 'node --test test/integration-candidate-recovery/*.test.mjs');
+  assert.equal(scripts['test:integration:candidate:release'], 'node --test test/integration-candidate-release/*.test.mjs');
   assert.equal(scripts['coverage:unit'], 'node tools/verification/unit-coverage.mjs');
   assert.equal(scripts['test:changed'], 'node tools/verification/changed.mjs');
   assert.equal(scripts['test:focus'], 'node tools/verification/focus.mjs');
@@ -75,12 +77,22 @@ test('candidate verification retains every release gate and split package steps'
   assert.equal(invalidScheduling.status, 1);
   assert.match(invalidScheduling.stderr, /Invalid verification scheduling mode/);
   assert.doesNotMatch(`${invalidScheduling.stdout}${invalidScheduling.stderr}`, /\[verify-product\]/);
+  const invalidProfile = spawnSync(process.execPath, [path.join(productRoot, 'tools', 'verification', 'candidate.mjs')], {
+    cwd: productRoot,
+    encoding: 'utf8',
+    env: { ...process.env, BUILDR_VERIFICATION_PROFILE: 'unknown' },
+  });
+  assert.equal(invalidProfile.status, 1);
+  assert.match(invalidProfile.stderr, /Unknown verification execution profile/);
+  assert.doesNotMatch(`${invalidProfile.stdout}${invalidProfile.stderr}`, /\[verify-product\]/);
   assert.ok(candidate.split(/\r?\n/).length < 100);
   const candidatePlan = createVerificationPlan({ profiles: ['candidate'] });
   for (const stage of [
     'fine-grained unit tests',
     'static contract tests',
     'fast integration tests',
+    'Candidate integration: builtin recovery and migration',
+    'Candidate integration: release Git convergence',
     'CLI modular architecture',
     'OpenSpec canonical spec quality',
     'openspec strict validation',
@@ -93,7 +105,7 @@ test('candidate verification retains every release gate and split package steps'
     'CLI compatibility',
     'CLI package parity',
     'runtime adapter contract',
-    'runtime adapter parity',
+    'runtime adapter implementation-family parity',
     'capability CLI integration',
     'Service branch contract',
     'remote Skill timeout contract',
@@ -113,6 +125,9 @@ test('candidate verification retains every release gate and split package steps'
     assert.ok(workspaceSuites.some((step) => step.id === suite), `Workspace E2E registry must retain ${suite}`);
   }
   assert.ok(candidatePlan.steps.some((step) => step.executor.file === 'test/capability-cli.integration.mjs'));
+  assert.deepEqual(candidatePlan.steps.filter((step) => step.resources?.includes('workspace-saturating')).map((step) => step.id), [
+    'integration-candidate-recovery', 'integration-candidate-release', 'runtime-adapter-parity',
+  ]);
 });
 
 test('package verifier selectors are stable, focused, and fail closed', () => {

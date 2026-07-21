@@ -6,6 +6,7 @@ const step = (definition) => Object.freeze({
   groups: [],
   inputs: [],
   concurrencyClass: 'default',
+  resources: [],
   ...definition,
 });
 
@@ -15,16 +16,26 @@ const packageVerifier = (selector) => {
   return { name: verifier.name, executor: { type: 'package-selector', selector } };
 };
 
-export const VERIFICATION_CONCURRENCY = Object.freeze({
-  global: 4,
-  classes: Object.freeze({
-    default: 4,
-    'cpu-heavy': 2,
-    'workspace-heavy': 3,
-    network: 2,
-    exclusive: 1,
-  }),
+const concurrency = (global, workspaceHeavy, workspaceSaturating) => Object.freeze({
+  global,
+  classes: Object.freeze({ default: global, 'cpu-heavy': 2, 'workspace-heavy': workspaceHeavy, network: 2, exclusive: 1 }),
+  resources: Object.freeze({ 'workspace-saturating': workspaceSaturating }),
 });
+
+export const VERIFICATION_EXECUTION_PROFILES = Object.freeze({
+  local: concurrency(4, 3, 1),
+  ci: concurrency(4, 3, 1),
+  'ci-workspace-limited': concurrency(4, 2, 2),
+});
+
+export const VERIFICATION_CONCURRENCY = VERIFICATION_EXECUTION_PROFILES.local;
+
+export function resolveVerificationExecutionProfile(value, env = process.env) {
+  const id = value || (env.CI === 'true' ? 'ci' : 'local');
+  const limits = VERIFICATION_EXECUTION_PROFILES[id];
+  if (!limits) throw new Error(`Unknown verification execution profile: ${id}`);
+  return { id, limits };
+}
 
 export const VERIFICATION_IGNORED_INPUTS = Object.freeze([
   'node_modules/**',
@@ -86,11 +97,18 @@ export const verificationSteps = Object.freeze([
     'tools/verification/timing/**',
     'tools/verification/workspace/fixture.mjs',
     'tools/verification/workspace/suites.mjs',
-  ], budgetMs: 30000, schedulingCostMs: 24000, concurrencyClass: 'workspace-heavy' }),
+  ], budgetMs: 15000, schedulingCostMs: 10000, concurrencyClass: 'workspace-heavy' }),
   step({ id: 'cli-architecture', name: 'CLI modular architecture', executor: { type: 'node', file: 'tools/verification/cli/architecture.mjs' }, profiles: ['fast', 'candidate'], inputs: ['tools/*', 'tools/cli/**', 'tools/verification/cli/architecture.mjs', 'package.json'] }),
   step({ id: 'openspec-spec-quality', name: 'OpenSpec canonical spec quality', executor: { type: 'node', file: 'tools/verification/openspec/spec-quality.mjs' }, profiles: ['fast', 'candidate'], inputs: ['openspec/**/*.md', 'openspec/**/*.yaml'] }),
   step({ id: 'openspec-strict', name: 'openspec strict validation', executor: { type: 'openspec', args: ['validate', '--all', '--strict'] }, profiles: ['fast', 'candidate'], inputs: ['openspec/**'] }),
   step({ id: 'runtime-adapter-contract', name: 'runtime adapter contract', executor: { type: 'node', file: 'tools/verification/runtime/adapter-contract.mjs' }, profiles: ['fast', 'candidate'], groups: ['runtime'], inputs: ['tools/runtime/**', 'tools/cli/domains/runtime.mjs', 'tools/cli/application/doctor/runtime-diagnostics.mjs', 'tools/verification/runtime/adapter-contract.mjs', 'package/targets/runtime/**', 'docs/agent-runtime-adapters.md'] }),
+
+  step({ id: 'integration-candidate-recovery', name: 'Candidate integration: builtin recovery and migration', executor: { type: 'npm', args: ['run', 'test:integration:candidate:recovery'] }, profiles: ['candidate'], groups: ['recovery'], inputs: [
+    'test/integration-candidate-recovery/**', 'tools/buildr', 'buildr', 'tools/cli/**', 'tools/runtime/**', 'skills/task-board/**', 'package/**',
+  ], budgetMs: 25000, schedulingCostMs: 22000, concurrencyClass: 'workspace-heavy', resources: ['workspace-saturating'] }),
+  step({ id: 'integration-candidate-release', name: 'Candidate integration: release Git convergence', executor: { type: 'npm', args: ['run', 'test:integration:candidate:release'] }, profiles: ['candidate'], groups: ['release'], inputs: [
+    'test/integration-candidate-release/**', 'tools/cli/application/release/bridge-main-to-dev.mjs', 'tools/verification/release/release-convergence.mjs',
+  ], budgetMs: 15000, schedulingCostMs: 12000, concurrencyClass: 'workspace-heavy', resources: ['workspace-saturating'] }),
 
   step({ id: 'candidate-tarball', name: 'candidate npm tarball', executor: { type: 'candidate-artifact' }, profiles: ['candidate'], inputs: ['package.json', 'package-lock.json', 'buildr', 'tools/buildr', 'tools/install-buildr-cli', 'tools/uninstall-buildr-cli'] }),
   step({ id: 'open-source-candidate', name: 'open-source candidate', executor: { type: 'node', file: 'tools/verification/release/open-source-candidate.mjs', consumesArtifact: true }, profiles: ['candidate'], groups: ['public', 'release'], inputs: ['package.json', 'package-lock.json', 'README.md', 'LICENSE', 'CHANGELOG.md', 'CONTRIBUTING.md', 'SECURITY.md', '.github/**', 'docs/cli-reference.md', 'docs/cli-architecture.md', 'docs/known-limitations.md', 'docs/agent-runtime-adapters.md'], dependsOn: ['candidate-tarball'] }),
@@ -106,7 +124,7 @@ export const verificationSteps = Object.freeze([
   step({ id: 'package-rules', ...packageVerifier('rules'), profiles: ['candidate'], groups: ['package'], inputs: ['package/targets/workspace/rules/**', 'tools/cli/domains/rules.mjs', 'tools/runtime/**', 'tools/cli/application/package-maintenance/**'], budgetMs: 8000, concurrencyClass: 'workspace-heavy' }),
   step({ id: 'package-skills', ...packageVerifier('skills'), profiles: ['candidate'], groups: ['package'], inputs: ['package/targets/workspace/skills/**', 'package/targets/runtime/skills/**', 'tools/cli/domains/skills.mjs', 'tools/runtime/skills/**', 'tools/cli/application/package-maintenance/**'], budgetMs: 12000, schedulingCostMs: 10000, concurrencyClass: 'workspace-heavy' }),
   step({ id: 'package-runtime', ...packageVerifier('runtime'), profiles: ['candidate'], groups: ['package', 'runtime'], inputs: ['package/targets/runtime/**', 'package/targets/workspace/rules/**', 'tools/runtime/**', 'tools/cli/domains/runtime.mjs', 'tools/cli/application/package-maintenance/**'], budgetMs: 10000, schedulingCostMs: 7000, concurrencyClass: 'workspace-heavy' }),
-  step({ id: 'runtime-adapter-parity', name: 'runtime adapter parity', executor: { type: 'node', file: 'tools/verification/runtime/adapter-parity.mjs' }, profiles: ['candidate'], groups: ['runtime'], inputs: ['tools/runtime/**', 'tools/cli/domains/runtime.mjs', 'tools/cli/application/doctor/runtime-diagnostics.mjs', 'tools/verification/runtime/adapter-parity.mjs', 'package/targets/runtime/**', 'package/targets/workspace/rules/**', 'package/targets/workspace/skills/**'], budgetMs: 40000, schedulingCostMs: 30000, concurrencyClass: 'workspace-heavy' }),
+  step({ id: 'runtime-adapter-parity', name: 'runtime adapter implementation-family parity', executor: { type: 'node', file: 'tools/verification/runtime/adapter-parity.mjs' }, profiles: ['candidate'], groups: ['runtime'], inputs: ['tools/runtime/**', 'tools/cli/domains/runtime.mjs', 'tools/cli/application/doctor/runtime-diagnostics.mjs', 'tools/verification/runtime/adapter-parity.mjs', 'package/targets/runtime/**', 'package/targets/workspace/rules/**', 'package/targets/workspace/skills/**'], budgetMs: 30000, schedulingCostMs: 30000, concurrencyClass: 'workspace-heavy', resources: ['workspace-saturating'] }),
 
   step({ id: 'workspace-lifecycle', name: 'Workspace E2E: workspace lifecycle', executor: { type: 'workspace-suite', selector: 'workspace-lifecycle' }, profiles: ['candidate'], inputs: ['tools/cli/domains/workspace.mjs', 'tools/cli/domains/commands.mjs', 'tools/cli/domains/rules.mjs', 'tools/cli/domains/skills.mjs', 'tools/verification/workspace/fixture.mjs', 'tools/verification/workspace/workspace-lifecycle.mjs'], budgetMs: 20000, concurrencyClass: 'workspace-heavy' }),
   step({ id: 'ownership-recovery', name: 'Workspace E2E: ownership recovery', executor: { type: 'workspace-suite', selector: 'ownership-recovery' }, profiles: ['candidate'], inputs: ['tools/cli/domains/components.mjs', 'tools/cli/application/package-maintenance/**', 'tools/verification/workspace/fixture.mjs', 'tools/verification/workspace/ownership-recovery.mjs'], budgetMs: 20000, schedulingCostMs: 6000, concurrencyClass: 'workspace-heavy' }),
@@ -125,7 +143,7 @@ export const verificationSteps = Object.freeze([
 ]);
 
 export const VERIFICATION_PROFILES = Object.freeze(['fast', 'candidate']);
-export const VERIFICATION_GROUPS = Object.freeze(['public', 'cli', 'runtime', 'package', 'openspec', 'release']);
+export const VERIFICATION_GROUPS = Object.freeze(['public', 'cli', 'runtime', 'package', 'openspec', 'release', 'recovery']);
 export const VERIFICATION_EXECUTORS = Object.freeze(['node', 'npm', 'openspec', 'package-selector', 'workspace-suite', 'candidate-artifact']);
 
 export function verificationStepById(id) {

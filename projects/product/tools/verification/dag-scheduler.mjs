@@ -22,11 +22,19 @@ export async function runVerificationDag(plan, options = {}) {
   const queuedAtMs = now();
   const queuedAt = new Date(queuedAtMs).toISOString();
   const limits = options.concurrency ?? VERIFICATION_CONCURRENCY;
+  if (!Number.isInteger(limits.global) || limits.global < 1) throw new Error('Invalid global concurrency limit');
+  for (const [name, value] of Object.entries(limits.classes ?? {})) {
+    if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid concurrency limit for ${name}`);
+  }
+  for (const [name, value] of Object.entries(limits.resources ?? {})) {
+    if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid concurrency limit for resource ${name}`);
+  }
   const schedulingMode = parseVerificationSchedulingMode(options.schedulingMode);
   const planIndex = new Map(plan.steps.map((step, index) => [step.id, index]));
   const pending = new Map(plan.steps.map((step) => [step.id, step]));
   const active = new Map();
   const activeByClass = new Map();
+  const activeByResource = new Map();
   const results = new Map();
 
   const capacityAvailable = (step) => {
@@ -34,6 +42,11 @@ export async function runVerificationDag(plan, options = {}) {
     const classLimit = limits.classes[step.concurrencyClass];
     if (!Number.isInteger(classLimit) || classLimit < 1) throw new Error(`Invalid concurrency limit for ${step.concurrencyClass}`);
     if ((activeByClass.get(step.concurrencyClass) ?? 0) >= classLimit) return false;
+    for (const resource of step.resources ?? []) {
+      const resourceLimit = limits.resources?.[resource];
+      if (!Number.isInteger(resourceLimit) || resourceLimit < 1) throw new Error(`Invalid concurrency limit for resource ${resource}`);
+      if ((activeByResource.get(resource) ?? 0) >= resourceLimit) return false;
+    }
     const exclusiveRunning = [...active.values()].some((item) => item.step.concurrencyClass === 'exclusive');
     if (exclusiveRunning) return false;
     if (step.concurrencyClass === 'exclusive' && active.size > 0) return false;
@@ -44,6 +57,7 @@ export async function runVerificationDag(plan, options = {}) {
     const startedAtMs = now();
     pending.delete(step.id);
     activeByClass.set(step.concurrencyClass, (activeByClass.get(step.concurrencyClass) ?? 0) + 1);
+    for (const resource of step.resources ?? []) activeByResource.set(resource, (activeByResource.get(resource) ?? 0) + 1);
     options.onStart?.(step);
     const promise = Promise.resolve().then(() => execute(step)).then((result) => ({
       id: step.id,
@@ -68,6 +82,7 @@ export async function runVerificationDag(plan, options = {}) {
       };
       active.delete(step.id);
       activeByClass.set(step.concurrencyClass, activeByClass.get(step.concurrencyClass) - 1);
+      for (const resource of step.resources ?? []) activeByResource.set(resource, activeByResource.get(resource) - 1);
       results.set(step.id, scheduledResult);
       options.onComplete?.(scheduledResult, step);
       return scheduledResult;

@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { RUNTIME_ADAPTERS, runtimeAdapterImplementationMatrix } from '../../runtime/adapter-contract.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const buildr = path.join(productRoot, 'tools', 'buildr');
@@ -136,8 +137,10 @@ assert.notEqual(scopedRender.status, 0, 'Project-scoped Skill render must fail w
 assert.match(scopedRender.stderr, /Legacy Project Skill render scope is no longer supported/);
 assert.ok(fs.existsSync(betaPlan), 'rejected Project-scoped render must not remove workspace install plans');
 
-const supportedAdapters = ['claude-code', 'codex', 'cursor', 'qoder', 'trae', 'trae-work', 'workbuddy'];
-const lifecycleAdapters = ['cursor', 'qoder', 'workbuddy', 'claude-code', 'codex'];
+const implementationMatrix = runtimeAdapterImplementationMatrix();
+const lifecycleAdapters = implementationMatrix.representatives.map((entry) => entry.adapterId);
+const supportedAdapters = lifecycleAdapters;
+assert.equal(implementationMatrix.entries.length, Object.keys(RUNTIME_ADAPTERS).length);
 for (const agent of lifecycleAdapters) {
   run(['skill', 'install', agent, '--target', workspace]);
   run(['render', agent, '--scope', '.', '--target', workspace]);
@@ -174,6 +177,7 @@ const adapterSkillRoots = new Map([
   ['trae-work', '.trae'],
   ['workbuddy', '.codebuddy'],
 ]);
+const paritySkillRoots = new Map(lifecycleAdapters.map((agent) => [agent, adapterSkillRoots.get(agent)]));
 for (const agent of supportedAdapters) {
   run(['skill', 'install', agent, '--target', workspace]);
   run(['render', agent, '--scope', '.', '--target', workspace]);
@@ -198,20 +202,20 @@ for (const agent of supportedAdapters) {
 
 fs.rmSync(path.join(workspace, 'skills', 'complete-runtime-skill', 'assets', 'sample.bin'));
 for (const agent of supportedAdapters) run(['render', agent, '--scope', '.', '--target', workspace]);
-for (const [agent, root] of adapterSkillRoots) {
+for (const [agent, root] of paritySkillRoots) {
   assert.equal(fs.existsSync(path.join(workspace, root, 'skills', 'complete-runtime-skill', 'assets', 'sample.bin')), false, `${agent} must safely remove a source-deleted managed asset`);
 }
 
 run(['builtin', 'uninstall', 'task-asset-review', '--target', workspace, '--reason', 'runtime lifecycle fixture']);
 for (const agent of supportedAdapters) run(['render', agent, '--scope', '.', '--target', workspace]);
-for (const [agent, root] of adapterSkillRoots) {
+for (const [agent, root] of paritySkillRoots) {
   assert.equal(fs.existsSync(path.join(workspace, root, 'skills', 'task-asset-review')), false, `${agent} must remove uninstalled task-asset-review`);
   assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-finish', 'SKILL.md')), `${agent} task-finish must remain after review uninstall`);
 }
 
 run(['builtin', 'restore', 'task-asset-review', '--target', workspace]);
 for (const agent of supportedAdapters) run(['render', agent, '--scope', '.', '--target', workspace]);
-for (const [agent, root] of adapterSkillRoots) {
+for (const [agent, root] of paritySkillRoots) {
   assert.ok(fs.existsSync(path.join(workspace, root, 'skills', 'task-asset-review', 'SKILL.md')), `${agent} must restore task-asset-review`);
 }
 
@@ -294,5 +298,6 @@ const commandTimingSummary = [...commandTimings.entries()]
   .sort((left, right) => right[1].durationMs - left[1].durationMs)
   .map(([command, timing]) => `${command}=${timing.durationMs}ms/${timing.count}`)
   .join(', ');
+console.log(`runtime adapter parity implementation families: ${implementationMatrix.representatives.map((entry) => `${entry.family}=${entry.adapterId}`).join(', ')}`);
 console.log(`runtime adapter parity command timings: ${commandTimingSummary}`);
 console.log('runtime adapter parity verification passed');

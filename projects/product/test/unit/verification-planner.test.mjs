@@ -27,7 +27,7 @@ test('统一 registry 固化 fast 与 Candidate required gates', () => {
   const candidate = createVerificationPlan({ profiles: ['candidate'] });
   for (const required of [
     'candidate-tarball', 'capability-cli-integration', 'package-static', 'package-runtime',
-    'runtime-adapter-parity', 'workspace-lifecycle', 'runtime-reconciliation',
+    'integration-candidate-recovery', 'integration-candidate-release', 'runtime-adapter-parity', 'workspace-lifecycle', 'runtime-reconciliation',
     'repository-onboarding', 'cli-package-parity', 'release-tarball-smoke', 'managed-data-integrity', 'docs-quality',
   ]) assert.ok(ids(candidate).includes(required), `candidate must retain ${required}`);
 });
@@ -65,7 +65,7 @@ test('focus step 与 group 去重且只展开真实 artifact 依赖', () => {
   const plan = createVerificationPlan({ stepIds: ['release-tarball-smoke', 'release-tarball-smoke'], groups: ['release'] });
   assert.deepEqual(plan.stepIds, ['release-tarball-smoke']);
   assert.deepEqual(plan.groups, ['release']);
-  assert.deepEqual(ids(plan), ['candidate-tarball', 'open-source-candidate', 'release-tarball-smoke']);
+  assert.deepEqual(ids(plan), ['integration-candidate-release', 'candidate-tarball', 'open-source-candidate', 'release-tarball-smoke']);
   assert.equal(ids(plan).includes('unit'), false);
   assert.throws(() => createVerificationPlan({ stepIds: ['unknown'] }), /Unknown verification step/);
 });

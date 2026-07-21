@@ -118,6 +118,10 @@ export function createVerificationTimingSummary(options) {
       arch: process.arch,
       ci: process.env.CI === 'true',
       ...(options.schedulingMode ? { schedulingMode: options.schedulingMode } : {}),
+      ...(options.executionProfile ? {
+        executionProfile: options.executionProfile.id,
+        concurrency: options.executionProfile.limits,
+      } : {}),
     },
     summaryPath: path.resolve(options.timingOutput),
     ...(options.evidenceLifecycle ? { evidenceLifecycle: options.evidenceLifecycle } : {}),

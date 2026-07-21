@@ -25,6 +25,7 @@ export async function executePlan(plan, options) {
     execute,
     concurrency: options.concurrency,
     schedulingMode: options.schedulingMode,
+    executionProfile: options.executionProfile,
     onStart: (step) => {
       options.stream?.write(`\n[${prefix}] ${step.id}: ${step.name}\n`);
       options.onStart?.(step);

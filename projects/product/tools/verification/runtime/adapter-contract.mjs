@@ -17,6 +17,7 @@ import {
   createRuntimePlan,
   getRuntimeAdapter,
   reconcileRuntimePlan,
+  runtimeAdapterImplementationMatrix,
   runtimeDiscoveryPayload,
   selectAdapterImplementation,
   validateRuntimePlan,
@@ -29,6 +30,11 @@ const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const repositoryRoot = path.resolve(productRoot, '../..');
 
 assert.deepEqual(SUPPORTED_AGENT_IDS, ['claude-code', 'codex', 'cursor', 'qoder', 'trae', 'trae-work', 'workbuddy']);
+const implementationMatrix = runtimeAdapterImplementationMatrix();
+assert.deepEqual(implementationMatrix.entries.map((entry) => entry.adapterId), SUPPORTED_AGENT_IDS);
+assert.deepEqual(implementationMatrix.representatives.map((entry) => entry.family), [
+  'native-recursive', 'per-source-reference', 'same-directory-vendor', 'central-vendor', 'root-index-bridge',
+]);
 assert.deepEqual(ADAPTER_TRAIT_CATALOG.rules, ['native-recursive', 'native-root', 'reference-bridge', 'vendor-rule-files']);
 assert.equal(runtimeDiscoveryPayload().adapterTraitCatalog, ADAPTER_TRAIT_CATALOG);
 assert.deepEqual(RUNTIME_ADAPTERS.codex.traits.skills.publicationExtensions, [

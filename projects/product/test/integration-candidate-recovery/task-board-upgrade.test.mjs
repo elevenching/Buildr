@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+
+// Candidate-only owner: builtin replacement, migration, recovery, and rollback matrices.
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 

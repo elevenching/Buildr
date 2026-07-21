@@ -139,3 +139,29 @@ test('exclusive step 不与其他 step 重叠', async () => {
     assert.ok(end < exclusiveStart || start > exclusiveEnd, `${id} overlapped exclusive`);
   }
 });
+
+test('scheduler 对饱和型资源应用独立上限', async () => {
+  let active = 0;
+  let peak = 0;
+  const saturated = (id) => ({ ...step(id, [], 'default'), resources: ['workspace-saturating'] });
+  await runVerificationDag(plan([saturated('a'), saturated('b')]), {
+    concurrency: { global: 2, classes: { default: 2 }, resources: { 'workspace-saturating': 1 } },
+    execute: async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      return { status: 'passed', exitCode: 0, durationMs: 5 };
+    },
+  });
+  assert.equal(peak, 1);
+});
+
+test('scheduler 在启动 verifier 前拒绝非法并发上限', async () => {
+  let calls = 0;
+  await assert.rejects(runVerificationDag(plan([step('a')]), {
+    concurrency: { global: 0, classes: { default: 1 } },
+    execute: async () => { calls += 1; return { status: 'passed', exitCode: 0, durationMs: 1 }; },
+  }), /Invalid global concurrency limit/);
+  assert.equal(calls, 0);
+});
