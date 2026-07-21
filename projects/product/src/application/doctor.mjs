@@ -13,6 +13,7 @@ import { createRuntimeDiagnostics } from './doctor/runtime-diagnostics.mjs';
 import { createScopeDiagnostics } from './doctor/scope-diagnostics.mjs';
 import { createServiceDiagnostics } from './doctor/service-diagnostics.mjs';
 import { createCapabilityDiagnostics } from './doctor/capability-diagnostics.mjs';
+import { createProjectVerificationDiagnostics } from './doctor/project-verification-diagnostics.mjs';
 import { buildDoctorHealth, buildDoctorRepairPlan } from './doctor/result-model.mjs';
 
 export function registerApplicationDoctor(runtime) {
@@ -122,6 +123,7 @@ export function registerApplicationDoctor(runtime) {
     toPosixRelative,
   });
   const { diagnoseSkillCapabilities, printCapabilityReport } = createCapabilityDiagnostics({ addDoctorFinding, isSupportedAgent, path });
+  const { diagnoseProjectVerification } = createProjectVerificationDiagnostics({ addDoctorFinding });
 
   function diagnoseSkillsManifestSchemas(result, targetRoot, scopes) {
     const checked = new Set();
@@ -223,6 +225,7 @@ export function registerApplicationDoctor(runtime) {
     diagnoseComponents,
     diagnoseSkillsManifestSchemas,
     diagnoseSkillCapabilities,
+    diagnoseProjectVerification,
     finalizeDoctorResult,
     printDoctorReport,
   });

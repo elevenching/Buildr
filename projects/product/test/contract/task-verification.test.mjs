@@ -10,6 +10,8 @@ const read = (relative) => fs.readFileSync(path.join(productRoot, relative), 'ut
 
 const contract = read('package/targets/workspace/skills/contracts/buildr/task-verification/v1.md');
 const verificationSkill = read('package/targets/workspace/skills/buildr/task-verification/SKILL.md');
+const verificationReference = read('package/targets/workspace/skills/buildr/task-verification/references/project-verification-v1.md');
+const verificationTemplate = read('package/targets/workspace/skills/buildr/task-verification/templates/project-verification.yml');
 const worktreeSkill = read('package/targets/workspace/skills/buildr/task-worktree/SKILL.md');
 const gitIntegrationContract = read('package/targets/workspace/skills/contracts/buildr/git-task-integration/v1.md');
 const gitOpsSkill = read('package/targets/workspace/skills/buildr/git-ops/SKILL.md');
@@ -28,6 +30,8 @@ test('task-verification contract 定义独立验证与耗时证据', () => {
     'failedChecks', 'skippedChecks', 'evidenceReference', 'evidenceRetention',
     'cleanupAfter', 'cleanupStatus', 'cleanupReference', 'transient', 'caller-managed',
     'inspect', 'execute', 'cleanup', 'taskVerificationExecuteCalls', 'candidateExecutorCalls',
+    'policyMode', 'availableCapabilities', 'selectedCapabilities', 'blockedCapabilities',
+    'candidateCompleteness', '初始化/更新测试声明',
   ]) assert.ok(contract.includes(required), `contract must include ${required}`);
   assert.match(contract, /不得相加并行检查耗时推算整体 wall-clock/);
   assert.match(contract, /不得.*要求 Git worktree/);
@@ -42,8 +46,19 @@ test('默认 provider 执行三级验证并统一报告', () => {
     '用户无需主动点名本 Skill', 'task-worktree` 不负责这项清理',
     '最终候选验证尚未执行', 'inspect', 'execute', 'cleanup',
     'taskVerificationExecuteCalls', 'candidateExecutorCalls',
+    'policyMode: legacy', 'mode: augment', 'mode: authoritative',
+    'availableCapabilities', 'selectedCapabilities', 'blockedCapabilities',
+    'candidateCompleteness', '初始化测试声明', '更新测试声明',
+    'discovered → trial → stable',
   ]) assert.ok(verificationSkill.includes(required), `verification Skill must include ${required}`);
   assert.doesNotMatch(verificationSkill, /必须使用 Git worktree/);
+  assert.doesNotMatch(verificationSkill, /鲜肉三层/);
+  assert.match(verificationReference, /buildr\.project-verification\/v1/);
+  assert.match(verificationReference, /Agent 可以自动发现和补充 discovered\/trial 草稿，但不能自动提升为 stable 或 required/);
+  const template = YAML.parse(verificationTemplate);
+  assert.equal(template.mode, 'augment');
+  assert.equal(template.capabilities[0].maturity, 'discovered');
+  assert.equal(template.capabilities[0].authorization, 'explicit');
 });
 
 test('worktree lifecycle 与任务验证职责解耦', () => {
@@ -77,6 +92,7 @@ test('随包 manifest 原子登记 contract、provider、binding 与 consumer', 
   const packagedSkill = packageManifest.builtins.skills.find((item) => item.id === 'task-verification');
   assert.equal(packagedSkill.provides[0].capability, 'buildr.task-verification');
   assert.match(packagedSkill.description, /Agent 准备判断或声称开发完成/);
+  assert.match(packagedSkill.description, /初始化或更新测试声明/);
   assert.match(packagedSkill.description, /用户无需主动点名本 Skill/);
   const finish = packageManifest.builtins.skills.find((item) => item.id === 'task-finish');
   assert.ok(finish.requires.some((item) => item.capability === 'buildr.task-verification' && item.mode === 'required'));
@@ -171,6 +187,6 @@ test('Candidate task checkbox 复用必须由 Buildr sidebar 和 provider consum
 });
 
 test('产品入口分别路由验证与 worktree lifecycle 意图', () => {
-  assert.match(buildrSkill, /实现任务到达验证\/完成节点 \| `buildr\.task-verification\/v1` selected provider；用户无需主动点名该能力/);
+  assert.match(buildrSkill, /初始化\/更新测试声明、推进测试能力成熟度，或实现任务到达验证\/完成节点 \| `buildr\.task-verification\/v1` selected provider；用户无需主动点名该能力/);
   assert.match(buildrSkill, /清理 task worktree \| `buildr\.task-worktree-lifecycle\/v1` selected provider/);
 });

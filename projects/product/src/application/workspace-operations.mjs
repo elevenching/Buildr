@@ -23,6 +23,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
   const diagnoseComponents = (...args) => runtime.diagnoseComponents(...args);
   const diagnoseSkillsManifestSchemas = (...args) => runtime.diagnoseSkillsManifestSchemas(...args);
   const diagnoseSkillCapabilities = (...args) => runtime.diagnoseSkillCapabilities(...args);
+  const diagnoseProjectVerification = (...args) => runtime.diagnoseProjectVerification(...args);
   const syncPackageBuiltins = (...args) => runtime.syncPackageBuiltins(...args);
   const finalizeDoctorResult = (...args) => runtime.finalizeDoctorResult(...args);
   const printDoctorReport = (...args) => runtime.printDoctorReport(...args);
@@ -185,6 +186,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
       summary: { ok: 0, info: 0, warning: 0, error: 0 },
       workspace: null,
       projectRegistry: null,
+      projectVerification: [],
       organizations: [],
       projects: [],
       services: [],
@@ -214,6 +216,7 @@ export function registerApplicationWorkspaceOperations(runtime) {
     }
     diagnoseLegacyPractices(result, targetRoot, scopes, includeInfo);
     diagnoseHierarchy(result, targetRoot, scopes, registry);
+    diagnoseProjectVerification(result, targetRoot, registry);
     diagnoseServices(result, targetRoot, scopes, registry);
     diagnoseSkillsManifestSchemas(result, targetRoot, scopes);
     if (result.workspace?.initialized) diagnoseSkillCapabilities(result, targetRoot, scopes, requestedAgent);

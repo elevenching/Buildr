@@ -82,9 +82,9 @@ bindings:
 
 这里 `task-finish` 没有声明“调用 `git-ops`”或“调用 `task-verification`”。它只声明：缺少 `buildr.task-verification/v1` 的 Candidate identity、状态与真实耗时证据，或缺少 `buildr.git-task-integration/v1` 的最低保证和结果证据时，完整收尾不能安全继续。
 
-任务验证单独建模，是因为它既可以在 task worktree 中执行，也可以在当前分支、无 Git 项目或非代码候选中执行。`buildr.task-worktree-lifecycle/v1` 只保护 checkout placement、retention 与 cleanup；`buildr.task-verification/v1` 保护项目政策解析、三级验证、候选等价性、wall-clock、用户报告和落盘 evidence 生命周期。验证 provider 负责 transient evidence 的安全删除实现，Task Finish 只决定 consumer 已使用完毕的时点；worktree provider 不清理与 checkout 无关的证据。两者互不要求固定 provider identity。
+任务验证单独建模，是因为它既可以在 task worktree 中执行，也可以在当前分支、无 Git 项目或非代码候选中执行。`buildr.task-worktree-lifecycle/v1` 只保护 checkout placement、retention 与 cleanup；`buildr.task-verification/v1` 保护可选 Project 测试声明与 legacy policy 解析、三级动态编排、候选等价性、wall-clock、用户报告和落盘 evidence 生命周期。Project `verification.yml` 是测试能力事实，不是 Skill provider/binding，因此不进入 `capabilities.yml`。没有声明时 contract 保证零配置 legacy 行为；声明存在时 provider 按成熟度、阶段、环境、副作用和授权返回能力选择证据。验证 provider 负责 transient evidence 的安全删除实现，Task Finish 只决定 consumer 已使用完毕的时点；worktree provider 不清理与 checkout 无关的证据。两者互不要求固定 provider identity。
 
-顶层验证 provider 不是只有用户主动说“验证”才加载。用户直接要求测试或耗时报告时由 description 发现；实现任务到达验证节点、Agent 准备声称完成时由适用 Rule 的完成边界触发；Task Finish 则在“收尾”入口加载后通过 required binding 调用 selected provider。binding 选择 provider，但不会替代这些意图发现和完成边界。
+顶层验证 provider 不是只有用户主动说“验证”才加载。用户直接要求测试、耗时报告、初始化/更新测试声明或推进测试能力成熟度时由 description 发现；实现任务到达验证节点、Agent 准备声称完成时由适用 Rule 的完成边界触发；Task Finish 则在“收尾”入口加载后通过 required binding 调用 selected provider。binding 选择 provider，但不会替代这些意图发现和完成边界。
 
 ### 3. Resolver 与 readiness
 

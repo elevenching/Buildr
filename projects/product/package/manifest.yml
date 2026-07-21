@@ -43,7 +43,7 @@ capabilityContracts:
     target: skills/contracts/buildr/task-worktree-lifecycle/v1.md
   - id: buildr.task-verification
     version: 1
-    description: 执行项目定义的分层验证并返回候选身份、结果与真实耗时证据。
+    description: 编排项目声明或既有政策定义的分层验证，并返回能力选择、候选身份、结果与真实耗时证据。
     path: package/targets/workspace/skills/contracts/buildr/task-verification/v1.md
     target: skills/contracts/buildr/task-verification/v1.md
   - id: buildr.task-finish
@@ -136,7 +136,7 @@ builtins:
     - id: task-verification
       path: package/targets/workspace/skills/buildr/task-verification
       target: skills/buildr/task-verification
-      description: 用户要求测试、验证或耗时报告，或者实现型任务到达验证节点、Agent 准备判断或声称开发完成、Task Finish 需要核对或补齐 Candidate evidence 时使用；用户无需主动点名本 Skill。
+      description: 用户要求测试、验证、耗时报告、初始化或更新测试声明、推进测试能力成熟度，或者实现型任务到达验证节点、Agent 准备判断或声称开发完成、Task Finish 需要核对或补齐 Candidate evidence 时使用；用户无需主动点名本 Skill。
       required: false
       provides:
         - capability: buildr.task-verification
@@ -265,6 +265,8 @@ workspaceFiles:
   - package/targets/workspace/skills/buildr/task-asset-review/agents/openai.yaml => skills/buildr/task-asset-review/agents/openai.yaml copy
   - package/targets/workspace/skills/buildr/task-worktree/SKILL.md => skills/buildr/task-worktree/SKILL.md copy
   - package/targets/workspace/skills/buildr/task-verification/SKILL.md => skills/buildr/task-verification/SKILL.md copy
+  - package/targets/workspace/skills/buildr/task-verification/references/project-verification-v1.md => skills/buildr/task-verification/references/project-verification-v1.md copy
+  - package/targets/workspace/skills/buildr/task-verification/templates/project-verification.yml => skills/buildr/task-verification/templates/project-verification.yml copy
   - package/targets/workspace/skills/buildr/task-finish/SKILL.md => skills/buildr/task-finish/SKILL.md copy
   - package/targets/workspace/skills/buildr/git-ops/SKILL.md => skills/buildr/git-ops/SKILL.md copy
 
