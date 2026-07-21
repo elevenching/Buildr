@@ -1,73 +1,95 @@
-# Buildr CLI 内部架构
+# Buildr Product 内部架构
 
-本文面向 Buildr 维护者，说明 npm `buildr` bin 的内部模块边界。`tools/cli/` 是 package 内部实现，不是面向使用者的稳定 JavaScript API；公开兼容承诺仍以命令、参数、help 和 OpenSpec specs 为准。
+本文面向 Buildr 维护者，说明 Product 源码、CLI、Agent runtime、仓库验证与交付资产的边界。`src/` 是 npm package 的内部实现，不是公开 JavaScript API；公开兼容承诺仍以命令、参数、help、JSON schema、文件结果和 OpenSpec specs 为准。
 
-## 分层
+## 生命周期目录
 
 ```text
-tools/buildr
-  -> tools/cli/bootstrap.mjs
-  -> tools/cli/command/
-  -> tools/cli/application/
-  -> tools/cli/domains/
-  -> tools/cli/shared/
-
-tools/runtime/       # runtime adapter 与 renderer
-tools/shared/        # CLI 外复用的基础 helper
-tools/verification/  # 按 cli/runtime/release 等领域分组的 verifier
+bin/                         npm executable 薄入口
+src/
+  application/               用例、跨模块组合和产品 verifier
+    domains/                 现有领域操作 handler；尚非纯领域模型
+  infrastructure/            filesystem、network、platform、Agent runtime adapters
+  interfaces/
+    cli/                     CLI registry、help、参数与输出 adapter
+test/
+  unit/                      小粒度单元测试
+  contract/                  静态和公开契约测试
+  integration-*/             分级集成测试
+  fixtures/                  测试样本
+  verification/              仓库门禁、规划、执行和证据
+scripts/                      checkout 安装、卸载和验证入口
+package/                      Buildr 向 Workspace/runtime 交付的源资产
 ```
 
-- `tools/buildr`：稳定 shebang/bin，只负责启动和顶层错误处理。
-- `command/`：根/主题 help、唯一 command registry 和参数 dispatch。
-- `application/`：组合 doctor、sync/update、package maintenance 等跨领域流程。
-- `domains/`：Workspace/Project/Service、Rules、Skills、Commands、Components、OpenSpec contract 和 runtime 等领域实现。
-- `shared/`：无领域语义的参数、路径、YAML、Git、filesystem、atomic write 和 workspace transaction 基础设施。
+`bin/buildr.mjs` 只启动 `src/interfaces/cli/main.mjs`。Product 根 `buildr` 是 checkout convenience entry，也委托同一个 bin；npm 安装、checkout 执行与本机安装因此共享一套 implementation。
 
-依赖只允许沿上述方向向下。领域模块不直接互相 import；跨领域调用由 `application/compose-runtime.mjs` 显式装配，以避免循环依赖和隐式全局共享。composition root 可以聚合完整 platform，其余 CLI 模块必须从 `shared/platform.mjs` 使用实际需要的 named imports，并通过窄 runtime port 调用跨领域能力。
+`src/application/domains/` 保留原有 Rules、Skills、Commands、Components、Workspace、OpenSpec 和 runtime 操作模块。它们目前同时包含用例编排、文件读取和 mutation，因此属于应用 handler，而不是纯 `domain`。只有 Workspace、Project、Service 等真正与存储无关的实体、值对象和约束出现后，才建立 `src/domain/`；不得为了目录对称把带 filesystem/runtime 依赖的模块伪装成领域模型。
 
-三个稳定 facade 保留现有调用表面，但不承载长流程：
+## 依赖方向与所有权
+
+当前迁移接受以下依赖方向：
+
+```text
+bin -> interfaces -> application -> infrastructure
+                   \--------------> domain（存在纯领域模型后）
+infrastructure --------------------> domain
+```
+
+- `bin` 不包含业务逻辑。
+- `interfaces` 负责协议适配，只调用应用用例，不被 application 或 infrastructure 反向依赖。
+- `application` 组合产品行为；现阶段可调用明确命名的 infrastructure adapter。未来抽取纯 domain 时，domain 不得依赖 filesystem、process、runtime、CLI 或测试代码。
+- `infrastructure` 持有 filesystem、network、进程/Git 和 Agent runtime 的具体实现。
+- `src` 与 `bin` 不得导入 `test/` 或 `scripts/`。
+
+不建立顶层或 `src/shared/`。复用代码按语义归属：文件和 transaction primitive 在 `infrastructure/filesystem`，子进程调用在 `infrastructure/process.mjs`，产品目录常量在 `infrastructure/product-layout.mjs`，远程读取在 `infrastructure/network`，Agent runtime 在 `infrastructure/runtime`，JSON contract 在 `application`，CLI registry/help/output 在 `interfaces/cli`。新增 helper 必须先确定 owner。
+
+`infrastructure/platform.mjs` 只是一份供 `application/compose-runtime.mjs` 构造兼容 runtime object 的 composition dependency registry。普通模块必须直接导入 Node API、runtime adapter 或 product-layout owner；不得从 platform 聚合面取 named imports。待兼容 runtime object 被后续功能逐步拆除后，该 registry 也可删除。
+
+三个稳定 facade 保留现有调用表面，但不承载无界长流程：
 
 ```text
 application/doctor.mjs
   -> application/doctor/{scope,service,runtime}-diagnostics.mjs
 application/package-maintenance.mjs
   -> application/package-maintenance/{verification-registry,static-validation,smoke-checks}.mjs
-tools/runtime/render-claude-code.mjs
-  -> tools/runtime/skills/{arguments,manifests,contributions,sources,render-plan}.mjs
+infrastructure/runtime/render-claude-code.mjs
+  -> infrastructure/runtime/skills/{arguments,manifests,contributions,sources,render-plan}.mjs
 ```
 
-Workspace E2E 位于 `tools/verification/workspace/`，只保留 `workspace-lifecycle`、`ownership-recovery` 和 `runtime-reconciliation` 三条跨组件黄金路径。每个 suite 使用独立临时状态，通过 `npm run test:focus -- <suite-id...>` 定点重跑，`test:focus -- --list` 列出全部稳定 step/group。全量 help、onboarding 异常分支、runtime adapter 实现族 parity、tarball inventory 与安装后生命周期分别由 focused verifier 持有，不在 Workspace E2E 重复覆盖。
+CLI command 只在 `src/interfaces/cli/registry.mjs` 登记一次。领域操作由 `src/application/compose-runtime.mjs` 装配；新增命令不得在入口直接实现 mutation，也不得建立第二份 registry。
 
-`package check` 的公开命令仍执行完整维护门禁。内部 registry 为 static、workspace、Commands、Rules、Skills、runtime 提供稳定 identity；Candidate 和 `npm run test:focus -- package-<selector>` 可独立执行，step id 不属于公开 CLI 参数。无 selector 的聚合命令复用兼容 fixture，隔离 steps 则各自持有临时状态和 diagnostics。
+## Product verifier 与仓库 verification
 
-各类契约的主 owner、旧 MVP section 迁移和有意保留的边界交叉记录在 [验证覆盖职责矩阵](verification-ownership.md)。新增断言前先选择主 owner，不把 Workspace E2E 当作所有行为的兜底层。
+分类依据是安装后 CLI 的运行依赖，而不是文件名：
 
-产品验证将证据层与执行策略分离：Unit、Contract、Fast Integration 是低成本证据层，Fast、Changed、Candidate 是三种主门禁，Focus 是统一故障定位入口。`verification/registry.mjs` 是 step identity、executor、inputs、真实依赖、profile/group、预算、并发类别和 artifact metadata 的唯一规划事实源；planner 负责选择、依赖展开、去重和稳定拓扑，scheduler 按全局/class 容量运行 DAG，并把失败后续标记为 blocked。稳定 wrapper 不得重新内联阶段命令、预算或 group mapping。
+- `buildr package check` 可达的 static、workspace、Commands、Rules、Skills 和 runtime verifier 属于产品，位于 `src/application/package-maintenance/` 或明确的 infrastructure owner，并随 npm package 发布。
+- 只服务 `npm test`、Fast、Changed、Focus、Candidate、coverage 或 CI 的 registry、planner、scheduler、runner、timing、evidence 和 focused verifier 位于 `test/verification/`，不进入 npm tarball。
+- `scripts/verify-buildr-product*` 只是 checkout 入口，委托统一 verification registry，不复制 step、预算或依赖关系。
 
-`verify-buildr-product-fast` 提供普通任务低成本反馈，并将 unit、静态契约和 fast integration 作为三个独立 registry steps；`test:changed` 根据 Git diff 或显式 Product 路径规划最小 DAG，未映射路径 fail closed；`test:focus` 按 step/group 定点重跑且不自动附加 Fast。`verify-buildr-product` 固定选择完整 Candidate profile，不接受 diff 或 selector 缩小门禁，并包含 docs quality。Candidate 只创建一个共享只读 tarball，并为每个 step 保留独立 stdout/stderr、退出状态、timing 和非阻断目标预算。
+Workspace E2E 位于 `test/verification/workspace/`，保留 `workspace-lifecycle`、`ownership-recovery` 和 `runtime-reconciliation` 三条跨组件路径。其他 help、onboarding、runtime family parity、tarball inventory 与安装后生命周期由各自 focused verifier 持有。
 
-`tools/` 顶层只保留 `buildr`、安装/卸载脚本和产品验证聚合入口等稳定可执行表面。内部 runtime、共享 helper 与专项 verifier 必须进入职责子目录；这些内部文件路径不属于公开兼容契约。
+验证 registry 是 step identity、executor、inputs、依赖、profile/group、预算、并发类别和 artifact metadata 的唯一规划事实源。planner 对未映射的 Product 路径 fail closed；Candidate 固定选择完整 profile，并只创建一个共享只读 tarball artifact。
 
-## 兼容和发布边界
+## npm 与交付边界
 
-- `tools/buildr` 与 npm 安装后的 `buildr` 使用同一个内部 runtime 和 command registry。
-- `package.json#files` 递归发布 `tools/cli/`，但不声明 package `exports`。
-- 重构内部模块不得改变命令路径、参数、stdout/stderr、退出码、JSON schema、文件结果或 transaction/fail-closed 行为；行为变化必须使用独立 OpenSpec change。
-- `packageCheck` 是 composition handler：从稳定 registry 选择并组合静态、workspace 和领域 verifier，统一聚合问题与退出状态；旧单体 `runPackageSmokeChecks` runner 不得恢复。
+- `package.json#bin.buildr` 指向 `bin/buildr.mjs`。
+- `package.json#files` 发布 `bin`、`src`、公开文档和顶层 `package`，不发布仓库测试、维护脚本、active changes 或 Workspace 私有资产。
+- `package/` 只表示 init、sync、runtime 和 bootstrap 使用的交付源资产；它不是 npm 源码、构建脚本或测试 fixture 目录。
+- 安装后的 `buildr package check` 必须只依赖 tarball 内的运行闭包。
+- 内部路径不提供兼容承诺；重构仍不得改变公开 CLI 行为、JSON schema、文件结果或 transaction/fail-closed 语义。
 
 ## 维护验证
 
 ```bash
-node tools/verification/cli/architecture.mjs
+node test/verification/cli/architecture.mjs
 npm test
 npm run test:changed -- --plan
 npm run test:focus -- group:cli
 npm run test:focus -- group:runtime
-node tools/verification/cli/compatibility.mjs
-node tools/verification/cli/package-parity.mjs
-node tools/verification/integrity/managed-mutations.mjs
+node test/verification/cli/compatibility.mjs
+node test/verification/cli/package-parity.mjs
+node test/verification/integrity/managed-mutations.mjs
 ```
 
-architecture verifier 检查薄入口、稳定 facade、显式 platform 依赖、完整 runtime inventory、单向 import、command 唯一登记、统一 verification registry、Candidate required gates 和 npm 边界；默认 `npm test` 聚合 unit、contract、fast integration 与其他低成本契约；compatibility verifier 检查全量 help、失败路径、JSON discovery 和 source mutation；package parity verifier 从 tarball 安装，在干净目录比较 checkout/npm 行为；runtime parity 持有各实现族的昂贵 adapter 生命周期；onboarding integration 持有 unsupported、幂等和冲突恢复；release smoke 持有安装后 tarball 生命周期；mutation verifier 递归扫描全部发布 runtime modules 的直接写入白名单。
-
-新增命令时应先在 `command/registry.mjs` 登记唯一 key，把领域逻辑放入对应 domain，并仅在确需跨领域组合时新增 application service。不要把领域 helper 放入 `shared/`，也不要通过 Component 或动态加载扩展 command registry。
+架构 verifier 检查生命周期目录、薄入口、`src` import 方向、无 owner 的 shared、关键 facade、完整 runtime inventory、command 唯一登记、verification registry、Candidate required gates 和 npm 边界。mutation verifier 递归扫描全部发布 runtime module 的直接写入白名单；package parity 从 tarball 安装并比较 checkout/npm 行为。

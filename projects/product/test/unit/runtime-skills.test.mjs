@@ -7,21 +7,21 @@ import test from 'node:test';
 import {
   parseInstallClaudeCodeBuildrSkillArgs,
   parseRenderClaudeCodeArgs,
-} from '../../tools/runtime/skills/arguments.mjs';
-import { parseSkillsManifest } from '../../tools/runtime/skills/manifests.mjs';
+} from '../../src/infrastructure/runtime/skills/arguments.mjs';
+import { parseSkillsManifest } from '../../src/infrastructure/runtime/skills/manifests.mjs';
 import {
   normalizeRelativePath,
   resolveSkillScope,
-} from '../../tools/runtime/skills/primitives.mjs';
+} from '../../src/infrastructure/runtime/skills/primitives.mjs';
 import {
   applySkillRenderPlan,
   buildAgentInstallPlanContent,
   buildSkillRenderPlan,
   buildRuntimeSkillTarget,
   hasManagedSkillMarker,
-} from '../../tools/runtime/skills/render-plan.mjs';
-import { RUNTIME_ADAPTERS, SUPPORTED_AGENT_IDS, getRuntimeAdapter, skillDestinationRoot } from '../../tools/runtime/adapter-contract.mjs';
-import { buildEffectiveSkillInventory, classifySkillCandidate } from '../../tools/runtime/skills/inventory.mjs';
+} from '../../src/infrastructure/runtime/skills/render-plan.mjs';
+import { RUNTIME_ADAPTERS, SUPPORTED_AGENT_IDS, getRuntimeAdapter, skillDestinationRoot } from '../../src/infrastructure/runtime/adapter-contract.mjs';
+import { buildEffectiveSkillInventory, classifySkillCandidate } from '../../src/infrastructure/runtime/skills/inventory.mjs';
 
 test('render 参数解析拒绝未知和缺失参数', (t) => {
   t.mock.method(console, 'error', () => {});

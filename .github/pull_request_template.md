@@ -10,6 +10,6 @@
 
 ## Verification
 
-- [ ] `projects/product/tools/verify-buildr-product`
+- [ ] `projects/product/scripts/verify-buildr-product`
 - [ ] `git diff --check`
 - [ ] No private workspace data, credentials, generated runtime, or unrelated changes included

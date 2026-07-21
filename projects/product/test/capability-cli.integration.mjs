@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 import { describe, test } from 'node:test';
 import YAML from 'yaml';
 
-const buildr = path.resolve('tools/buildr');
+const buildr = path.resolve('bin/buildr.mjs');
 
 function run(args, expected = 0, options = {}) {
   return new Promise((resolve, reject) => {

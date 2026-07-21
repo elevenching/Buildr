@@ -7,8 +7,8 @@ import test from 'node:test';
 
 // Candidate-only owner: release convergence across real Git histories.
 
-import { bridgeMainToDev } from '../../tools/cli/application/release/bridge-main-to-dev.mjs';
-import { checkReleaseConvergence } from '../../tools/verification/release/release-convergence.mjs';
+import { bridgeMainToDev } from '../../scripts/release/bridge-main-to-dev.mjs';
+import { checkReleaseConvergence } from '../../scripts/release/release-convergence.mjs';
 
 function git(cwd, ...args) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' });

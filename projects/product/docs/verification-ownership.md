@@ -22,11 +22,11 @@
 | `test:candidate` | 无条件选择完整 candidate profile，不读取 diff |
 | `test:focus` | 按 step id 或 `group:<group>` 定位和重跑失败，不自动附加 Fast |
 
-所有入口共享 `tools/verification/registry.mjs` 中的 step identity、executor、inputs、真实依赖、profile/group、预算、并发类别和资源约束。`integration-candidate-recovery`、`integration-candidate-release` 与 `runtime-adapter-parity` 是 `workspace-saturating` owner；默认 local/CI execution profile 令其互斥，`ci-workspace-limited` 只用于同 tree 对照。未知 profile 或非法上限在启动 verifier 前 fail closed。`test:changed` 对未被任何 input 或显式 ignore 覆盖的 Product 路径 fail closed；Candidate 的完整性按 required gate identity 验证，不冻结 step 数量。
+所有入口共享 `test/verification/registry.mjs` 中的 step identity、executor、inputs、真实依赖、profile/group、预算、并发类别和资源约束。`integration-candidate-recovery`、`integration-candidate-release` 与 `runtime-adapter-parity` 是 `workspace-saturating` owner；默认 local/CI execution profile 令其互斥，`ci-workspace-limited` 只用于同 tree 对照。未知 profile 或非法上限在启动 verifier 前 fail closed。`test:changed` 对未被任何 input 或显式 ignore 覆盖的 Product 路径 fail closed；Candidate 的完整性按 required gate identity 验证，不冻结 step 数量。
 
 Runtime adapter contract 始终遍历全部 supported adapters，并生成 `native-recursive`、`per-source-reference`、`same-directory-vendor`、`central-vendor`、`root-index-bridge` 覆盖矩阵；昂贵 parity 生命周期只运行每个实现族的稳定代表。共享只读 Product source，但 mutation workspace、receipt 和 target namespace 保持隔离。
 
-Candidate 与 Changed 也共享 `tools/verification/timing/evidence.mjs`：默认每次 run 使用唯一 transient evidence 目录，summary 记录 run/source identity、候选 fingerprint 和 `evidenceLifecycle`，并在终端直接输出 total、budget、slowest、failed、绝对路径、retention 与 cleanup 状态。显式输出路径标记为 caller-managed；默认 transient run 只保留到 consumer 使用完毕，并由 `cleanup-evidence.mjs` 在严格目录边界内删除。Changed 是开发反馈证据；只有最终 Candidate summary 可以作为 task-finish 的完整验证 timing evidence。
+Candidate 与 Changed 也共享 `test/verification/timing/evidence.mjs`：默认每次 run 使用唯一 transient evidence 目录，summary 记录 run/source identity、候选 fingerprint 和 `evidenceLifecycle`，并在终端直接输出 total、budget、slowest、failed、绝对路径、retention 与 cleanup 状态。显式输出路径标记为 caller-managed；默认 transient run 只保留到 consumer 使用完毕，并由 `cleanup-evidence.mjs` 在严格目录边界内删除。Changed 是开发反馈证据；只有最终 Candidate summary 可以作为 task-finish 的完整验证 timing evidence。
 
 Task Finish 消费 Candidate evidence 时，provider 的 `inspect`、`execute`、`cleanup` operation 与 verifier executor invocation 分开计数。已有 Candidate 对应 `same-content` 或可归因的 `closeout-metadata-only` transition 时，OpenSpec strict、contract guard、diff check 等 closeout checks 保持各自主 owner，不升级为新的 Candidate run；只有 `implementation-changed` 或无法证明仅为收尾元数据时才启动一次新的 Candidate executor。
 

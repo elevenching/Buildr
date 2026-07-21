@@ -11,8 +11,8 @@ import {
   matchesInput,
   normalizeProductPath,
   validateVerificationRegistry,
-} from '../../tools/verification/planner.mjs';
-import { verificationSteps } from '../../tools/verification/registry.mjs';
+} from '../../test/verification/planner.mjs';
+import { verificationSteps } from '../../test/verification/registry.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ids = (plan) => plan.steps.map((step) => step.id);
@@ -37,8 +37,8 @@ test('Product path 和 glob matcher 在 Node 20 语义下稳定工作', () => {
   assert.throws(() => normalizeProductPath('../outside'), /escapes root/);
   assert.throws(() => normalizeProductPath('/tmp/file'), /Invalid Product path/);
   assert.match('docs/nested/guide.md', globToRegExp('**/*.md'));
-  assert.equal(matchesInput('tools/cli/domains/rules.mjs', 'tools/**/*.mjs'), true);
-  assert.equal(matchesInput('tools/buildr', 'tools/**/*.mjs'), false);
+  assert.equal(matchesInput('src/application/domains/rules.mjs', 'src/**/*.mjs'), true);
+  assert.equal(matchesInput('bin/buildr.mjs', 'src/**/*.mjs'), false);
 });
 
 test('docs-only changed plan 只选择轻量文档 owner', () => {
@@ -48,7 +48,7 @@ test('docs-only changed plan 只选择轻量文档 owner', () => {
 });
 
 test('CLI 与 OpenSpec 路径只选择真实 owner 和依赖', () => {
-  const cli = ids(createVerificationPlan({ paths: ['tools/cli/domains/rules.mjs'] }));
+  const cli = ids(createVerificationPlan({ paths: ['src/application/domains/rules.mjs'] }));
   for (const required of ['contract', 'cli-architecture', 'capability-cli-integration', 'cli-compatibility', 'cli-package-parity', 'package-rules', 'managed-mutations', 'managed-data-integrity']) {
     assert.ok(cli.includes(required), `CLI plan must include ${required}`);
   }

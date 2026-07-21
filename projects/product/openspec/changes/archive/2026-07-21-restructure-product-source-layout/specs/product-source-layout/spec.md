@@ -1,0 +1,54 @@
+## ADDED Requirements
+
+### Requirement: Product 顶层目录必须按生命周期分离
+Buildr Product MUST 使用 `bin/`、`src/`、`test/`、`scripts/` 和 `package/` 分别承载可执行入口、产品源码、测试验证、仓库脚本和交付源资产，并 MUST NOT 使用 `tools/` 承载这些职责。
+
+#### Scenario: 检查完成迁移的 Product checkout
+- **WHEN** 架构 verifier 扫描 Product 顶层和 tracked files
+- **THEN** `bin/`、`src/`、`test/`、`scripts/` 和 `package/` MUST 各自只包含其声明生命周期内的内容
+- **AND** `tools/` MUST 不存在
+- **AND** tracked source、test、package metadata、docs 和 active OpenSpec artifacts MUST NOT 引用旧 `tools/` 内部路径
+
+### Requirement: Product 源码必须按职责和依赖方向分层
+Buildr `src/` MUST 将应用用例、基础设施 adapters 和外部接口分别组织到 `application/`、`infrastructure/` 和 `interfaces/`；真实的存储无关领域模型出现时 MUST 进入 `domain/`。Buildr MUST 保持接口调用应用用例、应用组合领域与基础设施能力、纯领域模型不依赖 adapters 的显式边界。
+
+#### Scenario: CLI 或本机应用调用 Workspace 用例
+- **WHEN** CLI、HTTP 或 Web adapter 读取或修改 Workspace
+- **THEN** interface MUST 调用 `application` 暴露的用例
+- **AND** domain MUST NOT 导入 CLI、HTTP、Web、filesystem、process、runtime 或测试模块
+- **AND** application MUST NOT 依赖具体 interface implementation
+
+#### Scenario: 迁移带文件操作的旧领域 handler
+- **WHEN** 旧模块同时包含用例编排、filesystem 读取或 mutation
+- **THEN** 模块 MUST 进入 application owner，而不是仅因旧目录名进入 `domain/`
+- **AND** Product MUST NOT 为目录对称创建没有真实模型职责的空 domain 层
+
+#### Scenario: 架构 verifier 扫描 imports
+- **WHEN** Product 验证检查 `src/` import graph
+- **THEN** verifier MUST 拒绝反向依赖、循环依赖和绕过 application composition 的跨领域隐式调用
+- **AND**诊断 MUST 标识违规 source 与 target module
+
+### Requirement: 通用代码必须具有明确所有权
+Buildr Product MUST 将 filesystem、process、network、runtime、CLI output、应用 ports 和领域公共原语放入对应职责目录，并 MUST NOT 建立顶层或 `src/shared/` 作为无语义公共依赖目录。
+
+#### Scenario: 新增跨模块 helper
+- **WHEN** 维护者增加被多个模块复用的 helper
+- **THEN** helper MUST 根据其领域、应用、基础设施或 interface 语义进入明确 owner
+- **AND** 架构 verifier MUST 在发现顶层或 `src/shared/` 时失败
+
+### Requirement: 仓库脚本和测试不得成为产品运行时依赖
+Buildr `scripts/` 与仓库 verification MUST 只能作为维护、测试、分发或发布入口调用产品源码，`bin/` 和 `src/` MUST NOT 导入 `scripts/`、`test/` 或 checkout-only dependencies。
+
+#### Scenario: 从 npm tarball 执行产品命令
+- **WHEN** 用户在不含 development checkout 的临时 prefix 安装 tarball 并运行代表性 `buildr` 命令
+- **THEN** 命令 MUST 只使用 tarball 中的 `bin/`、`src/`、发布文档和 `package/` assets
+- **AND** 命令 MUST NOT 读取 `test/`、`scripts/`、OpenSpec change 或仓库根外部文件
+
+### Requirement: package 目录必须继续表示交付源资产
+Buildr Product MUST 保留顶层 `package/` 作为 init、sync、runtime 和 bootstrap 所需交付源资产的事实目录，并 MUST NOT 将构建脚本、npm runtime source 或测试 fixtures 混入该目录。
+
+#### Scenario: 维护者检查 package 边界
+- **WHEN** package verifier 检查 `package/manifest.yml` 和 targets
+- **THEN** `package/` MUST 只包含交付映射、workspace/runtime/bootstrap 源资产及其维护说明
+- **AND** 构建和发布脚本 MUST 位于 `scripts/`
+- **AND** 测试样本 MUST 位于 `test/fixtures/`

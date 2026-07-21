@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
 
-import { registerDomainsCommands } from '../../tools/cli/domains/commands.mjs';
+import { registerDomainsCommands } from '../../src/application/domains/commands.mjs';
 
 function runtime() {
   return {

@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 
-import { buildCliUpdatePlan, compareVersions, executeCliUpdatePlan, identifyCliSource } from '../../tools/cli/application/cli-update.mjs';
+import { buildCliUpdatePlan, compareVersions, executeCliUpdatePlan, identifyCliSource } from '../../src/application/cli-update.mjs';
 
 function git(cwd, ...args) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' });

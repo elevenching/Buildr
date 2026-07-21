@@ -20,8 +20,8 @@
 ```bash
 projects/product/buildr package check
 cd projects/product && npm run test:focus -- package-static
-projects/product/tools/verification/onboarding/init.mjs
-projects/product/tools/verification/onboarding/repository.mjs
+projects/product/test/verification/onboarding/init.mjs
+projects/product/test/verification/onboarding/repository.mjs
 (cd projects/product && npm run test:focus -- workspace-lifecycle ownership-recovery runtime-reconciliation)
 (cd projects/product && openspec validate --all --strict)
 ```

@@ -204,10 +204,10 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 
 ## CLI Internal Architecture
 
-- npm bin `tools/buildr` 是薄 executable，只负责 bootstrap 与顶层错误处理；help 和唯一命令登记位于 `tools/cli/command/`。
-- `tools/cli/` 按 command、application composition、domains、shared infrastructure 单向分层。doctor、sync/update 和 package maintenance 在 application 层聚合领域结果；领域模块之间不直接 import。
+- npm bin `bin/buildr.mjs` 是薄 executable，只负责 bootstrap 与顶层错误处理；help 和唯一命令登记位于 `src/interfaces/cli/`。
+- `src/` 按 command、application composition、domains、shared infrastructure 单向分层。doctor、sync/update 和 package maintenance 在 application 层聚合领域结果；领域模块之间不直接 import。
 - `packageCheck` 的静态发布校验、临时 workspace smoke runner 和 composition handler 已分离，但 `buildr package check` 的统一输出和失败语义不变。
-- npm tarball 递归包含 `tools/cli/` runtime dependency closure，内部模块不通过 package `exports` 暴露，也不是稳定 public JavaScript API。
+- npm tarball 递归包含 `src/` runtime dependency closure，内部模块不通过 package `exports` 暴露，也不是稳定 public JavaScript API。
 - 产品验证通过 architecture、compatibility、checkout/npm package parity 和递归 managed mutation verifiers 保护薄入口、command 唯一登记、依赖方向、发布完整性、行为兼容和直接写入边界。
 
 ## Current CLI Surface
@@ -238,21 +238,21 @@ CLI identity 可通过 `buildr --version`、`buildr -V`、`buildr version` 或 `
 - `cd projects/product && npm run test:changed -- --plan`（根据 Git diff 生成最小可解释 DAG）
 - `cd projects/product && npm run test:focus -- <step-id|group:<group>>`（统一定点重跑入口，不自动附加 Fast）
 - `projects/product/buildr package check`
-- `projects/product/tools/verification/onboarding/repository.mjs`
-- `projects/product/tools/verification/onboarding/init.mjs`
-- `projects/product/tools/verification/onboarding/service-branch.mjs`
-- `projects/product/tools/verification/network/remote-text.mjs`
-- `projects/product/tools/verification/cli/architecture.mjs`
-- `projects/product/tools/verification/cli/compatibility.mjs`
-- `projects/product/tools/verification/cli/package-parity.mjs`
+- `projects/product/test/verification/onboarding/repository.mjs`
+- `projects/product/test/verification/onboarding/init.mjs`
+- `projects/product/test/verification/onboarding/service-branch.mjs`
+- `projects/product/test/verification/network/remote-text.mjs`
+- `projects/product/test/verification/cli/architecture.mjs`
+- `projects/product/test/verification/cli/compatibility.mjs`
+- `projects/product/test/verification/cli/package-parity.mjs`
 - `cd projects/product && npm run test:focus -- workspace-lifecycle ownership-recovery runtime-reconciliation`（按稳定 step id 重跑 Workspace E2E；完整 Candidate 强制运行全部 suites）
-- `projects/product/tools/verification/openspec/contract.mjs`
-- `projects/product/tools/verification/openspec/contract-audit.mjs`
-- `projects/product/tools/verification/release/open-source-candidate.mjs`
+- `projects/product/test/verification/openspec/contract.mjs`
+- `projects/product/test/verification/openspec/contract-audit.mjs`
+- `projects/product/test/verification/release/open-source-candidate.mjs`
 - `(cd projects/product && openspec validate --all --strict)`
 - `npm pack --dry-run`
 
-`projects/product/tools/verify-buildr-product` 聚合以上产品级门禁并包含 docs quality；repository verifier 从无依赖、无 runtime 的临时候选树验证开发 CLI 安装和 update source，release smoke 从 tarball 安装后的 `buildr` 执行完整 init、sync、doctor、optional uninstall 生命周期。
+`projects/product/scripts/verify-buildr-product` 聚合以上产品级门禁并包含 docs quality；repository verifier 从无依赖、无 runtime 的临时候选树验证开发 CLI 安装和 update source，release smoke 从 tarball 安装后的 `buildr` 执行完整 init、sync、doctor、optional uninstall 生命周期。
 
 开源候选 verifier 会检查 tracked candidate 的敏感模式、内部来源、占位 URL、异常大文件、中文/英文 README canonical token、公开 package metadata 和 npm tarball 禁止路径。产品完整验证会记录该阶段耗时，Buildr Product Project 的完成报告需说明总耗时、最慢阶段、失败阶段（如有）和 timing summary 路径。
 

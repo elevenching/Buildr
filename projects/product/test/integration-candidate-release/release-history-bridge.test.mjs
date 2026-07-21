@@ -7,7 +7,7 @@ import test from 'node:test';
 
 // Candidate-only owner: release history bridge idempotency and remote races.
 
-import { bridgeMainToDev } from '../../tools/cli/application/release/bridge-main-to-dev.mjs';
+import { bridgeMainToDev } from '../../scripts/release/bridge-main-to-dev.mjs';
 
 function git(cwd, ...args) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' });

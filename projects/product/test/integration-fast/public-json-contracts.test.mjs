@@ -7,10 +7,10 @@ import { describe, test } from 'node:test';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../../tools/cli/shared/json-contracts.mjs';
+import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../../src/application/json-contracts.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const buildr = path.join(productRoot, 'tools', 'buildr');
+const buildr = path.join(productRoot, 'bin', 'buildr.mjs');
 
 function run(args, options = {}) {
   return new Promise((resolve, reject) => {

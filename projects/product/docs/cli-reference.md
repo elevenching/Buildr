@@ -84,7 +84,7 @@ Contract 格式、scope 规则、替换示例以及 `ready` 的边界见 [Skill 
 
 ## 内部实现边界
 
-`tools/buildr` 是稳定 npm bin 路径，实际命令通过内部 `tools/cli/` runtime 和唯一 command registry 执行。该模块树随 tarball 发布以保证命令可运行，但不是公开 JavaScript API，不承诺文件级 import 兼容；维护约定见 [CLI 内部架构](cli-architecture.md)。
+`bin/buildr.mjs` 是稳定 npm bin 路径，实际命令通过内部 `src/` runtime 和唯一 command registry 执行。该模块树随 tarball 发布以保证命令可运行，但不是公开 JavaScript API，不承诺文件级 import 兼容；维护约定见 [CLI 内部架构](cli-architecture.md)。
 
 ## 远端 Skill 请求
 

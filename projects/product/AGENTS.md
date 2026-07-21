@@ -18,7 +18,7 @@ Agent 在 `product` Project 中的最小运行规则。
 | OpenSpec | `openspec/` | Buildr 产品事实、能力规范、变更和归档 |
 | Product docs | `docs/` | 产品定位、设计说明、发布和维护文档 |
 | Package assets | `package/` | 随包 manifest、bootstrap、workspace/runtime targets |
-| Product CLI | `buildr`、`tools/` | Buildr 产品 CLI 入口、实现和验证脚本 |
+| Product implementation | `buildr`、`bin/`、`src/`、`test/`、`scripts/` | checkout 入口、产品运行源码、验证与维护脚本 |
 | Service registry | `services/manifest.yml` | 当前 Product Project 的 Service registry |
 | Service repos | `services/<service>/` | 独立 Git repo，业务代码由自身 Git 管理 |
 
@@ -51,7 +51,7 @@ Project 服务通过 `services/manifest.yml` 维护 Service registry，默认 re
 
 ## 本地 CLI 同步
 
-- 改动涉及 Buildr 产品 CLI 入口或实现（`buildr`、`tools/buildr`、CLI 使用的 `tools/*.mjs`、安装/卸载脚本或 npm CLI 映射）时，完成相关验证后必须从包含本次变更的 Product checkout 自动运行 `tools/install-buildr-cli`，刷新本机 `buildr` 开发入口，无需再次等待用户提醒。
+- 改动涉及 Buildr 产品 CLI 入口或实现（`buildr`、`bin/buildr.mjs`、`src/**/*.mjs`、安装/卸载脚本或 npm CLI 映射）时，完成相关验证后必须从包含本次变更的 Product checkout 自动运行 `scripts/install-buildr-cli`，刷新本机 `buildr` 开发入口，无需再次等待用户提醒。
 - 安装后必须运行 `command -v buildr`、`buildr --help` 和 `buildr doctor --agent <agent> --target <workspace-root> --json`，确认本机入口和目标 workspace 状态有效。
 - task worktree 中的候选 CLI 只验证临时 workspace 或 task worktree；本机入口如仍指向即将清理的 task worktree，清理前必须重新安装到仍保留的 workspace checkout。
 - 如目标位置存在非 Buildr 管理的文件或命令冲突，停止自动安装并明确报告，不得覆盖；如果本机 `buildr` 指向 task worktree，清理该 worktree 前必须重新安装到仍保留的 workspace checkout 并验证。
@@ -62,6 +62,6 @@ Project 服务通过 `services/manifest.yml` 维护 Service registry，默认 re
 
 - 普通任务运行 `npm test` 或 `npm run test:fast`，只承担 unit、架构、spec 和全部 adapter 低成本契约反馈。
 - 日常改动优先运行 `npm run test:changed`；失败定位使用 `npm run test:focus -- <step-id|group:<group>>`，只展开真实依赖并按 identity 去重。
-- 最终候选冻结后运行 `npm run test:candidate`；`tools/verify-buildr-product` 是供 CI、publish 和历史集成使用的等价兼容入口。
+- 最终候选冻结后运行 `npm run test:candidate`；`scripts/verify-buildr-product` 是供 CI、publish 和历史集成使用的等价兼容入口。
 
 Buildr 产品完整验证结束后，Agent 必须读取 timing summary，并向维护者汇报总耗时、最慢阶段、失败阶段（如有）、evidence retention 和 cleanup status。summary 仍保留时报告文件路径；transient evidence 已被 consumer 使用并清理后，不得把失效路径表述为长期引用。耗时仅用于观察趋势；除非 OpenSpec 另有阈值契约，不得仅因耗时增长判定验证失败。该要求仅适用于 Buildr Product Project，不扩展为其他 Buildr workspace 的通用 Skill 流程。

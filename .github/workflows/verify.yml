@@ -35,7 +35,7 @@ jobs:
         env:
           BUILDR_TIMING_OUTPUT: ${{ runner.temp }}/buildr-verification-timing.json
           BUILDR_DIAGNOSTICS_OUTPUT: ${{ runner.temp }}/buildr-verification-diagnostics
-        run: ./tools/verify-buildr-product
+        run: ./scripts/verify-buildr-product
       - name: Upload verification timing
         if: always()
         uses: actions/upload-artifact@v7

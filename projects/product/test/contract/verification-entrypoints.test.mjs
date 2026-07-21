@@ -5,31 +5,31 @@ import process from 'node:process';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { PACKAGE_VERIFIERS, selectPackageVerifiers } from '../../tools/cli/application/package-maintenance/verification-registry.mjs';
-import { createVerificationPlan } from '../../tools/verification/planner.mjs';
-import { verificationSteps } from '../../tools/verification/registry.mjs';
-import { workspaceSuites } from '../../tools/verification/workspace/suites.mjs';
+import { PACKAGE_VERIFIERS, selectPackageVerifiers } from '../../src/application/package-maintenance/verification-registry.mjs';
+import { createVerificationPlan } from '../../test/verification/planner.mjs';
+import { verificationSteps } from '../../test/verification/registry.mjs';
+import { workspaceSuites } from '../../test/verification/workspace/suites.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (relative) => fs.readFileSync(path.join(productRoot, relative), 'utf8');
 
 test('product verification exposes three gates, direct layers, and one focus entry', () => {
   const scripts = JSON.parse(read('package.json')).scripts;
-  assert.equal(scripts.test, './tools/verify-buildr-product-fast');
-  assert.equal(scripts['test:fast'], './tools/verify-buildr-product-fast');
+  assert.equal(scripts.test, './scripts/verify-buildr-product-fast');
+  assert.equal(scripts['test:fast'], './scripts/verify-buildr-product-fast');
   assert.equal(scripts['test:unit'], 'node --test test/unit/*.test.mjs');
   assert.equal(scripts['test:contract'], 'node --test test/contract/*.test.mjs');
   assert.equal(scripts['test:integration:fast'], 'node --test test/integration-fast/*.test.mjs');
   assert.equal(scripts['test:integration:candidate:recovery'], 'node --test test/integration-candidate-recovery/*.test.mjs');
   assert.equal(scripts['test:integration:candidate:release'], 'node --test test/integration-candidate-release/*.test.mjs');
-  assert.equal(scripts['coverage:unit'], 'node tools/verification/unit-coverage.mjs');
-  assert.equal(scripts['test:changed'], 'node tools/verification/changed.mjs');
-  assert.equal(scripts['test:focus'], 'node tools/verification/focus.mjs');
-  assert.equal(scripts['test:candidate'], './tools/verify-buildr-product');
-  assert.equal(scripts['test:release'], 'node tools/verification/release/release-smoke.mjs');
+  assert.equal(scripts['coverage:unit'], 'node test/verification/unit-coverage.mjs');
+  assert.equal(scripts['test:changed'], 'node test/verification/changed.mjs');
+  assert.equal(scripts['test:focus'], 'node test/verification/focus.mjs');
+  assert.equal(scripts['test:candidate'], './scripts/verify-buildr-product');
+  assert.equal(scripts['test:release'], 'node test/verification/release/release-smoke.mjs');
   for (const removed of ['test:affected', 'test:package', 'test:workspace', 'test:coverage:unit']) assert.equal(scripts[removed], undefined);
 
-  const fast = read('tools/verify-buildr-product-fast');
+  const fast = read('scripts/verify-buildr-product-fast');
   assert.match(fast, /verification\/profile\.mjs" fast/);
   const fastIds = createVerificationPlan({ profiles: ['fast'] }).steps.map((step) => step.id);
   assert.deepEqual(fastIds, ['unit', 'contract', 'integration-fast', 'cli-architecture', 'openspec-spec-quality', 'openspec-strict', 'runtime-adapter-contract']);
@@ -46,7 +46,7 @@ test('focus verification de-duplicates groups without attaching fast', () => {
 });
 
 test('focus verification lists selectors and rejects unknown values before execution', () => {
-  const runner = path.join(productRoot, 'tools', 'verification', 'focus.mjs');
+  const runner = path.join(productRoot, 'test', 'verification', 'focus.mjs');
   const help = spawnSync(process.execPath, [runner, '--help'], { cwd: productRoot, encoding: 'utf8' });
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /step-id\|group/);
@@ -63,13 +63,13 @@ test('focus verification lists selectors and rejects unknown values before execu
 });
 
 test('candidate verification retains every release gate and split package steps', () => {
-  const wrapper = read('tools/verify-buildr-product');
-  const candidate = read('tools/verification/candidate.mjs');
-  assert.ok(wrapper.includes('tools/verification/candidate.mjs'));
+  const wrapper = read('scripts/verify-buildr-product');
+  const candidate = read('test/verification/candidate.mjs');
+  assert.ok(wrapper.includes('test/verification/candidate.mjs'));
   assert.ok(candidate.includes("profiles: ['candidate']"));
   assert.ok(candidate.includes('BUILDR_VERIFICATION_SCHEDULING'));
   assert.ok(candidate.includes('schedulingMode'));
-  const invalidScheduling = spawnSync(process.execPath, [path.join(productRoot, 'tools', 'verification', 'candidate.mjs')], {
+  const invalidScheduling = spawnSync(process.execPath, [path.join(productRoot, 'test', 'verification', 'candidate.mjs')], {
     cwd: productRoot,
     encoding: 'utf8',
     env: { ...process.env, BUILDR_VERIFICATION_SCHEDULING: 'unknown' },
@@ -77,7 +77,7 @@ test('candidate verification retains every release gate and split package steps'
   assert.equal(invalidScheduling.status, 1);
   assert.match(invalidScheduling.stderr, /Invalid verification scheduling mode/);
   assert.doesNotMatch(`${invalidScheduling.stdout}${invalidScheduling.stderr}`, /\[verify-product\]/);
-  const invalidProfile = spawnSync(process.execPath, [path.join(productRoot, 'tools', 'verification', 'candidate.mjs')], {
+  const invalidProfile = spawnSync(process.execPath, [path.join(productRoot, 'test', 'verification', 'candidate.mjs')], {
     cwd: productRoot,
     encoding: 'utf8',
     env: { ...process.env, BUILDR_VERIFICATION_PROFILE: 'unknown' },
@@ -116,8 +116,8 @@ test('candidate verification retains every release gate and split package steps'
   ]) assert.ok(candidatePlan.steps.some((step) => step.name === stage), `candidate verifier must retain ${stage}`);
   assert.equal(candidatePlan.steps.some((step) => step.id === 'runtime-adapter-smoke-workspace'), false);
   assert.equal(candidatePlan.steps.some((step) => step.name === 'runtime adapter smoke workspace generator'), false);
-  assert.equal(fs.existsSync(path.join(productRoot, 'tools/verification/runtime/adapter-smoke-workspace.mjs')), false);
-  assert.equal(fs.existsSync(path.join(productRoot, 'tools/verification/runtime/adapter-smoke-workspace.test.mjs')), false);
+  assert.equal(fs.existsSync(path.join(productRoot, 'test/verification/runtime/adapter-smoke-workspace.mjs')), false);
+  assert.equal(fs.existsSync(path.join(productRoot, 'test/verification/runtime/adapter-smoke-workspace.test.mjs')), false);
   assert.deepEqual(PACKAGE_VERIFIERS.map((step) => step.id), ['static', 'workspace', 'commands', 'rules', 'skills', 'runtime']);
   assert.equal(verificationSteps.filter((step) => step.executor.type === 'candidate-artifact').length, 1);
   assert.equal(candidate.includes('createCandidatePackage'), false);
@@ -134,7 +134,7 @@ test('package verifier selectors are stable, focused, and fail closed', () => {
   assert.deepEqual(selectPackageVerifiers('static,runtime').map((step) => step.id), ['static', 'runtime']);
   assert.throws(() => selectPackageVerifiers('unknown'), /Unknown package verifier/);
 
-  const runner = path.join(productRoot, 'tools', 'verification', 'package', 'run.mjs');
+  const runner = path.join(productRoot, 'test', 'verification', 'package', 'run.mjs');
   const help = spawnSync(process.execPath, [runner, '--help'], { cwd: productRoot, encoding: 'utf8' });
   assert.equal(help.status, 0, help.stderr);
   for (const step of PACKAGE_VERIFIERS) assert.match(help.stdout, new RegExp(`\\b${step.id}\\b`));
@@ -145,7 +145,7 @@ test('package verifier selectors are stable, focused, and fail closed', () => {
 });
 
 test('changed verification exposes plan/json and rejects unknown options before execution', () => {
-  const runner = path.join(productRoot, 'tools', 'verification', 'changed.mjs');
+  const runner = path.join(productRoot, 'test', 'verification', 'changed.mjs');
   const json = spawnSync(process.execPath, [runner, '--json', 'docs/buildr-product.md'], { cwd: productRoot, encoding: 'utf8' });
   assert.equal(json.status, 0, json.stderr);
   const payload = JSON.parse(json.stdout);

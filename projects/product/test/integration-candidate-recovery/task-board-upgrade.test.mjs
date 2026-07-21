@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const buildr = path.join(productRoot, 'tools', 'buildr');
+const buildr = path.join(productRoot, 'bin', 'buildr.mjs');
 const legacyPageContent = '<!doctype html><title>历史任务驾驶舱</title><p>原内容不得迁移或改写。</p>\n';
 
 function runBuildr(args, options = {}) {

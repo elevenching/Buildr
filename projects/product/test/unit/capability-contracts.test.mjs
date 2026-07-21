@@ -7,8 +7,8 @@ import YAML from 'yaml';
 import {
   parseCapabilityContract,
   parseSkillsManifestDocument,
-} from '../../tools/runtime/skills/manifests.mjs';
-import { resolveCrossProjectCapabilityContext, resolveSkillCapabilityGraph } from '../../tools/runtime/skills/capabilities.mjs';
+} from '../../src/infrastructure/runtime/skills/manifests.mjs';
+import { resolveCrossProjectCapabilityContext, resolveSkillCapabilityGraph } from '../../src/infrastructure/runtime/skills/capabilities.mjs';
 
 const sections = ['Purpose', 'Consumer Obligations', 'Minimum Guarantees', 'Effects and Authorization', 'Result Evidence', 'Decision Points', 'Allowed Variations'];
 

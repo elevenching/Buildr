@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseVerificationSchedulingMode, runVerificationDag } from '../../tools/verification/dag-scheduler.mjs';
+import { parseVerificationSchedulingMode, runVerificationDag } from '../../test/verification/dag-scheduler.mjs';
 
 const step = (id, dependsOn = [], concurrencyClass = 'default', schedulingCostMs) => ({
   id, name: id, dependsOn, concurrencyClass, ...(schedulingCostMs == null ? {} : { schedulingCostMs }),

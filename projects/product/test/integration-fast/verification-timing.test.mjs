@@ -6,8 +6,8 @@ import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { runVerificationBatch, runVerificationStep } from '../../tools/verification/timing/parallel-runner.mjs';
-import { candidateStepBudget } from '../../tools/verification/timing/budgets.mjs';
+import { runVerificationBatch, runVerificationStep } from '../../test/verification/timing/parallel-runner.mjs';
+import { candidateStepBudget } from '../../test/verification/timing/budgets.mjs';
 import {
   collectVerificationSourceIdentity,
   cleanupVerificationTimingEvidence,
@@ -15,12 +15,12 @@ import {
   createVerificationEvidencePaths,
   formatVerificationTimingSummary,
   validateVerificationTimingEvidence,
-} from '../../tools/verification/timing/evidence.mjs';
+} from '../../test/verification/timing/evidence.mjs';
 
 const productRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const reporter = path.join(productRoot, 'tools', 'verification', 'timing', 'report.mjs');
-const summaryVerifier = path.join(productRoot, 'tools', 'verification', 'timing', 'verify-summary.mjs');
-const evidenceCleaner = path.join(productRoot, 'tools', 'verification', 'timing', 'cleanup-evidence.mjs');
+const reporter = path.join(productRoot, 'test', 'verification', 'timing', 'report.mjs');
+const summaryVerifier = path.join(productRoot, 'test', 'verification', 'timing', 'verify-summary.mjs');
+const evidenceCleaner = path.join(productRoot, 'test', 'verification', 'timing', 'cleanup-evidence.mjs');
 
 test('timing summary 保留向后兼容的 step 调度时间轴', () => {
   const summary = createVerificationTimingSummary({
@@ -266,7 +266,7 @@ test('changed verification writes a persistent run-level timing summary', () => 
   try {
     const timingOutput = path.join(root, 'timing.json');
     const diagnosticsOutput = path.join(root, 'diagnostics');
-    const result = spawnSync(process.execPath, [path.join(productRoot, 'tools', 'verification', 'changed.mjs'), 'docs/buildr-product.md'], {
+    const result = spawnSync(process.execPath, [path.join(productRoot, 'test', 'verification', 'changed.mjs'), 'docs/buildr-product.md'], {
       cwd: productRoot,
       encoding: 'utf8',
       env: { ...process.env, BUILDR_TIMING_OUTPUT: timingOutput, BUILDR_DIAGNOSTICS_OUTPUT: diagnosticsOutput },

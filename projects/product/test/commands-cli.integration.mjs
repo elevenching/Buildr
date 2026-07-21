@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import YAML from 'yaml';
 
-const buildr = path.resolve('tools/buildr');
+const buildr = path.resolve('bin/buildr.mjs');
 
 function run(args, expected = 0) {
   const result = spawnSync(process.execPath, [buildr, ...args], { encoding: 'utf8' });

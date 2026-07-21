@@ -11,11 +11,11 @@ import {
   inspectPackageMetadata,
   inspectPackageVersionConsistency,
   inspectTarballFiles,
-} from '../../tools/verification/release/open-source-candidate.mjs';
-import { resolveReleaseContract } from '../../tools/verification/release/release-contract.mjs';
-import { extractReleaseNotes } from '../../tools/verification/release/release-notes.mjs';
-import { registryVersionState } from '../../tools/verification/release/registry-version-state.mjs';
-import { readSharedCandidatePackage } from '../../tools/verification/release/candidate-package.mjs';
+} from '../../test/verification/release/open-source-candidate.mjs';
+import { resolveReleaseContract } from '../../scripts/release/release-contract.mjs';
+import { extractReleaseNotes } from '../../scripts/release/release-notes.mjs';
+import { registryVersionState } from '../../scripts/release/registry-version-state.mjs';
+import { readSharedCandidatePackage } from '../../test/verification/release/candidate-package.mjs';
 
 test('open-source candidate content rules block secrets without echoing values', () => {
   const secret = ['-----BEGIN ', 'PRIVATE KEY-----'].join('');
@@ -40,7 +40,7 @@ test('open-source candidate ignores tracked paths deleted from the frozen worktr
 test('open-source metadata and tarball contracts enforce public identity and inventory', () => {
   const valid = {
     name: '@buildr-ai/buildr',
-    bin: { buildr: 'tools/buildr' },
+    bin: { buildr: 'bin/buildr.mjs' },
     repository: { url: 'git+https://github.com/elevenching/Buildr.git', directory: 'projects/product' },
     homepage: 'https://github.com/elevenching/Buildr#readme',
     bugs: { url: 'https://github.com/elevenching/Buildr/issues' },
@@ -48,7 +48,7 @@ test('open-source metadata and tarball contracts enforce public identity and inv
   };
   assert.deepEqual(inspectPackageMetadata(valid), []);
   assert.equal(inspectPackageMetadata({ ...valid, name: '@wrong/buildr' })[0].rule, 'package.identity');
-  const files = ['LICENSE', 'README.md', 'package.json', 'tools/buildr', 'package/manifest.yml'].map((path) => ({ path }));
+  const files = ['LICENSE', 'README.md', 'package.json', 'bin/buildr.mjs', 'package/manifest.yml'].map((path) => ({ path }));
   assert.deepEqual(inspectTarballFiles(files), []);
   assert.equal(inspectTarballFiles([...files, { path: 'openspec/spec.md' }]).at(-1).rule, 'tarball.forbidden');
 });
@@ -158,7 +158,7 @@ test('publish workflow is tag-gated, OIDC-ready, and token-free', () => {
   const workflow = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../.github/workflows/publish.yml'), 'utf8');
   for (const required of [
     'tags:', 'id-token: write', 'environment: npm-production', 'release-contract.mjs',
-    'release-notes.mjs', './tools/verify-buildr-product', 'registry-version-state.mjs',
+    'release-notes.mjs', './scripts/verify-buildr-product', 'registry-version-state.mjs',
     "steps.registry.outputs.published != 'true'", 'npm publish --access public', 'gh release create',
     '--notes-file', '--verify-tag', '--latest=false',
   ]) assert.equal(workflow.includes(required), true, required);
@@ -177,7 +177,7 @@ test('Buildr release Skill fixes release identity, dependency preparation, and t
   const npmCi = skill.indexOf('`npm ci`');
   const versionMutation = skill.indexOf('`package.json`');
   const candidateTree = skill.indexOf('candidate tree identity');
-  const localCliInstall = skill.indexOf('tools/install-buildr-cli');
+  const localCliInstall = skill.indexOf('scripts/install-buildr-cli');
   const bridge = skill.indexOf('bridge-main-to-dev.mjs');
   const postReleaseCleanup = skill.indexOf('必须进入发布后清理检查');
   for (const [name, value] of Object.entries({ identity, npmCi, versionMutation, candidateTree, localCliInstall, bridge, postReleaseCleanup })) {
