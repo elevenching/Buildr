@@ -179,7 +179,8 @@ test('Buildr release Skill fixes release identity, dependency preparation, and t
   const candidateTree = skill.indexOf('candidate tree identity');
   const localCliInstall = skill.indexOf('tools/install-buildr-cli');
   const bridge = skill.indexOf('bridge-main-to-dev.mjs');
-  for (const [name, value] of Object.entries({ identity, npmCi, versionMutation, candidateTree, localCliInstall, bridge })) {
+  const postReleaseCleanup = skill.indexOf('必须进入发布后清理检查');
+  for (const [name, value] of Object.entries({ identity, npmCi, versionMutation, candidateTree, localCliInstall, bridge, postReleaseCleanup })) {
     assert.notEqual(value, -1, name);
   }
   assert.equal(identity < npmCi, true);
@@ -195,5 +196,6 @@ test('Buildr release Skill fixes release identity, dependency preparation, and t
     '不触发其他 workspace 的 `buildr sync`',
     '展示待删除 ref、commit', '请求用户明确授权删除',
     '重新查询远端确认 ref 不存在', '清理 follow-up',
+    '不得把长期保留当作默认结果', '未取得删除授权时必须明确报告待清理项',
   ]) assert.equal(skill.includes(required), true, required);
 });
