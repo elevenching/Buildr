@@ -76,7 +76,7 @@ npm run test:focus -- integration-candidate-release
 npm run coverage:unit -- --summary /tmp/buildr-unit-coverage.json
 ```
 
-已知改动路径时优先让统一 planner 自动选择受影响 DAG。无路径时读取当前分支相对 upstream（fallback `origin/dev`）以及 staged、unstaged、untracked 改动；`--plan` 只解释计划，`--json` 输出机器可读计划。普通文档改词通常只运行 docs quality；未映射路径直接失败，要求补 owner，不能静默跳过：
+已知改动路径时优先让统一 planner 自动选择受影响 DAG。无路径时读取当前分支相对 upstream（fallback `origin/dev`）以及 staged、unstaged、untracked 改动；`--plan` 只解释计划，`--json` 输出机器可读计划。重型 step 的 inputs 只登记直接实现、入口、测试和资产 owner，不以 broad `src/**` 表达“最终可由 CLI 到达”；contract、architecture 等低成本 owner 提供普通源码兜底。普通文档改词通常只运行 docs quality；未映射路径直接失败，要求补 owner，不能静默跳过。Candidate 仍按完整 profile 无条件运行，不受 Changed inputs 收窄影响：
 
 ```bash
 npm run test:changed -- --plan

@@ -1,7 +1,7 @@
 # project-test-capabilities Specification
 
 ## Purpose
-TBD - created by archiving change evolve-test-capability-declarations. Update Purpose after archive.
+定义 Project 可选测试能力声明的模型、成熟度、执行阶段、门禁强度、授权边界与验证证据要求，使团队能逐步发现、试运行并确认稳定门禁，同时保持未声明项目的零配置兼容。
 ## Requirements
 ### Requirement: Project 可以可选声明任意测试能力集合
 Buildr MUST 允许已登记 Project 通过可选 `verification.yml` 声明任意数量的测试能力，并 MUST 将测试声明与 Skill capability binding、Service metadata 和具体技术栈分层保持分离。
@@ -95,4 +95,3 @@ Buildr doctor MUST 在已登记 Project 存在 `verification.yml` 时校验 sche
 - **WHEN** capability dependsOn/supersedes 引用未知 id 或 dependsOn 形成循环
 - **THEN** doctor MUST 报告可定位的声明 finding
 - **AND** provider MUST NOT 基于无效图启动动态编排
-

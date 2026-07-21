@@ -24,12 +24,15 @@ test('统一 registry 固化 fast 与 Candidate required gates', () => {
   assert.deepEqual(ids(createVerificationPlan({ profiles: ['fast'] })), [
     'unit', 'contract', 'integration-fast', 'cli-architecture', 'openspec-spec-quality', 'openspec-strict', 'runtime-adapter-contract',
   ]);
-  const candidate = createVerificationPlan({ profiles: ['candidate'] });
-  for (const required of [
-    'candidate-tarball', 'capability-cli-integration', 'package-static', 'package-runtime',
-    'integration-candidate-recovery', 'integration-candidate-release', 'runtime-adapter-parity', 'workspace-lifecycle', 'runtime-reconciliation',
-    'repository-onboarding', 'cli-package-parity', 'release-tarball-smoke', 'managed-data-integrity', 'docs-quality',
-  ]) assert.ok(ids(candidate).includes(required), `candidate must retain ${required}`);
+  assert.deepEqual(ids(createVerificationPlan({ profiles: ['candidate'] })), [
+    'unit', 'contract', 'integration-fast', 'cli-architecture', 'openspec-spec-quality', 'openspec-strict', 'runtime-adapter-contract',
+    'integration-candidate-recovery', 'integration-candidate-release', 'candidate-tarball', 'open-source-candidate',
+    'openspec-candidate-audit', 'managed-mutations', 'capability-cli-integration', 'commands-cli-integration',
+    'openspec-contract-fixtures', 'package-static', 'package-workspace', 'package-commands', 'package-rules', 'package-skills',
+    'package-runtime', 'runtime-adapter-parity', 'workspace-lifecycle', 'ownership-recovery', 'runtime-reconciliation',
+    'repository-onboarding', 'init-onboarding', 'cli-compatibility', 'cli-package-parity', 'service-branch-contract',
+    'remote-skill-timeout', 'release-tarball-smoke', 'managed-data-integrity', 'docs-quality',
+  ]);
 });
 
 test('Product path 和 glob matcher 在 Node 20 语义下稳定工作', () => {
@@ -47,14 +50,47 @@ test('docs-only changed plan 只选择轻量文档 owner', () => {
   assert.match(plan.steps[0].reasons[0], /docs\/buildr-product\.md matches/);
 });
 
-test('CLI 与 OpenSpec 路径只选择真实 owner 和依赖', () => {
-  const cli = ids(createVerificationPlan({ paths: ['src/application/domains/rules.mjs'] }));
-  for (const required of ['contract', 'cli-architecture', 'capability-cli-integration', 'cli-compatibility', 'cli-package-parity', 'package-rules', 'managed-mutations', 'managed-data-integrity']) {
-    assert.ok(cli.includes(required), `CLI plan must include ${required}`);
+test('代表源码路径只选择真实 Changed owner 并排除无关重型 owner', () => {
+  const cases = [
+    {
+      path: 'src/infrastructure/network/fetch-remote-text.mjs',
+      required: ['contract', 'cli-architecture', 'managed-mutations', 'remote-skill-timeout'],
+      excluded: ['integration-candidate-recovery', 'capability-cli-integration', 'cli-package-parity', 'release-tarball-smoke', 'managed-data-integrity'],
+    },
+    {
+      path: 'src/infrastructure/product-layout.mjs',
+      required: ['contract', 'cli-architecture', 'managed-mutations', 'cli-package-parity', 'release-tarball-smoke'],
+      excluded: ['integration-candidate-recovery', 'capability-cli-integration', 'cli-compatibility', 'managed-data-integrity'],
+    },
+    {
+      path: 'src/interfaces/cli/help.mjs',
+      required: ['contract', 'cli-architecture', 'managed-mutations', 'commands-cli-integration', 'cli-compatibility', 'cli-package-parity', 'release-tarball-smoke'],
+      excluded: ['integration-candidate-recovery', 'capability-cli-integration', 'managed-data-integrity'],
+    },
+    {
+      path: 'src/application/domains/workspace.mjs',
+      required: ['contract', 'cli-architecture', 'managed-mutations', 'commands-cli-integration', 'package-workspace', 'workspace-lifecycle', 'init-onboarding', 'service-branch-contract', 'managed-data-integrity'],
+      excluded: ['integration-candidate-recovery', 'capability-cli-integration', 'cli-compatibility', 'cli-package-parity', 'release-tarball-smoke'],
+    },
+    {
+      path: 'src/application/package-maintenance/builtin-replacement.mjs',
+      required: ['contract', 'cli-architecture', 'integration-candidate-recovery', 'managed-mutations', 'package-static', 'ownership-recovery', 'release-tarball-smoke', 'managed-data-integrity'],
+      excluded: ['capability-cli-integration', 'cli-compatibility', 'cli-package-parity'],
+    },
+    {
+      path: 'src/infrastructure/runtime/skills/publication.mjs',
+      required: ['contract', 'cli-architecture', 'runtime-adapter-contract', 'capability-cli-integration', 'package-skills', 'package-runtime', 'runtime-adapter-parity', 'runtime-reconciliation', 'managed-data-integrity'],
+      excluded: ['integration-candidate-recovery', 'cli-compatibility', 'cli-package-parity', 'release-tarball-smoke'],
+    },
+  ];
+  for (const sample of cases) {
+    const planIds = ids(createVerificationPlan({ paths: [sample.path] }));
+    for (const required of sample.required) assert.ok(planIds.includes(required), `${sample.path} must include ${required}`);
+    for (const excluded of sample.excluded) assert.equal(planIds.includes(excluded), false, `${sample.path} must exclude ${excluded}`);
   }
-  assert.equal(cli.includes('unit'), false);
-  assert.equal(cli.includes('integration-fast'), false);
-  assert.ok(cli.indexOf('candidate-tarball') < cli.indexOf('cli-package-parity'));
+});
+
+test('OpenSpec 路径只选择真实 owner', () => {
   const openspec = ids(createVerificationPlan({ paths: ['openspec/specs/product-verification-quality/spec.md'] }));
   for (const required of ['openspec-spec-quality', 'openspec-strict', 'openspec-candidate-audit', 'openspec-contract-fixtures', 'docs-quality']) {
     assert.ok(openspec.includes(required), `OpenSpec plan must include ${required}`);
