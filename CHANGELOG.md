@@ -4,9 +4,15 @@
 
 ## Unreleased
 
-- Breaking：Skill source 只在 workspace `skills/` 治理；Project 改用 `capabilities.yml` 表达 requirements、bindings 与 applicability，不再创建或合并 Project Skill source。
-- `skills render` 新增 `--destination workspace|user`；`--target` 始终表示 source workspace，`init`/`sync` 只维护 workspace destination。
-- Skills manifest 升级为 `buildr.skills/v3`，新增稳定 asset/source identity、v2 projection receipts、有效 Skills inventory、同名冲突零写入 preflight，以及 legacy Project assets 的 `--check/--apply` 事务迁移。
+
+## 0.1.0-rc.6 - 2026-07-21
+
+- Breaking：Skill source 只在 workspace `skills/` 治理；Project 改用 `capabilities.yml` 表达 requirements、bindings 与 applicability，`skills render` 显式选择 workspace 或 user destination，并以稳定 identity、projection receipts 和零写入冲突预检保护资产。
+- 建立 Skill capability contracts 与 bindings，将任务分流、验证、Git 集成、worktree 生命周期、收尾和资产审查组合为可发现、可替换且 fail-closed 的 Agent 工作能力。
+- 重构产品验证为 registry 驱动的 Changed、Focus 和 Candidate DAG，将完整候选证据绑定到 repository、Product root、tree/fingerprint 与 timing summary，并提供可安全清理的临时 evidence。
+- 引入 Agent 维护的只读任务看板与独立任务资产审查，保留历史 `task-cockpit` 资产，并通过显式 builtin restore 安全迁移受管替换。
+- 收紧 doctor、runtime 和公开 JSON 契约：区分 workspace valid、runtime readiness 与可操作诊断，将不可观测的 Agent Skill inventory 保留为 assurance metadata，并避免与 Agent 抢占通用理解、推理和任务执行职责。
+- 重构 Commands 资产模型与 CLI 模块边界，加强 package、runtime adapter、managed mutation 和发布收敛检查，同时保持 Node.js 20+ 与七个 runtime adapter 的公开支持范围。
 
 ## 0.1.0-rc.5 - 2026-07-17
 

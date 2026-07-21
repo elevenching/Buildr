@@ -11,7 +11,7 @@
 - Agent 没有统一 API 枚举已加载的 admin/system/plugin Skills。adapter 会在 runtime scope 保留 `partial` inventory evidence，但不把不可观测性本身报告为健康 warning；Buildr 只检查自身管理候选的可观测同名项并阻止真实冲突，不盘点无关 runtime Skills，也不宣称已证明 Agent 全局唯一。首版不提供自动 adopt/transfer，外部资产必须重命名、显式移除/禁用或保持现场。
 - `task-asset-review` 只使用当前 runtime 和 session 已可访问的任务节点、Git/OpenSpec 与验证证据；它不读取模型隐藏推理，也不持久化完整对话、工具日志或逐节点任务轨迹。早期节点不可访问时只能降级到最终证据，证据胶囊会明确 session-only 依据的耐久性限制。该能力没有 runtime Hook、daemon、watcher 或事件总线。
 - Service branch intent 不负责 pull、merge、rebase 或长期分支同步；它只控制首次 clone、metadata 和 drift 诊断。
-- `@buildr-ai/buildr@0.1.0-rc.5` 通过 GitHub trusted publisher 发布，`next` 指向该 RC；`latest` 仍可能指向历史 prerelease，它不代表稳定版。稳定版 `0.1.0` 尚未发布，公开试用应显式安装 `@next`。`0.1.0-rc.4` 因发布范围错误已弃用。
+- `@buildr-ai/buildr@0.1.0-rc.6` 通过 GitHub trusted publisher 发布，`next` 指向该 RC；`latest` 仍可能指向历史 prerelease，它不代表稳定版。稳定版 `0.1.0` 尚未发布，公开试用应显式安装 `@next`。`0.1.0-rc.4` 因发布范围错误已弃用。
 - `package check/build` 与 `openspec baseline/check` 是维护/workflow 表面，不建议普通 workspace 直接依赖。
 
 遇到 unsupported runtime 或不能确定的资产边界时，Agent 应停止自动变更、保留源资产，并报告可执行下一步。
