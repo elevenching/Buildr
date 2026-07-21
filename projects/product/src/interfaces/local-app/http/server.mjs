@@ -137,9 +137,28 @@ export function createLocalWorkspaceServer(runtime, { targetRoot, port = 0 } = {
         jsonResponse(response, 200, runtime.updateWorkspaceMetadata(root, await readJsonBody(request)));
         return;
       }
+      if (request.method === 'GET' && requestUrl.pathname === '/api/v1/projects') {
+        jsonResponse(response, 200, runtime.listProjects(root));
+        return;
+      }
+      const projectMatch = requestUrl.pathname.match(/^\/api\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)$/);
+      if (request.method === 'GET' && projectMatch) {
+        jsonResponse(response, 200, runtime.projectDetail(root, projectMatch[1]));
+        return;
+      }
+      if (request.method === 'PUT' && projectMatch) {
+        assertWriteRequest(request, origin, sessionToken);
+        jsonResponse(response, 200, runtime.updateProjectMetadata(root, projectMatch[1], await readJsonBody(request)));
+        return;
+      }
       if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/workspace-create') {
         assertWriteRequest(request, origin, sessionToken);
         jsonResponse(response, 200, runtime.generateWorkspaceCreatePrompt(await readJsonBody(request)));
+        return;
+      }
+      if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/project-create') {
+        assertWriteRequest(request, origin, sessionToken);
+        jsonResponse(response, 200, runtime.generateProjectCreatePrompt(await readJsonBody(request)));
         return;
       }
       jsonResponse(response, 404, { error: { code: 'not_found', message: '请求的 Buildr 本地应用资源不存在。' } });

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PACKAGE_BOOTSTRAP_CONTRACT } from '../../infrastructure/product-layout.mjs';
 import { SUPPORTED_AGENT_IDS } from '../../infrastructure/runtime/adapter-contract.mjs';
+import { createProject as createProjectEntity } from '../../domain/project/project.mjs';
 
 export function registerDomainsPackageAssets(runtime) {
   const readGitRemote = (...args) => runtime.readGitRemote(...args);
@@ -691,35 +692,48 @@ export function registerDomainsPackageAssets(runtime) {
     }
 
     ensureDirectory(path.join(targetRoot, 'projects'));
-    let registry = existsFile(projectsManifestPath(targetRoot))
-      ? parseProjectsYaml(fs.readFileSync(projectsManifestPath(targetRoot), 'utf8'))
-      : { schemaVersion: 'buildr.projects/v1', projects: {} };
-    registry.projects = isPlainObject(registry.projects) ? registry.projects : {};
-
-    for (const projectName of listManagedDirectories(path.join(targetRoot, 'projects'))) {
-      const projectRoot = path.join(targetRoot, 'projects', projectName);
-      if (!registry.projects[projectName]) registry.projects[projectName] = {};
-      registry.projects[projectName] = normalizeProjectEntry(projectName, registry.projects[projectName], projectRoot);
-    }
+    const record = runtime.readProjectRegistryRecord(targetRoot);
+    if (record.registry.migrationRequired) throw new Error('Project registry migration must complete before registry convergence.');
+    const projects = { ...record.projects };
 
     for (const projectName of listManagedDirectories(path.join(targetRoot, 'projects'))) {
       const projectRoot = path.join(targetRoot, 'projects', projectName);
       repairProjectBaseline(targetRoot, projectName, changed);
-      registry.projects[projectName] = normalizeProjectEntry(projectName, registry.projects[projectName], projectRoot);
       convergeServiceManifest(targetRoot, projectName, changed);
+      if (!projects[projectName]) {
+        const git = runtime.observeProjectGit(projectRoot, 'origin');
+        const source = git.repository
+          ? {
+            type: 'git',
+            path: `projects/${projectName}`,
+            git: {
+              url: git.remoteUrl,
+              remote: 'origin',
+              integrationBranch: git.currentBranch,
+            },
+          }
+          : { type: 'workspace', path: `projects/${projectName}` };
+        projects[projectName] = createProjectEntity({
+          id: runtime.crypto.randomUUID(),
+          workspaceId: record.workspace.workspace.id,
+          code: projectName,
+          name: projectName,
+          description: defaultAssetDescription('Project', projectName),
+          source,
+        });
+      }
     }
-    registry.schemaVersion = 'buildr.projects/v1';
-    const nextContent = renderProjectsYaml(registry);
+    const nextContent = runtime.renderProjectsManifest(projects);
     const registryFile = projectsManifestPath(targetRoot);
     if (!existsFile(registryFile) || fs.readFileSync(registryFile, 'utf8') !== nextContent) {
-      writeProjectsRegistry(targetRoot, registry);
+      runtime.writeProjectRegistry(registryFile, projects);
       changed.push(toPosixRelative(targetRoot, registryFile));
     }
 
     convergeSkillsManifestSchema(targetRoot, targetRoot, changed);
 
     const boundaryItems = [];
-    for (const projectName of Object.keys(registry.projects)) {
+    for (const projectName of Object.keys(projects)) {
       const projectRoot = path.join(targetRoot, 'projects', projectName);
       boundaryItems.push({ type: 'project', project: projectName, assetRoot: projectRoot });
       const servicesRoot = path.join(projectRoot, 'services');

@@ -174,27 +174,27 @@
     "meta": {
       "title": "Buildr 产品化与数据模型演进",
       "taskId": "buildr-productization-modeling",
-      "status": "Workspace 新架构实现完成",
-      "phase": "Workspace checkpoint 迁移 · 最终验证门禁",
-      "taskProgress": "Workspace 实现任务 20/20 · Candidate 独立门禁 · Project / Service 继续冻结 · 依赖池 1 组",
-      "updatedAt": "2026-07-21 18:05",
+      "status": "Project 已完成 · Service 待启动",
+      "phase": "Service Domain 准备",
+      "taskProgress": "Project change 14/14 · Workspace 与 Project 已完成 · Service change 待创建 · 依赖池 1 组",
+      "updatedAt": "2026-07-22 00:11",
       "relativePath": "projects/product/openspec/knowledge/task-boards/2026-07-20-buildr-productization-modeling.html"
     },
     "overview": {
       "purpose": "把 Buildr 从文件系统原型逐步演进为人类友好、Agent 友好的产品，并先统一核心领域模型和应用边界。",
-      "conclusion": "Workspace checkpoint 已按新架构重新实现，没有合并旧 tools 源码；领域、应用、文件适配、CLI、本机 UI 和分层测试已经落位。",
-      "currentFocus": "收敛 port-workspace-product-to-source-layout 的受影响验证、本机 CLI 和最终 Candidate；Project、Service 继续冻结。",
-      "userAttention": "Workspace 页面已完成桌面与窄屏验收；当前没有功能阻塞，最终 Candidate 通过前不启动 Project、Service。",
+      "conclusion": "Workspace 垂直切片已经归档；Project Domain、v2 manifest、应用层、Git observation、CLI、doctor 和本地 UI 已实现并完成真实浏览器验收。",
+      "currentFocus": "Project change 已同步规格并归档；完成提交、集成与自举迁移后，从最新 dev 创建独立 Service change。",
+      "userAttention": "Service 不进入已完成的 Project change；新切片继续采用 Domain、Application、存储适配、CLI/doctor 与 UI 的完整迭代。",
       "highlights": {
-        "done": { "title": "已经完成", "text": "Workspace Domain、迁移、应用层、本机 API、页面、Agent prompt 与分层测试" },
-        "current": { "title": "当前状态", "text": "新架构实现与页面验收完成，正在执行最终验证" },
-        "next": { "title": "下一步", "text": "通过受影响验证、本机 CLI 核对和完整 Product Candidate" }
+        "done": { "title": "已经完成", "text": "Workspace 与 Project 的 Domain、迁移、应用层、本机 API、页面、Agent prompt 与完整验证" },
+        "current": { "title": "当前状态", "text": "Project change 14/14，规格已同步并归档，正在完成 Git 收尾" },
+        "next": { "title": "下一步", "text": "从最新 dev 创建独立 Service change 和 tasks/ 分支" }
       },
       "blockers": [],
       "flow": [
-        { "title": "Workspace", "text": "已在新架构中恢复完整垂直切片，Candidate 验证中" },
-        { "title": "Project", "text": "已冻结，不在当前 change 继续" },
-        { "title": "Service", "text": "已冻结，不在当前 change 继续" },
+        { "title": "Workspace", "text": "完整垂直切片已实现、验证并归档" },
+        { "title": "Project", "text": "完整垂直切片已实现、验证并归档" },
+        { "title": "Service", "text": "待创建独立 change，开始下一轮完整切片" },
         { "title": "后续资产", "text": "Rule、Skill、Task 等不进入本 change" }
       ]
     },
@@ -215,10 +215,17 @@
       },
       {
         "id": "port-workspace-product-to-source-layout",
-        "status": "active",
-        "path": "openspec/changes/port-workspace-product-to-source-layout/",
+        "status": "archived",
+        "path": "openspec/changes/archive/2026-07-21-port-workspace-product-to-source-layout/",
         "summary": "以冻结 checkpoint 为行为基线，在新源码架构中重新实现 Workspace Domain、应用用例、文件适配、CLI 和本机 UI。",
         "batchIds": ["batch-workspace-port"]
+      },
+      {
+        "id": "productize-project-domain-and-ui",
+        "status": "archived",
+        "path": "openspec/changes/archive/2026-07-21-productize-project-domain-and-ui/",
+        "summary": "建立 Project Domain、v2 manifest、应用用例、Git 声明/观察诊断、CLI 与本地 Project 页面。",
+        "batchIds": ["batch-project-slice"]
       }
     ],
     "progress": {
@@ -286,10 +293,10 @@
         },
         {
           "id": "batch-workspace-port",
-          "status": "current",
-          "label": "实现完成",
-          "title": "当前批次 · Workspace 新架构迁移",
-          "summary": "不合并旧源码，Workspace Domain、文件 Repository、应用生命周期、CLI 和本机 UI 已按新 owner 完成，正在收敛验证证据。",
+          "status": "done",
+          "label": "已完成",
+          "title": "已完成 · Workspace 新架构迁移",
+          "summary": "Workspace Domain、文件 Repository、应用生命周期、CLI 和本机 UI 已按新 owner 完成、验证并归档。",
           "deliverable": "在新源码架构中恢复已验证的 Workspace 查看、修改、迁移和新增 prompt 能力。",
           "changeIds": ["port-workspace-product-to-source-layout"],
           "items": [
@@ -303,25 +310,27 @@
         },
         {
           "id": "batch-project-slice",
-          "status": "next",
-          "label": "已冻结",
-          "title": "后续候选 · Project 产品化",
-          "summary": "不在当前功能分支继续；源码架构迁移后重新讨论 Project 模型、应用层和页面。",
-          "deliverable": "未来新 change 重新定义，不沿用旧 tasks 作为实施授权。",
-          "changeIds": [],
+          "status": "done",
+          "label": "已完成",
+          "title": "模块 3 · Project 产品化",
+          "summary": "按已确认模型完成 Project Domain、文件适配、应用层、Git 实际状态和本机页面的完整垂直切片。",
+          "deliverable": "用户可在页面查看 Project 与 Git 状态、修改 name/description；新增 Project 生成可复制 Agent prompt。",
+          "changeIds": ["productize-project-domain-and-ui"],
           "items": [
-            "原 tasks 4 已从 active change 移除",
-            "保留历史领域讨论作为输入，不保留实现排期",
-            "必须基于迁移后的源码架构重新设计"
+            "Project entity：id、workspaceId、code、name、description、source",
+            "ProjectSource.path 定位文件系统介质；Git source 声明 url、remote、integrationBranch",
+            "currentBranch、dirty、upstream、ahead/behind、HEAD 与实际 remote URL 由 Git adapter 实时观察，不进入 Domain",
+            "canonical registry 升级为 buildr.projects/v2；v1 兼容读取，仅显式 update/sync 迁移",
+            "页面只直接修改 name/description；identity、source 与 Git 操作保持只读或 prompt-only"
           ]
         },
         {
           "id": "batch-service-slice",
           "status": "next",
-          "label": "已冻结",
-          "title": "后续候选 · Service 产品化",
-          "summary": "不在当前功能分支继续；源码架构迁移后重新讨论 Service 模型、应用层和页面。",
-          "deliverable": "未来新 change 重新定义，不沿用旧 tasks 作为实施授权。",
+          "label": "待启动",
+          "title": "下一批次 · Service 产品化",
+          "summary": "Project change 收尾后，从最新 dev 创建独立 change，重新定义 Service 模型、应用层和页面。",
+          "deliverable": "Service Domain、v2 manifest、应用层、Git 状态和本机页面的完整垂直切片。",
           "changeIds": [],
           "items": [
             "原 tasks 5–6 已从 active change 移除",
@@ -466,8 +475,8 @@
         },
         {
           "label": "已确认",
-          "title": "首个已实现产品化切片只覆盖 Workspace",
-          "reason": "Workspace 已最小闭环验证文件系统适配、应用层共用和 UI；其他领域等待源码架构迁移后重新进入垂直切片。"
+          "title": "产品化切片按 Workspace、Project、Service 逐步推进",
+          "reason": "Workspace 已完成最小闭环；当前只推进 Project 的模型、应用层和 UI，Service 继续冻结，避免一次铺开多个领域。"
         },
         {
           "label": "已确认",
@@ -502,7 +511,17 @@
         {
           "label": "已确认",
           "title": "ProjectSource 是 Project 的值对象",
-          "reason": "path、Git URL、remote 和默认分支共同描述 Project 的来源，不需要独立身份或脱离 Project 单独维护。"
+          "reason": "path 定位文件系统中的实际 Project；Git URL、remote 和 integrationBranch 声明独立仓库的稳定来源与集成目标，不需要独立身份。"
+        },
+        {
+          "label": "已确认",
+          "title": "Project Git 声明与实际状态分离",
+          "reason": "integrationBranch 是稳定 Domain 声明；currentBranch、dirty、upstream、ahead/behind、HEAD 和实际 remote URL 会随工作变化，由 Git adapter 实时观察，UI 和 doctor 只诊断不盲目切换。"
+        },
+        {
+          "label": "设计决定",
+          "title": "Project registry canonical schema 升级到 buildr.projects/v2",
+          "reason": "v1 已使用 title、path 和 repo 结构；v2 明确表达 id、workspaceId、code、name、description 和 source。普通读取零写入，仅 update/sync 显式迁移。"
         },
         {
           "label": "已确认",
@@ -614,6 +633,34 @@
             {
               "title": "当前 change",
               "path": "openspec/changes/port-workspace-product-to-source-layout/"
+            }
+          ],
+          "snippets": []
+        },
+        {
+          "taskId": "project-product-slice",
+          "title": "已完成 · Project Domain 与本机页面",
+          "summary": "独立 change 已完成 Domain、持久化、Application、Git observation、CLI、doctor、HTTP/Web、文档、package baseline 与最终 Candidate，并已同步规格归档。",
+          "items": [
+            {
+              "title": "当前 change",
+              "path": "openspec/changes/archive/2026-07-21-productize-project-domain-and-ui/"
+            },
+            {
+              "title": "领域与存储",
+              "text": "Project Domain 使用 UUID、workspaceId、code、name、description 和 ProjectSource；projects/manifest.yml v2 是当前文件投影。"
+            },
+            {
+              "title": "Git 边界",
+              "text": "source 保存 remote 与 integrationBranch 声明；实际分支和 worktree 状态实时查询，不持久化、不自动纠正。"
+            },
+            {
+              "title": "页面边界",
+              "text": "列表与详情展示声明和实际状态；name/description 使用 revision CAS 修改；新增生成 Agent prompt。"
+            },
+            {
+              "title": "验证状态",
+              "text": "单元、架构、OpenSpec、Project 集成、真实桌面与 390px 窄屏、CAS 冲突和 prompt-only 已通过；Candidate 51.820 秒且无失败。"
             }
           ],
           "snippets": []

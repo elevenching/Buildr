@@ -4,6 +4,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { execFileSync, spawnSync } from '../../infrastructure/process.mjs';
 import YAML from 'yaml';
+import { createProject as createProjectEntity } from '../../domain/project/project.mjs';
+import { parseProjectsManifest, renderProjectsManifest } from '../../infrastructure/filesystem/project-manifest-repository.mjs';
 
 export function registerDomainsWorkspace(runtime) {
   const readGitRemote = (...args) => runtime.readGitRemote(...args);
@@ -86,6 +88,7 @@ export function registerDomainsWorkspace(runtime) {
   }
 
   function renderProjectsYaml(registry) {
+    if (registry.schemaVersion === 'buildr.projects/v2') return renderProjectsManifest(registry.projects || {});
     const projects = registry.projects || {};
     const names = Object.keys(projects).sort();
     const lines = ['schemaVersion: buildr.projects/v1'];
@@ -112,6 +115,14 @@ export function registerDomainsWorkspace(runtime) {
   }
 
   function validateProjectsRegistry(registry) {
+    if (registry?.schemaVersion === 'buildr.projects/v2') {
+      try {
+        parseProjectsManifest(YAML.stringify(registry));
+        return [];
+      } catch (error) {
+        return [error.message];
+      }
+    }
     const errors = [];
     if (String(registry.schemaVersion) !== 'buildr.projects/v1') {
       errors.push('projects/manifest.yml schemaVersion must be buildr.projects/v1.');
@@ -414,44 +425,54 @@ export function registerDomainsWorkspace(runtime) {
   }
 
   function createProject(args) {
-    const allowedFlags = new Set(['--target', '--repo', '--title', '--description']);
+    const allowedFlags = new Set(['--target', '--repo', '--name', '--title', '--description', '--remote', '--integration-branch']);
     assertNoUnknownOptions(args, allowedFlags);
     const ref = positionalArgs(args)[0];
     if (!ref) throw new Error('Missing project ref');
     const { project } = parseProjectRef(ref);
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
     const repoRef = optionValue(args, '--repo', null);
-    const titleOption = optionValue(args, '--title', null);
+    const nameOption = optionValue(args, '--name', optionValue(args, '--title', null));
     const descriptionOption = optionValue(args, '--description', null);
+    const remoteOption = optionValue(args, '--remote', 'origin');
+    const integrationBranchOption = optionValue(args, '--integration-branch', null);
+    assertGitBranch(integrationBranchOption);
     const projectRoot = path.join(targetRoot, 'projects', project);
     const created = [];
     const changed = [];
     const manifest = readPackageManifest();
-    const registry = readProjectsRegistryForWrite(targetRoot);
-    const existingEntry = registry.projects[project] || null;
-    const title = titleOption ?? existingEntry?.title ?? project;
+    const registryRecord = runtime.readProjectRegistryRecord(targetRoot);
+    if (registryRecord.registry.migrationRequired) {
+      throw new Error('Project registry needs migration before project create. Run canonical buildr sync <agent> first.');
+    }
+    const existingEntry = registryRecord.projects[project] || null;
+    const name = nameOption ?? existingEntry?.name ?? project;
     const description = descriptionOption ?? existingEntry?.description ?? defaultAssetDescription('Project', project);
 
     if (repoRef && !isProjectGitUrl(repoRef)) {
       throw new Error(`Project --repo only supports Git URLs. Project assets must be materialized under projects/${project}; external local Project links are not supported.`);
     }
-    if (repoRef && existsDirectory(projectRoot) && !existsDirectory(path.join(projectRoot, '.git'))) {
+    const existingGit = existsDirectory(projectRoot) ? runtime.observeProjectGit(projectRoot, remoteOption) : null;
+    if (repoRef && existsDirectory(projectRoot) && !existingGit?.repository) {
       throw new Error(`Project repo target exists but is not a Git repository: projects/${project}`);
     }
     if (repoRef && existsDirectory(projectRoot)) {
-      const actualUrl = readGitRemote(projectRoot, 'origin');
+      const actualUrl = readGitRemote(projectRoot, remoteOption);
       if (!actualUrl || !sameGitIdentity(actualUrl, repoRef)) {
         throw new Error(`Project repo identity conflicts for ${project}: expected ${repoRef}, actual ${actualUrl || '<missing origin>'}. Buildr will not relink an existing Project.`);
       }
-      if (existingEntry?.repo?.kind && existingEntry.repo.kind !== 'git') {
-        throw new Error(`Project registry identity conflicts for ${project}: existing repo.kind is ${existingEntry.repo.kind}, requested git.`);
+      if (existingEntry?.source?.type && existingEntry.source.type !== 'git') {
+        throw new Error(`Project registry identity conflicts for ${project}: existing source.type is ${existingEntry.source.type}, requested git.`);
       }
-      if (existingEntry?.repo?.url && !sameGitIdentity(existingEntry.repo.url, repoRef)) {
-        throw new Error(`Project registry URL conflicts for ${project}: expected ${repoRef}, recorded ${existingEntry.repo.url}.`);
+      if (existingEntry?.source?.git?.url && !sameGitIdentity(existingEntry.source.git.url, repoRef)) {
+        throw new Error(`Project registry URL conflicts for ${project}: expected ${repoRef}, recorded ${existingEntry.source.git.url}.`);
       }
     }
-    if (!repoRef && existingEntry?.repo?.kind === 'git' && !existsDirectory(path.join(projectRoot, '.git'))) {
+    if (!repoRef && existingEntry?.source?.type === 'git' && !existingGit?.repository) {
       throw new Error(`Project registry expects a Git repo but materialized Project is not Git-managed: ${project}`);
+    }
+    if (!repoRef && (integrationBranchOption || optionValue(args, '--remote', null))) {
+      throw new Error('--remote and --integration-branch are only supported for Git Project sources.');
     }
 
     const affected = [projectRoot, projectsManifestPath(targetRoot), path.join(targetRoot, '.gitignore')];
@@ -471,10 +492,29 @@ export function registerDomainsWorkspace(runtime) {
         }
         trackWrite(targetRoot, servicesManifestPath(projectRoot), renderServicesManifestYaml({ schemaVersion: 'buildr.services/v1', project, services: {} }), created);
 
-        const repoMetadata = repoRef ? { kind: 'git', url: repoRef, remote: 'origin', defaultBranch: gitDefaultBranch(projectRoot) }
-          : existingEntry?.repo?.kind === 'git' ? existingEntry.repo : { kind: 'workspace' };
-        registry.projects[project] = { title, description, path: `projects/${project}`, repo: repoMetadata };
-        const registryPath = writeProjectsRegistry(targetRoot, registry);
+        const source = repoRef
+          ? {
+            type: 'git',
+            path: `projects/${project}`,
+            git: {
+              url: repoRef,
+              remote: remoteOption,
+              integrationBranch: integrationBranchOption || existingEntry?.source?.git?.integrationBranch || gitDefaultBranch(projectRoot, remoteOption),
+            },
+          }
+          : existingEntry?.source?.type === 'git'
+            ? existingEntry.source
+            : { type: 'workspace', path: `projects/${project}` };
+        const entity = createProjectEntity({
+          id: existingEntry?.id || runtime.crypto.randomUUID(),
+          workspaceId: registryRecord.workspace.workspace.id,
+          code: project,
+          name,
+          description,
+          source,
+        });
+        runtime.writeProjectRegistry(registryRecord.manifestPath, { ...registryRecord.projects, [project]: entity });
+        const registryPath = registryRecord.manifestPath;
         changed.push(toPosixRelative(targetRoot, registryPath));
         changed.push(...ensureGitBoundaries(targetRoot, [{ type: 'project', project, assetRoot: projectRoot }]));
         printResult(`Created project ${project}`, targetRoot, created, changed);

@@ -16,7 +16,23 @@ export function createScopeDiagnostics(deps) {
     toPosixRelative,
     validateProjectsRegistry,
     buildrWorkspaceIdentity,
+    observeProjectGit,
+    sameGitIdentity,
   } = deps;
+
+  function projectView(code, project) {
+    if (project?.source) return project;
+    return {
+      id: null,
+      workspaceId: null,
+      code,
+      name: project?.title || null,
+      description: project?.description || null,
+      source: project?.repo?.kind === 'git'
+        ? { type: 'git', path: project.path || `projects/${code}`, git: { url: project.repo.url || '', remote: project.repo.remote || 'origin', integrationBranch: project.repo.defaultBranch || '' } }
+        : { type: 'workspace', path: project?.path || `projects/${code}` },
+    };
+  }
 
   function scopeParts(scope) {
     const parts = scope === '.' ? ['.'] : scope.split('/').filter(Boolean);
@@ -208,6 +224,14 @@ export function createScopeDiagnostics(deps) {
     }
 
     registryResult.schemaVersion = registry.schemaVersion;
+    registryResult.migrationRequired = registry.schemaVersion === 'buildr.projects/v1';
+    if (registryResult.migrationRequired) {
+      addDoctorFinding(result, 'warning', 'projects.registry_migration_required', 'Project registry 需要迁移为 buildr.projects/v2。', {
+        path: registryResult.path,
+        suggestion: '运行 canonical buildr sync <agent> 完成 Project identity 与 source 的事务迁移。',
+        userActionRequired: true,
+      });
+    }
     const validationErrors = validateProjectsRegistry(registry);
     if (validationErrors.length > 0) {
       for (const message of validationErrors) {
@@ -220,28 +244,30 @@ export function createScopeDiagnostics(deps) {
     registryResult.valid = validationErrors.length === 0;
 
     for (const [projectName, project] of Object.entries(registry.projects || {}).sort(([left], [right]) => left.localeCompare(right))) {
+      const view = projectView(projectName, project);
       registryResult.projects.push({
-        name: projectName,
-        title: project.title || null,
-        description: project.description || null,
-        path: project.path || `projects/${projectName}`,
-        repo: project.repo || null,
+        id: view.id,
+        workspaceId: view.workspaceId,
+        code: view.code,
+        name: view.name,
+        description: view.description,
+        source: view.source,
       });
-      if (!project.title) {
-        addDoctorFinding(result, 'warning', 'projects.title_missing', `Project 缺少 title：${projectName}`, {
+      if (!view.name) {
+        addDoctorFinding(result, 'warning', 'projects.name_missing', `Project 缺少 name：${projectName}`, {
           path: registryResult.path,
-          suggestion: '运行 buildr update 或 buildr sync 补齐默认 title。',
+          suggestion: '运行 buildr sync 补齐默认 name。',
           command: `buildr project create ${projectName} --target ${targetRoot}`,
         });
       }
-      if (!project.description || String(project.description).startsWith('TODO:')) {
+      if (!view.description || String(view.description).startsWith('TODO:')) {
         addDoctorFinding(result, 'warning', 'projects.description_todo', `Project 缺少有效 description：${projectName}`, {
           path: registryResult.path,
           suggestion: '补充 Project description，说明该 Project 的适用场景和用途。',
         });
       }
-      if (project.repo?.kind === 'git' && !project.repo.url) {
-        addDoctorFinding(result, 'warning', 'projects.git_url_missing', `Git Project 缺少 repo.url：${projectName}`, {
+      if (view.source.type === 'git' && !view.source.git.url) {
+        addDoctorFinding(result, 'warning', 'projects.git_url_missing', `Git Project 缺少 source.git.url：${projectName}`, {
           path: registryResult.path,
           suggestion: '补充 Git remote URL，或确认该 Project 只作为本地 Git 资产管理。',
         });
@@ -339,7 +365,8 @@ export function createScopeDiagnostics(deps) {
 
     for (const item of scopes) {
       const { orgRoot, projectRoot, metadataPath, servicesRoot } = projectDoctorContextFor(targetRoot, item);
-      const registryEntry = item.project ? registry?.projects?.[item.project] || null : null;
+      const rawRegistryEntry = item.project ? registry?.projects?.[item.project] || null : null;
+      const registryEntry = rawRegistryEntry ? projectView(item.project, rawRegistryEntry) : null;
       const organization = { name: item.org, path: toPosixRelative(targetRoot, orgRoot), exists: existsDirectory(orgRoot) };
       const organizationKey = `${organization.path}|${organization.name}`;
       if (!seenOrganizations.has(organizationKey)) {
@@ -360,12 +387,14 @@ export function createScopeDiagnostics(deps) {
 
       const project = {
         org: item.org,
-        name: item.project,
-        title: registryEntry?.title || null,
+        id: registryEntry?.id || null,
+        workspaceId: registryEntry?.workspaceId || null,
+        code: item.project,
+        name: registryEntry?.name || null,
         description: registryEntry?.description || null,
-        path: toPosixRelative(targetRoot, projectRoot),
+        path: registryEntry?.source?.path || toPosixRelative(targetRoot, projectRoot),
         registered: Boolean(registryEntry),
-        repo: registryEntry?.repo || null,
+        source: registryEntry?.source || null,
         exists: existsDirectory(projectRoot),
         servicesMetadata: toPosixRelative(targetRoot, metadataPath),
         servicesDirectory: toPosixRelative(targetRoot, servicesRoot),
@@ -375,12 +404,12 @@ export function createScopeDiagnostics(deps) {
       result.projects.push(project);
 
       if (!project.exists) {
-        const command = registryEntry?.repo?.kind === 'git' && registryEntry.repo.url
-          ? `buildr project create ${item.project} --repo ${registryEntry.repo.url} --target ${targetRoot}`
+        const command = registryEntry?.source?.type === 'git' && registryEntry.source.git.url
+          ? `buildr project create ${item.project} --repo ${registryEntry.source.git.url} --integration-branch ${registryEntry.source.git.integrationBranch} --target ${targetRoot}`
           : `buildr project create ${item.project} --target ${targetRoot}`;
         addDoctorFinding(result, 'error', 'project.missing', `Project 缺失：${item.project}`, {
           path: project.path,
-          suggestion: registryEntry?.repo?.kind === 'git' && registryEntry.repo.url
+          suggestion: registryEntry?.source?.type === 'git' && registryEntry.source.git.url
             ? '询问用户是否根据 registry 自动 clone 该 Project 资产 repo。'
             : '创建缺失的项目资产。',
           command,
@@ -400,25 +429,33 @@ export function createScopeDiagnostics(deps) {
         });
       }
 
-      if (registryEntry?.repo?.kind === 'git') {
-        project.isGitRepository = existsDirectory(path.join(projectRoot, '.git'));
+      if (registryEntry?.source?.type === 'git') {
+        const observed = observeProjectGit(projectRoot, registryEntry.source.git.remote);
+        project.git = { declared: registryEntry.source.git, observed };
+        project.isGitRepository = observed.repository;
         if (!project.isGitRepository) {
           addDoctorFinding(result, 'error', 'project.not_git_repository', `Project 资产目录不是 Git repo：${item.project}`, {
             path: project.path,
             suggestion: '确认 Project 资产 repo 是否正确 clone 到 projects/<project>/。',
-            command: registryEntry.repo.url ? `buildr project create ${item.project} --repo ${registryEntry.repo.url} --target ${targetRoot}` : undefined,
+            command: registryEntry.source.git.url ? `buildr project create ${item.project} --repo ${registryEntry.source.git.url} --integration-branch ${registryEntry.source.git.integrationBranch} --target ${targetRoot}` : undefined,
           });
         } else {
-          const remoteName = registryEntry.repo.remote || 'origin';
-          project.actualRemote = readGitRemote(projectRoot, remoteName);
-          if (registryEntry.repo.url && project.actualRemote !== registryEntry.repo.url) {
-            addDoctorFinding(result, 'warning', 'project.remote_mismatch', `Project remote 与 registry 不一致：${item.project}`, {
+          project.actualRemote = observed.remoteUrl;
+          if (!observed.remoteUrl || !sameGitIdentity(registryEntry.source.git.url, observed.remoteUrl)) {
+            addDoctorFinding(result, 'error', observed.remoteUrl ? 'project.git_remote_conflict' : 'project.git_remote_missing', `Project remote 与 Domain 声明不一致：${item.project}`, {
               path: project.path,
-              expected: registryEntry.repo.url,
+              expected: registryEntry.source.git.url,
               actual: project.actualRemote,
-              suggestion: '确认 Project 资产 repo 来源，必要时更新 registry 或 Git remote。',
+              suggestion: '确认 Project 资产 repo 来源；Buildr 不会自动 relink remote。',
             });
           }
+          if (observed.currentBranch && observed.currentBranch !== registryEntry.source.git.integrationBranch) {
+            addDoctorFinding(result, 'warning', 'project.git_branch_drift', `Project 当前分支 ${observed.currentBranch} 不同于 integration branch ${registryEntry.source.git.integrationBranch}：${item.project}`, {
+              path: project.path,
+              suggestion: '先判断是否处于活跃任务分支；收尾时在 clean、ownership 和集成检查通过后安全返回，不要盲目 checkout 或 stash。',
+            });
+          }
+          if (observed.dirty) addDoctorFinding(result, 'warning', 'project.git_dirty', `Project Git worktree 有未提交变化：${item.project}`, { path: project.path, suggestion: '识别变化所属任务后再决定提交、保留或处理。' });
         }
         const boundary = gitBoundaryFor(targetRoot, { type: 'project', project: item.project, assetRoot: projectRoot });
         project.ignoredByWorkspace = gitBoundaryIgnored(boundary);

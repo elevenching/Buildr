@@ -14,7 +14,7 @@ buildr runtime list --json
 buildr init --agent <agent> --target . --name <name> --description <description> --profile <personal|team|company>
 ```
 
-初始化后可运行 `buildr app --target .`，在只监听本机的页面中查看 Workspace，并受控修改名称和说明；新建 Workspace 的页面入口只生成可复制给 Agent 的指令。
+初始化后可运行 `buildr app --target .`，在只监听本机的页面中查看 Workspace 与 Projects。页面可受控修改 Workspace/Project 的名称和说明，并展示 Project 的 source 声明及实时 Git 状态；新建 Workspace 或 Project 只生成可复制给 Agent 的指令。
 
 当前公开试用版本是 [`0.1.0-rc.3`](https://github.com/elevenching/Buildr/releases/tag/v0.1.0-rc.3)。使用反馈请提交 [GitHub Issue](https://github.com/elevenching/Buildr/issues/new/choose)，安全漏洞请按 [SECURITY.md](https://github.com/elevenching/Buildr/blob/main/SECURITY.md) 私下报告。
 

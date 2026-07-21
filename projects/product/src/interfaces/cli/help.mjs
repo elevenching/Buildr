@@ -13,7 +13,7 @@ export function registerCommandHelp(runtime) {
     console.error('Usage:');
     console.error(`  buildr init [--agent <${runtimeIds}>] [--target <dir>] [--name <name>] [--description <text>] [--profile <personal|team|company>]`);
     console.error('  buildr app [--target <workspace>] [--port <port>]');
-    console.error('  buildr project create <project> [--target <dir>] [--repo <git-url>] [--title <text>] [--description <text>]');
+    console.error('  buildr project create <code> [--target <dir>] [--name <text>] [--description <text>] [--repo <git-url>] [--remote <name>] [--integration-branch <branch>]');
     console.error('  buildr service create <project>/<service> <repo-ref> [--target <dir>] [--type <type>] [--branch <branch>]');
     console.error('  buildr doctor [--agent <agent>] [--target <dir>] [--scope <.|projects/project[/services/service[/path...]]>] [--json] [--include-info] [--verbose]');
     console.error('  buildr mutation recover <transaction-id> [--target <dir>]');
@@ -96,6 +96,8 @@ export function registerCommandHelp(runtime) {
       '',
       '启动只监听 127.0.0.1 的本机可视化应用；默认选择可用端口并打印 URL，不自动打开浏览器。',
       'Workspace 页面只允许修改 name 和 description；创建 Workspace 只生成可复制 Agent 指令。',
+      'Project 页面展示 Domain 声明与实时 Git 状态，只允许修改 name 和 description；创建 Project 只生成可复制 Agent 指令。',
+      '页面不会 checkout、stash、merge 或改写 Project Git source。',
       '旧 Workspace metadata 可以只读查看，完成 canonical sync 迁移后才能从页面保存。',
       '该应用不提供数据库、远程服务或 Agent session connector。',
     ],
@@ -105,9 +107,11 @@ export function registerCommandHelp(runtime) {
       '输出当前实际执行的 Buildr CLI package identity。也可使用 buildr --version 或 buildr -V。',
     ],
     'project create': [
-      'Usage: buildr project create <project> [--target <dir>] [--repo <git-url>] [--title <text>] [--description <text>]',
+      'Usage: buildr project create <code> [--target <dir>] [--name <text>] [--description <text>] [--repo <git-url>] [--remote <name>] [--integration-branch <branch>]',
       '',
-      '创建或登记 Project，并写入 Project registry: projects/manifest.yml。',
+      '创建或登记 Project，并把 UUID、workspaceId、code、name、description 与 source 写入 projects/manifest.yml。',
+      '不传 --repo 时 Project 跟随 root Workspace Git；传入 --repo 时 remote 与 integration branch 是稳定声明，不是当前 checkout 状态。',
+      '--title 继续作为 --name 的 legacy compatibility 输入，但 canonical help 和输出统一使用 --name。',
       'Project baseline 包含 commands.yml；它只引用 workspace Command catalog，不复制 executable、probe 或 install hint。',
     ],
     'service create': [

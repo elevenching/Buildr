@@ -1,5 +1,7 @@
 import { registerWorkspaceInfrastructure } from '../infrastructure/filesystem/index.mjs';
 import { registerWorkspaceManifestRepository } from '../infrastructure/filesystem/workspace-manifest-repository.mjs';
+import { registerProjectManifestRepository } from '../infrastructure/filesystem/project-manifest-repository.mjs';
+import { registerProjectGitObserver } from '../infrastructure/git/project-git-observer.mjs';
 import { registerDomainsRuntime } from './domains/runtime.mjs';
 import { registerDomainsWorkspace } from './domains/workspace.mjs';
 import { registerDomainsComponents } from './domains/components.mjs';
@@ -14,6 +16,7 @@ import { registerApplicationWorkspaceOperations } from './workspace-operations.m
 import { registerApplicationRuntime } from './runtime.mjs';
 import { registerApplicationCliUpdate } from './cli-update.mjs';
 import { registerWorkspaceApplication } from './workspace/workspace-application.mjs';
+import { registerProjectApplication } from './project/project-application.mjs';
 import * as platform from '../infrastructure/platform.mjs';
 
 const REGISTRATIONS = [
@@ -21,6 +24,8 @@ const REGISTRATIONS = [
   registerWorkspaceManifestRepository,
   registerDomainsRuntime,
   registerDomainsWorkspace,
+  registerProjectManifestRepository,
+  registerProjectGitObserver,
   registerDomainsComponents,
   registerDomainsCommands,
   registerDomainsRules,
@@ -29,6 +34,7 @@ const REGISTRATIONS = [
   registerDomainsPackageAssets,
   registerDomainsSkills,
   registerWorkspaceApplication,
+  registerProjectApplication,
   registerApplicationPackageMaintenance,
   registerApplicationWorkspaceOperations,
   registerApplicationCliUpdate,

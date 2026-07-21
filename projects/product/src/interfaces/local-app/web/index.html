@@ -45,6 +45,60 @@
       </aside>
     </div>
 
+    <section class="card projects-card">
+      <div class="section-heading">
+        <div><p class="eyebrow">PROJECTS</p><h2>Project 目录</h2></div>
+        <span id="projects-state" class="state">正在读取</span>
+      </div>
+      <p class="section-copy">Project 的 Domain 声明来自 registry；Git 当前分支、未提交变化和 upstream 状态按需实时读取。</p>
+      <div id="projects-migration-alert" class="alert hidden" role="status"></div>
+      <div class="project-layout">
+        <div id="project-list" class="project-list" aria-label="Project 列表"></div>
+        <div id="project-empty" class="empty-state">当前 Workspace 尚未登记 Project。</div>
+        <section id="project-detail" class="project-detail hidden" aria-live="polite">
+          <div class="project-detail-heading"><div><p class="eyebrow">PROJECT DETAIL</p><h3 id="project-title">—</h3></div><span id="project-save-state" class="state">只读事实</span></div>
+          <form id="project-form">
+            <label>名称<input id="project-name" autocomplete="off" required></label>
+            <label>说明<textarea id="project-description" rows="4" required></textarea></label>
+            <div class="actions"><button id="project-save-button" class="button primary" type="submit">保存 Project</button></div>
+          </form>
+          <dl class="project-facts">
+            <div><dt>Project ID</dt><dd id="project-id">—</dd></div>
+            <div><dt>Workspace ID</dt><dd id="project-workspace-id">—</dd></div>
+            <div><dt>Code</dt><dd id="project-code">—</dd></div>
+            <div><dt>Source</dt><dd id="project-source">—</dd></div>
+            <div><dt>Path</dt><dd id="project-path">—</dd></div>
+            <div><dt>Integration branch</dt><dd id="project-integration-branch">不适用</dd></div>
+            <div><dt>Current branch</dt><dd id="project-current-branch">不适用</dd></div>
+            <div><dt>Git state</dt><dd id="project-git-state">不适用</dd></div>
+          </dl>
+          <div id="project-findings" class="findings"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="card create-card">
+      <div class="section-heading">
+        <div><p class="eyebrow">AGENT ACTION</p><h2>创建 Project</h2></div>
+        <span class="state">生成指令</span>
+      </div>
+      <p class="section-copy">页面不会直接创建目录、clone 仓库或切换分支。填写 Domain 声明后生成完整指令，交给 Agent 核对并执行。</p>
+      <form id="project-prompt-form" class="prompt-grid">
+        <label>Code<input id="project-prompt-code" autocomplete="off" required></label>
+        <label>名称<input id="project-prompt-name" autocomplete="off" required></label>
+        <label>来源<select id="project-prompt-source"><option value="workspace">Workspace</option><option value="git">Git</option></select></label>
+        <label>Git URL<input id="project-prompt-url" autocomplete="off" disabled></label>
+        <label>Remote<input id="project-prompt-remote" value="origin" autocomplete="off" disabled></label>
+        <label>Integration branch<input id="project-prompt-branch" autocomplete="off" disabled></label>
+        <label class="full">说明<textarea id="project-prompt-description" rows="4" required></textarea></label>
+        <div class="actions full"><button class="button secondary" type="submit">生成 Project 指令</button></div>
+      </form>
+      <div id="project-prompt-result" class="prompt-result hidden">
+        <textarea id="project-prompt-output" rows="13" readonly></textarea>
+        <div class="copy-row"><button id="project-copy-button" class="button primary" type="button">复制指令</button><span id="project-copy-state">复制不等于 Project 已创建。</span></div>
+      </div>
+    </section>
+
     <section class="card create-card">
       <div class="section-heading">
         <div><p class="eyebrow">AGENT ACTION</p><h2>创建另一个 Workspace</h2></div>

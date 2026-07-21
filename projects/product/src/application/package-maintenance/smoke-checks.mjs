@@ -372,7 +372,12 @@ export function createPackageSmokeChecks(deps) {
       problems.push('project create must not create the removed Project practices/ baseline.');
     }
     const projectsAfterCreate = parseProjectsYaml(fs.readFileSync(path.join(tempRoot, 'projects', 'manifest.yml'), 'utf8'));
-    if (projectsAfterCreate.projects.demo?.title !== 'demo' || projectsAfterCreate.projects.demo?.repo?.kind !== 'workspace') {
+    if (projectsAfterCreate.schemaVersion !== 'buildr.projects/v2'
+      || !/^[0-9a-f-]{36}$/.test(projectsAfterCreate.projects.demo?.id || '')
+      || projectsAfterCreate.projects.demo?.code !== 'demo'
+      || projectsAfterCreate.projects.demo?.name !== 'demo'
+      || projectsAfterCreate.projects.demo?.source?.type !== 'workspace'
+      || projectsAfterCreate.projects.demo?.source?.path !== 'projects/demo') {
       problems.push('project create must register workspace-managed Project metadata in projects/manifest.yml.');
     }
     if (!existsFile(path.join(tempRoot, 'projects', 'demo', 'services', 'manifest.yml'))) {

@@ -41,6 +41,8 @@ export function registerApplicationDoctor(runtime) {
   const existsFile = (...args) => runtime.existsFile(...args);
   const addDoctorFinding = (...args) => runtime.addDoctorFinding(...args);
   const buildrWorkspaceIdentity = (...args) => runtime.buildrWorkspaceIdentity(...args);
+  const observeProjectGit = (...args) => runtime.observeProjectGit(...args);
+  const sameGitIdentity = (...args) => runtime.sameGitIdentity(...args);
 
   const {
     scopeParts,
@@ -75,6 +77,8 @@ export function registerApplicationDoctor(runtime) {
     toPosixRelative,
     validateProjectsRegistry,
     buildrWorkspaceIdentity,
+    observeProjectGit,
+    sameGitIdentity,
   });
   const {
     diagnoseServicesMetadata,

@@ -3,9 +3,7 @@
 ## Purpose
 
 定义 Buildr Product 可执行入口、运行源码、测试验证、仓库脚本和交付资产的生命周期边界，以及源码分层和依赖方向。
-
 ## Requirements
-
 ### Requirement: Product 顶层目录必须按生命周期分离
 Buildr Product MUST 使用 `bin/`、`src/`、`test/`、`scripts/` 和 `package/` 分别承载可执行入口、产品源码、测试验证、仓库脚本和交付源资产，并 MUST NOT 使用 `tools/` 承载这些职责。
 
@@ -58,3 +56,21 @@ Buildr Product MUST 保留顶层 `package/` 作为 init、sync、runtime 和 boo
 - **THEN** `package/` MUST 只包含交付映射、workspace/runtime/bootstrap 源资产及其维护说明
 - **AND** 构建和发布脚本 MUST 位于 `scripts/`
 - **AND** 测试样本 MUST 位于 `test/fixtures/`
+
+### Requirement: Project 产品切片必须遵守新源码分层
+Buildr MUST separate Project Domain, Application, filesystem/Git Infrastructure and CLI/HTTP/Web Interfaces.
+
+#### Scenario: Project Domain 保持纯净
+- **WHEN** architecture verifier scans Project Domain imports
+- **THEN** Domain MUST NOT import filesystem, YAML, Git process, HTTP, CLI, runtime, tests or repository implementations
+- **AND** Domain MUST contain only Project entity, ProjectSource value object and pure validation
+
+#### Scenario: Project Interfaces 读取和修改
+- **WHEN** CLI, doctor, HTTP or Web handles Project data
+- **THEN** interface MUST call Project Application use cases
+- **AND** interface MUST NOT directly parse or write `projects/manifest.yml` or execute Git observation commands
+
+#### Scenario: Project adapters 实现 ports
+- **WHEN** Application reads/writes registry or queries actual Git state
+- **THEN** filesystem repository MUST own path/YAML/atomic revision details and Git observer MUST own bounded process execution
+- **AND** adapters MUST NOT decide editable field policy, migration authorization or diagnostic severity

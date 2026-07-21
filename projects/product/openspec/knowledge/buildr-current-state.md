@@ -13,7 +13,7 @@ Organization/Root -> Project -> Service
 - `buildr init --agent <agent> --target <dir> --name <name> [--description <description>] --profile <profile>` 是推荐首次入口：将目标目录初始化为 Buildr root，并复用完整 sync 管线准备当前 Agent runtime 与最终 doctor；不带 `--agent` 时只初始化源资产。未提供 description 时写入明确 TODO，由 doctor 提示补全。
 - Buildr root 是个人或组织的 Organization 上下文实例。
 - `.buildr/workspace.yml` 使用 `buildr.workspace/v1`，记录稳定 UUID `id`、`name`、`description` 以及只读兼容 metadata；`skills/manifest.yml.workspaceId` 必须引用同一 UUID。
-- `buildr app --target <workspace> [--port <port>]` 只监听 loopback，提供 Workspace 查看、`name/description` 受控修改和新增 Workspace 可复制 Agent prompt。旧 metadata 只读展示，页面启动不会静默迁移。
+- `buildr app --target <workspace> [--port <port>]` 只监听 loopback，提供 Workspace 与 Project 查看、`name/description` 受控修改，以及新增 Workspace/Project 的可复制 Agent prompt。旧 metadata/registry 只读展示，页面启动不会静默迁移。
 - `buildr sync <agent>` 在 source transaction 中显式迁移 legacy Workspace metadata；两处 identity 冲突、非法 schema 或迁移失败时 fail closed 并回滚。
 - Project 路径为 `projects/<project>/`。
 - Service 默认 repo 路径为 `projects/<project>/services/<service>/`。
@@ -32,11 +32,14 @@ Organization/Root -> Project -> Service
 
 - root `projects/manifest.yml` 是 workspace 管理的 Project registry。
 - `buildr project create <project>` 会创建或修复 Project baseline，并维护 `projects/manifest.yml`。
-- Project registry 记录 Project 的 title、description、path 和 repo 来源。
+- canonical Project registry 使用 `buildr.projects/v2`，每个 Project 记录 UUID `id`、所属 `workspaceId`、可读 `code`、`name`、`description` 和 `source`；`source.path` 是当前文件系统物化位置。
+- `source.type: git` 另外声明 URL、remote 与稳定的 `integrationBranch`。当前分支、HEAD、dirty、upstream、ahead/behind 和实际 remote URL 由 Git adapter 实时观察，不写回 Domain。
+- `buildr.projects/v1` 只兼容读取；显式 `buildr update` / `buildr sync <agent>` 完成原子迁移。普通读取和 app 启动不写入，迁移前 Project 页面只读。
 - 传入 `--repo <git-url>` 时，Buildr 将 Project 资产 repo clone 到 `projects/<project>/`。
 - Buildr 当前不登记外部本地 Project 链接；Project 资产 materialize 到 `projects/<project>/`。
 - `buildr update` / `buildr sync` 会从 `projects/` 目录事实补登记 Project；仅存在于 manifest、但目录缺失的 Project 不会被自动实体化，由 doctor 告警并等待明确的 `project create` 决策。
-- Project Git 目录已存在时，`project create --repo` 会比较实际 origin、命令 URL 和 registry identity；不一致时在任何 registry 或 Project baseline 写入前失败，不静默 relink。
+- Project Git 目录已存在时，`project create --repo` 会比较声明 remote 的实际 URL、命令 URL 和 Domain source identity；不一致时在任何 registry 或 Project baseline 写入前失败，不静默 relink。
+- Project 页面展示声明与实时 Git 状态的偏移，但不会自动 checkout、stash、merge 或丢弃改动；`name`、`description` 修改使用 registry revision 防止覆盖外部变化，新增只生成交给 Agent 的指令。
 
 ## Service Registry
 
@@ -207,7 +210,7 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 ## CLI Internal Architecture
 
 - npm bin `bin/buildr.mjs` 是薄 executable，只负责 bootstrap 与顶层错误处理；help 和唯一命令登记位于 `src/interfaces/cli/`。
-- `src/` 按 Domain、Application、Infrastructure、Interfaces 单向分层。Workspace 是首个纯 Domain：实体与字段约束位于 `src/domain/workspace`，用例位于 `src/application/workspace`，Manifest repository 位于 `src/infrastructure/filesystem`，CLI/HTTP/Web 位于 `src/interfaces`；Project、Service 尚未抽取纯 Domain。
+- `src/` 按 Domain、Application、Infrastructure、Interfaces 单向分层。Workspace 与 Project 已拥有纯 Domain：实体与字段约束位于 `src/domain/<domain>`，用例位于 `src/application/<domain>`，Manifest repository 与 Git observation 位于 Infrastructure，CLI/HTTP/Web 位于 Interfaces；Service 尚未抽取纯 Domain。
 - `packageCheck` 的静态发布校验、临时 workspace smoke runner 和 composition handler 已分离，但 `buildr package check` 的统一输出和失败语义不变。
 - npm tarball 递归包含 `src/` runtime dependency closure，内部模块不通过 package `exports` 暴露，也不是稳定 public JavaScript API。
 - 产品验证通过 architecture、compatibility、checkout/npm package parity 和递归 managed mutation verifiers 保护薄入口、command 唯一登记、依赖方向、发布完整性、行为兼容和直接写入边界。

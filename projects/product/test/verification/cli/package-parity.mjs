@@ -38,7 +38,12 @@ function normalizeWorkspaceSnapshot(value) {
   const skillsWorkspaceId = value['skills/manifest.yml']?.match(/^workspaceId:\s*([0-9a-f-]{36})$/m)?.[1];
   assert.ok(workspaceId, 'Workspace metadata must contain a UUID');
   assert.equal(skillsWorkspaceId, workspaceId, 'Workspace and Skills manifests must share one UUID');
-  return Object.fromEntries(Object.entries(value).map(([file, content]) => [file, content.replaceAll(workspaceId, '<workspace-id>')]));
+  const projectIds = [...(value['projects/manifest.yml'] || '').matchAll(/^    id:\s*([0-9a-f-]{36})$/gm)].map((match) => match[1]);
+  return Object.fromEntries(Object.entries(value).map(([file, content]) => {
+    let normalized = content.replaceAll(workspaceId, '<workspace-id>');
+    projectIds.forEach((projectId, index) => { normalized = normalized.replaceAll(projectId, `<project-id-${index + 1}>`); });
+    return [file, normalized];
+  }));
 }
 
 try {

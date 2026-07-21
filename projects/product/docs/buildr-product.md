@@ -82,7 +82,7 @@ Project 可以拥有自己的资产 repo；Service repo 由自身 Git 管理，B
 | Skills | 管理可渲染到 Agent 原生技能系统的任务能力 |
 | Components | 在 workspace 统一安装、更新和卸载 Rules、Skills 与 Command collections |
 | Commands | workspace catalog 定义外部 CLI，Project requirements 表达业务需要，本机只提供可观察状态 |
-| Project registry | 记录 workspace 管理的 Project 和资产 repo 来源 |
+| Project registry | 以 UUID、workspaceId、code、name、description 和 ProjectSource 记录 Project Domain；文件 manifest 是当前持久化实现 |
 | Service registry | 记录 Project 下 service repo 的来源和类型；规则入口由 Service 目录 `AGENTS.md` 表达 |
 
 Buildr 源资产不保存 binary、token、cookie、登录态或个人私有配置。
@@ -137,7 +137,9 @@ Install to Buildr, render to Agent runtime.
 
 Buildr 资产是源头；Agent runtime 是面向当前 Agent 的可重建入口。Workspace 就是 Buildr 治理的工作目录，也是 Skill 唯一 source authority；Project 是业务、依赖、适用性和 capability context，不是 Skill 安装隔离层。Skill 只在 workspace `skills/` 维护，再显式 render 到当前工作目录的 `workspace` destination 或个人的 `user` destination。Buildr 在写入前检查同名 identity、ownership、receipt 与完整目录 digest；冲突会阻止整次写入。
 
-当前本地产品通过 `buildr app` 提供人类可读的 Workspace 视图。页面复用与 CLI 相同的应用用例，只允许查看并修改 `name`、`description` 这类低风险 metadata；创建新 Workspace 只生成交给 Agent 的完整 prompt，不绕过 Agent 对目录、Git、授权和 runtime 的判断。文件系统仍是本地 Workspace 的事实载体，页面不建立第二套数据库状态。
+当前本地产品通过 `buildr app` 提供人类可读的 Workspace 与 Project 视图。页面复用与 CLI 相同的应用用例，只允许修改 Workspace/Project 的 `name`、`description`；Project source、path、identity 与 Git 状态保持只读。新建 Workspace 或 Project 只生成交给 Agent 的完整 prompt，不绕过 Agent 对目录、Git、授权和 runtime 的判断。文件系统仍是本地 Workspace 的事实载体，页面不建立第二套数据库状态。
+
+Project Domain 使用 UUID `id`、所属 `workspaceId`、可读 `code`、`name`、`description` 和 `source`。文件系统场景必须保留 `source.path` 以定位真实 Project；独立 Git source 另外声明 URL、remote 和稳定的 `integrationBranch`。当前分支、HEAD、dirty、upstream 与 ahead/behind 会随任务变化，只由 Git adapter 实时观察，不持久化到 Domain，也不会触发 Buildr 自动 checkout、stash 或 merge。
 
 不同 Agent 的处理方式不同：
 
@@ -168,7 +170,7 @@ Buildr 当前 MVP 已验证文件系统、Git、CLI、Buildr Skill、bootstrap g
 
 当前事实以 [Buildr current state](../openspec/knowledge/buildr-current-state.md) 为准；规范性行为以 [OpenSpec specs](../openspec/specs/) 为准。
 
-MVP 不解决完整企业云服务、权限系统、Web UI、代码托管平台集成、跨机器自动恢复、系统级 hook 或所有 Agent adapter。
+MVP 不解决完整企业云服务、权限系统、托管 Web/SaaS、多用户协作、代码托管平台集成、跨机器自动恢复、系统级 hook 或所有 Agent adapter。
 
 OpenSpec Component 还包含 Buildr 自有的契约门禁 sidebar：它在 Requirement 粒度记录 change 基线、检测 active change 冲突和陈旧 delta，并在同步前后验证结果；OpenSpec CLI 与上游 workflow Skills 仍可独立升级。
 

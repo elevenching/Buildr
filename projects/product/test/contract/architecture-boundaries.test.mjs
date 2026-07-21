@@ -44,9 +44,11 @@ test('Product platform namespace 只允许 composition root 聚合', () => {
   assert.deepEqual(violations, []);
 });
 
-test('Workspace Domain 保持纯净且 local app 静态资源随 src 交付', () => {
+test('Workspace 与 Project Domain 保持纯净且 local app 静态资源随 src 交付', () => {
   const domain = fs.readFileSync(path.join(productRoot, 'src/domain/workspace/workspace.mjs'), 'utf8');
   assert.doesNotMatch(domain, /node:|yaml|filesystem|http|process|runtime|repository/i);
+  const projectDomain = fs.readFileSync(path.join(productRoot, 'src/domain/project/project.mjs'), 'utf8');
+  assert.doesNotMatch(projectDomain, /node:|yaml|filesystem|http|process|runtime|repository/i);
   for (const relative of [
     'src/interfaces/local-app/http/server.mjs',
     'src/interfaces/local-app/web/index.html',
@@ -58,6 +60,6 @@ test('Workspace Domain 保持纯净且 local app 静态资源随 src 交付', ()
   const packageJson = JSON.parse(fs.readFileSync(path.join(productRoot, 'package.json'), 'utf8'));
   assert.ok(packageJson.files.includes('src/'));
   assert.equal(fs.existsSync(path.join(productRoot, 'tools')), false);
-  assert.equal(fs.existsSync(path.join(productRoot, 'src/domain/project')), false);
+  assert.equal(fs.existsSync(path.join(productRoot, 'src/domain/project')), true);
   assert.equal(fs.existsSync(path.join(productRoot, 'src/domain/service')), false);
 });

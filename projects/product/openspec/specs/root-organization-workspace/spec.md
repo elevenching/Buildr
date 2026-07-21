@@ -56,7 +56,7 @@ Buildr MUST 使用 `.buildr/workspace.yml` 持久化 Workspace 的 UUID `id`、`
 - **AND** `skills/manifest.yml` MUST declare `schemaVersion: buildr.skills/v1`
 - **AND** `skills/manifest.yml.workspaceId` MUST equal `.buildr/workspace.yml.id`
 - **AND** `components/manifest.yml` MUST declare `schemaVersion: buildr.components/v1`
-- **AND** `projects/manifest.yml` MUST declare `schemaVersion: buildr.projects/v1`
+- **AND** `projects/manifest.yml` MUST declare `schemaVersion: buildr.projects/v2`
 - **AND** Buildr MUST create root `AGENTS.md` required block and reference `rules/buildr/core.md`
 - **AND** Buildr MUST be able to render initial Agent runtime for supported adapters
 
