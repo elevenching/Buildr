@@ -150,19 +150,19 @@ Buildr is currently in pre-release. Use [GitHub Releases](https://github.com/ele
 - Unified management of Rules, Skills, Components, and Commands
 - Seven Agent runtime adapters: `claude-code`, `codex`, `cursor`, `qoder`, `trae`, `trae-work`, and `workbuddy`
 
-See [Known Limitations](projects/product/docs/known-limitations.md) for current boundaries.
+See [Known Limitations](projects/product/services/buildr/docs/known-limitations.md) for current boundaries.
 
 ## Documentation
 
 - [Buildr Product](projects/product/docs/buildr-product.md): complete positioning, core model, boundaries, and Roadmap
-- [Buildr Skill](projects/product/package/targets/runtime/skills/buildr/SKILL.md): the primary entry point for Agents using Buildr
-- [CLI Reference](projects/product/docs/cli-reference.md): public commands and parameters
-- [Runtime Adapters](projects/product/docs/agent-runtime-adapters.md): integration paths and limitations for each Agent
+- [Buildr Skill](projects/product/services/buildr/package/targets/runtime/skills/buildr/SKILL.md): the primary entry point for Agents using Buildr
+- [CLI Reference](projects/product/services/buildr/docs/cli-reference.md): public commands and parameters
+- [Runtime Adapters](projects/product/services/buildr/docs/agent-runtime-adapters.md): integration paths and limitations for each Agent
 - [OpenSpec Specifications](projects/product/openspec/specs/): normative product behavior contracts
 
 ## Buildr Bootstrap Workspace
 
-This repository is also the Workspace in which Buildr develops itself. Product source lives only under `projects/product/`; root-level assets are consumed state.
+This repository is also the Workspace in which Buildr develops itself. Product governance lives under `projects/product/`, while the executable product has one source root at `projects/product/services/buildr/`; root-level assets are consumed state.
 
 ```bash
 projects/product/buildr runtime list --json

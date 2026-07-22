@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "product-service-structure",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-7b7ba5749f2dd660a0f0142ca7d0bf2884e31cc803f9b83db2dcddec9ee94e65",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-development-openspec",
+      "title": "Product planning root 与 Service verification root 必须协同但保持所有权分离",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "npm-cli-package",
+      "title": "开发 checkout 必须从 Buildr Service package root 运行并保留 Project bridge",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-source-layout",
+      "title": "Product Project 治理根与可执行 Service 根必须分离",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "service-asset-indexing",
+      "title": "Buildr 自举 Product 必须登记真实 application Service",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

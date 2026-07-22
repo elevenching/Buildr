@@ -1,0 +1,67 @@
+{
+  "name": "@buildr-ai/buildr",
+  "version": "0.1.0-rc.6",
+  "private": false,
+  "description": "Buildr CLI for managing Agent workspace assets.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elevenching/Buildr.git",
+    "directory": "projects/product/services/buildr"
+  },
+  "homepage": "https://github.com/elevenching/Buildr#readme",
+  "bugs": {
+    "url": "https://github.com/elevenching/Buildr/issues"
+  },
+  "keywords": [
+    "agent",
+    "agentic-coding",
+    "cli",
+    "developer-tools",
+    "workspace"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "type": "module",
+  "bin": {
+    "buildr": "bin/buildr.mjs"
+  },
+  "files": [
+    "LICENSE",
+    "bin/buildr.mjs",
+    "src/",
+    "README.md",
+    "docs/agent-runtime-adapters.md",
+    "docs/cli-reference.md",
+    "docs/skill-capability-contracts.md",
+    "docs/cli-architecture.md",
+    "docs/known-limitations.md",
+    "package/"
+  ],
+  "scripts": {
+    "test": "./scripts/verify-buildr-product-fast",
+    "test:fast": "./scripts/verify-buildr-product-fast",
+    "test:unit": "node --test test/unit/*.test.mjs",
+    "test:contract": "node --test test/contract/*.test.mjs",
+    "test:integration:fast": "node --test test/integration-fast/*.test.mjs",
+    "test:integration:candidate:recovery": "node --test test/integration-candidate-recovery/*.test.mjs",
+    "test:integration:candidate:release": "node --test test/integration-candidate-release/*.test.mjs",
+    "coverage:unit": "node test/verification/unit-coverage.mjs",
+    "test:changed": "node test/verification/changed.mjs",
+    "test:focus": "node test/verification/focus.mjs",
+    "test:candidate": "./scripts/verify-buildr-product",
+    "test:release": "node test/verification/release/release-smoke.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@fission-ai/openspec": "1.4.1"
+  }
+}

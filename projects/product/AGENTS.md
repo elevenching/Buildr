@@ -17,10 +17,11 @@ Agent 在 `product` Project 中的最小运行规则。
 | Project rules | `AGENTS.md` | 当前 Product Project 的 Agent 工作规则 |
 | OpenSpec | `openspec/` | Buildr 产品事实、能力规范、变更和归档 |
 | Product docs | `docs/` | 产品定位、设计说明、发布和维护文档 |
-| Package assets | `package/` | 随包 manifest、bootstrap、workspace/runtime targets |
-| Product implementation | `buildr`、`bin/`、`src/`、`test/`、`scripts/` | checkout 入口、产品运行源码、验证与维护脚本 |
+| Package assets | `services/buildr/package/` | 随包 manifest、bootstrap、workspace/runtime targets |
+| Product implementation | `services/buildr/` | npm package、产品运行源码、验证与维护脚本的唯一实现根 |
+| Compatibility bridge | `buildr` | 只加载 `services/buildr/bin/buildr.mjs` 的稳定开发入口 |
 | Service registry | `services/manifest.yml` | 当前 Product Project 的 Service registry |
-| Service repos | `services/<service>/` | 独立 Git repo，业务代码由自身 Git 管理 |
+| Service assets | `services/<service>/` | Service 实现目录；是否独立 Git repo 以 registry source 和实际 Git 边界为准 |
 
 ## 产品边界
 
@@ -31,8 +32,8 @@ Agent 在 `product` Project 中的最小运行规则。
 - Buildr 功能默认由 Agent 操作：Agent 能在当前工具、权限和安全边界内完成的动作，必须在说明必要影响并取得所需授权后直接执行，不得把命令或操作步骤作为默认交付结果要求用户代为执行。只有用户明确选择手动方式，或 Agent 因工具不可用、权限、登录态、外部环境等原因无法完成时，才提供准确的手动操作作为兜底。
 - 新增或调整产品能力时，必须同时考虑 Buildr Skill 如何让 Agent 发现、理解、选择并正确使用该能力；缺少相应的 Agent 使用指引、决策边界或完成标准时，功能设计不完整。
 - 产品能力、CLI 行为、上下文模型、runtime adapter 行为和架构性变更必须先创建 OpenSpec change。
-- `package/manifest.yml` 声明发布边界；`package/targets/workspace/` 只放映射到用户 workspace 或 Project 的源，`package/targets/runtime/` 只放直接安装到 Agent runtime 的源。
-- `package/targets/` 和 `package/bootstrap/` 是发布给用户的内容，修改时必须同时从用户初始化、更新和日常使用 Buildr 的视角审视。
+- `services/buildr/package/manifest.yml` 声明发布边界；`services/buildr/package/targets/workspace/` 只放映射到用户 workspace 或 Project 的源，`services/buildr/package/targets/runtime/` 只放直接安装到 Agent runtime 的源。
+- `services/buildr/package/targets/` 和 `services/buildr/package/bootstrap/` 是发布给用户的内容，修改时必须同时从用户初始化、更新和日常使用 Buildr 的视角审视。
 - 预计包含代码、构建或测试的产品 change 必须在 propose 前创建或复用 task worktree；artifacts、实现和合并前候选验证只写入该 worktree。
 - 合并前候选验证使用临时 workspace 或 task worktree 自身，不从未合并 checkout 更新主自举 workspace。
 - OpenSpec apply 期间按单任务最小反馈、任务组受影响范围验证、最终候选完整验证分层执行；不得在每个普通任务后运行产品总验证或临时 workspace E2E。所有实现、自然语言资产、所需同步和 review 修订完成并冻结候选后，才运行一次产品级总验证。
@@ -58,9 +59,9 @@ Project 服务通过 `services/manifest.yml` 维护 Service registry，默认 re
 
 ## 验证入口
 
-修改 package baseline、manifest、CLI、bootstrap、Buildr Skill 或 runtime adapter 后，按 `docs/release-checklist.md` 验证。
+修改 package baseline、manifest、CLI、bootstrap、Buildr Skill 或 runtime adapter 后，按 `services/buildr/docs/release-checklist.md` 验证。
 
-- 普通任务运行 `npm test` 或 `npm run test:fast`，只承担 unit、架构、spec 和全部 adapter 低成本契约反馈。
+- 普通任务从 `services/buildr/` 运行 `npm test` 或 `npm run test:fast`，只承担 unit、架构、spec 和全部 adapter 低成本契约反馈。
 - 日常改动优先运行 `npm run test:changed`；失败定位使用 `npm run test:focus -- <step-id|group:<group>>`，只展开真实依赖并按 identity 去重。
 - 最终候选冻结后运行 `npm run test:candidate`；`scripts/verify-buildr-product` 是供 CI、publish 和历史集成使用的等价兼容入口。
 

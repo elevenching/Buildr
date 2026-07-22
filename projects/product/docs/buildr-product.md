@@ -152,7 +152,7 @@ Service Domain 使用 UUID `id`、所属 `workspaceId`、直接父实体 `projec
 - Rules scope 使用真实 workspace 相对路径。adapter 合并 scope 祖先链与 scope 子树中的 `AGENTS.md`，按目录层级由宽到窄投射；它不要求维护 role/path 路由表，也不替 Agent 判断规则语义相关性。
 - Codex 原生读取各层 `AGENTS.md`，不生成规则桥接文件。
 - Claude Code 通过 adapter 在每个已发现 `AGENTS.md` 的同目录维护 `CLAUDE.md` reference bridge；Skills 从 workspace source render 到 user 或 workspace 的 `.claude/skills/`。
-- Cursor、Qoder 与 TRAE 将 `AGENTS.md` 投射为各自可检查的 scoped vendor rule files；TRAE Work 与 WorkBuddy 使用受管 root reference bridge。完整路径、activation、限制和证据状态见 [Agent Runtime Adapters](agent-runtime-adapters.md)。
+- Cursor、Qoder 与 TRAE 将 `AGENTS.md` 投射为各自可检查的 scoped vendor rule files；TRAE Work 与 WorkBuddy 使用受管 root reference bridge。完整路径、activation、限制和证据状态见 Buildr Service 的 [Agent Runtime Adapters](../services/buildr/docs/agent-runtime-adapters.md)。
 - 默认 `sync` 从 root `.` 递归 reconcile 整个受管理 workspace；扫描跳过符号链接、依赖/build/runtime 目录和未登记的嵌套 Git repo。
 - 任务代码隔离统一使用当前 workspace 根 `.worktrees/<task-id>`；Agent 在采用 OpenSpec 或创建/复用 task worktree 前，先说明 change、路径、分支和当前动作。
 - 复杂、长期、跨批次或存在交叉依赖的任务可以由 `task-board` Skill 在 Project `openspec/knowledge/task-boards/yyyy-MM-dd-<task-id>.html` 维护稳定的只读 HTML 任务看板。看板覆盖整个任务并至少关联一个真实 OpenSpec change，以可独立交付批次和依赖池组织进度；首页优先用普通语言展示目标、当前结论、当前批次、下一步和阻塞，change 关联、业务/技术方案与已完成技术细节逐层后置。用户通过 Agent 对话参与，Agent 核实事实后单向更新页面并在关键进展回复中提供入口。旧称“任务驾驶舱”继续路由到该 Skill，但既有 `task-cockpits/` HTML 保持原路径和原内容。

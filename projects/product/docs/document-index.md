@@ -11,13 +11,13 @@
 | [../openspec/knowledge/buildr-current-state.md](../openspec/knowledge/buildr-current-state.md) | 当前已实现事实，按 OpenSpec 能力域组织 |
 | [../openspec/specs/](../openspec/specs/) | 规范性产品行为契约 |
 | [roadmap/](roadmap/) | 尚未实现的产品方向和详细设计候选，不作为当前事实或实施契约 |
-| [release-checklist.md](release-checklist.md) | 发布准备和验证清单 |
-| [cli-reference.md](cli-reference.md) | 公开 CLI 命令、参数边界和 canonical onboarding |
-| [cli-architecture.md](cli-architecture.md) | CLI 内部分层、依赖方向、兼容和维护验证边界 |
-| [agent-runtime-adapters.md](agent-runtime-adapters.md) | 已接入 Agent runtime adapter 的支持矩阵、接入路径、刷新方式、限制和证据状态 |
-| [agent-runtime-adapter-contribution.md](agent-runtime-adapter-contribution.md) | 新 Agent runtime adapter 的证据采集、分诊、设计、实现和验收流程 |
-| [agent-runtime-adapter-research-prompt.md](agent-runtime-adapter-research-prompt.md) | 可直接交给目标 Agent 执行的 runtime 能力调查 Prompt |
-| [known-limitations.md](known-limitations.md) | 当前公开试用范围和已知限制 |
+| [release-checklist.md](../services/buildr/docs/release-checklist.md) | 发布准备和验证清单 |
+| [cli-reference.md](../services/buildr/docs/cli-reference.md) | 公开 CLI 命令、参数边界和 canonical onboarding |
+| [cli-architecture.md](../services/buildr/docs/cli-architecture.md) | CLI 内部分层、依赖方向、兼容和维护验证边界 |
+| [agent-runtime-adapters.md](../services/buildr/docs/agent-runtime-adapters.md) | 已接入 Agent runtime adapter 的支持矩阵、接入路径、刷新方式、限制和证据状态 |
+| [agent-runtime-adapter-contribution.md](../services/buildr/docs/agent-runtime-adapter-contribution.md) | 新 Agent runtime adapter 的证据采集、分诊、设计、实现和验收流程 |
+| [agent-runtime-adapter-research-prompt.md](../services/buildr/docs/agent-runtime-adapter-research-prompt.md) | 可直接交给目标 Agent 执行的 runtime 能力调查 Prompt |
+| [known-limitations.md](../services/buildr/docs/known-limitations.md) | 当前公开试用范围和已知限制 |
 | [archive/](archive/) | 历史参考，不作为当前事实源 |
 
 ## 内容归属
@@ -31,8 +31,8 @@
 | MUST / SHOULD 级产品行为 | `openspec/specs/` |
 | 计划型产品变更 | `openspec/changes/` |
 | 尚未进入实现的长期产品方向 | `docs/roadmap/` |
-| 发布检查和公开发布准备 | `docs/release-checklist.md` |
-| 公开 CLI reference、内部维护架构、adapter 接入指南与已知限制 | `docs/cli-reference.md`、`docs/cli-architecture.md`、`docs/agent-runtime-adapter-contribution.md`、`docs/known-limitations.md` |
+| 发布检查和公开发布准备 | `services/buildr/docs/release-checklist.md` |
+| 公开 CLI reference、内部维护架构、adapter 接入指南与已知限制 | `services/buildr/docs/cli-reference.md`、`services/buildr/docs/cli-architecture.md`、`services/buildr/docs/agent-runtime-adapter-contribution.md`、`services/buildr/docs/known-limitations.md` |
 | 旧设计、旧草案、迁移前原文、历史模板 | `docs/archive/` |
 
 ## Knowledge 规则
@@ -79,6 +79,6 @@
 - 复杂任务需要持续可视化认知入口时，使用 `task-board` Skill 维护任务看板；每个看板至少关联一个真实 OpenSpec change，并以交付批次和依赖池表达进度，不要把任务进度混入 current-state facts 文档。既有 `task-cockpits/` 页面是保留原路径和原内容的历史资产，不迁移到新目录。
 - 新增规范性行为时，更新 `openspec/specs/` 或创建 OpenSpec change。
 - 新增尚未进入实现的详细产品方向时，维护 `docs/roadmap/` 并保持非当前事实声明。
-- 新增 Agent runtime adapter 前，先按 `docs/agent-runtime-adapter-contribution.md` 取得目标 Agent 的版本化证据；进入实现后仍必须创建独立 OpenSpec change。
+- 新增 Agent runtime adapter 前，先按 `services/buildr/docs/agent-runtime-adapter-contribution.md` 取得目标 Agent 的版本化证据；进入实现后仍必须创建独立 OpenSpec change。
 - Components、Commands collections 与 OpenSpec 契约门禁的当前边界写入 current state，产品含义写入产品说明，MUST 行为保留在 OpenSpec specs；未来的 Project/Service Component、远程 registry 和 Hook 不得提前写成当前事实。
 - 重命名、归档或删除文档时，同步更新本文。

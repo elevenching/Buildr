@@ -16,7 +16,7 @@ jobs:
     environment: npm-production
     defaults:
       run:
-        working-directory: projects/product
+        working-directory: projects/product/services/buildr
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -35,7 +35,7 @@ jobs:
         run: |
           node scripts/release/release-notes.mjs \
             "${{ steps.contract.outputs.version }}" \
-            ../../CHANGELOG.md \
+            ../../../../CHANGELOG.md \
             > "${RUNNER_TEMP}/buildr-release-notes.md"
       - name: Verify final release candidate
         env:

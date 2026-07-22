@@ -243,21 +243,21 @@ CLI identity 可通过 `buildr --version`、`buildr -V`、`buildr version` 或 `
 - `cd projects/product && npm run test:changed -- --plan`（根据 Git diff 生成最小可解释 DAG）
 - `cd projects/product && npm run test:focus -- <step-id|group:<group>>`（统一定点重跑入口，不自动附加 Fast）
 - `projects/product/buildr package check`
-- `projects/product/test/verification/onboarding/repository.mjs`
-- `projects/product/test/verification/onboarding/init.mjs`
-- `projects/product/test/verification/onboarding/service-branch.mjs`
-- `projects/product/test/verification/network/remote-text.mjs`
-- `projects/product/test/verification/cli/architecture.mjs`
-- `projects/product/test/verification/cli/compatibility.mjs`
-- `projects/product/test/verification/cli/package-parity.mjs`
+- `projects/product/services/buildr/test/verification/onboarding/repository.mjs`
+- `projects/product/services/buildr/test/verification/onboarding/init.mjs`
+- `projects/product/services/buildr/test/verification/onboarding/service-branch.mjs`
+- `projects/product/services/buildr/test/verification/network/remote-text.mjs`
+- `projects/product/services/buildr/test/verification/cli/architecture.mjs`
+- `projects/product/services/buildr/test/verification/cli/compatibility.mjs`
+- `projects/product/services/buildr/test/verification/cli/package-parity.mjs`
 - `cd projects/product && npm run test:focus -- workspace-lifecycle ownership-recovery runtime-reconciliation`（按稳定 step id 重跑 Workspace E2E；完整 Candidate 强制运行全部 suites）
-- `projects/product/test/verification/openspec/contract.mjs`
-- `projects/product/test/verification/openspec/contract-audit.mjs`
-- `projects/product/test/verification/release/open-source-candidate.mjs`
+- `projects/product/services/buildr/test/verification/openspec/contract.mjs`
+- `projects/product/services/buildr/test/verification/openspec/contract-audit.mjs`
+- `projects/product/services/buildr/test/verification/release/open-source-candidate.mjs`
 - `(cd projects/product && openspec validate --all --strict)`
 - `npm pack --dry-run`
 
-`projects/product/scripts/verify-buildr-product` 聚合以上产品级门禁并包含 docs quality；repository verifier 从无依赖、无 runtime 的临时候选树验证开发 CLI 安装和 update source，release smoke 从 tarball 安装后的 `buildr` 执行完整 init、sync、doctor、optional uninstall 生命周期。
+`projects/product/services/buildr/scripts/verify-buildr-product` 聚合以上产品级门禁并包含 docs quality；验证编排显式从 Product Project root 读取 OpenSpec，从 Buildr Service root 执行 package、源码和测试。repository verifier 从无依赖、无 runtime 的临时候选树验证开发 CLI 安装和 update source，release smoke 从 tarball 安装后的 `buildr` 执行完整 init、sync、doctor、optional uninstall 生命周期。
 
 开源候选 verifier 会检查 tracked candidate 的敏感模式、内部来源、占位 URL、异常大文件、中文/英文 README canonical token、公开 package metadata 和 npm tarball 禁止路径。产品完整验证会记录该阶段耗时，Buildr Product Project 的完成报告需说明总耗时、最慢阶段、失败阶段（如有）和 timing summary 路径。
 

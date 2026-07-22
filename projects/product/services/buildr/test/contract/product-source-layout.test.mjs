@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  productSourceLayoutContract,
+  validateProductSourceLayout,
+} from '../verification/cli/product-source-layout.mjs';
+
+const canonicalProjectEntries = [
+  'AGENTS.md',
+  'README.md',
+  'buildr',
+  'capabilities.yml',
+  'commands.yml',
+  'docs',
+  'openspec',
+  'services',
+];
+const canonicalServiceEntries = [
+  'AGENTS.md',
+  'bin',
+  'package',
+  'package-lock.json',
+  'package.json',
+  'scripts',
+  'src',
+  'test',
+];
+const canonicalBridge = "#!/usr/bin/env node\nimport './services/buildr/bin/buildr.mjs';\n";
+
+test('Product 治理根与 Buildr Service 实现根满足最终结构契约', () => {
+  assert.deepEqual(validateProductSourceLayout({
+    projectEntries: canonicalProjectEntries,
+    serviceEntries: canonicalServiceEntries,
+    bridgeSource: canonicalBridge,
+  }), []);
+});
+
+test('结构 verifier 拒绝旧 Product package-root 残留', () => {
+  for (const forbidden of productSourceLayoutContract.forbiddenProjectRootEntries) {
+    const findings = validateProductSourceLayout({
+      projectEntries: [...canonicalProjectEntries, forbidden],
+      serviceEntries: canonicalServiceEntries,
+      bridgeSource: canonicalBridge,
+    });
+    assert.ok(findings.includes(`Project root must not own ${forbidden}`), forbidden);
+  }
+});
+
+test('结构 verifier 拒绝未分类内容、空壳 Service 和非薄 bridge', () => {
+  const findings = validateProductSourceLayout({
+    projectEntries: [...canonicalProjectEntries, 'unknown-runtime'],
+    serviceEntries: canonicalServiceEntries.filter((entry) => entry !== 'src'),
+    bridgeSource: "#!/usr/bin/env node\nconsole.log('duplicated implementation');\n",
+  });
+  assert.deepEqual(findings, [
+    'unclassified Product root entry: unknown-runtime',
+    'Buildr Service root is missing src',
+    'projects/product/buildr must be a thin Service CLI bridge',
+  ]);
+});

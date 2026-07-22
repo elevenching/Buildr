@@ -152,19 +152,19 @@ Buildr 当前处于预发布阶段，具体版本和安装来源以 [GitHub Rele
 - 规则、workspace Skills、组件和命令等资产的统一管理；Skill 支持 user/workspace destination 与同名冲突预检
 - 支持 7 个 Agent runtime adapter（claude-code、codex、cursor、qoder、trae、trae-work、workbuddy）
 
-详细边界见[已知限制](projects/product/docs/known-limitations.md)。
+详细边界见[已知限制](projects/product/services/buildr/docs/known-limitations.md)。
 
 ## 文档
 
 - [产品说明](projects/product/docs/buildr-product.md)：完整定位、核心模型、边界和 Roadmap
-- [Buildr Skill](projects/product/package/targets/runtime/skills/buildr/SKILL.md)：Agent 使用 Buildr 的主要入口
-- [CLI Reference](projects/product/docs/cli-reference.md)：公开命令和参数
-- [Runtime Adapters](projects/product/docs/agent-runtime-adapters.md)：各 Agent 的接入方式和限制
+- [Buildr Skill](projects/product/services/buildr/package/targets/runtime/skills/buildr/SKILL.md)：Agent 使用 Buildr 的主要入口
+- [CLI Reference](projects/product/services/buildr/docs/cli-reference.md)：公开命令和参数
+- [Runtime Adapters](projects/product/services/buildr/docs/agent-runtime-adapters.md)：各 Agent 的接入方式和限制
 - [OpenSpec specs](projects/product/openspec/specs/)：规范性产品行为契约
 
 ## Buildr 自举 workspace
 
-本仓库也是 Buildr 开发自身的 workspace。产品源只在 `projects/product/` 维护；根目录资产是消费状态。
+本仓库也是 Buildr 开发自身的 workspace。Product 治理事实维护在 `projects/product/`，可执行产品的唯一源码根是 `projects/product/services/buildr/`；根目录资产是消费状态。
 
 ```bash
 projects/product/buildr runtime list --json
