@@ -288,6 +288,7 @@ templateVariables:
   - profile
   - workspaceId
   - project
+  - projectId
 
 forbiddenPatterns:
   - /Users/

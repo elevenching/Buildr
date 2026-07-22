@@ -151,6 +151,21 @@ export function createLocalWorkspaceServer(runtime, { targetRoot, port = 0 } = {
         jsonResponse(response, 200, runtime.updateProjectMetadata(root, projectMatch[1], await readJsonBody(request)));
         return;
       }
+      const servicesMatch = requestUrl.pathname.match(/^\/api\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/services$/);
+      if (request.method === 'GET' && servicesMatch) {
+        jsonResponse(response, 200, runtime.listServices(root, servicesMatch[1]));
+        return;
+      }
+      const serviceMatch = requestUrl.pathname.match(/^\/api\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/services\/([A-Za-z0-9][A-Za-z0-9._-]*)$/);
+      if (request.method === 'GET' && serviceMatch) {
+        jsonResponse(response, 200, runtime.serviceDetail(root, serviceMatch[1], serviceMatch[2]));
+        return;
+      }
+      if (request.method === 'PUT' && serviceMatch) {
+        assertWriteRequest(request, origin, sessionToken);
+        jsonResponse(response, 200, runtime.updateServiceMetadata(root, serviceMatch[1], serviceMatch[2], await readJsonBody(request)));
+        return;
+      }
       if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/workspace-create') {
         assertWriteRequest(request, origin, sessionToken);
         jsonResponse(response, 200, runtime.generateWorkspaceCreatePrompt(await readJsonBody(request)));
@@ -159,6 +174,11 @@ export function createLocalWorkspaceServer(runtime, { targetRoot, port = 0 } = {
       if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/project-create') {
         assertWriteRequest(request, origin, sessionToken);
         jsonResponse(response, 200, runtime.generateProjectCreatePrompt(await readJsonBody(request)));
+        return;
+      }
+      if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/service-create') {
+        assertWriteRequest(request, origin, sessionToken);
+        jsonResponse(response, 200, runtime.generateServiceCreatePrompt(await readJsonBody(request)));
         return;
       }
       jsonResponse(response, 404, { error: { code: 'not_found', message: '请求的 Buildr 本地应用资源不存在。' } });

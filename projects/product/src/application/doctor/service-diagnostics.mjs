@@ -10,6 +10,7 @@ export function createServiceDiagnostics(deps) {
     gitignoreLines,
     listManagedDirectories,
     parseServicesManifestYaml,
+    parseServicesManifest,
     path,
     projectDoctorContextFor,
     readGitRemote,
@@ -45,6 +46,31 @@ export function createServiceDiagnostics(deps) {
         path: toPosixRelative(targetRoot, metadataPath),
         suggestion: '运行 buildr update 或 buildr sync 修复低风险默认值并清理未知字段；project 字段冲突需要人工确认。',
       });
+    }
+
+    if (manifest.schemaVersion === 'buildr.services/v1') {
+      addDoctorFinding(result, 'warning', 'services.migration_required', `Service registry 等待显式迁移：${serviceLabel}`, {
+        path: toPosixRelative(targetRoot, metadataPath),
+        suggestion: '运行 canonical buildr sync <agent> 迁移到 buildr.services/v2。',
+      });
+    } else if (manifest.schemaVersion === 'buildr.services/v2') {
+      try {
+        const domain = parseServicesManifest(fs.readFileSync(metadataPath, 'utf8'), { projectCode: owner.project });
+        manifest = {
+          ...manifest,
+          services: Object.fromEntries(Object.entries(domain.entities).map(([code, service]) => [code, {
+            title: service.name,
+            description: service.description,
+            type: service.type,
+            path: `services/${code}`,
+            repo: service.source.type === 'git'
+              ? { kind: 'git', url: service.source.git.url, remote: service.source.git.remote, branch: service.source.git.integrationBranch }
+              : { kind: 'workspace' },
+          }])),
+        };
+      } catch {
+        return;
+      }
     }
 
     if (existsFile(path.join(baseRoot, 'services.yml'))) {

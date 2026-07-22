@@ -46,16 +46,21 @@ dt { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
 dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
 .create-card { margin-top: 20px; }
 .projects-card { margin-top: 20px; }
+.services-card { margin-top: 20px; }
 .project-layout { display: grid; grid-template-columns: minmax(210px, .65fr) minmax(0, 1.6fr); gap: 22px; align-items: start; }
 .project-list { display: grid; gap: 9px; }
-.project-list button { width: 100%; padding: 13px 14px; text-align: left; border: 1px solid var(--line); border-radius: 13px; color: var(--ink); background: #fbfcfb; cursor: pointer; }
-.project-list button strong, .project-list button span { display: block; }
-.project-list button span { margin-top: 4px; color: var(--muted); font-size: 12px; }
-.project-list button.active { border-color: #65a88a; background: var(--green-soft); }
+.service-layout { display: grid; grid-template-columns: minmax(210px, .65fr) minmax(0, 1.6fr); gap: 22px; align-items: start; }
+.service-list { display: grid; gap: 9px; }
+.project-list button, .service-list button { width: 100%; padding: 13px 14px; text-align: left; border: 1px solid var(--line); border-radius: 13px; color: var(--ink); background: #fbfcfb; cursor: pointer; }
+.project-list button strong, .project-list button span, .service-list button strong, .service-list button span { display: block; }
+.project-list button span, .service-list button span { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.project-list button.active, .service-list button.active { border-color: #65a88a; background: var(--green-soft); }
 .project-detail { min-width: 0; padding-left: 22px; border-left: 1px solid var(--line); }
-.project-detail-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 20px; }
+.service-detail { min-width: 0; padding-left: 22px; border-left: 1px solid var(--line); }
+.project-detail-heading, .service-detail-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 20px; }
 h3 { margin: 0; font-size: 25px; }
 .project-facts { grid-template-columns: 1fr 1fr; column-gap: 18px; }
+.service-facts { grid-template-columns: 1fr 1fr; column-gap: 18px; }
 .findings { display: grid; gap: 8px; margin-top: 18px; }
 .finding { padding: 10px 12px; border-radius: 10px; background: var(--amber-soft); color: var(--amber); font-size: 13px; line-height: 1.5; }
 .finding.error { color: #8f2929; background: #fdeaea; }
@@ -69,9 +74,10 @@ h3 { margin: 0; font-size: 25px; }
 .hidden { display: none; }
 @media (max-width: 760px) {
   main { width: min(100% - 28px, 1120px); padding-top: 46px; }
-  .layout, .prompt-grid, .project-layout, .project-facts { grid-template-columns: 1fr; }
+  .layout, .prompt-grid, .project-layout, .project-facts, .service-layout, .service-facts { grid-template-columns: 1fr; }
   .full { grid-column: auto; }
   .section-heading, .copy-row { align-items: flex-start; flex-direction: column; }
   .card { padding: 22px; border-radius: 18px; }
   .project-detail { padding: 22px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+  .service-detail { padding: 22px 0 0; border-left: 0; border-top: 1px solid var(--line); }
 }

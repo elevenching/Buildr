@@ -3,6 +3,7 @@ import path from 'node:path';
 import { PACKAGE_BOOTSTRAP_CONTRACT } from '../../infrastructure/product-layout.mjs';
 import { SUPPORTED_AGENT_IDS } from '../../infrastructure/runtime/adapter-contract.mjs';
 import { createProject as createProjectEntity } from '../../domain/project/project.mjs';
+import { createService as createServiceEntity } from '../../domain/service/service.mjs';
 
 export function registerDomainsPackageAssets(runtime) {
   const readGitRemote = (...args) => runtime.readGitRemote(...args);
@@ -527,7 +528,7 @@ export function registerDomainsPackageAssets(runtime) {
     };
   }
 
-  function repairProjectBaseline(targetRoot, projectName, changed) {
+  function repairProjectBaseline(targetRoot, projectName, projectEntity, changed) {
     const manifest = readPackageManifest();
     const projectRoot = path.join(targetRoot, 'projects', projectName);
     ensureDirectory(projectRoot);
@@ -535,6 +536,7 @@ export function registerDomainsPackageAssets(runtime) {
     const variables = { project: projectName };
     for (const rawEntry of manifest.projectFiles) {
       const entry = parseManifestFileEntry(rawEntry, 'projectFiles');
+      if (entry.target === 'services/manifest.yml') continue;
       if (entry.target === 'services/manifest.yml' && existsFile(path.join(projectRoot, 'services.yml'))) {
         continue;
       }
@@ -547,7 +549,7 @@ export function registerDomainsPackageAssets(runtime) {
     // creates, rewrites, merges, or deletes it.
     const servicesFile = servicesManifestPath(projectRoot);
     if (!existsFile(servicesFile) && !existsFile(path.join(projectRoot, 'services.yml'))) {
-      writeServicesManifest(projectRoot, { schemaVersion: 'buildr.services/v1', project: projectName, services: {} });
+      runtime.writeServiceRegistry(servicesFile, projectEntity.id, {});
       changed.push(toPosixRelative(targetRoot, servicesFile));
     }
   }
@@ -562,47 +564,63 @@ export function registerDomainsPackageAssets(runtime) {
     changed.push(toPosixRelative(targetRoot, file));
   }
 
-  function convergeServiceManifest(targetRoot, projectName, changed) {
+  function convergeServiceManifest(targetRoot, project, workspaceId, changed) {
+    const projectName = project.code;
     const projectRoot = path.join(targetRoot, 'projects', projectName);
     const servicesRoot = path.join(projectRoot, 'services');
     const manifestFile = servicesManifestPath(projectRoot);
     const legacyFile = path.join(projectRoot, 'services.yml');
-    let manifest;
+    let legacy = null;
+    let entities = {};
 
     ensureDirectory(servicesRoot);
     if (!existsFile(manifestFile) && existsFile(legacyFile)) {
       const legacyServices = parseServicesYaml(fs.readFileSync(legacyFile, 'utf8'));
-      manifest = { schemaVersion: 'buildr.services/v1', project: projectName, services: {} };
+      legacy = { schemaVersion: 'buildr.services/v1', project: projectName, services: {} };
       for (const [serviceName, service] of Object.entries(legacyServices)) {
-        manifest.services[serviceName] = normalizeServiceEntry(serviceName, service, path.join(servicesRoot, serviceName));
+        legacy.services[serviceName] = normalizeServiceEntry(serviceName, service, path.join(servicesRoot, serviceName));
       }
     } else if (existsFile(manifestFile)) {
-      manifest = parseServicesManifestYaml(fs.readFileSync(manifestFile, 'utf8'));
+      const content = fs.readFileSync(manifestFile, 'utf8');
+      const raw = parseServicesManifestYaml(content);
+      if (raw.schemaVersion === 'buildr.services/v2') {
+        entities = Object.fromEntries(Object.entries(runtime.parseServicesManifest(content, { projectCode: projectName }).entities).map(([code, service]) => [code, createServiceEntity({ ...service, workspaceId, projectId: project.id, projectCode: projectName })]));
+      } else legacy = raw;
     } else {
-      manifest = { schemaVersion: 'buildr.services/v1', project: projectName, services: {} };
+      legacy = { schemaVersion: 'buildr.services/v1', project: projectName, services: {} };
+    }
+
+    if (legacy) {
+      for (const [serviceName, service] of Object.entries(legacy.services || {})) {
+        const normalized = normalizeServiceEntry(serviceName, service, path.join(servicesRoot, serviceName));
+        const sourcePath = `projects/${projectName}/services/${serviceName}`;
+        const source = normalized.repo.kind === 'git'
+          ? { type: 'git', path: sourcePath, git: { url: normalized.repo.url || '', remote: normalized.repo.remote || 'origin', integrationBranch: normalized.repo.branch || normalized.repo.defaultBranch || '' } }
+          : { type: 'workspace', path: sourcePath };
+        entities[serviceName] = createServiceEntity({ id: runtime.crypto.randomUUID(), workspaceId, projectId: project.id, projectCode: projectName, code: serviceName, name: normalized.title, description: normalized.description, type: normalized.type, source });
+      }
     }
 
     for (const serviceName of listManagedDirectories(servicesRoot)) {
-      if (!manifest.services[serviceName]) {
-        manifest.services[serviceName] = normalizeServiceEntry(serviceName, {}, path.join(servicesRoot, serviceName));
-      }
+      if (entities[serviceName]) continue;
+      const serviceRoot = path.join(servicesRoot, serviceName);
+      const git = runtime.observeProjectGit(serviceRoot, 'origin');
+      const source = git.repository
+        ? { type: 'git', path: `projects/${projectName}/services/${serviceName}`, git: { url: git.remoteUrl || '', remote: 'origin', integrationBranch: git.currentBranch || '' } }
+        : { type: 'workspace', path: `projects/${projectName}/services/${serviceName}` };
+      entities[serviceName] = createServiceEntity({ id: runtime.crypto.randomUUID(), workspaceId, projectId: project.id, projectCode: projectName, code: serviceName, name: serviceName, description: defaultAssetDescription('Service', serviceName), type: 'service', source });
     }
-    for (const [serviceName, service] of Object.entries(manifest.services || {})) {
-      manifest.services[serviceName] = normalizeServiceEntry(serviceName, service, path.join(servicesRoot, serviceName));
-    }
-    manifest.schemaVersion = 'buildr.services/v1';
-    manifest.project = projectName;
 
-    const nextContent = renderServicesManifestYaml(manifest);
+    const nextContent = runtime.renderServicesDomainManifest(project.id, entities);
     if (!existsFile(manifestFile) || fs.readFileSync(manifestFile, 'utf8') !== nextContent) {
-      writeServicesManifest(projectRoot, manifest);
+      runtime.writeServiceRegistry(manifestFile, project.id, entities);
       changed.push(toPosixRelative(targetRoot, manifestFile));
     }
     if (existsFile(legacyFile)) {
       fs.rmSync(legacyFile, { force: true });
       changed.push(toPosixRelative(targetRoot, legacyFile));
     }
-    return manifest;
+    return { schemaVersion: 'buildr.services/v2', projectId: project.id, services: entities };
   }
 
   function missingAncestorForMutation(targetRoot, target) {
@@ -696,10 +714,9 @@ export function registerDomainsPackageAssets(runtime) {
     if (record.registry.migrationRequired) throw new Error('Project registry migration must complete before registry convergence.');
     const projects = { ...record.projects };
 
-    for (const projectName of listManagedDirectories(path.join(targetRoot, 'projects'))) {
+    const projectNames = listManagedDirectories(path.join(targetRoot, 'projects'));
+    for (const projectName of projectNames) {
       const projectRoot = path.join(targetRoot, 'projects', projectName);
-      repairProjectBaseline(targetRoot, projectName, changed);
-      convergeServiceManifest(targetRoot, projectName, changed);
       if (!projects[projectName]) {
         const git = runtime.observeProjectGit(projectRoot, 'origin');
         const source = git.repository
@@ -728,6 +745,11 @@ export function registerDomainsPackageAssets(runtime) {
     if (!existsFile(registryFile) || fs.readFileSync(registryFile, 'utf8') !== nextContent) {
       runtime.writeProjectRegistry(registryFile, projects);
       changed.push(toPosixRelative(targetRoot, registryFile));
+    }
+
+    for (const projectName of projectNames) {
+      repairProjectBaseline(targetRoot, projectName, projects[projectName], changed);
+      convergeServiceManifest(targetRoot, projects[projectName], record.workspace.workspace.id, changed);
     }
 
     convergeSkillsManifestSchema(targetRoot, targetRoot, changed);

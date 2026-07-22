@@ -174,27 +174,27 @@
     "meta": {
       "title": "Buildr 产品化与数据模型演进",
       "taskId": "buildr-productization-modeling",
-      "status": "Project 已完成 · Service 待启动",
-      "phase": "Service Domain 准备",
-      "taskProgress": "Project change 14/14 · Workspace 与 Project 已完成 · Service change 待创建 · 依赖池 1 组",
-      "updatedAt": "2026-07-22 00:11",
+      "status": "Service 产品化实现中",
+      "phase": "Service Domain 垂直切片",
+      "taskProgress": "Workspace 与 Project 已完成 · Service change 13/14 · 依赖池 1 组",
+      "updatedAt": "2026-07-22",
       "relativePath": "projects/product/openspec/knowledge/task-boards/2026-07-20-buildr-productization-modeling.html"
     },
     "overview": {
       "purpose": "把 Buildr 从文件系统原型逐步演进为人类友好、Agent 友好的产品，并先统一核心领域模型和应用边界。",
-      "conclusion": "Workspace 垂直切片已经归档；Project Domain、v2 manifest、应用层、Git observation、CLI、doctor 和本地 UI 已实现并完成真实浏览器验收。",
-      "currentFocus": "Project change 已同步规格并归档；完成提交、集成与自举迁移后，从最新 dev 创建独立 Service change。",
-      "userAttention": "Service 不进入已完成的 Project change；新切片继续采用 Domain、Application、存储适配、CLI/doctor 与 UI 的完整迭代。",
+      "conclusion": "Workspace、Project 已归档；Service 已建立 Domain、v2 manifest、应用层、Git observation、CLI、doctor、HTTP 与页面主路径，正在完成产品资产和最终验证。",
+      "currentFocus": "完成 Service 页面真实浏览器验收、affected checks 和最终 Candidate。",
+      "userAttention": "Service v1 普通读取不写盘；只有 canonical sync 显式迁移。页面只修改 name/description/type，新增只生成 Agent prompt。",
       "highlights": {
         "done": { "title": "已经完成", "text": "Workspace 与 Project 的 Domain、迁移、应用层、本机 API、页面、Agent prompt 与完整验证" },
-        "current": { "title": "当前状态", "text": "Project change 14/14，规格已同步并归档，正在完成 Git 收尾" },
-        "next": { "title": "下一步", "text": "从最新 dev 创建独立 Service change 和 tasks/ 分支" }
+        "current": { "title": "当前状态", "text": "Service change 已完成 13/14，affected 验证 44.864 秒无失败，等待最终 Candidate" },
+        "next": { "title": "下一步", "text": "真实浏览器验收、受影响验证与 Candidate" }
       },
       "blockers": [],
       "flow": [
         { "title": "Workspace", "text": "完整垂直切片已实现、验证并归档" },
         { "title": "Project", "text": "完整垂直切片已实现、验证并归档" },
-        { "title": "Service", "text": "待创建独立 change，开始下一轮完整切片" },
+        { "title": "Service", "text": "独立 change 实现中，已完成 Domain 到 UI 主路径" },
         { "title": "后续资产", "text": "Rule、Skill、Task 等不进入本 change" }
       ]
     },
@@ -226,6 +226,13 @@
         "path": "openspec/changes/archive/2026-07-21-productize-project-domain-and-ui/",
         "summary": "建立 Project Domain、v2 manifest、应用用例、Git 声明/观察诊断、CLI 与本地 Project 页面。",
         "batchIds": ["batch-project-slice"]
+      },
+      {
+        "id": "productize-service-domain-and-ui",
+        "status": "active",
+        "path": "openspec/changes/productize-service-domain-and-ui/",
+        "summary": "建立 Service Domain、v2 manifest、父实体关联、Git 声明/观察、CLI、doctor 与本地 Service 页面。",
+        "batchIds": ["batch-service-slice"]
       }
     ],
     "progress": {
@@ -326,16 +333,17 @@
         },
         {
           "id": "batch-service-slice",
-          "status": "next",
-          "label": "待启动",
-          "title": "下一批次 · Service 产品化",
-          "summary": "Project change 收尾后，从最新 dev 创建独立 change，重新定义 Service 模型、应用层和页面。",
+          "status": "current",
+          "label": "实现中",
+          "title": "模块 4 · Service 产品化",
+          "summary": "正在按已确认模型完成 Service Domain、文件适配、应用层、Git 实际状态和本机页面的完整垂直切片。",
           "deliverable": "Service Domain、v2 manifest、应用层、Git 状态和本机页面的完整垂直切片。",
-          "changeIds": [],
+          "changeIds": ["productize-service-domain-and-ui"],
           "items": [
-            "原 tasks 5–6 已从 active change 移除",
-            "不从当前 worktree 继续开发",
-            "必须基于迁移后的源码架构重新设计"
+            "Service entity：id、workspaceId、projectId、code、name、description、type、source",
+            "source.path 使用 Workspace 相对完整路径；Git source 声明 url、remote、integrationBranch",
+            "v1 普通读取零写入；canonical sync 显式迁移为 buildr.services/v2",
+            "页面只修改 name/description/type；identity、父关联、source 与 Git 操作保持只读或 prompt-only"
           ]
         },
         {

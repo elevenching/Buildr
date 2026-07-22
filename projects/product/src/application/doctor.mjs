@@ -27,6 +27,7 @@ export function registerApplicationDoctor(runtime) {
   const skillsManifestPath = (...args) => runtime.skillsManifestPath(...args);
   const parseYamlValue = (...args) => runtime.parseYamlValue(...args);
   const parseServicesManifestYaml = (...args) => runtime.parseServicesManifestYaml(...args);
+  const parseServicesManifest = (...args) => runtime.parseServicesManifest(...args);
   const parseProjectsYaml = (...args) => runtime.parseProjectsYaml(...args);
   const validateProjectsRegistry = (...args) => runtime.validateProjectsRegistry(...args);
   const validateServicesManifest = (...args) => runtime.validateServicesManifest(...args);
@@ -94,6 +95,7 @@ export function registerApplicationDoctor(runtime) {
     gitignoreLines,
     listManagedDirectories,
     parseServicesManifestYaml,
+    parseServicesManifest,
     path,
     projectDoctorContextFor,
     readGitRemote,

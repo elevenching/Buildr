@@ -5,6 +5,7 @@ import process from 'node:process';
 import { execFileSync, spawnSync } from '../../infrastructure/process.mjs';
 import YAML from 'yaml';
 import { createProject as createProjectEntity } from '../../domain/project/project.mjs';
+import { createService as createServiceEntity } from '../../domain/service/service.mjs';
 import { parseProjectsManifest, renderProjectsManifest } from '../../infrastructure/filesystem/project-manifest-repository.mjs';
 
 export function registerDomainsWorkspace(runtime) {
@@ -181,6 +182,7 @@ export function registerDomainsWorkspace(runtime) {
   }
 
   function renderServicesManifestYaml(manifest) {
+    if (manifest.schemaVersion === 'buildr.services/v2') return runtime.renderServicesDomainManifest(manifest.projectId, manifest.services || {});
     const services = manifest.services || {};
     const names = Object.keys(services).sort();
     const lines = ['schemaVersion: buildr.services/v1', `project: ${quoteYaml(manifest.project)}`];
@@ -207,6 +209,14 @@ export function registerDomainsWorkspace(runtime) {
   }
 
   function validateServicesManifest(manifest, expectedProject) {
+    if (manifest?.schemaVersion === 'buildr.services/v2') {
+      try {
+        runtime.parseServicesManifest(YAML.stringify(manifest), { projectCode: expectedProject });
+        return [];
+      } catch (error) {
+        return [error.message];
+      }
+    }
     const errors = [];
     if (manifest.schemaVersion !== 'buildr.services/v1') {
       errors.push('services/manifest.yml schemaVersion must be buildr.services/v1.');
@@ -488,10 +498,9 @@ export function registerDomainsWorkspace(runtime) {
         const variables = { project };
         for (const rawEntry of manifest.projectFiles) {
           const entry = parseManifestFileEntry(rawEntry, 'projectFiles');
+          if (entry.target === 'services/manifest.yml') continue;
           writeMappedFileIfMissing(targetRoot, projectRoot, entry, variables, created);
         }
-        trackWrite(targetRoot, servicesManifestPath(projectRoot), renderServicesManifestYaml({ schemaVersion: 'buildr.services/v1', project, services: {} }), created);
-
         const source = repoRef
           ? {
             type: 'git',
@@ -514,6 +523,9 @@ export function registerDomainsWorkspace(runtime) {
           source,
         });
         runtime.writeProjectRegistry(registryRecord.manifestPath, { ...registryRecord.projects, [project]: entity });
+        const serviceRegistryPath = servicesManifestPath(projectRoot);
+        runtime.writeServiceRegistry(serviceRegistryPath, entity.id, {});
+        if (!created.includes(toPosixRelative(targetRoot, serviceRegistryPath))) created.push(toPosixRelative(targetRoot, serviceRegistryPath));
         const registryPath = registryRecord.manifestPath;
         changed.push(toPosixRelative(targetRoot, registryPath));
         changed.push(...ensureGitBoundaries(targetRoot, [{ type: 'project', project, assetRoot: projectRoot }]));
@@ -525,17 +537,22 @@ export function registerDomainsWorkspace(runtime) {
   }
 
   function createService(args) {
-    assertNoUnknownOptions(args, new Set(['--target', '--type', '--rules', '--branch']));
-    const ref = args[0];
-    const repoRef = args[1];
+    assertNoUnknownOptions(args, new Set(['--target', '--name', '--title', '--description', '--type', '--rules', '--branch', '--integration-branch', '--remote', '--json']), new Set(['--json']));
+    const positional = positionalArgs(args);
+    const ref = positional[0];
+    const repoRef = positional[1];
     if (!ref) throw new Error('Missing service ref');
     if (!repoRef) throw new Error('Missing repo ref');
 
     const { project, service } = parseServiceRef(ref);
     const targetRoot = path.resolve(optionValue(args, '--target', process.cwd()));
+    const nameInput = optionValue(args, '--name', optionValue(args, '--title', null));
+    const descriptionInput = optionValue(args, '--description', null);
     const serviceType = optionValue(args, '--type', null);
     const rulesSource = optionValue(args, '--rules', null);
-    const branchInput = optionValue(args, '--branch', null);
+    const branchInput = optionValue(args, '--integration-branch', optionValue(args, '--branch', null));
+    const remoteInput = optionValue(args, '--remote', 'origin');
+    const jsonOutput = args.includes('--json');
     assertGitBranch(branchInput);
     const projectRoot = path.join(targetRoot, 'projects', project);
     const servicesRoot = path.join(projectRoot, 'services');
@@ -547,19 +564,21 @@ export function registerDomainsWorkspace(runtime) {
     }
 
     const gitSource = isGitUrl(repoRef);
-    const existingManifest = readServicesManifestForWrite(projectRoot, project);
-    const existingEntry = existingManifest.services[service] || null;
-    if (branchInput && !gitSource) throw new Error('--branch is only supported for Git Service sources.');
-    if (branchInput && existingEntry?.repo?.branch && existingEntry.repo.branch !== branchInput) {
-      throw new Error(`Service branch intent conflicts for ${project}/${service}: requested ${branchInput}, recorded ${existingEntry.repo.branch}.`);
+    const registryRecord = runtime.readServiceRegistryRecord(targetRoot, project);
+    if (registryRecord.registry.migrationRequired) throw new Error('Service registry needs migration before service create. Run canonical buildr sync <agent> first.');
+    const existingEntry = registryRecord.services[service] || null;
+    if (branchInput && !gitSource) throw new Error('--integration-branch is only supported for Git Service sources.');
+    if (!gitSource && optionValue(args, '--remote', null)) throw new Error('--remote is only supported for Git Service sources.');
+    if (branchInput && existingEntry?.source?.git?.integrationBranch && existingEntry.source.git.integrationBranch !== branchInput) {
+      throw new Error(`Service integration branch conflicts for ${project}/${service}: requested ${branchInput}, recorded ${existingEntry.source.git.integrationBranch}.`);
     }
-    const requestedBranch = branchInput || existingEntry?.repo?.branch || null;
+    const requestedBranch = branchInput || existingEntry?.source?.git?.integrationBranch || null;
     if (gitSource && existsDirectory(servicePath)) {
       if (!existsDirectory(path.join(servicePath, '.git'))) throw new Error(`Service Git target exists but is not a Git repository: projects/${project}/services/${service}`);
-      const actualUrl = readGitRemote(servicePath, 'origin');
+      const actualUrl = readGitRemote(servicePath, remoteInput);
       if (!actualUrl || !sameGitIdentity(actualUrl, repoRef)) throw new Error(`Service repo identity conflicts for ${project}/${service}: expected ${repoRef}, actual ${actualUrl || '<missing origin>'}.`);
-      if (existingEntry?.repo?.kind && existingEntry.repo.kind !== 'git') throw new Error(`Service metadata identity conflicts for ${project}/${service}: existing repo.kind is ${existingEntry.repo.kind}, requested git.`);
-      if (existingEntry?.repo?.url && !sameGitIdentity(existingEntry.repo.url, repoRef)) throw new Error(`Service metadata URL conflicts for ${project}/${service}: expected ${repoRef}, recorded ${existingEntry.repo.url}.`);
+      if (existingEntry?.source?.type && existingEntry.source.type !== 'git') throw new Error(`Service metadata identity conflicts for ${project}/${service}: existing source.type is ${existingEntry.source.type}, requested git.`);
+      if (existingEntry?.source?.git?.url && !sameGitIdentity(existingEntry.source.git.url, repoRef)) throw new Error(`Service metadata URL conflicts for ${project}/${service}: expected ${repoRef}, recorded ${existingEntry.source.git.url}.`);
       const actualBranch = gitCurrentBranch(servicePath);
       if (requestedBranch && actualBranch !== requestedBranch) throw new Error(`Service branch conflicts for ${project}/${service}: expected ${requestedBranch}, actual ${actualBranch}.`);
     }
@@ -582,20 +601,32 @@ export function registerDomainsWorkspace(runtime) {
           else fs.cpSync(localPath, staging, { recursive: true });
           fs.renameSync(staging, servicePath);
         }
-        const repo = gitSource ? { kind: 'git', url: repoRef, remote: 'origin', defaultBranch: gitDefaultBranch(servicePath) } : { kind: inferRepoKind(servicePath) };
-        if (gitSource && requestedBranch) repo.branch = requestedBranch;
-        if (repo.kind === 'git' && !gitSource) {
-          repo.remote = 'origin';
-          repo.defaultBranch = gitDefaultBranch(servicePath);
-          const url = readGitRemote(servicePath, 'origin');
-          if (url) repo.url = url;
-        }
-        const metadata = { title: service, description: defaultAssetDescription('Service', service), type: serviceType || 'service', path: `services/${service}`, repo };
+        const actualKind = inferRepoKind(servicePath);
+        const actualRemote = gitSource ? remoteInput : 'origin';
+        const actualUrl = actualKind === 'git' ? (gitSource ? repoRef : readGitRemote(servicePath, actualRemote)) : null;
+        const declaredGit = actualKind === 'git' && Boolean(actualUrl);
+        const integrationBranch = declaredGit ? (requestedBranch || gitDefaultBranch(servicePath, actualRemote) || gitCurrentBranch(servicePath)) : null;
+        const source = declaredGit
+          ? { type: 'git', path: `projects/${project}/services/${service}`, git: { url: actualUrl, remote: actualRemote, integrationBranch } }
+          : { type: 'workspace', path: `projects/${project}/services/${service}` };
+        const entity = createServiceEntity({
+          id: existingEntry?.id || runtime.crypto.randomUUID(),
+          workspaceId: registryRecord.workspaceId,
+          projectId: registryRecord.project.id,
+          projectCode: project,
+          code: service,
+          name: nameInput || existingEntry?.name || service,
+          description: descriptionInput || existingEntry?.description || defaultAssetDescription('Service', service),
+          type: serviceType || existingEntry?.type || 'service',
+          source,
+        });
         if (rulesSource) console.error('Warning: --rules is deprecated. Service AGENTS.md is treated as the service rule asset and is not recorded in services/manifest.yml.');
-        const metadataPath = updateServicesManifest(projectRoot, project, service, metadata);
+        runtime.writeServiceRegistry(registryRecord.manifestPath, registryRecord.project.id, { ...registryRecord.services, [service]: entity });
+        const metadataPath = registryRecord.manifestPath;
         changed.push(path.relative(targetRoot, metadataPath).split(path.sep).join('/'));
         for (const file of ensureGitBoundaries(targetRoot, [{ type: 'service', project, service, assetRoot: servicePath }])) changed.push(file);
-        printResult(`Created service ${project}/${service}`, targetRoot, [], changed);
+        if (jsonOutput) console.log(JSON.stringify({ ...runtime.serviceDetail(targetRoot, project, service), changed }, null, 2));
+        else printResult(`Created service ${project}/${service}`, targetRoot, [], changed);
       } finally {
         if (fs.existsSync(staging)) fs.rmSync(staging, { recursive: true, force: true });
       }

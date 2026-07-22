@@ -52,12 +52,12 @@ try {
   assert.equal(run('git', ['branch', '--show-current'], { cwd: serviceRoot }).stdout.trim(), 'feature');
   assert.equal(fs.existsSync(path.join(serviceRoot, 'FEATURE.md')), true);
   const manifest = YAML.parse(fs.readFileSync(path.join(workspace, 'projects', 'demo', 'services', 'manifest.yml'), 'utf8'));
-  assert.equal(manifest.services.api.repo.branch, 'feature');
-  assert.equal(manifest.services.api.repo.defaultBranch, 'main');
+  assert.equal(manifest.schemaVersion, 'buildr.services/v2');
+  assert.equal(manifest.services.api.source.git.integrationBranch, 'feature');
 
   run(process.execPath, [buildr, 'service', 'create', 'demo/api', remote, '--target', workspace, '--type', 'backend']);
   const conflicting = run(process.execPath, [buildr, 'service', 'create', 'demo/api', remote, '--branch', 'main', '--target', workspace], { expected: 1 });
-  assert.match(conflicting.stderr, /branch intent conflicts/);
+  assert.match(conflicting.stderr, /integration branch conflicts/);
 
   run('git', ['fetch', 'origin', 'main:refs/remotes/origin/main'], { cwd: serviceRoot });
   run('git', ['checkout', '-b', 'main', 'origin/main'], { cwd: serviceRoot });

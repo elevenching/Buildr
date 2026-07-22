@@ -2,6 +2,8 @@ const sessionToken = document.querySelector('meta[name="buildr-session"]').conte
 let currentWorkspace = null;
 let currentProjects = null;
 let currentProject = null;
+let currentServices = null;
+let currentService = null;
 
 const byId = (id) => document.getElementById(id);
 
@@ -108,6 +110,83 @@ function renderProjectDetail(data) {
     item.textContent = finding.message;
     findings.append(item);
   }
+  loadServices(project.code);
+}
+
+function renderServiceList(data) {
+  currentServices = data;
+  const list = byId('service-list');
+  list.replaceChildren();
+  byId('service-empty').classList.toggle('hidden', data.services.length > 0);
+  byId('services-state').textContent = `${data.services.length} 个 Service · ${data.project.code}`;
+  const alert = byId('services-migration-alert');
+  alert.classList.toggle('hidden', !data.migrationRequired);
+  alert.textContent = data.migrationRequired ? data.nextActions.join(' ') : '';
+  byId('service-prompt-project').value = data.project.code;
+  for (const service of data.services) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.code = service.code;
+    const title = document.createElement('strong');
+    title.textContent = service.name;
+    const metadata = document.createElement('span');
+    metadata.textContent = `${service.code} · ${service.type} · ${service.source.type}`;
+    button.append(title, metadata);
+    button.addEventListener('click', () => loadService(data.project.code, service.code));
+    list.append(button);
+  }
+}
+
+function renderServiceDetail(data) {
+  currentService = data;
+  const service = data.service;
+  byId('service-detail').classList.remove('hidden');
+  byId('service-title').textContent = service.name;
+  byId('service-name').value = service.name;
+  byId('service-description').value = service.description;
+  byId('service-type').value = service.type;
+  byId('service-id').textContent = service.id || '迁移后生成';
+  byId('service-workspace-id').textContent = service.workspaceId || '迁移后写入';
+  byId('service-project-id').textContent = service.projectId || '迁移后写入';
+  byId('service-code').textContent = service.code;
+  byId('service-source').textContent = service.source.type === 'git' ? `${service.source.type} · ${service.source.git.url}` : service.source.type;
+  byId('service-path').textContent = service.source.path;
+  byId('service-integration-branch').textContent = service.source.git?.integrationBranch || '不适用';
+  byId('service-current-branch').textContent = data.observed?.currentBranch || (service.source.type === 'git' ? '无法读取' : '不适用');
+  byId('service-git-state').textContent = data.observed ? `HEAD ${data.observed.head?.slice(0, 10) || '—'} · ${data.observed.dirty ? '有未提交变化' : 'clean'} · ahead ${data.observed.ahead ?? '—'} / behind ${data.observed.behind ?? '—'}` : '不适用';
+  const readOnly = data.migrationRequired;
+  for (const id of ['service-name', 'service-description', 'service-type', 'service-save-button']) byId(id).disabled = readOnly;
+  byId('service-save-state').textContent = readOnly ? '迁移前只读' : '已读取真实 registry';
+  document.querySelectorAll('#service-list button').forEach((button) => button.classList.toggle('active', button.dataset.code === service.code));
+  const findings = byId('service-findings');
+  findings.replaceChildren();
+  for (const finding of data.comparison?.findings || []) {
+    const item = document.createElement('div');
+    item.className = `finding ${finding.status || ''}`;
+    item.textContent = finding.message;
+    findings.append(item);
+  }
+}
+
+async function loadServices(projectCode, preferredCode = null) {
+  try {
+    const data = await api(`/api/v1/projects/${encodeURIComponent(projectCode)}/services`);
+    renderServiceList(data);
+    const selected = data.services.find((service) => service.code === preferredCode) || data.services[0];
+    if (selected) await loadService(projectCode, selected.code);
+    else byId('service-detail').classList.add('hidden');
+  } catch (error) {
+    byId('services-state').textContent = '读取失败';
+    byId('service-empty').textContent = error.message;
+  }
+}
+
+async function loadService(projectCode, code) {
+  try {
+    renderServiceDetail(await api(`/api/v1/projects/${encodeURIComponent(projectCode)}/services/${encodeURIComponent(code)}`));
+  } catch (error) {
+    byId('services-state').textContent = error.message;
+  }
 }
 
 async function loadProjects(preferredCode = null) {
@@ -176,6 +255,49 @@ byId('project-form').addEventListener('submit', async (event) => {
   } catch (error) {
     state.textContent = error.code === 'project_revision_conflict' ? 'registry 已变化，请刷新' : error.message;
     button.disabled = false;
+  }
+});
+
+byId('service-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!currentService) return;
+  const state = byId('service-save-state');
+  const button = byId('service-save-button');
+  button.disabled = true;
+  state.textContent = '正在保存…';
+  try {
+    const projectCode = currentService.project.code;
+    const updated = await api(`/api/v1/projects/${encodeURIComponent(projectCode)}/services/${encodeURIComponent(currentService.service.code)}`, { method: 'PUT', body: JSON.stringify({ revision: currentService.revision, name: byId('service-name').value, description: byId('service-description').value, type: byId('service-type').value }) });
+    renderServiceDetail(updated);
+    await loadServices(projectCode, updated.service.code);
+    state.textContent = '保存成功';
+  } catch (error) {
+    state.textContent = error.code === 'service_revision_conflict' ? 'registry 已变化，请刷新' : error.message;
+    button.disabled = false;
+  }
+});
+
+byId('service-prompt-source').addEventListener('change', () => {
+  const git = byId('service-prompt-source').value === 'git';
+  byId('service-prompt-local-path').disabled = git;
+  for (const id of ['service-prompt-url', 'service-prompt-remote', 'service-prompt-branch']) byId(id).disabled = !git;
+});
+
+byId('service-prompt-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const result = await api('/api/v1/prompts/service-create', { method: 'POST', body: JSON.stringify({ projectCode: byId('service-prompt-project').value, code: byId('service-prompt-code').value, name: byId('service-prompt-name').value, description: byId('service-prompt-description').value, type: byId('service-prompt-type').value, sourceType: byId('service-prompt-source').value, localPath: byId('service-prompt-local-path').value, gitUrl: byId('service-prompt-url').value, remote: byId('service-prompt-remote').value, integrationBranch: byId('service-prompt-branch').value }) });
+  byId('service-prompt-output').value = result.prompt;
+  byId('service-prompt-result').classList.remove('hidden');
+  byId('service-copy-state').textContent = '复制不等于 Service 已创建；请交给 Agent 继续。';
+});
+
+byId('service-copy-button').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(byId('service-prompt-output').value);
+    byId('service-copy-state').textContent = '指令已复制。Service 尚未创建。';
+  } catch {
+    byId('service-prompt-output').select();
+    byId('service-copy-state').textContent = '浏览器未允许自动复制，已选中指令，请手动复制。';
   }
 });
 

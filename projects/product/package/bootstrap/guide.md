@@ -51,10 +51,10 @@ buildr doctor --agent <agent> --target <dir> --json
 
 ```bash
 buildr project create <project> --target <dir> [--repo <git-url>] [--title <text>] [--description <text>]
-buildr service create <project>/<service> <repo-ref> --target <dir> [--type <type>] [--branch <branch>]
+buildr service create <project>/<service> <repo-ref> --target <dir> --name <name> --description <description> --type <type> [--remote <name>] [--integration-branch <branch>]
 ```
 
-用户要管理业务、产品线、系统或长期工作单元时才创建 Project；Project 资产 repo 用 `project create --repo` clone 到 `projects/<project>/`，不登记外部本地链接。用户提供 service repo 路径、Git URL 或明确要接入服务资产时才创建 Service；Git 来源可用 `--branch` 保存显式 checkout intent。Service 规则入口是 Service 目录中的 `AGENTS.md`，不通过 registry 参数指定规则路径。
+用户要管理业务、产品线、系统或长期工作单元时才创建 Project；Project 资产 repo 用 `project create --repo` clone 到 `projects/<project>/`，不登记外部本地链接。用户提供 service repo 路径、Git URL 或明确要接入服务资产时才创建 Service。Service Domain 使用 UUID、workspaceId、projectId、code、name、description、type 与 source；Git 来源用 `--integration-branch` 保存稳定集成目标，当前 checkout 只观察。Service 规则入口是 Service 目录中的 `AGENTS.md`，不通过 registry 参数指定规则路径。
 
 ## 边界
 

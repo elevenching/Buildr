@@ -77,6 +77,47 @@
       </div>
     </section>
 
+    <section class="card services-card">
+      <div class="section-heading"><div><p class="eyebrow">SERVICES</p><h2>Service 目录</h2></div><span id="services-state" class="state">先选择 Project</span></div>
+      <p class="section-copy">Service 按所属 Project 组织；Domain 声明与实时 Git 状态分开显示。</p>
+      <div id="services-migration-alert" class="alert hidden" role="status"></div>
+      <div class="service-layout">
+        <div id="service-list" class="service-list" aria-label="Service 列表"></div>
+        <div id="service-empty" class="empty-state">当前 Project 尚未登记 Service。</div>
+        <section id="service-detail" class="service-detail hidden" aria-live="polite">
+          <div class="service-detail-heading"><div><p class="eyebrow">SERVICE DETAIL</p><h3 id="service-title">—</h3></div><span id="service-save-state" class="state">只读事实</span></div>
+          <form id="service-form">
+            <label>名称<input id="service-name" autocomplete="off" required></label>
+            <label>类型<input id="service-type" autocomplete="off" required></label>
+            <label>说明<textarea id="service-description" rows="4" required></textarea></label>
+            <div class="actions"><button id="service-save-button" class="button primary" type="submit">保存 Service</button></div>
+          </form>
+          <dl class="service-facts">
+            <div><dt>Service ID</dt><dd id="service-id">—</dd></div><div><dt>Workspace ID</dt><dd id="service-workspace-id">—</dd></div>
+            <div><dt>Project ID</dt><dd id="service-project-id">—</dd></div><div><dt>Code</dt><dd id="service-code">—</dd></div>
+            <div><dt>Source</dt><dd id="service-source">—</dd></div><div><dt>Path</dt><dd id="service-path">—</dd></div>
+            <div><dt>Integration branch</dt><dd id="service-integration-branch">不适用</dd></div><div><dt>Current branch</dt><dd id="service-current-branch">不适用</dd></div>
+            <div><dt>Git state</dt><dd id="service-git-state">不适用</dd></div>
+          </dl>
+          <div id="service-findings" class="findings"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="card create-card">
+      <div class="section-heading"><div><p class="eyebrow">AGENT ACTION</p><h2>创建 Service</h2></div><span class="state">生成指令</span></div>
+      <p class="section-copy">页面不会直接复制目录、clone 仓库或改写 registry；生成的指令交给 Agent 核对并执行。</p>
+      <form id="service-prompt-form" class="prompt-grid">
+        <label>所属 Project<input id="service-prompt-project" autocomplete="off" required></label><label>Code<input id="service-prompt-code" autocomplete="off" required></label>
+        <label>名称<input id="service-prompt-name" autocomplete="off" required></label><label>类型<input id="service-prompt-type" value="service" autocomplete="off" required></label>
+        <label>来源<select id="service-prompt-source"><option value="local">本地路径</option><option value="git">Git</option></select></label><label>本地路径<input id="service-prompt-local-path" autocomplete="off"></label>
+        <label>Git URL<input id="service-prompt-url" autocomplete="off" disabled></label><label>Remote<input id="service-prompt-remote" value="origin" autocomplete="off" disabled></label>
+        <label>Integration branch<input id="service-prompt-branch" autocomplete="off" disabled></label><label class="full">说明<textarea id="service-prompt-description" rows="4" required></textarea></label>
+        <div class="actions full"><button class="button secondary" type="submit">生成 Service 指令</button></div>
+      </form>
+      <div id="service-prompt-result" class="prompt-result hidden"><textarea id="service-prompt-output" rows="14" readonly></textarea><div class="copy-row"><button id="service-copy-button" class="button primary" type="button">复制指令</button><span id="service-copy-state">复制不等于 Service 已创建。</span></div></div>
+    </section>
+
     <section class="card create-card">
       <div class="section-heading">
         <div><p class="eyebrow">AGENT ACTION</p><h2>创建 Project</h2></div>

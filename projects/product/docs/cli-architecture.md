@@ -29,7 +29,7 @@ package/                      Buildr 向 Workspace/runtime 交付的源资产
 
 `bin/buildr.mjs` 只启动 `src/interfaces/cli/main.mjs`。Product 根 `buildr` 是 checkout convenience entry，也委托同一个 bin；npm 安装、checkout 执行与本机安装因此共享一套 implementation。
 
-`src/application/domains/` 保留原有 Rules、Skills、Commands、Components、Project/Service workspace 操作、OpenSpec 和 runtime handler。它们目前同时包含用例编排、文件读取和 mutation，因此不是纯 `domain`。Workspace 已完成首个垂直切片：`src/domain/workspace/` 只表达 `id/name/description` 与纯约束，`src/application/workspace/` 持有用例，`src/infrastructure/filesystem/workspace-manifest-repository.mjs` 持有 YAML/path/revision，`src/interfaces/local-app/` 持有 HTTP/Web。不得为了目录对称为 Project、Service 建立空 Domain，或把 filesystem/runtime 依赖伪装成领域模型。
+`src/application/domains/` 保留原有 Rules、Skills、Commands、Components、部分 workspace lifecycle、OpenSpec 和 runtime handler。Workspace、Project、Service 已完成垂直切片：`src/domain/<domain>/` 只表达实体、值对象和纯约束，`src/application/<domain>/` 持有用例，`src/infrastructure/filesystem/*-manifest-repository.mjs` 持有 YAML/path/revision，Git adapter 持有实时观察，`src/interfaces/local-app/` 持有 HTTP/Web。旧 lifecycle 只能逐步委托这些 Application，不得新增 interface 直接解析 manifest 的路径。
 
 ## 依赖方向与所有权
 

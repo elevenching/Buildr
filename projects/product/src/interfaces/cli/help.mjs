@@ -14,7 +14,7 @@ export function registerCommandHelp(runtime) {
     console.error(`  buildr init [--agent <${runtimeIds}>] [--target <dir>] [--name <name>] [--description <text>] [--profile <personal|team|company>]`);
     console.error('  buildr app [--target <workspace>] [--port <port>]');
     console.error('  buildr project create <code> [--target <dir>] [--name <text>] [--description <text>] [--repo <git-url>] [--remote <name>] [--integration-branch <branch>]');
-    console.error('  buildr service create <project>/<service> <repo-ref> [--target <dir>] [--type <type>] [--branch <branch>]');
+    console.error('  buildr service create <project>/<service> <repo-ref> [--target <dir>] [--name <text>] [--description <text>] [--type <type>] [--remote <name>] [--integration-branch <branch>] [--json]');
     console.error('  buildr doctor [--agent <agent>] [--target <dir>] [--scope <.|projects/project[/services/service[/path...]]>] [--json] [--include-info] [--verbose]');
     console.error('  buildr mutation recover <transaction-id> [--target <dir>]');
     console.error('  buildr commands add <id> --purpose <text> [--target <dir>] [--collection <path>] [--executable <name>] [--name <text>] [--description <text>] [--version-constraint <constraint>] [--version-args <args>] [--install-hint <text>] [--replace]');
@@ -115,9 +115,11 @@ export function registerCommandHelp(runtime) {
       'Project baseline 包含 commands.yml；它只引用 workspace Command catalog，不复制 executable、probe 或 install hint。',
     ],
     'service create': [
-      'Usage: buildr service create <project>/<service> <repo-ref> [--target <dir>] [--type <type>] [--branch <branch>]',
+      'Usage: buildr service create <project>/<service> <repo-ref> [--target <dir>] [--name <text>] [--description <text>] [--type <type>] [--remote <name>] [--integration-branch <branch>] [--json]',
       '',
-      '创建或登记 Service，并写入所属 Project 的 Service registry: services/manifest.yml。',
+      '创建或登记 Service，并把 UUID、workspaceId、projectId、code、name、description、type 与 source 写入所属 Project 的 services/manifest.yml。',
+      'Git remote 与 integration branch 是稳定声明；current branch、HEAD、dirty 和 upstream 状态只实时观察。',
+      '--title 和 --branch 继续作为 --name、--integration-branch 的 legacy compatibility 输入。',
       'Service 规则入口是 Service 目录中的 AGENTS.md，不在 Service registry 中记录规则路径。',
     ],
     doctor: [
