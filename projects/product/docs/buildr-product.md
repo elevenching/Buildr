@@ -188,12 +188,13 @@ Buildr 的数据完整性保护是不可卸载的 CLI core：资产 identity、s
 
 后续产品方向包括：
 
+- 以[Agent 时代的工作基础设施](roadmap/agent-work-infrastructure.md)明确长期产品边界：Agent 负责理解任务、选择 Workspace 与资产、形成上下文、自行编排和专业执行；Buildr Application Core 提供 Enterprise、多 Workspace、外部数据源、长期工作资产与可接续共享状态。飞书、Agent 原生界面和 Buildr 界面具有不同的用户价值，彼此的接入与会话承载方式仍待验证；ACP 是未来可研究的 Agent 接入协议，不是上下文编排器。
 - 正式 npm registry、release tag 和更多安装渠道；开发 checkout 与本地 tarball路径已经具备 Agent onboarding smoke test。
 - 更多 Agent runtime adapters；每个新增 runtime 仍需独立 change 明确 identity、兼容版本、投射 targets 和 contract tests，不能借用现有 adapter fallback。
 - 更完整的 Skills registry、版本策略、强制 integrity policy 和 package 型远端解析；当前已支持 manifest、resolved `skill-url`、version/integrity metadata 和有界网络读取。
 - 权限裁剪和治理门禁。
-- 推进[多 Agent 任务编排与上下文管理](roadmap/agent-context-orchestration.md)：基于 Task DAG 调度可并行节点，以 Specs、Codebase Memory 和 Task State 支撑 Agent 主动加载及跨层传递上下文；重要性 t0，紧急性 t1。
-- 将[角色 Agent 设计候选](roadmap/agent-roles/)拆解为按任务动态加载的 Rules、Skills 和 Packages，不把岗位身份作为 Agent 的固定运行模型。
+- 推进[Agent 自编排与上下文接续](roadmap/agent-context-orchestration.md)：由 Agent 根据任务跨 Workspace 检索，动态加载 Rules、Skills、Commands 和 Tools，自行提出 Task DAG、选择 subagent 或其他 Agent；Buildr 保存需要跨会话和跨 Agent 接续的 Task State、Decision 与 Evidence，不实现固定角色路由或通用 Planner。
+- 将[历史角色能力拆解](roadmap/agent-roles/)继续拆成按任务动态加载的 Rules、Skills、Packages 和 capability contracts，不把岗位身份作为 Agent 的固定运行模型。
 - 评估[原型开发能力设想](roadmap/prototype-development.md)是否应沉淀为可复用 Skill 或其他受管工作流。
 - 更强的 project/service 资产同步与诊断。
 - 继续收敛 Rule / Skill 分层；Rule 控制 Agent 的价值观、边界和约束，Skill 封装可复用的专业动作，场景化流程优先下沉为 Skill。
