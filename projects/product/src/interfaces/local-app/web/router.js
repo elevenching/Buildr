@@ -1,6 +1,11 @@
 export function createRouter({ routes, onRoute }) {
   function resolve(pathname) {
-    return routes[pathname] || routes['/'];
+    if (routes[pathname]) return { ...routes[pathname], params: {} };
+    for (const route of Object.values(routes)) {
+      const params = route.match?.(pathname);
+      if (params) return { ...route, params };
+    }
+    return { ...routes['/'], params: {} };
   }
 
   async function render() {
@@ -9,7 +14,7 @@ export function createRouter({ routes, onRoute }) {
   }
 
   function navigate(destination) {
-    const current = `${window.location.pathname}${window.location.hash}`;
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (current !== destination) window.history.pushState({}, '', destination);
     return render();
   }
@@ -18,7 +23,7 @@ export function createRouter({ routes, onRoute }) {
     const link = event.target.closest('a[data-route]');
     if (!link || link.origin !== window.location.origin || event.defaultPrevented) return;
     event.preventDefault();
-    navigate(`${link.pathname}${link.hash}`);
+    navigate(`${link.pathname}${link.search}${link.hash}`);
   });
   window.addEventListener('popstate', render);
 

@@ -1,5 +1,6 @@
 import { api } from '/api-client.js';
 import { setupAgentActions } from '/features/agent-actions.js';
+import { renderProjectDetail } from '/features/project-detail.js';
 import { renderProjects } from '/features/projects.js';
 import { renderServices } from '/features/services.js';
 import { renderWorkspaceOverview, renderWorkspaceSettings } from '/features/workspace.js';
@@ -10,6 +11,15 @@ const routeDefinitions = {
   '/': { id: 'overview', label: '概览', render: renderWorkspaceOverview },
   '/settings/workspace': { id: 'settings', label: '工作空间设置', render: renderWorkspaceSettings },
   '/projects': { id: 'projects', label: '项目', render: renderProjects },
+  '/projects/:projectCode': {
+    id: 'projects',
+    label: '项目详情',
+    match(pathname) {
+      const match = pathname.match(/^\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)$/);
+      return match ? { projectCode: decodeURIComponent(match[1]) } : null;
+    },
+    render: renderProjectDetail,
+  },
   '/services': { id: 'services', label: '服务', render: renderServices },
 };
 
@@ -45,7 +55,7 @@ const router = createRouter({
   async onRoute(route) {
     updateRouteState(route);
     view.innerHTML = '<div class="page-loading"><span class="loader"></span><p>正在读取真实信息…</p></div>';
-    await route.render({ root: view, api, onWorkspace: updateWorkspaceContext, navigate: router.navigate, openAgentAction: agentActions.open });
+    await route.render({ root: view, api, onWorkspace: updateWorkspaceContext, navigate: router.navigate, openAgentAction: agentActions.open, params: route.params });
     view.focus({ preventScroll: true });
   },
 });

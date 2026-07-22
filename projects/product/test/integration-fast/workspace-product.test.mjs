@@ -148,24 +148,39 @@ test('本地应用只监听 loopback，并保护写 API、revision 与 prompt-on
   assert.match(html, /工作空间设置/);
   assert.doesNotMatch(html, /https?:\/\//);
   let response;
-  for (const route of ['/settings/workspace', '/projects', '/services']) {
+  for (const route of ['/settings/workspace', '/projects', '/projects/product', '/services']) {
     response = await fetch(`${url}${route}`);
     assert.equal(response.status, 200);
     assert.match(await response.text(), /Buildr 工作空间/);
   }
-  for (const asset of ['/app.js', '/api-client.js', '/router.js', '/features/workspace.js', '/features/projects.js', '/features/services.js', '/features/agent-actions.js']) {
+  for (const asset of ['/app.js', '/api-client.js', '/router.js', '/features/workspace.js', '/features/projects.js', '/features/project-detail.js', '/features/services.js', '/features/agent-actions.js']) {
     response = await fetch(`${url}${asset}`);
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type'), /text\/javascript/);
   }
   const projectFeature = fs.readFileSync(path.join(PRODUCT_ROOT, 'src', 'interfaces', 'local-app', 'web', 'features', 'projects.js'), 'utf8');
+  const projectDetailFeature = fs.readFileSync(path.join(PRODUCT_ROOT, 'src', 'interfaces', 'local-app', 'web', 'features', 'project-detail.js'), 'utf8');
   const serviceFeature = fs.readFileSync(path.join(PRODUCT_ROOT, 'src', 'interfaces', 'local-app', 'web', 'features', 'services.js'), 'utf8');
   assert.match(projectFeature, /id="create-project-button"/);
+  assert.match(projectFeature, /id="project-table-body"/);
+  assert.match(projectFeature, /\/projects\/\$\{encodeURIComponent\(project\.code\)\}/);
+  assert.match(projectFeature, /\/services\?project=\$\{encodeURIComponent\(project\.code\)\}/);
+  assert.match(projectFeature, /operationLink\('详情'/);
+  assert.match(projectFeature, /operationLink\('服务'/);
+  assert.match(projectDetailFeature, /id="project-service-count"/);
+  assert.match(projectDetailFeature, /openAgentAction\('service', \{ projectCode: code \}\)/);
   assert.match(serviceFeature, /id="create-service-button"/);
   assert.match(serviceFeature, /id="service-project-select"/);
-  assert.match(serviceFeature, /class="resource-detail hidden"/);
+  assert.match(serviceFeature, /id="service-table-body"/);
+  assert.match(serviceFeature, /dataset\.serviceDetail = service\.code/);
+  assert.match(serviceFeature, /history\.replaceState/);
+  assert.match(serviceFeature, /class="panel service-detail-panel hidden"/);
   assert.doesNotMatch(`${projectFeature}\n${serviceFeature}`, /project-prompt-form|service-prompt-form|legacy\/resources/);
   response = await fetch(`${url}/unknown-page`);
+  assert.equal(response.status, 404);
+  response = await fetch(`${url}/projects/product/extra`);
+  assert.equal(response.status, 404);
+  response = await fetch(`${url}/projects/%2Ftmp`);
   assert.equal(response.status, 404);
   response = await fetch(`${url}/api/v1/unknown`);
   assert.equal(response.status, 404);
