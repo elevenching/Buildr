@@ -57,9 +57,12 @@ try {
     BUILDR_CLI_INSTALL_DIR: installBin,
     PATH: `${installBin}${path.delimiter}${process.env.PATH || ''}`,
   };
+  fs.mkdirSync(installBin, { recursive: true });
+  fs.symlinkSync(path.join(copiedProduct, 'bin', 'buildr.mjs'), path.join(installBin, 'buildr'));
   run(path.join(copiedService, 'scripts', 'install-buildr-cli'), [], { cwd: copiedService, env });
   const buildr = path.join(installBin, 'buildr');
   assert.equal(fs.existsSync(buildr), true, 'installer must create the buildr command');
+  assert.equal(fs.realpathSync(buildr), fs.realpathSync(path.join(copiedService, 'bin', 'buildr.mjs')), 'installer must migrate the removed canonical Project entry to the Service entry');
   const runtime = JSON.parse(run(buildr, ['runtime', 'list', '--json'], { cwd: checkout, env, capture: true }));
   assert(runtime.supportedAgents.includes('codex'));
   const update = JSON.parse(run(buildr, ['update', 'check', '--json'], { cwd: checkout, env, capture: true }));

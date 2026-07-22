@@ -3,6 +3,7 @@ set -euo pipefail
 
 product_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source_bin="$product_root/bin/buildr.mjs"
+legacy_source_bin="$(cd "$product_root/../.." && pwd)/bin/buildr.mjs"
 install_dir="${BUILDR_CLI_INSTALL_DIR:-$HOME/.local/bin}"
 target_bin="$install_dir/buildr"
 
@@ -41,9 +42,13 @@ if [[ -e "$target_bin" || -L "$target_bin" ]]; then
       if [[ "$existing_target" != /* ]]; then
         existing_target="$install_dir/$existing_target"
       fi
-      existing_product_root="$(cd "$(dirname "$existing_target")/.." 2>/dev/null && pwd || true)"
-      if [[ -n "$existing_product_root" ]] && grep -Eq '"name"[[:space:]]*:[[:space:]]*"(@buildr-ai/buildr|@buildr/cli)"' "$existing_product_root/package.json" 2>/dev/null; then
+      if [[ "$existing_target" == "$legacy_source_bin" ]]; then
         managed_buildr=true
+      else
+        existing_product_root="$(cd "$(dirname "$existing_target")/.." 2>/dev/null && pwd || true)"
+        if [[ -n "$existing_product_root" ]] && grep -Eq '"name"[[:space:]]*:[[:space:]]*"(@buildr-ai/buildr|@buildr/cli)"' "$existing_product_root/package.json" 2>/dev/null; then
+          managed_buildr=true
+        fi
       fi
     fi
     if [[ "$managed_buildr" != true ]]; then
