@@ -4,160 +4,60 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="buildr-session" content="__BUILDR_SESSION_TOKEN__">
-  <title>Buildr Workspace</title>
+  <title>Buildr 工作空间</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="/" aria-label="Buildr Workspace 首页"><span class="brand-mark">B</span><span>Buildr</span></a>
-    <span class="local-badge">本机应用</span>
-  </header>
-  <main>
-    <section class="hero">
-      <p class="eyebrow">WORKSPACE</p>
-      <h1 id="workspace-title">正在读取 Workspace…</h1>
-      <p id="workspace-description" class="hero-copy">Buildr 正在从本地文件系统读取真实信息。</p>
-      <div id="migration-alert" class="alert hidden" role="status"></div>
-    </section>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Buildr 主导航">
+      <a class="brand" href="/" data-route aria-label="Buildr 工作空间首页">
+        <span class="brand-mark">B</span>
+        <span><strong>Buildr</strong><small>工作空间</small></span>
+      </a>
+      <div class="workspace-context">
+        <span class="context-label">当前工作空间</span>
+        <strong id="shell-workspace-name">正在读取…</strong>
+        <span id="shell-workspace-path">本机应用</span>
+      </div>
+      <nav class="nav-list">
+        <a href="/" data-route data-nav="overview"><span class="nav-icon">⌂</span><span>概览</span></a>
+      </nav>
+      <div class="nav-group" data-nav-group="resources">
+        <button id="resource-nav-toggle" class="nav-group-toggle" type="button" aria-expanded="true" aria-controls="resource-nav-children">
+          <span class="nav-icon">◇</span><span>资源</span><span class="nav-chevron">⌄</span>
+        </button>
+        <nav id="resource-nav-children" class="nav-children" aria-label="资源类型">
+          <a href="/projects" data-route data-nav="projects"><span>项目</span><small>Project</small></a>
+          <a href="/services" data-route data-nav="services"><span>服务</span><small>Service</small></a>
+        </nav>
+      </div>
+      <nav class="nav-list nav-secondary">
+        <a href="/settings/workspace" data-route data-nav="settings"><span class="nav-icon">⚙</span><span>工作空间设置</span></a>
+      </nav>
+      <div class="local-note"><span class="status-dot"></span>仅限本机访问</div>
+    </aside>
 
-    <div class="layout">
-      <section class="card primary-card">
-        <div class="section-heading">
-          <div><p class="eyebrow">基本信息</p><h2>Workspace 信息</h2></div>
-          <span id="save-state" class="state">尚未修改</span>
-        </div>
-        <form id="workspace-form">
-          <label>名称<input id="workspace-name" name="name" autocomplete="off" required></label>
-          <label>说明<textarea id="workspace-description-input" name="description" rows="5" required></textarea></label>
-          <div class="actions"><button id="save-button" class="button primary" type="submit">保存修改</button></div>
-        </form>
-      </section>
-
-      <aside class="card details-card">
-        <p class="eyebrow">技术信息</p>
-        <h2>当前事实</h2>
-        <dl>
-          <div><dt>Workspace ID</dt><dd id="workspace-id">—</dd></div>
-          <div><dt>本地目录</dt><dd id="workspace-root">—</dd></div>
-          <div><dt>Schema</dt><dd id="workspace-schema">—</dd></div>
-          <div><dt>Revision</dt><dd id="workspace-revision">—</dd></div>
-        </dl>
-      </aside>
+    <div class="app-main">
+      <header class="topbar">
+        <div class="mobile-brand"><span class="brand-mark">B</span><strong>Buildr</strong></div>
+        <div class="breadcrumb"><span>工作空间</span><strong id="page-breadcrumb">概览</strong></div>
+        <button id="open-agent-action" class="button primary" type="button"><span>＋</span> 交给 Agent</button>
+      </header>
+      <main id="app-view" tabindex="-1" aria-live="polite">
+        <div class="page-loading"><span class="loader"></span><p>正在读取工作空间…</p></div>
+      </main>
     </div>
+  </div>
 
-    <section class="card projects-card">
-      <div class="section-heading">
-        <div><p class="eyebrow">PROJECTS</p><h2>Project 目录</h2></div>
-        <span id="projects-state" class="state">正在读取</span>
-      </div>
-      <p class="section-copy">Project 的 Domain 声明来自 registry；Git 当前分支、未提交变化和 upstream 状态按需实时读取。</p>
-      <div id="projects-migration-alert" class="alert hidden" role="status"></div>
-      <div class="project-layout">
-        <div id="project-list" class="project-list" aria-label="Project 列表"></div>
-        <div id="project-empty" class="empty-state">当前 Workspace 尚未登记 Project。</div>
-        <section id="project-detail" class="project-detail hidden" aria-live="polite">
-          <div class="project-detail-heading"><div><p class="eyebrow">PROJECT DETAIL</p><h3 id="project-title">—</h3></div><span id="project-save-state" class="state">只读事实</span></div>
-          <form id="project-form">
-            <label>名称<input id="project-name" autocomplete="off" required></label>
-            <label>说明<textarea id="project-description" rows="4" required></textarea></label>
-            <div class="actions"><button id="project-save-button" class="button primary" type="submit">保存 Project</button></div>
-          </form>
-          <dl class="project-facts">
-            <div><dt>Project ID</dt><dd id="project-id">—</dd></div>
-            <div><dt>Workspace ID</dt><dd id="project-workspace-id">—</dd></div>
-            <div><dt>Code</dt><dd id="project-code">—</dd></div>
-            <div><dt>Source</dt><dd id="project-source">—</dd></div>
-            <div><dt>Path</dt><dd id="project-path">—</dd></div>
-            <div><dt>Integration branch</dt><dd id="project-integration-branch">不适用</dd></div>
-            <div><dt>Current branch</dt><dd id="project-current-branch">不适用</dd></div>
-            <div><dt>Git state</dt><dd id="project-git-state">不适用</dd></div>
-          </dl>
-          <div id="project-findings" class="findings"></div>
-        </section>
-      </div>
-    </section>
+  <div id="agent-action-backdrop" class="drawer-backdrop hidden"></div>
+  <aside id="agent-action-drawer" class="drawer hidden" aria-hidden="true" aria-labelledby="agent-action-title">
+    <div class="drawer-header">
+      <div><p class="eyebrow">AGENT ACTION</p><h2 id="agent-action-title">交给 Agent</h2></div>
+      <button id="close-agent-action" class="icon-button" type="button" aria-label="关闭">×</button>
+    </div>
+    <div id="agent-action-content"></div>
+  </aside>
 
-    <section class="card services-card">
-      <div class="section-heading"><div><p class="eyebrow">SERVICES</p><h2>Service 目录</h2></div><span id="services-state" class="state">先选择 Project</span></div>
-      <p class="section-copy">Service 按所属 Project 组织；Domain 声明与实时 Git 状态分开显示。</p>
-      <div id="services-migration-alert" class="alert hidden" role="status"></div>
-      <div class="service-layout">
-        <div id="service-list" class="service-list" aria-label="Service 列表"></div>
-        <div id="service-empty" class="empty-state">当前 Project 尚未登记 Service。</div>
-        <section id="service-detail" class="service-detail hidden" aria-live="polite">
-          <div class="service-detail-heading"><div><p class="eyebrow">SERVICE DETAIL</p><h3 id="service-title">—</h3></div><span id="service-save-state" class="state">只读事实</span></div>
-          <form id="service-form">
-            <label>名称<input id="service-name" autocomplete="off" required></label>
-            <label>类型<input id="service-type" autocomplete="off" required></label>
-            <label>说明<textarea id="service-description" rows="4" required></textarea></label>
-            <div class="actions"><button id="service-save-button" class="button primary" type="submit">保存 Service</button></div>
-          </form>
-          <dl class="service-facts">
-            <div><dt>Service ID</dt><dd id="service-id">—</dd></div><div><dt>Workspace ID</dt><dd id="service-workspace-id">—</dd></div>
-            <div><dt>Project ID</dt><dd id="service-project-id">—</dd></div><div><dt>Code</dt><dd id="service-code">—</dd></div>
-            <div><dt>Source</dt><dd id="service-source">—</dd></div><div><dt>Path</dt><dd id="service-path">—</dd></div>
-            <div><dt>Integration branch</dt><dd id="service-integration-branch">不适用</dd></div><div><dt>Current branch</dt><dd id="service-current-branch">不适用</dd></div>
-            <div><dt>Git state</dt><dd id="service-git-state">不适用</dd></div>
-          </dl>
-          <div id="service-findings" class="findings"></div>
-        </section>
-      </div>
-    </section>
-
-    <section class="card create-card">
-      <div class="section-heading"><div><p class="eyebrow">AGENT ACTION</p><h2>创建 Service</h2></div><span class="state">生成指令</span></div>
-      <p class="section-copy">页面不会直接复制目录、clone 仓库或改写 registry；生成的指令交给 Agent 核对并执行。</p>
-      <form id="service-prompt-form" class="prompt-grid">
-        <label>所属 Project<input id="service-prompt-project" autocomplete="off" required></label><label>Code<input id="service-prompt-code" autocomplete="off" required></label>
-        <label>名称<input id="service-prompt-name" autocomplete="off" required></label><label>类型<input id="service-prompt-type" value="service" autocomplete="off" required></label>
-        <label>来源<select id="service-prompt-source"><option value="local">本地路径</option><option value="git">Git</option></select></label><label>本地路径<input id="service-prompt-local-path" autocomplete="off"></label>
-        <label>Git URL<input id="service-prompt-url" autocomplete="off" disabled></label><label>Remote<input id="service-prompt-remote" value="origin" autocomplete="off" disabled></label>
-        <label>Integration branch<input id="service-prompt-branch" autocomplete="off" disabled></label><label class="full">说明<textarea id="service-prompt-description" rows="4" required></textarea></label>
-        <div class="actions full"><button class="button secondary" type="submit">生成 Service 指令</button></div>
-      </form>
-      <div id="service-prompt-result" class="prompt-result hidden"><textarea id="service-prompt-output" rows="14" readonly></textarea><div class="copy-row"><button id="service-copy-button" class="button primary" type="button">复制指令</button><span id="service-copy-state">复制不等于 Service 已创建。</span></div></div>
-    </section>
-
-    <section class="card create-card">
-      <div class="section-heading">
-        <div><p class="eyebrow">AGENT ACTION</p><h2>创建 Project</h2></div>
-        <span class="state">生成指令</span>
-      </div>
-      <p class="section-copy">页面不会直接创建目录、clone 仓库或切换分支。填写 Domain 声明后生成完整指令，交给 Agent 核对并执行。</p>
-      <form id="project-prompt-form" class="prompt-grid">
-        <label>Code<input id="project-prompt-code" autocomplete="off" required></label>
-        <label>名称<input id="project-prompt-name" autocomplete="off" required></label>
-        <label>来源<select id="project-prompt-source"><option value="workspace">Workspace</option><option value="git">Git</option></select></label>
-        <label>Git URL<input id="project-prompt-url" autocomplete="off" disabled></label>
-        <label>Remote<input id="project-prompt-remote" value="origin" autocomplete="off" disabled></label>
-        <label>Integration branch<input id="project-prompt-branch" autocomplete="off" disabled></label>
-        <label class="full">说明<textarea id="project-prompt-description" rows="4" required></textarea></label>
-        <div class="actions full"><button class="button secondary" type="submit">生成 Project 指令</button></div>
-      </form>
-      <div id="project-prompt-result" class="prompt-result hidden">
-        <textarea id="project-prompt-output" rows="13" readonly></textarea>
-        <div class="copy-row"><button id="project-copy-button" class="button primary" type="button">复制指令</button><span id="project-copy-state">复制不等于 Project 已创建。</span></div>
-      </div>
-    </section>
-
-    <section class="card create-card">
-      <div class="section-heading">
-        <div><p class="eyebrow">AGENT ACTION</p><h2>创建另一个 Workspace</h2></div>
-        <span class="state">生成指令</span>
-      </div>
-      <p class="section-copy">Buildr 不会从页面直接初始化目录。填写目标后生成完整指令，再复制到 Agent 对话框执行。</p>
-      <form id="prompt-form" class="prompt-grid">
-        <label>名称<input id="prompt-name" autocomplete="off" required></label>
-        <label>目标位置（可选）<input id="prompt-target" autocomplete="off" placeholder="不确定时留空，由 Agent 询问"></label>
-        <label class="full">说明<textarea id="prompt-description" rows="4" required></textarea></label>
-        <div class="actions full"><button class="button secondary" type="submit">生成可复制指令</button></div>
-      </form>
-      <div id="prompt-result" class="prompt-result hidden">
-        <textarea id="prompt-output" rows="12" readonly></textarea>
-        <div class="copy-row"><button id="copy-button" class="button primary" type="button">复制指令</button><span id="copy-state">复制后仍需交给 Agent 执行，并不代表 Workspace 已创建。</span></div>
-      </div>
-    </section>
-  </main>
-  <script src="/app.js" defer></script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>

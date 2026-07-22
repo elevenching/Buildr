@@ -7,6 +7,17 @@ import { fileURLToPath } from 'node:url';
 
 const MAX_JSON_BODY_BYTES = 32 * 1024;
 const STATIC_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../web');
+const APP_ROUTES = new Set(['/', '/settings/workspace', '/projects', '/services']);
+const STATIC_ASSETS = new Map([
+  ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
+  ['/api-client.js', ['api-client.js', 'text/javascript; charset=utf-8']],
+  ['/router.js', ['router.js', 'text/javascript; charset=utf-8']],
+  ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
+  ['/features/workspace.js', ['features/workspace.js', 'text/javascript; charset=utf-8']],
+  ['/features/projects.js', ['features/projects.js', 'text/javascript; charset=utf-8']],
+  ['/features/services.js', ['features/services.js', 'text/javascript; charset=utf-8']],
+  ['/features/agent-actions.js', ['features/agent-actions.js', 'text/javascript; charset=utf-8']],
+]);
 
 function jsonResponse(response, status, value) {
   response.writeHead(status, {
@@ -116,16 +127,13 @@ export function createLocalWorkspaceServer(runtime, { targetRoot, port = 0 } = {
         error.status = 400;
         throw error;
       }
-      if (request.method === 'GET' && requestUrl.pathname === '/') {
+      if (request.method === 'GET' && APP_ROUTES.has(requestUrl.pathname)) {
         textResponse(response, 200, staticFile('index.html').replace('__BUILDR_SESSION_TOKEN__', sessionToken), 'text/html; charset=utf-8');
         return;
       }
-      if (request.method === 'GET' && requestUrl.pathname === '/app.js') {
-        textResponse(response, 200, staticFile('app.js'), 'text/javascript; charset=utf-8');
-        return;
-      }
-      if (request.method === 'GET' && requestUrl.pathname === '/styles.css') {
-        textResponse(response, 200, staticFile('styles.css'), 'text/css; charset=utf-8');
+      const staticAsset = STATIC_ASSETS.get(requestUrl.pathname);
+      if (request.method === 'GET' && staticAsset) {
+        textResponse(response, 200, staticFile(staticAsset[0]), staticAsset[1]);
         return;
       }
       if (request.method === 'GET' && requestUrl.pathname === '/api/v1/workspace') {

@@ -143,13 +143,37 @@ test('本地应用只监听 loopback，并保护写 API、revision 与 prompt-on
   assert.match(url, /^http:\/\/127\.0\.0\.1:\d+$/);
 
   const html = await fetch(url).then((response) => response.text());
-  assert.match(html, /Buildr Workspace/);
+  assert.match(html, /Buildr 工作空间/);
+  assert.match(html, /id="resource-nav-toggle"/);
+  assert.match(html, /工作空间设置/);
   assert.doesNotMatch(html, /https?:\/\//);
+  let response;
+  for (const route of ['/settings/workspace', '/projects', '/services']) {
+    response = await fetch(`${url}${route}`);
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /Buildr 工作空间/);
+  }
+  for (const asset of ['/app.js', '/api-client.js', '/router.js', '/features/workspace.js', '/features/projects.js', '/features/services.js', '/features/agent-actions.js']) {
+    response = await fetch(`${url}${asset}`);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /text\/javascript/);
+  }
+  const projectFeature = fs.readFileSync(path.join(PRODUCT_ROOT, 'src', 'interfaces', 'local-app', 'web', 'features', 'projects.js'), 'utf8');
+  const serviceFeature = fs.readFileSync(path.join(PRODUCT_ROOT, 'src', 'interfaces', 'local-app', 'web', 'features', 'services.js'), 'utf8');
+  assert.match(projectFeature, /id="create-project-button"/);
+  assert.match(serviceFeature, /id="create-service-button"/);
+  assert.match(serviceFeature, /id="service-project-select"/);
+  assert.match(serviceFeature, /class="resource-detail hidden"/);
+  assert.doesNotMatch(`${projectFeature}\n${serviceFeature}`, /project-prompt-form|service-prompt-form|legacy\/resources/);
+  response = await fetch(`${url}/unknown-page`);
+  assert.equal(response.status, 404);
+  response = await fetch(`${url}/api/v1/unknown`);
+  assert.equal(response.status, 404);
   const current = await fetch(`${url}/api/v1/workspace`).then((response) => response.json());
   assert.equal(current.workspace.name, 'Demo');
   assert.equal(sha256(metadataFile), beforeHash, '只读启动和读取不得修改 Workspace');
 
-  let response = await fetch(`${url}/api/v1/workspace`, {
+  response = await fetch(`${url}/api/v1/workspace`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json', 'x-buildr-session': sessionToken },
     body: JSON.stringify({ revision: current.revision, name: 'Blocked' }),
