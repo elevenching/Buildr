@@ -12,6 +12,7 @@ src/
   application/               用例、跨模块组合和产品 verifier
     domains/                 现有领域操作 handler；尚非纯领域模型
     workspace/               Workspace 查询、修改、迁移和 prompt 用例
+    worktree/                Canonical task checkout 与创建后环境 bootstrap 用例
   infrastructure/            filesystem、network、platform、Agent runtime adapters
     filesystem/              Manifest repository、路径、YAML、revision 与 transaction primitive
   interfaces/

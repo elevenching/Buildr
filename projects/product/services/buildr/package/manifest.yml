@@ -124,7 +124,7 @@ builtins:
     - id: task-worktree
       path: package/targets/workspace/skills/buildr/task-worktree
       target: skills/buildr/task-worktree
-      description: 用户要求创建、定位、复用、保留或清理 task worktree/change-id/任务分支，或处理 task checkout 与本机入口迁移时使用。
+      description: 用户要求创建、定位、复用、保留或清理 task worktree/change-id/任务分支，或处理 task checkout、创建后环境准备与本机入口迁移时使用。
       required: false
       provides:
         - capability: buildr.task-worktree-lifecycle

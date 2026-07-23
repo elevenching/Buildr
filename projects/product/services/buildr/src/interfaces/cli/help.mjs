@@ -15,6 +15,7 @@ export function registerCommandHelp(runtime) {
     console.error('  buildr app [--target <workspace>] [--port <port>]');
     console.error('  buildr project create <code> [--target <dir>] [--name <text>] [--description <text>] [--repo <git-url>] [--remote <name>] [--integration-branch <branch>]');
     console.error('  buildr service create <project>/<service> <repo-ref> [--target <dir>] [--name <text>] [--description <text>] [--type <type>] [--remote <name>] [--integration-branch <branch>] [--json]');
+    console.error(`  buildr worktree create <task-id> --agent <${runtimeIds}> --branch <branch> [--start-point <ref>] [--target <workspace>] [--json]`);
     console.error('  buildr doctor [--agent <agent>] [--target <dir>] [--scope <.|projects/project[/services/service[/path...]]>] [--json] [--include-info] [--verbose]');
     console.error('  buildr mutation recover <transaction-id> [--target <dir>]');
     console.error('  buildr commands add <id> --purpose <text> [--target <dir>] [--collection <path>] [--executable <name>] [--name <text>] [--description <text>] [--version-constraint <constraint>] [--version-args <args>] [--install-hint <text>] [--replace]');
@@ -62,6 +63,7 @@ export function registerCommandHelp(runtime) {
       '  version              输出当前 Buildr CLI package version；支持 --json。',
       '  project create       创建或登记 Project。',
       '  service create       创建或登记 Service。',
+      '  worktree create      创建或复用 canonical task worktree，并确定性准备当前 Agent 环境。',
       '  doctor               诊断 workspace、源资产和 Agent runtime render 状态。',
       '  mutation recover      从保留 backup 恢复不完整 source mutation。',
       '  runtime list         列出 Buildr 支持的 Agent runtime adapter。',
@@ -121,6 +123,14 @@ export function registerCommandHelp(runtime) {
       'Git remote 与 integration branch 是稳定声明；current branch、HEAD、dirty 和 upstream 状态只实时观察。',
       '--title 和 --branch 继续作为 --name、--integration-branch 的 legacy compatibility 输入。',
       'Service 规则入口是 Service 目录中的 AGENTS.md，不在 Service registry 中记录规则路径。',
+    ],
+    'worktree create': [
+      `Usage: buildr worktree create <task-id> --agent <${SUPPORTED_AGENT_IDS.join('|')}> --branch <branch> [--start-point <ref>] [--target <workspace>] [--json]`,
+      '',
+      'Agent 负责明确 task id、branch、start point、当前 Agent 和 workspace root；Buildr 负责 canonical checkout 与创建后的环境 bootstrap。',
+      '新 checkout 一定运行 doctor；仅当全部 actionable findings 都是当前 Agent runtime stale、checkout clean 且 identity 未变化时自动 sync，并以最终 doctor 收敛。',
+      '复用同一 repository/branch 的既有 canonical worktree 时返回 reused，不重复 doctor 或 sync；identity 冲突时 fail closed。',
+      '该命令不承担任务理解、OpenSpec 选择、merge、rebase、push 或 cleanup policy。',
     ],
     doctor: [
       'Usage: buildr doctor [--agent <agent>] [--target <dir>] [--scope <.|projects/project[/services/service[/path...]]>] [--json] [--include-info] [--verbose]',
@@ -296,6 +306,7 @@ export function registerCommandHelp(runtime) {
     if (domain === 'version') return 'version';
     if (domain === 'project' && action === 'create') return 'project create';
     if (domain === 'service' && action === 'create') return 'service create';
+    if (domain === 'worktree' && action === 'create') return 'worktree create';
     if (domain === 'runtime' && action === 'list') return 'runtime list';
     if (domain === 'mutation' && action === 'recover') return 'mutation recover';
     if (domain === 'runtime' && action === 'check') return 'runtime check';

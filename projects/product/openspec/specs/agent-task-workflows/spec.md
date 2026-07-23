@@ -348,7 +348,7 @@ Buildr 任务流程 MUST 由 selected task-verification provider 将实现期间
 - **AND** Agent MUST NOT 使用较早候选的验证结果声称当前实现完成
 
 ### Requirement: Git 工作区转换后诊断 Buildr Agent 环境
-Buildr required Core MUST 固化“成功改变已检出 Git tree 后检查 Buildr Agent 环境”的 workspace transition invariant；执行 Git 或任务工作流的 Agent MUST 通过产品入口 Buildr Skill 完成具体诊断、同步询问和修复边界，而不依赖某个 optional Git Skill 的身份。
+Buildr required Core MUST 固化“成功改变已检出 Git tree 后检查 Buildr Agent 环境”的 workspace transition invariant；执行一般 Git 工作流的 Agent MUST 通过产品入口 Buildr Skill 完成具体诊断与修复边界，创建 canonical task worktree 时 MUST 使用 Buildr 的确定性 worktree bootstrap 入口，而不依赖某个 optional Git Skill 的身份。
 
 #### Scenario: Git 操作成功改变已检出内容
 - **WHEN** Agent 通过任一 Git capability provider 成功完成 `pull`、`merge`、`rebase`、切换 tree 的 `checkout` 或 `switch`、改变工作区的 `reset`、`cherry-pick`、`revert`、`stash apply` 或 `stash pop`
@@ -375,8 +375,8 @@ Buildr required Core MUST 固化“成功改变已检出 Git tree 后检查 Buil
 - **THEN** consumer 或 orchestrator MUST 触发 required workspace transition invariant
 - **AND** Agent MUST NOT 因 provider id 不等于 `git-ops` 而跳过检查
 
-#### Scenario: 环境漂移可由 workspace sync 修复
-- **WHEN** 工作区转换后的 doctor 指出当前 Agent 的 workspace sync 是合适修复动作
+#### Scenario: 一般环境漂移可由 workspace sync 修复
+- **WHEN** 非 worktree-create 工作区转换后的 doctor 指出当前 Agent 的 workspace sync 是合适修复动作
 - **THEN** Agent MUST 询问用户是否由 Agent 立即同步当前 workspace 和 Agent runtime
 - **AND** Agent MUST 同时提供 `buildr sync <agent> --target <workspace-root>` 作为手动同步备选
 - **AND** 面向用户的手动命令 MUST 使用已解析的实际 Agent 和 workspace root，不得保留占位符
@@ -406,13 +406,32 @@ Buildr required Core MUST 固化“成功改变已检出 Git tree 后检查 Buil
 - **THEN** Agent MUST 报告环境状态尚未确认及具体原因
 - **AND** Agent MUST NOT 猜测本地 Agent runtime 已经同步
 
-#### Scenario: 任务 Skill 内部发生工作区转换
-- **WHEN** `task-worktree` provider 创建新的 worktree checkout，或 `task-finish` 通过绑定 provider 改变目标 workspace tree
+#### Scenario: 产品创建新 task worktree 并自动准备环境
+- **WHEN** Agent 已明确 task id、task branch、start point、当前 Agent 和 Buildr workspace root，并调用 Buildr worktree create 入口
+- **THEN** Buildr MUST 在 canonical `<workspace-root>/.worktrees/<task-id>` 创建 checkout 并确定性运行目标 checkout doctor
+- **AND** 只有目标为本次刚创建、已初始化、Git clean、identity 未变化且全部 actionable findings 仅为当前 Agent runtime projection stale 时，Buildr MUST 自动执行该目标 workspace sync
+- **AND** sync 后 Buildr MUST 再次确认 Git identity/clean 状态并以最终 doctor 判定 bootstrap 结果
+- **AND** 上述自动 sync 授权 MUST 由 worktree create 命令本身承载，不再逐次请求用户确认
+
+#### Scenario: 新 task worktree 不满足安全自动 sync 条件
+- **WHEN** 新 checkout doctor、Git 状态或 sync preflight 包含 mutation、dirty、identity 变化、Commands、Components、CLI、builtin ownership、capability graph、workspace source decision 或任意未知 actionable finding
+- **THEN** Buildr MUST NOT 自动执行 sync 或 doctor 返回的任意修复命令
+- **AND** Buildr MUST 保留已创建 worktree、返回 blocked 原因和可执行 nextActions
+- **AND** Buildr MUST NOT 自动删除 checkout、丢弃内容或扩大 Git 授权
+
+#### Scenario: 幂等复用既有 task worktree
+- **WHEN** canonical task path 已注册为同一 repository 与 branch 的既有 worktree
+- **THEN** Buildr MUST 返回 `reused` 与 `treeChanged: false`
+- **AND** Buildr MUST NOT 仅因复用重复运行创建后的 doctor 或自动 sync
+- **AND** path、repository 或 branch identity 不匹配时 MUST fail closed 且零写入
+
+#### Scenario: 任务 Skill 内部发生其他工作区转换
+- **WHEN** `task-finish` 通过绑定 provider 改变目标 workspace tree，或 task workflow 执行 worktree create 之外的 tree transition
 - **THEN** 对应任务 Skill MUST 复用 required Core invariant 与产品入口 Buildr Skill 的环境检查、同步询问、Agent 执行和手动兜底边界
 - **AND** 检查 MUST NOT 改变既有验证证据、Git 授权或 worktree 清理契约
 
 #### Scenario: Git 操作由 Agent 之外执行
-- **WHEN** 用户或其他程序绕过 Agent Skill 直接改变 Git 工作区
+- **WHEN** 用户或其他程序绕过 Agent Skill 和 Buildr worktree create 入口直接改变 Git 工作区
 - **THEN** Buildr MUST NOT 声称能够即时感知该操作
 - **AND** 后续 Buildr 工作流 MUST 继续通过执行循环中的基线 doctor 检查当前环境
 

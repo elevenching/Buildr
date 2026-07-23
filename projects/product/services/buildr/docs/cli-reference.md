@@ -30,6 +30,7 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 | `buildr app --target <workspace>` | 启动只监听 `127.0.0.1` 的本机应用；查看 Workspace 与 Project，修改各自 `name`、`description`，创建入口只生成可复制 Agent 指令。 |
 | `buildr project create <code>` | 创建或登记 Project；`--name`/`--description` 设置 metadata，`--repo`、`--remote`、`--integration-branch` 声明独立 Git source，并补齐空 `commands.yml` requirement context。 |
 | `buildr service create <project>/<service> <repo-ref>` | 接入本地目录或 Git Service；用 `--name`、`--description`、`--type` 描述 Domain，Git 来源可用 `--remote`、`--integration-branch` 声明稳定来源。 |
+| `buildr worktree create <task-id> --agent <agent> --branch <branch>` | 创建或幂等复用 `<workspace>/.worktrees/<task-id>`；新 checkout 确定性运行 doctor，仅对 clean、identity 稳定且只有当前 Agent runtime stale 的结果自动 sync，其他问题保留现场并 fail closed。 |
 | `buildr rules add/remove` | 维护 root Rules manifest 和文件生命周期。 |
 | `buildr skills add/remove` | 只维护 workspace `skills/` 中的 Skill source；旧 `--scope .` 仅兼容并警告，Project scope 被拒绝。 |
 | `buildr skills bind/unbind` | 维护 workspace 默认 binding，或在 `projects/<project>/capabilities.yml` 维护 Project context binding。 |
@@ -46,6 +47,8 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 Project registry 使用 `buildr.projects/v2`：每个 Project 保存 UUID `id`、所属 `workspaceId`、可读 `code`、`name`、`description` 和 `source`。`source.path` 是文件系统物化位置；Git source 另外保存 URL、remote 和稳定的 `integrationBranch`。`currentBranch`、HEAD、dirty、upstream 与 ahead/behind 是实时观察状态，不写入 Domain。v1 registry 可只读查询，`buildr sync <agent>` 显式迁移；页面不会静默迁移、切分支、stash 或改写 remote。
 
 `service create --integration-branch` 只适用于 Git 来源，`--branch` 仅为兼容别名。Canonical Service Domain 保存 UUID `id`、`workspaceId`、`projectId`、`code`、`name`、`description`、`type` 和 `source`；`source.path` 定位文件系统中的实际 Service，Git source 保存 URL、remote 与稳定 integration branch。当前分支、HEAD、dirty、upstream 与 ahead/behind 只实时观察，不写回 Domain。
+
+`worktree create` 要求 Agent 显式提供 task id、task branch、可选 start point、当前 Agent 和 workspace root；Buildr 不推断任务语义或 Git 协作策略。首次创建返回 `buildr.worktree-create/v1` 的 `created`、`treeChanged: true`、doctor before/after 与 sync decision；同 repository/branch 的 canonical checkout 再次调用返回 `reused`、`treeChanged: false`，不重复 bootstrap。occupied path、branch ownership、非 runtime doctor findings、mutation 或 sync 后 Git identity/clean 变化都会阻止自动修复，且不会自动删除 worktree。
 
 ## Runtime 与诊断
 

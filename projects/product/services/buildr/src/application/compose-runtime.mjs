@@ -20,6 +20,7 @@ import { registerWorkspaceApplication } from './workspace/workspace-application.
 import { registerProjectApplication } from './project/project-application.mjs';
 import { registerServiceApplication } from './service/service-application.mjs';
 import { registerChangeApplication } from './change/change-application.mjs';
+import { registerWorktreeApplication } from './worktree/worktree-application.mjs';
 import * as platform from '../infrastructure/platform.mjs';
 
 const REGISTRATIONS = [
@@ -45,6 +46,7 @@ const REGISTRATIONS = [
   registerApplicationWorkspaceOperations,
   registerApplicationCliUpdate,
   registerApplicationRuntime,
+  registerWorktreeApplication,
 ];
 
 export function createRuntime() {

@@ -20,6 +20,7 @@ function run(args, options = {}) {
 
 const helpTopics = [
   [], ['version'], ['init'], ['project', 'create'], ['service', 'create'], ['doctor'],
+  ['worktree', 'create'],
   ['mutation', 'recover'], ['runtime', 'list'], ['runtime', 'check'],
   ['commands', 'add'], ['commands', 'remove'], ['commands', 'check'],
   ['openspec', 'baseline', 'create'], ['openspec', 'check'],
