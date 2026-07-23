@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "buildr.openspec-contract-receipt/v1",
+  "change": "browser-e2e",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-236a74ef2d0822527b2d3946982dc89df1bab40f105f37141b3e61a492f43f30",
+  "baselineHash": "sha256-336d90ad387ee664ef9fea878135923f018f37688b168ce019d84acd2ccb9a63",
+  "capabilities": {
+    "local-app-browser-verification": {}
+  },
+  "postSyncVerified": true,
+  "postSyncDeltaHash": "sha256-236a74ef2d0822527b2d3946982dc89df1bab40f105f37141b3e61a492f43f30",
+  "postSyncSpecIntegrities": {
+    "local-app-browser-verification": "sha256-63b4cc26c79d298d0602fb1c5b09a422d3853ba2bc3211cb4bdcb3320ffac9ba"
+  }
+}

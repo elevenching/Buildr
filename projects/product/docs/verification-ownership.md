@@ -28,6 +28,8 @@ Runtime adapter contract 始终遍历全部 supported adapters，并生成 `nati
 
 Candidate 与 Changed 也共享 `test/verification/timing/evidence.mjs`：默认每次 run 使用唯一 transient evidence 目录，summary 记录 run/source identity、候选 fingerprint 和 `evidenceLifecycle`，并在终端直接输出 total、budget、slowest、failed、绝对路径、retention 与 cleanup 状态。显式输出路径标记为 caller-managed；默认 transient run 只保留到 consumer 使用完毕，并由 `cleanup-evidence.mjs` 在严格目录边界内删除。Changed 是开发反馈证据；只有最终 Candidate summary 可以作为 task-finish 的完整验证 timing evidence。
 
+本机应用另提供 `npm run test:browser:smoke`，使用 `playwright-core` 驱动机器已有 Chrome，在随机 loopback 端口和临时 Workspace 中验证项目、服务、变更三条主流程。该入口不下载浏览器、不访问外部系统，当前在 Product `verification.yml` 中按 `trial`、`advisory` 声明，不属于 Fast 或 Candidate required gate；缺少 Chrome 时由验证编排报告环境阻塞。
+
 Task Finish 消费 Candidate evidence 时，provider 的 `inspect`、`execute`、`cleanup` operation 与 verifier executor invocation 分开计数。已有 Candidate 对应 `same-content` 或可归因的 `closeout-metadata-only` transition 时，OpenSpec strict、contract guard、diff check 等 closeout checks 保持各自主 owner，不升级为新的 Candidate run；只有 `implementation-changed` 或无法证明仅为收尾元数据时才启动一次新的 Candidate executor。
 
 最终 Candidate task checkbox 是一个更窄的 closeout 分支：Candidate 先验证 source implementation identity A，随后同一会话只把 active change 中唯一对应任务由 `- [ ]` 改为 `- [x]`，形成 delivery identity B。consumer 将它记录为 `verification-result-metadata-only`，保留 A 的 Candidate evidence，并以 `session-only` transition evidence 单独记录 A/B identity、change/task identity 与精确 marker；不得说 Candidate 验证了 B。若还有其他 diff、候选任务不唯一、A 无法匹配或会话证据丢失，则不能仅凭 `tasks.md` 路径或 checkbox 状态放行，必须重跑 Candidate。

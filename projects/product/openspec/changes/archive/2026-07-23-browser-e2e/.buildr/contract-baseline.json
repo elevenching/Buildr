@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "browser-e2e",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-236a74ef2d0822527b2d3946982dc89df1bab40f105f37141b3e61a492f43f30",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "local-app-browser-verification",
+      "title": "Buildr 必须提供隔离的本机应用浏览器冒烟验证",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-app-browser-verification",
+      "title": "浏览器冒烟验证必须覆盖三个资源管理主流程",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-app-browser-verification",
+      "title": "浏览器冒烟能力必须提供可诊断结果并渐进成熟",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

@@ -53,3 +53,29 @@ capabilities:
     dependsOn: []
     supersedes: []
     sources: ["AGENTS.md", "services/buildr/docs/release-checklist.md", ".github/workflows/verify.yml"]
+  - id: product.browser-smoke
+    title: Buildr 本机应用浏览器冒烟验证
+    command:
+      argv: ["npm", "run", "test:browser:smoke"]
+      cwd: services/buildr
+    maturity: trial
+    stages: [affected]
+    enforcement:
+      affected: advisory
+    applicability:
+      paths: ["services/buildr/src/interfaces/local-app/**", "services/buildr/test/browser-smoke/**"]
+      risks: ["项目、服务或变更管理的浏览器路由、DOM 交互与 Agent Action 回归"]
+    coverage:
+      kind: end-to-end
+      owns: ["项目目录与详情、服务过滤与详情、变更过滤与详情、Change Agent prompt 抽屉、浏览器运行错误"]
+    environment:
+      requires: [node, npm, chrome]
+      services: []
+    effects:
+      level: local-temporary
+      writes: ["系统临时目录中的隔离 Workspace、Service source 与浏览器 profile"]
+      externalSystems: false
+    authorization: implicit
+    dependsOn: []
+    supersedes: []
+    sources: ["services/buildr/package.json", "services/buildr/test/browser-smoke/local-app-browser.test.mjs", "openspec/specs/local-app-browser-verification/spec.md"]

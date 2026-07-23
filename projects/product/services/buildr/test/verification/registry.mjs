@@ -63,7 +63,7 @@ export const verificationSteps = Object.freeze([
     'test/verification/unit-coverage.mjs',
   ], concurrencyClass: 'cpu-heavy' }),
   step({ id: 'contract', name: 'static contract tests', executor: { type: 'npm', args: ['run', 'test:contract'] }, profiles: ['fast', 'candidate'], inputs: [
-    'test/contract/**', 'test/fixtures/**',
+    'test/contract/**', 'test/fixtures/**', 'test/browser-smoke/**', 'verification.yml',
     'src/**',
     'src/infrastructure/runtime/render-claude-code.mjs',
     'test/verification/candidate.mjs',

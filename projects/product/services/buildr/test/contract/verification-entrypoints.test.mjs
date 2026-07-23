@@ -5,6 +5,7 @@ import process from 'node:process';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import YAML from 'yaml';
 import { PACKAGE_VERIFIERS, selectPackageVerifiers } from '../../src/application/package-maintenance/verification-registry.mjs';
 import { createVerificationPlan } from '../../test/verification/planner.mjs';
 import { verificationSteps } from '../../test/verification/registry.mjs';
@@ -20,6 +21,7 @@ test('product verification exposes three gates, direct layers, and one focus ent
   assert.equal(scripts['test:unit'], 'node --test test/unit/*.test.mjs');
   assert.equal(scripts['test:contract'], 'node --test test/contract/*.test.mjs');
   assert.equal(scripts['test:integration:fast'], 'node --test test/integration-fast/*.test.mjs');
+  assert.equal(scripts['test:browser:smoke'], 'node --test test/browser-smoke/*.test.mjs');
   assert.equal(scripts['test:integration:candidate:recovery'], 'node --test test/integration-candidate-recovery/*.test.mjs');
   assert.equal(scripts['test:integration:candidate:release'], 'node --test test/integration-candidate-release/*.test.mjs');
   assert.equal(scripts['coverage:unit'], 'node test/verification/unit-coverage.mjs');
@@ -36,6 +38,19 @@ test('product verification exposes three gates, direct layers, and one focus ent
   for (const forbidden of ['npm pack', 'npm install', 'verification/workspace/run.mjs', 'release-smoke.mjs']) {
     assert.equal(fast.includes(forbidden), false, `fast verifier must exclude ${forbidden}`);
   }
+});
+
+test('browser smoke 以 trial advisory 能力声明真实环境与范围', () => {
+  const declaration = YAML.parse(fs.readFileSync(path.resolve(productRoot, '../..', 'verification.yml'), 'utf8'));
+  const browser = declaration.capabilities.find((capability) => capability.id === 'product.browser-smoke');
+  assert.ok(browser);
+  assert.equal(browser.maturity, 'trial');
+  assert.deepEqual(browser.stages, ['affected']);
+  assert.deepEqual(browser.enforcement, { affected: 'advisory' });
+  assert.deepEqual(browser.command, { argv: ['npm', 'run', 'test:browser:smoke'], cwd: 'services/buildr' });
+  assert.deepEqual(browser.environment.requires, ['node', 'npm', 'chrome']);
+  assert.equal(browser.effects.level, 'local-temporary');
+  assert.equal(browser.effects.externalSystems, false);
 });
 
 test('focus verification de-duplicates groups without attaching fast', () => {

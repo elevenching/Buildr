@@ -46,6 +46,7 @@
     "test:unit": "node --test test/unit/*.test.mjs",
     "test:contract": "node --test test/contract/*.test.mjs",
     "test:integration:fast": "node --test test/integration-fast/*.test.mjs",
+    "test:browser:smoke": "node --test test/browser-smoke/*.test.mjs",
     "test:integration:candidate:recovery": "node --test test/integration-candidate-recovery/*.test.mjs",
     "test:integration:candidate:release": "node --test test/integration-candidate-release/*.test.mjs",
     "coverage:unit": "node test/verification/unit-coverage.mjs",
@@ -62,6 +63,7 @@
     "yaml": "^2.9.0"
   },
   "devDependencies": {
-    "@fission-ai/openspec": "1.4.1"
+    "@fission-ai/openspec": "1.4.1",
+    "playwright-core": "^1.61.1"
   }
 }
