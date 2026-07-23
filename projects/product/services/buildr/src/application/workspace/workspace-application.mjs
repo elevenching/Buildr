@@ -73,6 +73,115 @@ export function registerWorkspaceApplication(runtime) {
     return publicWorkspace(readWorkspaceRecord(targetRoot));
   }
 
+  function workspaceRegistryEntry(root) {
+    try {
+      const record = readWorkspaceRecord(root);
+      if (!record.workspace.id) {
+        return { rootPath: root, status: 'migration_required', workspace: record.workspace, migrationRequired: true };
+      }
+      return { rootPath: root, status: 'ready', workspace: record.workspace, migrationRequired: record.migrationRequired };
+    } catch (error) {
+      return {
+        rootPath: root,
+        status: runtime.existsDirectory(root) ? 'invalid' : 'unavailable',
+        workspace: null,
+        error: { code: error.code || 'workspace_unavailable', message: error.message },
+      };
+    }
+  }
+
+  function listRegisteredWorkspaces() {
+    const persistence = runtime.readWorkspaceRegistryPersistence();
+    const entries = persistence.registry.roots.map(workspaceRegistryEntry);
+    const identities = new Map();
+    for (const entry of entries) {
+      if (!entry.workspace?.id) continue;
+      const peers = identities.get(entry.workspace.id) || [];
+      peers.push(entry);
+      identities.set(entry.workspace.id, peers);
+    }
+    for (const peers of identities.values()) {
+      if (peers.length < 2) continue;
+      for (const entry of peers) entry.status = 'identity_conflict';
+    }
+    const lastOpened = entries.find((entry) => entry.rootPath === persistence.registry.lastOpenedRoot) || null;
+    return { schemaVersion: persistence.registry.schemaVersion, revision: persistence.revision, workspaces: entries, lastOpenedWorkspaceId: lastOpened?.workspace?.id || null };
+  }
+
+  function registerLocalWorkspace(input) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw workspaceError('workspace_registry_input_invalid', 'Workspace 登记请求必须是对象。');
+    for (const field of Object.keys(input)) {
+      if (!new Set(['rootPath', 'revision', 'open']).has(field)) throw workspaceError('workspace_registry_field_forbidden', `Workspace 登记不支持字段：${field}。`);
+    }
+    if (typeof input.rootPath !== 'string' || !input.rootPath.trim()) throw workspaceError('workspace_registry_root_required', '请选择 Workspace 目录。');
+    const root = runtime.path.resolve(input.rootPath);
+    let candidate;
+    try { candidate = readWorkspaceRecord(root); } catch (error) {
+      throw workspaceError(error.code || 'workspace_registry_root_invalid', `无法登记 Workspace：${error.message}`, 409, { rootPath: root });
+    }
+    if (!candidate.workspace.id) throw workspaceError('workspace_registry_migration_required', '该 Workspace 需要先完成 canonical metadata 迁移。', 409, { rootPath: root });
+    runtime.withWorkspaceRegistryMutation(input.revision, (current) => {
+      const roots = current.roots;
+      if (!roots.includes(root)) {
+        for (const existingRoot of roots) {
+          const existing = workspaceRegistryEntry(existingRoot);
+          if (existing.workspace?.id === candidate.workspace.id) {
+            throw workspaceError('workspace_registry_identity_conflict', '同一 Workspace identity 已登记在另一个目录。', 409, {
+              workspaceId: candidate.workspace.id,
+              existingRoot,
+              candidateRoot: root,
+            });
+          }
+        }
+      }
+      return {
+        ...current,
+        roots: roots.includes(root) ? roots : [...roots, root],
+        lastOpenedRoot: input.open === false ? current.lastOpenedRoot : root,
+      };
+    });
+    return listRegisteredWorkspaces();
+  }
+
+  function removeRegisteredWorkspace(input) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw workspaceError('workspace_registry_input_invalid', 'Workspace 移除请求必须是对象。');
+    for (const field of Object.keys(input)) {
+      if (!new Set(['workspaceId', 'rootPath', 'revision']).has(field)) throw workspaceError('workspace_registry_field_forbidden', `Workspace 移除不支持字段：${field}。`);
+    }
+    if (input.workspaceId === undefined && input.rootPath === undefined) throw workspaceError('workspace_registry_identity_invalid', 'Workspace 移除请求必须指定 workspaceId 或已登记 rootPath。');
+    if (input.workspaceId !== undefined && !isWorkspaceId(input.workspaceId)) throw workspaceError('workspace_registry_identity_invalid', 'Workspace id 必须是 UUID。');
+    const requestedRoot = input.rootPath === undefined ? null : runtime.path.resolve(input.rootPath);
+    runtime.withWorkspaceRegistryMutation(input.revision, (current) => {
+      const matches = current.roots.filter((root) => requestedRoot ? root === requestedRoot : workspaceRegistryEntry(root).workspace?.id === input.workspaceId);
+      if (!matches.length) throw workspaceError('workspace_registry_not_found', 'Workspace 未登记。', 404);
+      if (matches.length > 1) throw workspaceError('workspace_registry_identity_conflict', '同一 Workspace identity 对应多个目录，请按已登记 rootPath 移除。', 409);
+      return {
+        ...current,
+        roots: current.roots.filter((root) => root !== matches[0]),
+        lastOpenedRoot: current.lastOpenedRoot === matches[0] ? null : current.lastOpenedRoot,
+      };
+    });
+    return listRegisteredWorkspaces();
+  }
+
+  function resolveRegisteredWorkspace(workspaceId, { touch = false } = {}) {
+    if (!isWorkspaceId(workspaceId)) throw workspaceError('workspace_registry_identity_invalid', 'Workspace id 必须是 UUID。');
+    const persistence = runtime.readWorkspaceRegistryPersistence();
+    const matches = persistence.registry.roots.filter((root) => workspaceRegistryEntry(root).workspace?.id === workspaceId);
+    if (!matches.length) throw workspaceError('workspace_registry_not_found', 'Workspace 未登记或当前不可用。', 404);
+    if (matches.length > 1) throw workspaceError('workspace_registry_identity_conflict', '同一 Workspace identity 对应多个已登记目录。', 409);
+    const current = readWorkspaceRecord(matches[0]);
+    if (current.workspace.id !== workspaceId) throw workspaceError('workspace_registry_identity_mismatch', '已登记路径中的 Workspace identity 已变化。', 409);
+    if (touch && persistence.registry.lastOpenedRoot !== matches[0]) {
+      try {
+        runtime.withWorkspaceRegistryMutation(persistence.revision, (current) => ({ ...current, lastOpenedRoot: current.roots.includes(matches[0]) ? matches[0] : current.lastOpenedRoot }));
+      } catch (error) {
+        if (error.code !== 'workspace_registry_revision_conflict') throw error;
+      }
+    }
+    return { rootPath: matches[0], workspace: publicWorkspace(current) };
+  }
+
   function workspaceMigrationPlan(targetRoot) {
     const record = readWorkspaceRecord(targetRoot);
     return {
@@ -233,6 +342,10 @@ export function registerWorkspaceApplication(runtime) {
     createWorkspaceId,
     readWorkspaceRecord,
     getWorkspace,
+    listRegisteredWorkspaces,
+    registerLocalWorkspace,
+    removeRegisteredWorkspace,
+    resolveRegisteredWorkspace,
     workspaceMigrationPlan,
     migrateWorkspaceMetadata,
     updateWorkspaceMetadata,

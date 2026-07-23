@@ -13,7 +13,7 @@
     <aside class="sidebar" aria-label="Buildr 主导航">
       <a class="brand" href="/" data-route aria-label="Buildr 工作空间首页">
         <span class="brand-mark">B</span>
-        <span><strong>Buildr</strong><small>工作空间</small></span>
+        <span><strong>Buildr</strong><small>全局应用</small></span>
       </a>
       <div class="workspace-context">
         <span class="context-label">当前工作空间</span>
@@ -21,20 +21,22 @@
         <span id="shell-workspace-path">本机应用</span>
       </div>
       <nav class="nav-list">
-        <a href="/" data-route data-nav="overview"><span class="nav-icon">⌂</span><span>概览</span></a>
+        <a href="/" data-route data-nav="workspaces"><span class="nav-icon">▦</span><span>工作空间</span></a>
+        <a href="/overview" data-route data-nav="overview" data-workspace-route="/"><span class="nav-icon">⌂</span><span>概览</span></a>
       </nav>
       <div class="nav-group" data-nav-group="resources">
         <button id="resource-nav-toggle" class="nav-group-toggle" type="button" aria-expanded="true" aria-controls="resource-nav-children">
           <span class="nav-icon">◇</span><span>资源</span><span class="nav-chevron">⌄</span>
         </button>
         <nav id="resource-nav-children" class="nav-children" aria-label="资源类型">
-          <a href="/projects" data-route data-nav="projects"><span>项目</span><small>Project</small></a>
-          <a href="/services" data-route data-nav="services"><span>服务</span><small>Service</small></a>
-          <a href="/changes" data-route data-nav="changes"><span>变更</span><small>Change</small></a>
+          <a href="/projects" data-route data-nav="projects" data-workspace-route="/projects"><span>项目</span><small>Project</small></a>
+          <a href="/services" data-route data-nav="services" data-workspace-route="/services"><span>服务</span><small>Service</small></a>
+          <a href="/changes" data-route data-nav="changes" data-workspace-route="/changes"><span>变更</span><small>Change</small></a>
         </nav>
       </div>
       <nav class="nav-list nav-secondary">
-        <a href="/settings/workspace" data-route data-nav="settings"><span class="nav-icon">⚙</span><span>工作空间设置</span></a>
+        <a href="/settings" data-route data-nav="settings" data-workspace-route="/settings"><span class="nav-icon">⚙</span><span>工作空间设置</span></a>
+        <button id="quit-buildr" class="nav-quit" type="button"><span class="nav-icon">⏻</span><span>退出 Buildr</span></button>
       </nav>
       <div class="local-note"><span class="status-dot"></span>仅限本机访问</div>
     </aside>

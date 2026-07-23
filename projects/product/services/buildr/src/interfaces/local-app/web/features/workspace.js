@@ -12,7 +12,7 @@ export async function renderWorkspaceOverview({ root, api, onWorkspace }) {
   root.innerHTML = `
     <section class="page-header page-header-row">
       <div><p class="eyebrow">工作空间概览</p><h1 id="overview-title">正在读取…</h1><p id="overview-description" class="page-copy">从本地真实源资产生成当前摘要。</p></div>
-      <a class="button secondary" href="/settings/workspace" data-route>编辑工作空间</a>
+      <a class="button secondary" href="/settings" data-route>编辑工作空间</a>
     </section>
     <div id="overview-migration" class="alert hidden" role="status"></div>
     <section class="metric-grid" aria-label="工作空间资源摘要">
@@ -26,7 +26,7 @@ export async function renderWorkspaceOverview({ root, api, onWorkspace }) {
         <div class="action-list">
           <a href="/projects" data-route><span class="action-symbol">◇</span><span><strong>管理项目</strong><small>查看项目目录、详情与来源信息。</small></span><span>→</span></a>
           <a href="/services" data-route><span class="action-symbol">◫</span><span><strong>管理服务</strong><small>按所属项目查看和管理服务。</small></span><span>→</span></a>
-          <a href="/settings/workspace" data-route><span class="action-symbol">⚙</span><span><strong>工作空间设置</strong><small>修改名称与说明，查看 ID、路径、Schema 和 Revision。</small></span><span>→</span></a>
+          <a href="/settings" data-route><span class="action-symbol">⚙</span><span><strong>工作空间设置</strong><small>修改名称与说明，查看 ID、路径、Schema 和 Revision。</small></span><span>→</span></a>
         </div>
       </article>
       <aside class="panel facts-panel">
@@ -35,7 +35,7 @@ export async function renderWorkspaceOverview({ root, api, onWorkspace }) {
           <div><dt>本地目录</dt><dd id="overview-root">—</dd></div>
           <div><dt>Revision</dt><dd id="overview-revision">—</dd></div>
         </dl>
-        <p class="context-help">本机应用固定服务这个工作空间，页面导航不会切换目标目录。</p>
+        <p class="context-help">当前页面只读取这个工作空间；可随时返回工作空间列表切换。</p>
       </aside>
     </section>`;
   try {

@@ -4,17 +4,28 @@ import http from 'node:http';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import {
+  clearLocalAppInstance,
+  acquireLocalAppStartLock,
+  healthyLocalAppInstance,
+  openDefaultBrowser,
+  readLocalAppInstance,
+  releaseLocalAppStartLock,
+  waitForLocalAppInstance,
+  writeLocalAppInstance,
+} from '../runtime/instance-manager.mjs';
+import { pickWorkspaceDirectory } from '../runtime/directory-picker.mjs';
 
 const MAX_JSON_BODY_BYTES = 32 * 1024;
 const STATIC_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../web');
-const APP_ROUTES = new Set(['/', '/settings/workspace', '/projects', '/services', '/changes']);
-const PROJECT_DETAIL_ROUTE = /^\/projects\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
-const CHANGE_DETAIL_ROUTE = /^\/changes\/[A-Za-z0-9][A-Za-z0-9._-]*\/[^/]+$/;
+const WORKSPACE_ID = '[0-9a-fA-F-]{36}';
+const WORKSPACE_APP_ROUTE = new RegExp(`^/workspaces/${WORKSPACE_ID}(?:/settings|/projects(?:/[A-Za-z0-9][A-Za-z0-9._-]*)?|/services|/changes(?:/[A-Za-z0-9][A-Za-z0-9._-]*/[^/]+)?)?/?$`);
 const STATIC_ASSETS = new Map([
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/api-client.js', ['api-client.js', 'text/javascript; charset=utf-8']],
   ['/router.js', ['router.js', 'text/javascript; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
+  ['/features/workspaces.js', ['features/workspaces.js', 'text/javascript; charset=utf-8']],
   ['/features/workspace.js', ['features/workspace.js', 'text/javascript; charset=utf-8']],
   ['/features/projects.js', ['features/projects.js', 'text/javascript; charset=utf-8']],
   ['/features/project-detail.js', ['features/project-detail.js', 'text/javascript; charset=utf-8']],
@@ -63,11 +74,8 @@ function readJsonBody(request) {
     const chunks = [];
     request.on('data', (chunk) => {
       size += chunk.length;
-      if (size > MAX_JSON_BODY_BYTES) {
-        tooLarge = true;
-      } else {
-        chunks.push(chunk);
-      }
+      if (size > MAX_JSON_BODY_BYTES) tooLarge = true;
+      else chunks.push(chunk);
     });
     request.on('end', () => {
       if (tooLarge) {
@@ -105,7 +113,7 @@ function assertWriteRequest(request, origin, sessionToken) {
     throw error;
   }
   if (!String(request.headers['content-type'] || '').toLowerCase().startsWith('application/json')) {
-    const error = new Error('写请求 content type 必须是 application/json。');
+    const error = new Error('Buildr 本地应用请求 content type 必须是 application/json。');
     error.code = 'content_type_unsupported';
     error.status = 415;
     throw error;
@@ -116,107 +124,149 @@ function staticFile(name) {
   return fs.readFileSync(path.join(STATIC_ROOT, name), 'utf8');
 }
 
-export function createLocalWorkspaceServer(runtime, { targetRoot, port = 0 } = {}) {
-  const root = path.resolve(targetRoot || process.cwd());
+function workspaceApiMatch(pathname) {
+  return pathname.match(new RegExp(`^/api/v1/workspaces/(${WORKSPACE_ID})(/.*)?$`));
+}
+
+function ensureRegisteredTarget(runtime, targetRoot) {
+  if (!targetRoot) return null;
+  const root = path.resolve(targetRoot);
   runtime.assertInitializedBuildrWorkspace(root);
-  runtime.getWorkspace(root);
+  let registry = runtime.listRegisteredWorkspaces();
+  const existing = registry.workspaces.find((entry) => entry.rootPath === root);
+  if (!existing) registry = runtime.registerLocalWorkspace({ rootPath: root, revision: registry.revision });
+  const entry = registry.workspaces.find((item) => item.rootPath === root);
+  return entry?.workspace?.id || null;
+}
+
+export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 0, instanceSecret = null, onShutdown = null } = {}) {
+  const initialWorkspaceId = ensureRegisteredTarget(runtime, targetRoot);
   const sessionToken = crypto.randomBytes(32).toString('hex');
+  const healthSecret = instanceSecret || crypto.randomBytes(32).toString('hex');
   let origin = null;
+  let closing = false;
 
   const server = http.createServer((request, response) => {
     Promise.resolve().then(async () => {
       const requestUrl = new URL(request.url || '/', origin || 'http://127.0.0.1');
-      if (requestUrl.searchParams.has('target') || requestUrl.searchParams.has('path')) {
-        const error = new Error('本地应用 target 在启动时已经固定，API 不接受 filesystem path。');
-        error.code = 'target_forbidden';
-        error.status = 400;
-        throw error;
+      const pathname = requestUrl.pathname;
+      if (closing && pathname !== '/api/v1/health') {
+        jsonResponse(response, 503, { error: { code: 'app_shutting_down', message: 'Buildr 正在退出。' } });
+        return;
       }
-      if (request.method === 'GET' && (APP_ROUTES.has(requestUrl.pathname) || PROJECT_DETAIL_ROUTE.test(requestUrl.pathname) || CHANGE_DETAIL_ROUTE.test(requestUrl.pathname))) {
+      if (request.method === 'GET' && (pathname === '/' || WORKSPACE_APP_ROUTE.test(pathname))) {
         textResponse(response, 200, staticFile('index.html').replace('__BUILDR_SESSION_TOKEN__', sessionToken), 'text/html; charset=utf-8');
         return;
       }
-      const staticAsset = STATIC_ASSETS.get(requestUrl.pathname);
+      const staticAsset = STATIC_ASSETS.get(pathname);
       if (request.method === 'GET' && staticAsset) {
         textResponse(response, 200, staticFile(staticAsset[0]), staticAsset[1]);
         return;
       }
-      if (request.method === 'GET' && requestUrl.pathname === '/api/v1/workspace') {
-        jsonResponse(response, 200, runtime.getWorkspace(root));
+      if (request.method === 'GET' && pathname === '/api/v1/health') {
+        if (request.headers['x-buildr-instance'] !== healthSecret) {
+          jsonResponse(response, 403, { error: { code: 'instance_forbidden', message: 'Buildr instance secret 无效。' } });
+          return;
+        }
+        jsonResponse(response, 200, { schemaVersion: 'buildr.local-app-health/v1', status: closing ? 'stopping' : 'ready', pid: process.pid });
         return;
       }
-      if (request.method === 'PUT' && requestUrl.pathname === '/api/v1/workspace') {
+      if (request.method === 'GET' && pathname === '/api/v1/workspaces') {
+        jsonResponse(response, 200, runtime.listRegisteredWorkspaces());
+        return;
+      }
+      if (request.method === 'POST' && pathname === '/api/v1/workspaces') {
         assertWriteRequest(request, origin, sessionToken);
-        jsonResponse(response, 200, runtime.updateWorkspaceMetadata(root, await readJsonBody(request)));
+        jsonResponse(response, 200, runtime.registerLocalWorkspace(await readJsonBody(request)));
         return;
       }
-      if (request.method === 'GET' && requestUrl.pathname === '/api/v1/projects') {
-        jsonResponse(response, 200, runtime.listProjects(root));
-        return;
-      }
-      if (request.method === 'GET' && requestUrl.pathname === '/api/v1/changes') {
-        jsonResponse(response, 200, runtime.listChanges(root));
-        return;
-      }
-      const projectMatch = requestUrl.pathname.match(/^\/api\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)$/);
-      if (request.method === 'GET' && projectMatch) {
-        jsonResponse(response, 200, runtime.projectDetail(root, projectMatch[1]));
-        return;
-      }
-      if (request.method === 'PUT' && projectMatch) {
+      if (request.method === 'POST' && pathname === '/api/v1/workspaces/pick') {
         assertWriteRequest(request, origin, sessionToken);
-        jsonResponse(response, 200, runtime.updateProjectMetadata(root, projectMatch[1], await readJsonBody(request)));
+        const input = await readJsonBody(request);
+        const rootPath = pickWorkspaceDirectory();
+        if (!rootPath) {
+          jsonResponse(response, 200, { canceled: true });
+          return;
+        }
+        jsonResponse(response, 200, runtime.registerLocalWorkspace({ rootPath, revision: input.revision }));
         return;
       }
-      const servicesMatch = requestUrl.pathname.match(/^\/api\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/services$/);
-      if (request.method === 'GET' && servicesMatch) {
-        jsonResponse(response, 200, runtime.listServices(root, servicesMatch[1]));
-        return;
-      }
-      const serviceMatch = requestUrl.pathname.match(/^\/api\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/services\/([A-Za-z0-9][A-Za-z0-9._-]*)$/);
-      if (request.method === 'GET' && serviceMatch) {
-        jsonResponse(response, 200, runtime.serviceDetail(root, serviceMatch[1], serviceMatch[2]));
-        return;
-      }
-      if (request.method === 'PUT' && serviceMatch) {
+      if (request.method === 'DELETE' && pathname === '/api/v1/workspaces') {
         assertWriteRequest(request, origin, sessionToken);
-        jsonResponse(response, 200, runtime.updateServiceMetadata(root, serviceMatch[1], serviceMatch[2], await readJsonBody(request)));
+        jsonResponse(response, 200, runtime.removeRegisteredWorkspace(await readJsonBody(request)));
         return;
       }
-      const changesMatch = requestUrl.pathname.match(/^\/api\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/changes$/);
-      if (request.method === 'GET' && changesMatch) {
-        jsonResponse(response, 200, runtime.listProjectChanges(root, changesMatch[1]));
+      const removeMatch = pathname.match(new RegExp(`^/api/v1/workspaces/(${WORKSPACE_ID})$`));
+      if (request.method === 'DELETE' && removeMatch) {
+        assertWriteRequest(request, origin, sessionToken);
+        jsonResponse(response, 200, runtime.removeRegisteredWorkspace({ ...(await readJsonBody(request)), workspaceId: removeMatch[1] }));
         return;
       }
-      const changeMatch = requestUrl.pathname.match(/^\/api\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/changes\/([^/]+)$/);
-      if (request.method === 'GET' && changeMatch) {
-        jsonResponse(response, 200, runtime.changeDetail(root, changeMatch[1], decodeURIComponent(changeMatch[2])));
+      if (request.method === 'POST' && pathname === '/api/v1/app/quit') {
+        assertWriteRequest(request, origin, sessionToken);
+        closing = true;
+        jsonResponse(response, 202, { status: 'stopping' });
+        setImmediate(() => server.close(() => onShutdown?.()));
         return;
       }
-      if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/workspace-create') {
+      if (request.method === 'POST' && pathname === '/api/v1/prompts/workspace-create') {
         assertWriteRequest(request, origin, sessionToken);
         jsonResponse(response, 200, runtime.generateWorkspaceCreatePrompt(await readJsonBody(request)));
         return;
       }
-      if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/project-create') {
-        assertWriteRequest(request, origin, sessionToken);
-        jsonResponse(response, 200, runtime.generateProjectCreatePrompt(await readJsonBody(request)));
-        return;
-      }
-      if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/service-create') {
-        assertWriteRequest(request, origin, sessionToken);
-        jsonResponse(response, 200, runtime.generateServiceCreatePrompt(await readJsonBody(request)));
-        return;
-      }
-      if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/change-create') {
-        assertWriteRequest(request, origin, sessionToken);
-        jsonResponse(response, 200, runtime.generateChangeCreatePrompt(root, await readJsonBody(request)));
-        return;
-      }
-      if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/change-action') {
-        assertWriteRequest(request, origin, sessionToken);
-        jsonResponse(response, 200, runtime.generateChangeActionPrompt(root, await readJsonBody(request)));
-        return;
+
+      const apiMatch = workspaceApiMatch(pathname);
+      if (apiMatch) {
+        if (requestUrl.searchParams.has('target') || requestUrl.searchParams.has('path') || requestUrl.searchParams.has('root')) {
+          const error = new Error('Workspace API 只接受已登记 workspaceId，不接受 filesystem path。');
+          error.code = 'target_forbidden';
+          error.status = 400;
+          throw error;
+        }
+        const workspaceId = apiMatch[1];
+        const suffix = apiMatch[2] || '';
+        const { rootPath: root } = runtime.resolveRegisteredWorkspace(workspaceId, { touch: request.method === 'GET' });
+        if (request.method === 'GET' && suffix === '') return jsonResponse(response, 200, runtime.getWorkspace(root));
+        if (request.method === 'PUT' && suffix === '') {
+          assertWriteRequest(request, origin, sessionToken);
+          return jsonResponse(response, 200, runtime.updateWorkspaceMetadata(root, await readJsonBody(request)));
+        }
+        if (request.method === 'GET' && suffix === '/projects') return jsonResponse(response, 200, runtime.listProjects(root));
+        if (request.method === 'GET' && suffix === '/changes') return jsonResponse(response, 200, runtime.listChanges(root));
+        const projectMatch = suffix.match(/^\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)$/);
+        if (request.method === 'GET' && projectMatch) return jsonResponse(response, 200, runtime.projectDetail(root, projectMatch[1]));
+        if (request.method === 'PUT' && projectMatch) {
+          assertWriteRequest(request, origin, sessionToken);
+          return jsonResponse(response, 200, runtime.updateProjectMetadata(root, projectMatch[1], await readJsonBody(request)));
+        }
+        const servicesMatch = suffix.match(/^\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/services$/);
+        if (request.method === 'GET' && servicesMatch) return jsonResponse(response, 200, runtime.listServices(root, servicesMatch[1]));
+        const serviceMatch = suffix.match(/^\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/services\/([A-Za-z0-9][A-Za-z0-9._-]*)$/);
+        if (request.method === 'GET' && serviceMatch) return jsonResponse(response, 200, runtime.serviceDetail(root, serviceMatch[1], serviceMatch[2]));
+        if (request.method === 'PUT' && serviceMatch) {
+          assertWriteRequest(request, origin, sessionToken);
+          return jsonResponse(response, 200, runtime.updateServiceMetadata(root, serviceMatch[1], serviceMatch[2], await readJsonBody(request)));
+        }
+        const changesMatch = suffix.match(/^\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/changes$/);
+        if (request.method === 'GET' && changesMatch) return jsonResponse(response, 200, runtime.listProjectChanges(root, changesMatch[1]));
+        const changeMatch = suffix.match(/^\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/changes\/([^/]+)$/);
+        if (request.method === 'GET' && changeMatch) return jsonResponse(response, 200, runtime.changeDetail(root, changeMatch[1], decodeURIComponent(changeMatch[2])));
+        if (request.method === 'POST' && suffix === '/prompts/project-create') {
+          assertWriteRequest(request, origin, sessionToken);
+          return jsonResponse(response, 200, runtime.generateProjectCreatePrompt(await readJsonBody(request)));
+        }
+        if (request.method === 'POST' && suffix === '/prompts/service-create') {
+          assertWriteRequest(request, origin, sessionToken);
+          return jsonResponse(response, 200, runtime.generateServiceCreatePrompt(await readJsonBody(request)));
+        }
+        if (request.method === 'POST' && suffix === '/prompts/change-create') {
+          assertWriteRequest(request, origin, sessionToken);
+          return jsonResponse(response, 200, runtime.generateChangeCreatePrompt(root, await readJsonBody(request)));
+        }
+        if (request.method === 'POST' && suffix === '/prompts/change-action') {
+          assertWriteRequest(request, origin, sessionToken);
+          return jsonResponse(response, 200, runtime.generateChangeActionPrompt(root, await readJsonBody(request)));
+        }
       }
       jsonResponse(response, 404, { error: { code: 'not_found', message: '请求的 Buildr 本地应用资源不存在。' } });
     }).catch((error) => apiError(response, error));
@@ -228,30 +278,69 @@ export function createLocalWorkspaceServer(runtime, { targetRoot, port = 0 } = {
       server.removeListener('error', reject);
       const address = server.address();
       origin = `http://127.0.0.1:${address.port}`;
-      resolve({ server, url: origin, targetRoot: root, sessionToken });
+      resolve({ server, url: origin, initialWorkspaceId, sessionToken, instanceSecret: healthSecret });
     });
   });
   return { server, ready };
 }
 
 export function registerLocalWorkspaceAppInterface(runtime) {
-  function startLocalWorkspaceApp(args) {
-    runtime.assertNoUnknownOptions(args, new Set(['--target', '--port']));
-    const targetRoot = path.resolve(runtime.optionValue(args, '--target', process.cwd()));
+  async function startLocalWorkspaceApp(args) {
+    runtime.assertNoUnknownOptions(args, new Set(['--target', '--port', '--no-open']), new Set(['--no-open']));
+    const targetValue = runtime.optionValue(args, '--target', null);
+    const targetRoot = targetValue ? path.resolve(targetValue) : null;
     const rawPort = runtime.optionValue(args, '--port', '0');
     const port = Number(rawPort);
     if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`Invalid app port: ${rawPort}`);
-    const instance = createLocalWorkspaceServer(runtime, { targetRoot, port });
-    instance.ready.then(({ url }) => {
-      console.log(`Buildr 本地应用：${url}`);
-      console.log(`Workspace：${targetRoot}`);
-      console.log('仅限本机访问；按 Ctrl+C 停止。');
-    }).catch((error) => {
-      console.error(`Buildr 本地应用启动失败：${error.message}`);
-      process.exitCode = 1;
-      instance.server.close();
-    });
-    return instance;
+    const noOpen = args.includes('--no-open');
+    let initialWorkspaceId = null;
+    if (targetRoot) initialWorkspaceId = ensureRegisteredTarget(runtime, targetRoot);
+    const recorded = readLocalAppInstance();
+    const healthy = await healthyLocalAppInstance(recorded);
+    if (healthy) {
+      const pageUrl = initialWorkspaceId ? `${healthy.url}/workspaces/${initialWorkspaceId}/` : healthy.url;
+      if (!noOpen) openDefaultBrowser(pageUrl);
+      console.log(`Buildr 本地应用已运行：${pageUrl}`);
+      return { reused: true, url: pageUrl };
+    }
+    if (recorded) clearLocalAppInstance(recorded);
+    const startLock = acquireLocalAppStartLock();
+    if (!startLock.owner) {
+      const started = await waitForLocalAppInstance();
+      if (!started) throw new Error('另一个 Buildr 启动进程没有在预期时间内就绪，请稍后重试。');
+      const pageUrl = initialWorkspaceId ? `${started.url}/workspaces/${initialWorkspaceId}/` : started.url;
+      if (!noOpen) openDefaultBrowser(pageUrl);
+      console.log(`Buildr 本地应用已运行：${pageUrl}`);
+      return { reused: true, url: pageUrl };
+    }
+    const secret = crypto.randomBytes(32).toString('hex');
+    let state = null;
+    let instance = null;
+    try {
+      instance = createLocalWorkspaceServer(runtime, {
+        port,
+        instanceSecret: secret,
+        onShutdown: () => state && clearLocalAppInstance(state),
+      });
+      const ready = await instance.ready;
+      state = { url: ready.url, secret, pid: process.pid };
+      writeLocalAppInstance(runtime, state);
+      releaseLocalAppStartLock(startLock);
+      const pageUrl = initialWorkspaceId ? `${ready.url}/workspaces/${initialWorkspaceId}/` : ready.url;
+      if (!noOpen) openDefaultBrowser(pageUrl);
+      console.log(`Buildr 本地应用：${pageUrl}`);
+      console.log('仅限本机访问；关闭浏览器不会退出服务，请在页面中选择“退出 Buildr”。');
+      const cleanup = () => { clearLocalAppInstance(state); };
+      process.once('exit', cleanup);
+      process.once('SIGINT', () => instance.server.close(() => process.exit(0)));
+      process.once('SIGTERM', () => instance.server.close(() => process.exit(0)));
+      return { ...instance, reused: false, url: pageUrl };
+    } catch (error) {
+      releaseLocalAppStartLock(startLock);
+      clearLocalAppInstance(state);
+      instance?.server.close();
+      throw new Error(`Buildr 本地应用启动失败：${error.message}`);
+    }
   }
 
   Object.assign(runtime, { startLocalWorkspaceApp });

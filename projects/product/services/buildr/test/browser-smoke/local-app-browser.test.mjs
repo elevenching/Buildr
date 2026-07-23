@@ -89,39 +89,49 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
   });
 
   createFixture(workspaceRoot);
-  const instance = createLocalWorkspaceServer(createRuntime(), { targetRoot: workspaceRoot });
+  process.env.BUILDR_APP_DATA_DIR = path.join(base, 'app-data');
+  t.after(() => delete process.env.BUILDR_APP_DATA_DIR);
+  const otherRoot = path.join(base, 'other-workspace');
+  runBuildr(['init', '--target', otherRoot, '--name', 'other-workspace', '--description', '第二个浏览器工作空间']);
+  const runtime = createRuntime();
+  let registry = runtime.listRegisteredWorkspaces();
+  registry = runtime.registerLocalWorkspace({ rootPath: otherRoot, revision: registry.revision });
+  const instance = createLocalWorkspaceServer(runtime, { targetRoot: workspaceRoot });
   server = instance.server;
-  const { url } = await instance.ready;
+  const { url, initialWorkspaceId } = await instance.ready;
+  const workspaceUrl = `${url}/workspaces/${initialWorkspaceId}`;
   browser = await chromium.launch({ executablePath: resolveBrowserExecutable(), headless: true });
   const page = await browser.newPage({ locale: 'zh-CN' });
   const browserErrors = [];
   page.on('pageerror', (error) => browserErrors.push(`pageerror ${page.url()}: ${error.message}`));
   page.on('console', (message) => { if (message.type() === 'error') browserErrors.push(`console.error ${page.url()}: ${message.text()}`); });
 
-  if (selected('shell')) await t.test('应用 Shell 可启动、导航且无浏览器错误', async () => {
+  if (selected('shell')) await t.test('全局首页展示多个工作空间并进入选定上下文', async () => {
     await page.goto(url);
-    assert.equal(await page.locator('#shell-workspace-name').innerText(), 'browser-smoke');
-    const projects = page.locator('a[href="/projects"][data-route]');
-    assert.ok(await projects.count() >= 1, '至少存在一个项目导航入口');
-    await projects.first().click();
-    await page.waitForURL(`${url}/projects`);
+    await page.locator('#workspace-grid .workspace-card').first().waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#workspace-grid .workspace-card').count(), 2);
+    const target = page.locator('#workspace-grid .workspace-card').filter({ has: page.locator('h2').filter({ hasText: /^browser-smoke$/ }) });
+    await unique(target, 'browser-smoke 工作空间卡片');
+    await target.getByRole('link', { name: '打开工作空间' }).click();
+    await page.waitForURL(`${workspaceUrl}/`);
+    assert.equal(await page.locator('#overview-title').innerText(), 'browser-smoke');
   });
 
   if (selected('project')) await t.test('项目目录通过操作栏进入稳定详情', async () => {
-    await page.goto(`${url}/projects`);
+    await page.goto(`${workspaceUrl}/projects`);
     const row = page.locator('#project-table-body tr').filter({ hasText: '演示项目' });
     await unique(row, '项目行');
     const detail = row.getByRole('link', { name: '详情', exact: true });
     await unique(detail, '项目详情操作');
     await detail.click();
-    await page.waitForURL(`${url}/projects/demo`);
+    await page.waitForURL(`${workspaceUrl}/projects/demo`);
     assert.equal(await page.locator('#project-detail-name').innerText(), '演示项目');
     assert.equal(await page.locator('#project-detail-code').innerText(), 'demo');
     assert.equal(await page.locator('#project-service-count').innerText(), '1');
   });
 
   if (selected('service')) await t.test('服务目录按项目过滤并打开真实详情', async () => {
-    await page.goto(`${url}/services?project=demo`);
+    await page.goto(`${workspaceUrl}/services?project=demo`);
     const projectSelect = page.locator('#service-project-select');
     await unique(projectSelect, '服务所属项目过滤器');
     assert.equal(await projectSelect.inputValue(), 'demo');
@@ -137,7 +147,7 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
   });
 
   if (selected('change')) await t.test('变更目录过滤、详情和 Agent prompt 保持只读', async () => {
-    await page.goto(`${url}/changes`);
+    await page.goto(`${workspaceUrl}/changes`);
     const lifecycle = page.locator('#change-lifecycle-filter');
     await unique(lifecycle, 'Change 生命周期过滤器');
     await lifecycle.selectOption('archived');
@@ -148,7 +158,7 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
     const detail = row.getByRole('link', { name: '详情', exact: true });
     await unique(detail, 'Change 详情操作');
     await detail.click();
-    await page.waitForURL(`${url}/changes/demo/active~browser-flow`);
+    await page.waitForURL(`${workspaceUrl}/changes/demo/active~browser-flow`);
     assert.equal(await page.locator('#change-detail-code').innerText(), 'browser-flow');
     assert.equal(await page.locator('#change-detail-lifecycle').innerText(), '进行中');
     assert.equal(await page.locator('#change-detail-progress').innerText(), '1 / 2');

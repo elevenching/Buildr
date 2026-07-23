@@ -1,4 +1,4 @@
-import { api } from '/api-client.js';
+import { api, setWorkspaceId } from '/api-client.js';
 import { setupAgentActions } from '/features/agent-actions.js';
 import { renderProjectDetail } from '/features/project-detail.js';
 import { renderProjects } from '/features/projects.js';
@@ -6,16 +6,19 @@ import { renderServices } from '/features/services.js';
 import { renderChanges } from '/features/changes.js';
 import { renderChangeDetail } from '/features/change-detail.js';
 import { renderWorkspaceOverview, renderWorkspaceSettings } from '/features/workspace.js';
+import { renderWorkspaces } from '/features/workspaces.js';
 import { createRouter } from '/router.js';
 
 const view = document.getElementById('app-view');
+let currentWorkspaceId = null;
+
 const routeDefinitions = {
-  '/': { id: 'overview', label: '概览', render: renderWorkspaceOverview },
-  '/settings/workspace': { id: 'settings', label: '工作空间设置', render: renderWorkspaceSettings },
+  '/': { id: 'workspaces', label: '工作空间', render: renderWorkspaces, global: true },
+  '/overview': { id: 'overview', label: '概览', render: renderWorkspaceOverview },
+  '/settings': { id: 'settings', label: '工作空间设置', render: renderWorkspaceSettings },
   '/projects': { id: 'projects', label: '项目', render: renderProjects },
   '/projects/:projectCode': {
-    id: 'projects',
-    label: '项目详情',
+    id: 'projects', label: '项目详情',
     match(pathname) {
       const match = pathname.match(/^\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)$/);
       return match ? { projectCode: decodeURIComponent(match[1]) } : null;
@@ -25,8 +28,7 @@ const routeDefinitions = {
   '/services': { id: 'services', label: '服务', render: renderServices },
   '/changes': { id: 'changes', label: '变更', render: renderChanges },
   '/changes/:projectCode/:changeRef': {
-    id: 'changes',
-    label: '变更详情',
+    id: 'changes', label: '变更详情',
     match(pathname) {
       const match = pathname.match(/^\/changes\/([A-Za-z0-9][A-Za-z0-9._-]*)\/([^/]+)$/);
       return match ? { projectCode: decodeURIComponent(match[1]), changeRef: decodeURIComponent(match[2]) } : null;
@@ -35,10 +37,30 @@ const routeDefinitions = {
   },
 };
 
+function routeContext(pathname) {
+  const match = pathname.match(/^\/workspaces\/([0-9a-fA-F-]{36})(\/.*)?$/);
+  if (!match) return { workspaceId: null, pathname: '/' };
+  const suffix = match[2] || '/';
+  return { workspaceId: match[1], pathname: suffix === '/' ? '/overview' : suffix };
+}
+
 function updateWorkspaceContext(data) {
   document.getElementById('shell-workspace-name').textContent = data.workspace.name;
   document.getElementById('shell-workspace-path').textContent = data.rootPath;
   document.title = `${data.workspace.name} · Buildr`;
+}
+
+function setWorkspaceShell(global) {
+  document.body.classList.toggle('global-context', global);
+  if (global) {
+    document.getElementById('shell-workspace-name').textContent = '全部工作空间';
+    document.getElementById('shell-workspace-path').textContent = '本机登记列表';
+    document.title = 'Buildr 工作空间';
+  }
+  for (const link of document.querySelectorAll('[data-workspace-route]')) {
+    const suffix = link.dataset.workspaceRoute;
+    link.href = currentWorkspaceId ? `/workspaces/${currentWorkspaceId}${suffix}` : '/';
+  }
 }
 
 function updateRouteState(route) {
@@ -51,7 +73,6 @@ function updateRouteState(route) {
   }
   const resourceGroup = document.querySelector('[data-nav-group="resources"]');
   resourceGroup.classList.toggle('active', ['projects', 'services', 'changes'].includes(route.id));
-  if (['projects', 'services', 'changes'].includes(route.id) && window.matchMedia('(max-width: 700px)').matches) setResourceNavigation(false);
 }
 
 function setResourceNavigation(expanded) {
@@ -62,20 +83,53 @@ function setResourceNavigation(expanded) {
   toggle.querySelector('.nav-chevron').textContent = expanded ? '⌄' : '›';
 }
 
+function workspaceDestination(destination) {
+  if (!currentWorkspaceId || destination === '/' || destination.startsWith('/workspaces/')) return destination;
+  const internal = ['/overview', '/settings', '/projects', '/services', '/changes'];
+  return internal.some((prefix) => destination === prefix || destination.startsWith(`${prefix}/`) || destination.startsWith(`${prefix}?`))
+    ? `/workspaces/${currentWorkspaceId}${destination}`
+    : destination;
+}
+
 const router = createRouter({
   routes: routeDefinitions,
-  async onRoute(route) {
-    updateRouteState(route);
+  workspaceDestination,
+  async onRoute(_route, browserPath) {
+    const context = routeContext(browserPath);
+    currentWorkspaceId = context.workspaceId;
+    setWorkspaceId(currentWorkspaceId);
+    const route = router.resolve ? router.resolve(context.pathname) : null;
+    const resolved = route || (context.workspaceId ? routeDefinitions['/overview'] : routeDefinitions['/']);
+    setWorkspaceShell(!context.workspaceId);
+    updateRouteState(resolved);
     view.innerHTML = '<div class="page-loading"><span class="loader"></span><p>正在读取真实信息…</p></div>';
-    await route.render({ root: view, api, onWorkspace: updateWorkspaceContext, navigate: router.navigate, openAgentAction: agentActions.open, params: route.params });
+    await resolved.render({ root: view, api, onWorkspace: updateWorkspaceContext, navigate: router.navigate, openAgentAction: agentActions.open, params: resolved.params || {} });
     view.focus({ preventScroll: true });
   },
 });
+
+const originalResolve = (() => {
+  function resolve(pathname) {
+    if (routeDefinitions[pathname]) return { ...routeDefinitions[pathname], params: {} };
+    for (const route of Object.values(routeDefinitions)) {
+      const params = route.match?.(pathname);
+      if (params) return { ...route, params };
+    }
+    return currentWorkspaceId ? { ...routeDefinitions['/overview'], params: {} } : { ...routeDefinitions['/'], params: {} };
+  }
+  return resolve;
+})();
+router.resolve = originalResolve;
 
 const agentActions = setupAgentActions({ api });
 document.getElementById('resource-nav-toggle').addEventListener('click', () => {
   const expanded = document.getElementById('resource-nav-toggle').getAttribute('aria-expanded') === 'true';
   setResourceNavigation(!expanded);
+});
+document.getElementById('quit-buildr').addEventListener('click', async () => {
+  if (!window.confirm('退出 Buildr 后，本机服务将停止。确定退出吗？')) return;
+  await api('/api/v1/app/quit', { method: 'POST', body: '{}' });
+  view.innerHTML = '<section class="empty-state"><h1>Buildr 已退出</h1><p>你可以关闭此页面；再次点击 Buildr 图标即可重新打开。</p></section>';
 });
 setResourceNavigation(window.matchMedia('(min-width: 701px)').matches);
 router.start();

@@ -137,7 +137,9 @@ Install to Buildr, render to Agent runtime.
 
 Buildr 资产是源头；Agent runtime 是面向当前 Agent 的可重建入口。Workspace 就是 Buildr 治理的工作目录，也是 Skill 唯一 source authority；Project 是业务、依赖、适用性和 capability context，不是 Skill 安装隔离层。Skill 只在 workspace `skills/` 维护，再显式 render 到当前工作目录的 `workspace` destination 或个人的 `user` destination。Buildr 在写入前检查同名 identity、ownership、receipt 与完整目录 digest；冲突会阻止整次写入。
 
-当前本地产品通过 `buildr app` 提供人类可读的工作空间（Workspace）、项目（Project）、服务（Service）与变更（Change）管理视图。页面复用与 CLI 相同的应用用例：只允许修改 Workspace/Project 的 `name`、`description` 和 Service 的 `name`、`description`、`type`；source、path、identity 与 Git 状态保持只读。变更视图直接索引各 Project 的 `openspec/changes/` 与 `archive/`，用表格展示生命周期、任务进度和更新时间，并通过独立详情页按需读取 proposal、design、delta specs 与 tasks；它不建立数据库、缓存或第二套 lifecycle 状态。
+当前本地产品通过 `buildr app` 启动或复用只监听 loopback 的全局本机 Web 应用，并在默认浏览器中提供工作空间（Workspace）、项目（Project）、服务（Service）与变更（Change）管理视图。用户级登记列表只保存 Workspace root 和最近使用项；Workspace identity、metadata 与下属资源仍由各 Workspace 文件实时提供，不建立跨 Workspace 第二事实源。页面复用与 CLI 相同的应用用例：只允许修改 Workspace/Project 的 `name`、`description` 和 Service 的 `name`、`description`、`type`；source、path、identity 与 Git 状态保持只读。变更视图直接索引各 Project 的 `openspec/changes/` 与 `archive/`，用表格展示生命周期、任务进度和更新时间，并通过独立详情页按需读取 proposal、design、delta specs 与 tasks。
+
+macOS `Buildr.app` 和 Windows launcher bundle 携带运行所需的 Node runtime 与相同 Web 资源，只负责启动或复用本机服务并打开默认浏览器，不引入 Desktop WebView。关闭浏览器不等于退出服务；页面提供受 session 保护的显式退出操作。当前不提供菜单栏、登录启动、磁盘自动扫描或跨 Workspace 资源聚合，也不由 App 启动或管理 Agent。
 
 新建 Workspace、Project、Service 或 Change，以及继续、审查 Change，均只生成交给 Agent 的完整 prompt，不绕过 Agent 对范围、目录、Git、授权、OpenSpec 契约和 runtime 的判断。已归档 Change 默认只读，页面不会直接创建、编辑、apply、sync 或 archive Change。文件系统仍是本地 Workspace 的事实载体。
 

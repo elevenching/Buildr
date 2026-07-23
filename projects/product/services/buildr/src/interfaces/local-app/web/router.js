@@ -1,4 +1,4 @@
-export function createRouter({ routes, onRoute }) {
+export function createRouter({ routes, onRoute, workspaceDestination }) {
   function resolve(pathname) {
     if (routes[pathname]) return { ...routes[pathname], params: {} };
     for (const route of Object.values(routes)) {
@@ -14,6 +14,7 @@ export function createRouter({ routes, onRoute }) {
   }
 
   function navigate(destination) {
+    destination = workspaceDestination?.(destination) || destination;
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (current !== destination) window.history.pushState({}, '', destination);
     return render();
@@ -27,5 +28,5 @@ export function createRouter({ routes, onRoute }) {
   });
   window.addEventListener('popstate', render);
 
-  return { navigate, start: render };
+  return { navigate, start: render, resolve };
 }

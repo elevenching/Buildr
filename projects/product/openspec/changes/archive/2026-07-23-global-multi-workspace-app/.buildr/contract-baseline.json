@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "global-multi-workspace-app",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-9286b443d8cae61c0f52c69a19d513ee923615db69c7325b090d9005b01beaa7",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "local-workspace-application",
+      "title": "本机应用必须管理多个已登记 Workspace",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "全局应用必须通过已登记 Workspace 身份隔离请求",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "全局应用必须提供 Workspace 级应用外壳与路由",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "Buildr App 必须以单实例本机 Web 服务运行",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "普通用户必须能够启动和退出本机 Web 应用",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "全局 Workspace 登记必须使用最小本机安全边界",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "本地应用入口必须受限于单个 Workspace",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 本地应用入口必须受限于单个 Workspace\nBuildr MUST 提供 public `buildr app --target <workspace> [--port <port>]` 入口，并把一次应用进程固定到一个已初始化 Workspace。\n\n#### Scenario: 启动本地应用\n- **WHEN** 用户或 Agent 对有效 Buildr Workspace 运行 `buildr app --target <workspace>`\n- **THEN** Buildr MUST 只监听 loopback 地址\n- **AND** Buildr MUST 输出实际本地 URL 和目标 Workspace\n- **AND** 省略端口时 Buildr MUST 选择可用端口\n\n#### Scenario: 旧 Workspace 只读启动\n- **WHEN** 目标 Workspace 有效但 canonical metadata 需要迁移\n- **THEN** Buildr MUST 允许只读展示真实 Workspace 信息和迁移提示\n- **AND** 应用启动 MUST NOT 静默修改目标目录\n- **AND** 修改请求 MUST 在 Application mutation 前被拒绝\n\n#### Scenario: 页面尝试切换目标目录\n- **WHEN** 浏览器请求包含另一个 Workspace path 或任意 filesystem path\n- **THEN** Buildr MUST 拒绝该请求\n- **AND** 应用进程 MUST 继续只服务启动时固定的目标 Workspace\n"
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "本机应用必须提供固定 Workspace 的应用外壳与路由",
+      "operation": "REMOVED",
+      "state": "present",
+      "content": "### Requirement: 本机应用必须提供固定 Workspace 的应用外壳与路由\nBuildr MUST 为固定目标 Workspace 提供一致的 App Shell、主导航和可直接访问的页面路由，且路由切换不得改变应用进程绑定的 Workspace。\n\n#### Scenario: 打开 Workspace 概览\n- **WHEN** 用户打开 `/` 或通过主导航返回概览\n- **THEN** 页面 MUST 在 App Shell 中展示当前 Workspace 概览\n- **AND** 导航 MUST 将概览标识为当前页面\n\n#### Scenario: 直接打开 Workspace 设置\n- **WHEN** 用户直接访问或刷新 `/settings/workspace`\n- **THEN** HTTP interface MUST 返回带当前 session token 的本机应用 shell\n- **AND** 客户端 MUST 渲染当前 Workspace 设置\n\n#### Scenario: 浏览器历史导航\n- **WHEN** 用户在本机应用页面之间导航后使用浏览器前进或后退\n- **THEN** 应用 MUST 根据当前 URL 恢复对应页面\n- **AND** MUST NOT 重载或切换目标 Workspace\n\n#### Scenario: 展开与折叠资源导航\n- **WHEN** 用户操作主导航中的“资源”分组\n- **THEN** 应用 MUST 允许展开或折叠该分组\n- **AND** 展开状态 MUST 明确列出“项目”和“服务”子入口\n- **AND** 折叠操作 MUST NOT 改变当前工作空间或任何源资产\n\n#### Scenario: 从资源子入口进入独立视图\n- **WHEN** 用户选择“项目”或“服务”子入口\n- **THEN** 应用 MUST 分别打开项目或服务独立视图\n- **AND** 两类资源 MUST NOT 通过同一页面中的区段定位来模拟独立导航\n\n#### Scenario: 未知页面路由\n- **WHEN** 用户请求未声明的页面路径或任意未知静态资源\n- **THEN** HTTP interface MUST 返回 not found\n- **AND** MUST NOT 用应用 shell 掩盖未知 API 或资源错误\n"
+    }
+  ]
+}

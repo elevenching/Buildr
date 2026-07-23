@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import test from 'node:test';
 import YAML from 'yaml';
 
@@ -74,6 +74,67 @@ test('Workspace 应用层只修改白名单字段并防止 revision 覆盖', (t)
   assert.equal(runtime.getWorkspace(root).workspace.name, 'Renamed');
 });
 
+test('本机 Workspace 登记只保存 root，并支持幂等登记、切换、移除和 revision CAS', (t) => {
+  const appData = path.join(temporaryRoot(t), 'app-data');
+  const previous = process.env.BUILDR_APP_DATA_DIR;
+  process.env.BUILDR_APP_DATA_DIR = appData;
+  t.after(() => {
+    if (previous === undefined) delete process.env.BUILDR_APP_DATA_DIR;
+    else process.env.BUILDR_APP_DATA_DIR = previous;
+  });
+  const first = initWorkspace(t, { name: 'First' });
+  const second = initWorkspace(t, { name: 'Second' });
+  const runtime = createRuntime();
+
+  let registry = runtime.listRegisteredWorkspaces();
+  assert.deepEqual(registry.workspaces, []);
+  const emptyRevision = registry.revision;
+  registry = runtime.registerLocalWorkspace({ rootPath: first, revision: registry.revision });
+  assert.equal(registry.workspaces.length, 1);
+  assert.equal(registry.workspaces[0].workspace.name, 'First');
+  assert.equal(registry.lastOpenedWorkspaceId, registry.workspaces[0].workspace.id);
+  assert.throws(() => runtime.registerLocalWorkspace({ rootPath: second, revision: emptyRevision }), (error) => error.code === 'workspace_registry_revision_conflict');
+
+  registry = runtime.registerLocalWorkspace({ rootPath: first, revision: registry.revision });
+  assert.equal(registry.workspaces.length, 1, '重复 root 必须幂等');
+  registry = runtime.registerLocalWorkspace({ rootPath: second, revision: registry.revision });
+  assert.equal(registry.workspaces.length, 2);
+  const secondId = registry.lastOpenedWorkspaceId;
+  assert.equal(runtime.resolveRegisteredWorkspace(secondId).rootPath, second);
+
+  const stored = JSON.parse(fs.readFileSync(path.join(appData, 'workspace-registry.json'), 'utf8'));
+  assert.deepEqual(Object.keys(stored).sort(), ['lastOpenedRoot', 'roots', 'schemaVersion']);
+  assert.ok(stored.roots.includes(first));
+  assert.doesNotMatch(JSON.stringify(stored), /First|Second/);
+
+  registry = runtime.removeRegisteredWorkspace({ workspaceId: secondId, revision: registry.revision });
+  assert.equal(registry.workspaces.length, 1);
+  assert.ok(fs.existsSync(second), '移除登记不得删除 Workspace');
+});
+
+test('本机 Workspace 登记隔离不可用 root 并阻止重复 identity', (t) => {
+  const appData = path.join(temporaryRoot(t), 'app-data-conflict');
+  const previous = process.env.BUILDR_APP_DATA_DIR;
+  process.env.BUILDR_APP_DATA_DIR = appData;
+  t.after(() => {
+    if (previous === undefined) delete process.env.BUILDR_APP_DATA_DIR;
+    else process.env.BUILDR_APP_DATA_DIR = previous;
+  });
+  const first = initWorkspace(t, { name: 'Original' });
+  const duplicate = path.join(temporaryRoot(t), 'duplicate');
+  fs.cpSync(first, duplicate, { recursive: true });
+  const runtime = createRuntime();
+  let registry = runtime.listRegisteredWorkspaces();
+  registry = runtime.registerLocalWorkspace({ rootPath: first, revision: registry.revision });
+  assert.throws(
+    () => runtime.registerLocalWorkspace({ rootPath: duplicate, revision: registry.revision }),
+    (error) => error.code === 'workspace_registry_identity_conflict',
+  );
+  fs.rmSync(first, { recursive: true, force: true });
+  registry = runtime.listRegisteredWorkspaces();
+  assert.equal(registry.workspaces[0].status, 'unavailable');
+});
+
 test('legacy migration 复用 Skills UUID，失败时回滚，identity 冲突零写入', (t) => {
   const runtime = createRuntime();
   const workspaceId = crypto.randomUUID();
@@ -134,12 +195,21 @@ test('sync 显式迁移 legacy Workspace，并在 identity 冲突时保持零写
 
 test('本地应用只监听 loopback，并保护写 API、revision 与 prompt-only 创建', async (t) => {
   const root = initWorkspace(t);
+  const appData = path.join(temporaryRoot(t), 'local-app-data');
+  const previousAppData = process.env.BUILDR_APP_DATA_DIR;
+  process.env.BUILDR_APP_DATA_DIR = appData;
+  t.after(() => {
+    if (previousAppData === undefined) delete process.env.BUILDR_APP_DATA_DIR;
+    else process.env.BUILDR_APP_DATA_DIR = previousAppData;
+  });
   const runtime = createRuntime();
   const metadataFile = path.join(root, '.buildr', 'workspace.yml');
   const beforeHash = sha256(metadataFile);
   const instance = createLocalWorkspaceServer(runtime, { targetRoot: root });
   t.after(() => instance.server.close());
-  const { url, sessionToken } = await instance.ready;
+  const { url, sessionToken, initialWorkspaceId } = await instance.ready;
+  const workspaceBase = `/workspaces/${initialWorkspaceId}`;
+  const apiBase = `/api/v1/workspaces/${initialWorkspaceId}`;
   assert.match(url, /^http:\/\/127\.0\.0\.1:\d+$/);
 
   const html = await fetch(url).then((response) => response.text());
@@ -148,45 +218,48 @@ test('本地应用只监听 loopback，并保护写 API、revision 与 prompt-on
   assert.match(html, /工作空间设置/);
   assert.doesNotMatch(html, /https?:\/\//);
   let response;
-  for (const route of ['/settings/workspace', '/projects', '/projects/product', '/services', '/changes', '/changes/product/active~demo']) {
+  for (const route of [`${workspaceBase}/`, `${workspaceBase}/settings`, `${workspaceBase}/projects`, `${workspaceBase}/projects/product`, `${workspaceBase}/services`, `${workspaceBase}/changes`, `${workspaceBase}/changes/product/active~demo`]) {
     response = await fetch(`${url}${route}`);
     assert.equal(response.status, 200);
     assert.match(await response.text(), /Buildr 工作空间/);
   }
-  for (const asset of ['/app.js', '/api-client.js', '/router.js', '/features/workspace.js', '/features/projects.js', '/features/project-detail.js', '/features/services.js', '/features/changes.js', '/features/change-detail.js', '/features/agent-actions.js']) {
+  for (const asset of ['/app.js', '/api-client.js', '/router.js', '/features/workspaces.js', '/features/workspace.js', '/features/projects.js', '/features/project-detail.js', '/features/services.js', '/features/changes.js', '/features/change-detail.js', '/features/agent-actions.js']) {
     response = await fetch(`${url}${asset}`);
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type'), /text\/javascript/);
   }
   response = await fetch(`${url}/unknown-page`);
   assert.equal(response.status, 404);
-  response = await fetch(`${url}/projects/product/extra`);
+  response = await fetch(`${url}${workspaceBase}/projects/product/extra`);
   assert.equal(response.status, 404);
-  response = await fetch(`${url}/projects/%2Ftmp`);
+  response = await fetch(`${url}${workspaceBase}/projects/%2Ftmp`);
   assert.equal(response.status, 404);
   response = await fetch(`${url}/api/v1/unknown`);
   assert.equal(response.status, 404);
-  const current = await fetch(`${url}/api/v1/workspace`).then((response) => response.json());
+  const registry = await fetch(`${url}/api/v1/workspaces`).then((response) => response.json());
+  assert.equal(registry.workspaces.length, 1);
+  assert.equal(registry.workspaces[0].workspace.id, initialWorkspaceId);
+  const current = await fetch(`${url}${apiBase}`).then((response) => response.json());
   assert.equal(current.workspace.name, 'Demo');
   assert.equal(sha256(metadataFile), beforeHash, '只读启动和读取不得修改 Workspace');
-  const changes = await fetch(`${url}/api/v1/changes`).then((response) => response.json());
+  const changes = await fetch(`${url}${apiBase}/changes`).then((response) => response.json());
   assert.deepEqual(changes.changes, []);
 
-  response = await fetch(`${url}/api/v1/workspace`, {
+  response = await fetch(`${url}${apiBase}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json', 'x-buildr-session': sessionToken },
     body: JSON.stringify({ revision: current.revision, name: 'Blocked' }),
   });
   assert.equal(response.status, 403);
 
-  response = await fetch(`${url}/api/v1/workspace`, {
+  response = await fetch(`${url}${apiBase}`, {
     method: 'PUT',
     headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': 'invalid' },
     body: JSON.stringify({ revision: current.revision, name: 'Blocked' }),
   });
   assert.equal(response.status, 403);
 
-  response = await fetch(`${url}/api/v1/workspace`, {
+  response = await fetch(`${url}${apiBase}`, {
     method: 'PUT',
     headers: { origin: url, 'content-type': 'text/plain', 'x-buildr-session': sessionToken },
     body: JSON.stringify({ revision: current.revision, name: 'Blocked' }),
@@ -200,10 +273,10 @@ test('本地应用只监听 loopback，并保护写 API、revision 与 prompt-on
   });
   assert.equal(response.status, 413);
 
-  response = await fetch(`${url}/api/v1/workspace?path=/tmp/other`);
+  response = await fetch(`${url}${apiBase}?path=/tmp/other`);
   assert.equal(response.status, 400);
 
-  response = await fetch(`${url}/api/v1/workspace`, {
+  response = await fetch(`${url}${apiBase}`, {
     method: 'PUT',
     headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken },
     body: JSON.stringify({ revision: current.revision, name: 'From UI', description: 'Saved by local app' }),
@@ -212,7 +285,7 @@ test('本地应用只监听 loopback，并保护写 API、revision 与 prompt-on
   const updated = await response.json();
   assert.equal(updated.workspace.name, 'From UI');
 
-  response = await fetch(`${url}/api/v1/workspace`, {
+  response = await fetch(`${url}${apiBase}`, {
     method: 'PUT',
     headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken },
     body: JSON.stringify({ revision: current.revision, name: 'Stale UI' }),
@@ -230,6 +303,81 @@ test('本地应用只监听 loopback，并保护写 API、revision 与 prompt-on
   assert.match(prompt.prompt, /先读取并遵循当前可用的 Buildr Skill/);
   assert.match(prompt.prompt, /目标位置尚未指定/);
   assert.equal(prompt.copiedMeansCreated, false);
+});
+
+test('全局本机应用隔离多个 Workspace，并保护 health 与退出操作', async (t) => {
+  const base = temporaryRoot(t);
+  process.env.BUILDR_APP_DATA_DIR = path.join(base, 'global-app-data');
+  t.after(() => delete process.env.BUILDR_APP_DATA_DIR);
+  const first = initWorkspace(t, { name: 'global-first' });
+  const second = initWorkspace(t, { name: 'global-second' });
+  const runtime = createRuntime();
+  let registry = runtime.listRegisteredWorkspaces();
+  registry = runtime.registerLocalWorkspace({ rootPath: first, revision: registry.revision });
+  registry = runtime.registerLocalWorkspace({ rootPath: second, revision: registry.revision });
+  const [firstEntry, secondEntry] = registry.workspaces;
+  let shutdown = false;
+  const instance = createLocalWorkspaceServer(runtime, { instanceSecret: 'known-secret', onShutdown: () => { shutdown = true; } });
+  const { url, sessionToken } = await instance.ready;
+
+  let response = await fetch(`${url}/api/v1/health`, { headers: { 'x-buildr-instance': 'wrong' } });
+  assert.equal(response.status, 403);
+  response = await fetch(`${url}/api/v1/health`, { headers: { 'x-buildr-instance': 'known-secret' } });
+  assert.equal(response.status, 200);
+
+  const firstData = await fetch(`${url}/api/v1/workspaces/${firstEntry.workspace.id}`).then((item) => item.json());
+  const secondData = await fetch(`${url}/api/v1/workspaces/${secondEntry.workspace.id}`).then((item) => item.json());
+  assert.equal(firstData.workspace.name, 'global-first');
+  assert.equal(secondData.workspace.name, 'global-second');
+  response = await fetch(`${url}/api/v1/workspaces/${firstEntry.workspace.id}?root=${encodeURIComponent(second)}`);
+  assert.equal(response.status, 400);
+  response = await fetch(`${url}/api/v1/workspaces/00000000-0000-4000-8000-000000000000`);
+  assert.equal(response.status, 404);
+
+  response = await fetch(`${url}/api/v1/app/quit`, { method: 'POST', headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': 'wrong' }, body: '{}' });
+  assert.equal(response.status, 403);
+  response = await fetch(`${url}/api/v1/app/quit`, { method: 'POST', headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken }, body: '{}' });
+  assert.equal(response.status, 202);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(shutdown, true);
+});
+
+test('buildr app 重复启动复用单实例并从陈旧 runtime state 恢复', { timeout: 15_000 }, async (t) => {
+  const base = temporaryRoot(t);
+  const root = initWorkspace(t, { name: 'single-instance' });
+  const appData = path.join(base, 'single-instance-data');
+  fs.mkdirSync(appData, { recursive: true });
+  fs.writeFileSync(path.join(appData, 'instance.json'), '{"schemaVersion":"buildr.local-app-instance/v1","url":"http://127.0.0.1:1","secret":"stale","pid":999999}\n');
+  const env = { ...process.env, BUILDR_APP_DATA_DIR: appData };
+  const child = spawn(process.execPath, [BUILDR, 'app', '--target', root, '--no-open'], { cwd: PRODUCT_ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  let output = '';
+  let errors = '';
+  child.stdout.on('data', (chunk) => { output += chunk; });
+  child.stderr.on('data', (chunk) => { errors += chunk; });
+  t.after(() => { if (child.exitCode === null) child.kill('SIGTERM'); });
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`Buildr app 未就绪：${output}\n${errors}`)), 5000);
+    const poll = setInterval(() => {
+      if (output.includes('Buildr 本地应用：')) {
+        clearTimeout(timeout);
+        clearInterval(poll);
+        resolve();
+      }
+    }, 25);
+    child.once('exit', (code) => {
+      if (!output.includes('Buildr 本地应用：')) {
+        clearTimeout(timeout);
+        clearInterval(poll);
+        reject(new Error(`Buildr app 提前退出 ${code}：${errors}`));
+      }
+    });
+  });
+  const reused = spawnSync(process.execPath, [BUILDR, 'app', '--target', root, '--no-open'], { cwd: PRODUCT_ROOT, env, encoding: 'utf8', timeout: 5000 });
+  assert.equal(reused.status, 0, reused.stderr);
+  assert.match(reused.stdout, /Buildr 本地应用已运行/);
+  child.kill('SIGTERM');
+  await new Promise((resolve) => child.once('exit', resolve));
+  assert.equal(fs.existsSync(path.join(appData, 'instance.json')), false);
 });
 
 test('public CLI 暴露 app 与 init description help', () => {

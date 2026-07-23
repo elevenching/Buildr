@@ -97,6 +97,8 @@ test('local app Changed 路由只选择对应 integration 边界', () => {
   assert.deepEqual(ids(createVerificationPlan({ paths: ['src/interfaces/local-app/web/features/services.js'] })), ['browser-service']);
   assert.deepEqual(ids(createVerificationPlan({ paths: ['src/interfaces/local-app/web/features/changes.js'] })), ['browser-change']);
   assert.deepEqual(ids(createVerificationPlan({ paths: ['src/interfaces/local-app/web/app.js'] })), ['browser-shell']);
+  assert.deepEqual(ids(createVerificationPlan({ paths: ['src/interfaces/local-app/web/features/workspaces.js'] })), ['browser-shell']);
+  assert.deepEqual(ids(createVerificationPlan({ paths: ['src/interfaces/local-app/runtime/instance-manager.mjs'] })), ['integration-fast']);
 });
 
 test('OpenSpec 路径只选择真实 owner', () => {

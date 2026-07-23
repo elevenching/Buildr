@@ -12,7 +12,7 @@ export function registerCommandHelp(runtime) {
     const runtimeIds = SUPPORTED_AGENT_IDS.join('|');
     console.error('Usage:');
     console.error(`  buildr init [--agent <${runtimeIds}>] [--target <dir>] [--name <name>] [--description <text>] [--profile <personal|team|company>]`);
-    console.error('  buildr app [--target <workspace>] [--port <port>]');
+    console.error('  buildr app [--target <workspace>] [--port <port>] [--no-open]');
     console.error('  buildr project create <code> [--target <dir>] [--name <text>] [--description <text>] [--repo <git-url>] [--remote <name>] [--integration-branch <branch>]');
     console.error('  buildr service create <project>/<service> <repo-ref> [--target <dir>] [--name <text>] [--description <text>] [--type <type>] [--remote <name>] [--integration-branch <branch>] [--json]');
     console.error(`  buildr worktree create <task-id> --agent <${runtimeIds}> --branch <branch> [--start-point <ref>] [--target <workspace>] [--json]`);
@@ -94,14 +94,16 @@ export function registerCommandHelp(runtime) {
       '--help 只输出帮助，不会写入文件。',
     ],
     app: [
-      'Usage: buildr app [--target <workspace>] [--port <port>]',
+      'Usage: buildr app [--target <workspace>] [--port <port>] [--no-open]',
       '',
-      '启动只监听 127.0.0.1 的本机可视化应用；默认选择可用端口并打印 URL，不自动打开浏览器。',
+      '启动或复用只监听 127.0.0.1 的全局本机 Web 应用，并默认打开浏览器；--no-open 只启动服务。',
+      '--target 验证并登记指定 Workspace，然后打开该 Workspace；不提供时显示本机已登记 Workspace。',
+      '关闭浏览器不会退出服务；通过页面“退出 Buildr”或终止进程停止服务。',
       'Workspace 页面只允许修改 name 和 description；创建 Workspace 只生成可复制 Agent 指令。',
       'Project 页面展示 Domain 声明与实时 Git 状态，只允许修改 name 和 description；创建 Project 只生成可复制 Agent 指令。',
       '页面不会 checkout、stash、merge 或改写 Project Git source。',
       '旧 Workspace metadata 可以只读查看，完成 canonical sync 迁移后才能从页面保存。',
-      '该应用不提供数据库、远程服务或 Agent session connector。',
+      '本机登记列表只保存 Workspace root；事实仍来自各 Workspace，应用不提供远程服务或 Agent session connector。',
     ],
     version: [
       'Usage: buildr version [--json]',

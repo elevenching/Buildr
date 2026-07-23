@@ -27,7 +27,7 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 | 命令 | 用途 |
 |---|---|
 | `buildr init [--agent <agent>]` | 初始化 Organization/Root；传入 `--agent` 时一次完成 runtime 与最终 doctor，不传时只写源资产。 |
-| `buildr app --target <workspace>` | 启动只监听 `127.0.0.1` 的本机应用；查看 Workspace 与 Project，修改各自 `name`、`description`，创建入口只生成可复制 Agent 指令。 |
+| `buildr app [--target <workspace>] [--no-open]` | 启动或复用只监听 `127.0.0.1` 的全局本机 Web 应用；默认打开浏览器，登记和切换多个 Workspace，`--target` 登记并打开指定 Workspace。 |
 | `buildr project create <code>` | 创建或登记 Project；`--name`/`--description` 设置 metadata，`--repo`、`--remote`、`--integration-branch` 声明独立 Git source，并补齐空 `commands.yml` requirement context。 |
 | `buildr service create <project>/<service> <repo-ref>` | 接入本地目录或 Git Service；用 `--name`、`--description`、`--type` 描述 Domain，Git 来源可用 `--remote`、`--integration-branch` 声明稳定来源。 |
 | `buildr worktree create <task-id> --agent <agent> --branch <branch>` | 创建或幂等复用 `<workspace>/.worktrees/<task-id>`；新 checkout 确定性运行 doctor，仅对 clean、identity 稳定且只有当前 Agent runtime stale 的结果自动 sync，其他问题保留现场并 fail closed。 |
@@ -43,6 +43,8 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 | `buildr update [check]` | 检查或更新 Buildr CLI 自身；不维护 workspace。 |
 
 新 Workspace 使用 `.buildr/workspace.yml` 的 `buildr.workspace/v1` schema，并与 `skills/manifest.yml.workspaceId` 共享同一 UUID。旧 metadata 可以在 `buildr app` 中只读查看；`buildr sync <agent>` 通过同一 source transaction 显式迁移两份 Manifest，identity 冲突时零写入失败。页面修改使用 revision compare-and-swap，不自动覆盖 Agent、Git 或编辑器已经产生的外部变化。
+
+全局 App 的用户级登记文件只保存规范化 Workspace root 和最近使用项；Workspace 名称、说明、Project、Service 与 Change 始终从各 Workspace 实时读取。关闭浏览器标签页不会停止本机服务，页面“退出 Buildr”会安全停止实例但保留登记列表和全部源资产。macOS `Buildr.app` 与 Windows launcher bundle 携带运行所需的 Node runtime 和 Web 资源，只负责启动或复用服务并打开默认浏览器，不提供 Desktop WebView。
 
 Project registry 使用 `buildr.projects/v2`：每个 Project 保存 UUID `id`、所属 `workspaceId`、可读 `code`、`name`、`description` 和 `source`。`source.path` 是文件系统物化位置；Git source 另外保存 URL、remote 和稳定的 `integrationBranch`。`currentBranch`、HEAD、dirty、upstream 与 ahead/behind 是实时观察状态，不写入 Domain。v1 registry 可只读查询，`buildr sync <agent>` 显式迁移；页面不会静默迁移、切分支、stash 或改写 remote。
 

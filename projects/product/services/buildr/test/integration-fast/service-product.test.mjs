@@ -84,6 +84,8 @@ test('sync 显式迁移 v1 Service registry 并优先使用 branch', (t) => {
 
 test('Service HTTP API 复用安全边界、CAS 与 prompt-only 创建', async (t) => {
   const { base, root } = setup(t);
+  process.env.BUILDR_APP_DATA_DIR = path.join(base, 'app-data');
+  t.after(() => delete process.env.BUILDR_APP_DATA_DIR);
   const source = path.join(base, 'source');
   fs.mkdirSync(source);
   fs.writeFileSync(path.join(source, 'README.md'), '# api\n');
@@ -91,17 +93,18 @@ test('Service HTTP API 复用安全边界、CAS 与 prompt-only 创建', async (
   const runtime = createRuntime();
   const instance = createLocalWorkspaceServer(runtime, { targetRoot: root });
   t.after(() => instance.server.close());
-  const { url, sessionToken } = await instance.ready;
-  const list = await fetch(`${url}/api/v1/projects/demo/services`).then((response) => response.json());
+  const { url, sessionToken, initialWorkspaceId } = await instance.ready;
+  const apiBase = `${url}/api/v1/workspaces/${initialWorkspaceId}`;
+  const list = await fetch(`${apiBase}/projects/demo/services`).then((response) => response.json());
   assert.equal(list.services[0].code, 'api');
-  const detail = await fetch(`${url}/api/v1/projects/demo/services/api`).then((response) => response.json());
-  let response = await fetch(`${url}/api/v1/projects/demo/services/api`, { method: 'PUT', headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken }, body: JSON.stringify({ revision: detail.revision, name: 'From UI', description: 'Saved', type: 'application' }) });
+  const detail = await fetch(`${apiBase}/projects/demo/services/api`).then((response) => response.json());
+  let response = await fetch(`${apiBase}/projects/demo/services/api`, { method: 'PUT', headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken }, body: JSON.stringify({ revision: detail.revision, name: 'From UI', description: 'Saved', type: 'application' }) });
   assert.equal(response.status, 200);
   const updated = await response.json();
   assert.equal(updated.service.name, 'From UI');
-  response = await fetch(`${url}/api/v1/projects/demo/services/api`, { method: 'PUT', headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken }, body: JSON.stringify({ revision: detail.revision, name: 'Stale' }) });
+  response = await fetch(`${apiBase}/projects/demo/services/api`, { method: 'PUT', headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken }, body: JSON.stringify({ revision: detail.revision, name: 'Stale' }) });
   assert.equal(response.status, 409);
-  response = await fetch(`${url}/api/v1/prompts/service-create`, { method: 'POST', headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken }, body: JSON.stringify({ projectCode: 'demo', code: 'worker', name: 'Worker', description: '任务服务', type: 'backend', sourceType: 'local', localPath: '/tmp/worker' }) });
+  response = await fetch(`${apiBase}/prompts/service-create`, { method: 'POST', headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken }, body: JSON.stringify({ projectCode: 'demo', code: 'worker', name: 'Worker', description: '任务服务', type: 'backend', sourceType: 'local', localPath: '/tmp/worker' }) });
   assert.equal(response.status, 200);
   const prompt = await response.json();
   assert.match(prompt.prompt, /canonical 命令 buildr service create demo\/worker/);

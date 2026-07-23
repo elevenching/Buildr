@@ -156,18 +156,21 @@ test('sync 显式把 v1 Project registry 迁移为 v2', (t) => {
 
 test('Project HTTP API 复用本机安全边界、CAS 与 prompt-only 创建', async (t) => {
   const root = initWorkspace(t);
+  process.env.BUILDR_APP_DATA_DIR = path.join(path.dirname(root), 'app-data');
+  t.after(() => delete process.env.BUILDR_APP_DATA_DIR);
   let result = runBuildr(['project', 'create', 'demo', '--target', root, '--name', 'Demo', '--description', 'Demo project']);
   assert.equal(result.status, 0, result.stderr);
   const runtime = createRuntime();
   const instance = createLocalWorkspaceServer(runtime, { targetRoot: root });
   t.after(() => instance.server.close());
-  const { url, sessionToken } = await instance.ready;
-  const list = await fetch(`${url}/api/v1/projects`).then((response) => response.json());
+  const { url, sessionToken, initialWorkspaceId } = await instance.ready;
+  const apiBase = `${url}/api/v1/workspaces/${initialWorkspaceId}`;
+  const list = await fetch(`${apiBase}/projects`).then((response) => response.json());
   assert.equal(list.projects[0].code, 'demo');
-  const detail = await fetch(`${url}/api/v1/projects/demo`).then((response) => response.json());
+  const detail = await fetch(`${apiBase}/projects/demo`).then((response) => response.json());
   assert.equal(detail.project.name, 'Demo');
 
-  let response = await fetch(`${url}/api/v1/projects/demo`, {
+  let response = await fetch(`${apiBase}/projects/demo`, {
     method: 'PUT',
     headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken },
     body: JSON.stringify({ revision: detail.revision, name: 'From UI', description: 'Saved' }),
@@ -176,7 +179,7 @@ test('Project HTTP API 复用本机安全边界、CAS 与 prompt-only 创建', a
   const updated = await response.json();
   assert.equal(updated.project.name, 'From UI');
 
-  response = await fetch(`${url}/api/v1/projects/demo`, {
+  response = await fetch(`${apiBase}/projects/demo`, {
     method: 'PUT',
     headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken },
     body: JSON.stringify({ revision: detail.revision, name: 'Stale' }),
@@ -184,14 +187,14 @@ test('Project HTTP API 复用本机安全边界、CAS 与 prompt-only 创建', a
   assert.equal(response.status, 409);
   assert.equal((await response.json()).error.code, 'project_revision_conflict');
 
-  response = await fetch(`${url}/api/v1/projects/demo`, {
+  response = await fetch(`${apiBase}/projects/demo`, {
     method: 'PUT',
     headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken },
     body: JSON.stringify({ revision: updated.revision, path: '/tmp/other' }),
   });
   assert.equal(response.status, 400);
 
-  response = await fetch(`${url}/api/v1/prompts/project-create`, {
+  response = await fetch(`${apiBase}/prompts/project-create`, {
     method: 'POST',
     headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken },
     body: JSON.stringify({ code: 'next', name: 'Next', description: 'Next project', sourceType: 'workspace' }),
