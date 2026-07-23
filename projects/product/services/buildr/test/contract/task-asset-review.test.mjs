@@ -79,10 +79,11 @@ test('task-finish fixture 覆盖轻量门控、复用、降级和写回授权', 
   assert.ok(preSync < postSync && postSync < reviewGate && reviewGate < archive, 'contract checks must precede review, and review must precede archive');
 });
 
-test('task-finish 核对并报告最终 Candidate timing evidence', () => {
+test('task-finish 核对 requiredAssurance，并对 Product Candidate 保留 timing 专项', () => {
   for (const required of [
     'buildr.verification-timing/v1',
-    '`level: candidate`',
+    '`level == requiredAssurance`',
+    '`requiredAssurance`',
     '`status: passed`',
     '`totalDurationMs`',
     '`timingSource`',

@@ -87,7 +87,7 @@ skills:
         version: 1
     requires:
       - capability: buildr.task-verification
-        version: 1
+        version: 2
         mode: required
       - capability: buildr.task-worktree-lifecycle
         version: 1
@@ -273,7 +273,7 @@ skills:
     sourceIdentity: package:skills/buildr/task-verification
     source: buildr
     path: buildr/task-verification
-    description: 用户要求测试、验证、耗时报告、初始化或更新测试声明、推进测试能力成熟度，或者实现型任务到达验证节点、Agent 准备判断或声称开发完成、Task Finish 需要核对或补齐 Candidate evidence 时使用；用户无需主动点名本 Skill。
+    description: 用户要求测试、验证、耗时报告、初始化或更新测试声明、推进测试能力成熟度，或者实现型任务到达验证节点、Agent 准备判断或声称开发完成、Task Finish 需要核对或补齐正式验证 evidence 时使用；用户无需主动点名本 Skill。
     enabled: true
     required: false
     state: installed
@@ -288,7 +288,7 @@ skills:
     runtimePath: task-verification
     provides:
       - capability: buildr.task-verification
-        version: 1
+        version: 2
 contracts:
   - id: buildr.git-single-operation
     version: 1
@@ -315,8 +315,8 @@ contracts:
     path: contracts/buildr/task-asset-review/v1.md
     description: 审查任务过程并提出可沉淀工作资产候选。
   - id: buildr.task-verification
-    version: 1
-    path: contracts/buildr/task-verification/v1.md
+    version: 2
+    path: contracts/buildr/task-verification/v2.md
     description: 编排项目声明或既有政策定义的分层验证，并返回能力选择、候选身份、结果与真实耗时证据。
 bindings:
   - capability: buildr.git-single-operation
@@ -338,6 +338,6 @@ bindings:
     version: 1
     provider: task-asset-review
   - capability: buildr.task-verification
-    version: 1
+    version: 2
     provider: task-verification
 workspaceId: f2f40b71-2382-5906-82bd-76a7927b59f3

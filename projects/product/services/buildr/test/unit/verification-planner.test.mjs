@@ -27,7 +27,7 @@ test('统一 registry 固化 fast 与 Candidate required gates', () => {
   assert.deepEqual(ids(createVerificationPlan({ profiles: ['candidate'] })), [
     'unit', 'contract', 'integration-fast', 'cli-architecture', 'openspec-spec-quality', 'openspec-strict', 'runtime-adapter-contract',
     'integration-candidate-recovery', 'integration-candidate-release', 'candidate-tarball', 'open-source-candidate',
-    'openspec-candidate-audit', 'managed-mutations', 'capability-cli-integration', 'commands-cli-integration',
+    'openspec-candidate-audit', 'managed-mutations', 'browser-shell', 'browser-project', 'browser-service', 'browser-change', 'capability-cli-integration', 'commands-cli-integration',
     'openspec-contract-fixtures', 'package-static', 'package-workspace', 'package-commands', 'package-rules', 'package-skills',
     'package-runtime', 'runtime-adapter-parity', 'workspace-lifecycle', 'ownership-recovery', 'runtime-reconciliation',
     'repository-onboarding', 'init-onboarding', 'cli-compatibility', 'cli-package-parity', 'service-branch-contract',
@@ -54,33 +54,33 @@ test('代表源码路径只选择真实 Changed owner 并排除无关重型 owne
   const cases = [
     {
       path: 'src/infrastructure/network/fetch-remote-text.mjs',
-      required: ['contract', 'cli-architecture', 'managed-mutations', 'remote-skill-timeout'],
-      excluded: ['integration-candidate-recovery', 'capability-cli-integration', 'cli-package-parity', 'release-tarball-smoke', 'managed-data-integrity'],
+      required: ['integration-fast', 'remote-skill-timeout'],
+      excluded: ['contract', 'cli-architecture', 'managed-mutations', 'capability-cli-integration', 'managed-data-integrity'],
     },
     {
       path: 'src/infrastructure/product-layout.mjs',
-      required: ['contract', 'cli-architecture', 'managed-mutations', 'cli-package-parity', 'release-tarball-smoke'],
-      excluded: ['integration-candidate-recovery', 'capability-cli-integration', 'cli-compatibility', 'managed-data-integrity'],
+      required: ['integration-fast', 'cli-package-parity', 'release-tarball-smoke'],
+      excluded: ['contract', 'cli-architecture', 'managed-mutations', 'capability-cli-integration', 'managed-data-integrity'],
     },
     {
       path: 'src/interfaces/cli/help.mjs',
-      required: ['contract', 'cli-architecture', 'managed-mutations', 'commands-cli-integration', 'cli-compatibility', 'cli-package-parity', 'release-tarball-smoke'],
-      excluded: ['integration-candidate-recovery', 'capability-cli-integration', 'managed-data-integrity'],
+      required: ['cli-architecture', 'commands-cli-integration', 'cli-compatibility', 'cli-package-parity', 'release-tarball-smoke'],
+      excluded: ['contract', 'managed-mutations', 'capability-cli-integration', 'managed-data-integrity'],
     },
     {
       path: 'src/application/domains/workspace.mjs',
-      required: ['contract', 'cli-architecture', 'managed-mutations', 'commands-cli-integration', 'package-workspace', 'workspace-lifecycle', 'init-onboarding', 'service-branch-contract', 'managed-data-integrity'],
-      excluded: ['integration-candidate-recovery', 'capability-cli-integration', 'cli-compatibility', 'cli-package-parity', 'release-tarball-smoke'],
+      required: ['commands-cli-integration', 'package-workspace', 'workspace-lifecycle', 'init-onboarding', 'service-branch-contract', 'managed-data-integrity'],
+      excluded: ['contract', 'cli-architecture', 'managed-mutations', 'capability-cli-integration', 'cli-compatibility', 'cli-package-parity'],
     },
     {
       path: 'src/application/package-maintenance/builtin-replacement.mjs',
-      required: ['contract', 'cli-architecture', 'integration-candidate-recovery', 'managed-mutations', 'package-static', 'ownership-recovery', 'release-tarball-smoke', 'managed-data-integrity'],
-      excluded: ['capability-cli-integration', 'cli-compatibility', 'cli-package-parity'],
+      required: ['unit', 'integration-candidate-recovery', 'managed-mutations', 'package-static', 'ownership-recovery', 'release-tarball-smoke', 'managed-data-integrity'],
+      excluded: ['contract', 'cli-architecture', 'capability-cli-integration', 'cli-compatibility', 'cli-package-parity'],
     },
     {
       path: 'src/infrastructure/runtime/skills/publication.mjs',
-      required: ['contract', 'cli-architecture', 'runtime-adapter-contract', 'capability-cli-integration', 'package-skills', 'package-runtime', 'runtime-adapter-parity', 'runtime-reconciliation', 'managed-data-integrity'],
-      excluded: ['integration-candidate-recovery', 'cli-compatibility', 'cli-package-parity', 'release-tarball-smoke'],
+      required: ['runtime-adapter-contract', 'managed-mutations', 'capability-cli-integration', 'package-skills', 'package-runtime', 'runtime-adapter-parity', 'runtime-reconciliation', 'managed-data-integrity'],
+      excluded: ['contract', 'cli-architecture', 'integration-candidate-recovery', 'cli-compatibility', 'cli-package-parity', 'release-tarball-smoke'],
     },
   ];
   for (const sample of cases) {
@@ -88,6 +88,15 @@ test('代表源码路径只选择真实 Changed owner 并排除无关重型 owne
     for (const required of sample.required) assert.ok(planIds.includes(required), `${sample.path} must include ${required}`);
     for (const excluded of sample.excluded) assert.equal(planIds.includes(excluded), false, `${sample.path} must exclude ${excluded}`);
   }
+});
+
+test('local app Changed 路由只选择对应 integration 边界', () => {
+  assert.deepEqual(ids(createVerificationPlan({ paths: ['src/interfaces/local-app/web/api-client.js'] })), ['unit', 'integration-fast']);
+  assert.deepEqual(ids(createVerificationPlan({ paths: ['src/interfaces/local-app/web/router.js'] })), ['unit', 'browser-shell']);
+  assert.deepEqual(ids(createVerificationPlan({ paths: ['src/interfaces/local-app/web/features/projects.js'] })), ['browser-project']);
+  assert.deepEqual(ids(createVerificationPlan({ paths: ['src/interfaces/local-app/web/features/services.js'] })), ['browser-service']);
+  assert.deepEqual(ids(createVerificationPlan({ paths: ['src/interfaces/local-app/web/features/changes.js'] })), ['browser-change']);
+  assert.deepEqual(ids(createVerificationPlan({ paths: ['src/interfaces/local-app/web/app.js'] })), ['browser-shell']);
 });
 
 test('OpenSpec 路径只选择真实 owner', () => {

@@ -101,7 +101,7 @@ buildrSkillRequiredText:
   - capability-adaptation
   - buildr.git-single-operation/v1
   - buildr.git-workspace-update/v1
-  - buildr.task-verification/v1
+  - buildr.task-verification/v2
   - components/manifest.yml
   - buildr component install
   - buildr component uninstall

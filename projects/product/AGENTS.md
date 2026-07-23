@@ -37,7 +37,7 @@ Agent 在 `product` Project 中的最小运行规则。
 - 预计包含代码、构建或测试的产品 change 必须在 propose 前创建或复用 task worktree；artifacts、实现和合并前候选验证只写入该 worktree。
 - 合并前候选验证使用临时 workspace 或 task worktree 自身，不从未合并 checkout 更新主自举 workspace。
 - OpenSpec apply 期间按单任务最小反馈、任务组受影响范围验证、最终候选完整验证分层执行；不得在每个普通任务后运行产品总验证或临时 workspace E2E。所有实现、自然语言资产、所需同步和 review 修订完成并冻结候选后，才运行一次产品级总验证。
-- Product Project 的本节与验证入口定义“应该跑什么”；selected `buildr.task-verification/v1` provider 负责实际执行、绑定最终候选、测量验证自身 wall-clock 并向用户报告，`task-worktree` 只提供 checkout 与 tree identity，不拥有验证政策。
+- Product Project 的本节与验证入口定义“应该跑什么”；selected `buildr.task-verification/v2` provider 负责决定 affected 或 candidate 保证、实际执行、绑定候选、测量验证自身 wall-clock 并向用户报告，`task-worktree` 只提供 checkout 与 tree identity，不拥有验证政策。
 - 验证进程仍在运行或暂时无输出时继续等待同一进程，不重复启动相同命令；完整验证失败后的修复循环优先重跑失败项和受影响检查，候选重新稳定后再运行一次最终完整验证。
 - 完整验证必须绑定所有 rebase、冲突解决和实现内容修改结束后的 implementation Candidate，并记录最终候选 Git tree 作为当时的 delivery identity；commit、相同内容集成、push 和 worktree 清理复用该结果，不在主开发分支重复 E2E。候选 tree 改变时，先按动作来源、实际 diff 和 Project policy 分类：Task Finish 可归因产生的 OpenSpec sync/archive 等 closeout-only delta 只运行对应 workflow checks，不再次启动 Candidate。若唯一变化是同一会话中刚成功的最终 Candidate 任务在 active change `tasks.md` 由 `- [ ]` 精确变为 `- [x]`，将其记录为 `closeout-metadata-only` / `verification-result-metadata-only`：保留已验证 implementation identity，并另存 source/target identity、change/task identity 和精确 marker transition；不得声称 Candidate 直接覆盖变化后的 delivery tree。任何额外编辑、任务歧义、source identity 不匹配或跨会话缺少 transition evidence 时，必须按 implementation change 在集成前重新运行 Candidate。
 - 用户在 task worktree 中明确要求“收尾”时，使用 `task-finish` 编排已完成 change 的 specs 同步与归档、相关校验、提交、必要的本地未推送 rebase、fast-forward 集成、目标分支 push 和本地 worktree/任务分支清理；该意图不授权 force push、merge commit、远端任务分支删除、丢弃改动或语义冲突决策。

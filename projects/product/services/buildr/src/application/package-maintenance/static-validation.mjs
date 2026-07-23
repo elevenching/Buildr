@@ -640,7 +640,7 @@ export function createPackageStaticValidator(deps) {
           'propose 和创建 change artifacts 前',
           'artifacts、实现和合并前候选验证都只能写入该 worktree',
           '候选边界交接',
-          '不执行三级验证',
+          '不执行验证',
           'selected task-verification provider',
           '`treeChanged` 结果证据',
           '不监控普通编辑',
@@ -681,11 +681,12 @@ export function createPackageStaticValidator(deps) {
       }
       if (skill.id === 'task-verification') {
         for (const requiredText of [
-          '本 Skill 是 `buildr.task-verification/v1` 的默认 provider',
+          '本 Skill 是 `buildr.task-verification/v2` 的默认 provider',
           'Rules/AGENTS',
           'minimal',
           'affected',
           'candidate',
+          'requiredAssurance',
           'verifier-reported',
           'wrapper-measured',
           '单调时钟',
@@ -707,13 +708,13 @@ export function createPackageStaticValidator(deps) {
           'candidateExecutorCalls',
           '用户无需主动点名本 Skill',
           'task-worktree` 不负责这项清理',
-          '最终候选验证尚未执行',
+          '完整候选验证尚未执行',
           '不依赖 `task-worktree`、`git-ops`',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`task-verification Skill must include ${JSON.stringify(requiredText)}.`);
         }
-        if (!skill.provides?.some((entry) => entry.capability === 'buildr.task-verification' && entry.version === 1)) {
-          problems.push('task-verification must provide buildr.task-verification/v1.');
+        if (!skill.provides?.some((entry) => entry.capability === 'buildr.task-verification' && entry.version === 2)) {
+          problems.push('task-verification must provide buildr.task-verification/v2.');
         }
         for (const forbiddenText of ['npm run test:candidate` 作为所有项目', '必须使用 Git worktree', 'provider: task-worktree']) {
           if (skillContent.includes(forbiddenText)) problems.push(`task-verification Skill must not include ${JSON.stringify(forbiddenText)}.`);
@@ -791,8 +792,8 @@ export function createPackageStaticValidator(deps) {
           'required dependency 为 `blocked`',
           '不删除远端任务分支',
           '工作目录切换到主 workspace',
-          '修复期间已经优先重跑失败项和受影响专项检查',
-          '候选重新稳定后完成一次新的最终完整验证',
+          '修复期间优先重跑失败项和受影响专项检查',
+          '候选重新稳定后完成一次新的 `requiredAssurance`',
           'wait、poll 或 resume 同一进程',
           '暂时无输出不得启动第二个相同验证',
           '`timingSource`',
@@ -853,7 +854,7 @@ export function createPackageStaticValidator(deps) {
         }
       }
       if (skill.id === 'task-triage') {
-        for (const requiredText of ['OpenSpec change 状态', 'artifact 或 task 进度', '下一步或阻塞原因', 'openspec status --change <id> --json', '文档正文使用中文', 'openspec-*` Skills', '实现型任务的验证节点规划', 'selected `buildr.task-verification/v1` provider', '有语义的任务组', '完整候选验证放在全部实现', '不得把 Buildr 产品仓的 package check', '<!-- buildr:skill-contributions change-ready -->']) {
+        for (const requiredText of ['OpenSpec change 状态', 'artifact 或 task 进度', '下一步或阻塞原因', 'openspec status --change <id> --json', '文档正文使用中文', 'openspec-*` Skills', '实现型任务的验证节点规划', 'selected `buildr.task-verification/v2` provider', '有语义的任务组', '完整候选验证放在全部实现', '不得把 Buildr 产品仓的 package check', '<!-- buildr:skill-contributions change-ready -->']) {
           if (!skillContent.includes(requiredText)) problems.push(`task-triage Skill must include ${JSON.stringify(requiredText)}.`);
         }
         if (skillContent.includes('buildr openspec')) problems.push('task-triage source must not hard-code OpenSpec contract guard commands; installed Components contribute them at render time.');
@@ -938,7 +939,7 @@ export function createPackageStaticValidator(deps) {
         '不得在每个普通任务后运行产品总验证或临时 workspace E2E',
         '继续等待同一进程，不重复启动相同命令',
         '修复循环优先重跑失败项和受影响检查',
-        'selected `buildr.task-verification/v1` provider',
+        'selected `buildr.task-verification/v2` provider',
         '测量验证自身 wall-clock 并向用户报告',
         '不作为相同 tree 后续 Git 动作的重复产品验证门禁',
         '使用 `task-finish` 编排',

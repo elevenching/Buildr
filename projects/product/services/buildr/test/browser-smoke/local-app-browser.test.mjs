@@ -13,6 +13,11 @@ import { createLocalWorkspaceServer } from '../../src/interfaces/local-app/http/
 
 const PRODUCT_ROOT = path.resolve(import.meta.dirname, '../..');
 const BUILDR = path.join(PRODUCT_ROOT, 'bin', 'buildr.mjs');
+const SELECTOR = process.argv[2] ?? 'all';
+const KNOWN_SELECTORS = new Set(['all', 'shell', 'project', 'service', 'change']);
+
+if (!KNOWN_SELECTORS.has(SELECTOR)) throw new Error(`Unknown browser integration selector: ${SELECTOR}`);
+const selected = (name) => SELECTOR === 'all' || SELECTOR === name;
 
 function runBuildr(args) {
   const result = spawnSync(process.execPath, [BUILDR, ...args], { cwd: PRODUCT_ROOT, encoding: 'utf8' });
@@ -72,7 +77,7 @@ async function unique(locator, description) {
   return locator;
 }
 
-test('本机应用浏览器冒烟覆盖项目、服务和变更主流程', { timeout: 45_000 }, async (t) => {
+test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t) => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-browser-smoke-'));
   const workspaceRoot = path.join(base, 'workspace');
   let browser;
@@ -93,7 +98,16 @@ test('本机应用浏览器冒烟覆盖项目、服务和变更主流程', { tim
   page.on('pageerror', (error) => browserErrors.push(`pageerror ${page.url()}: ${error.message}`));
   page.on('console', (message) => { if (message.type() === 'error') browserErrors.push(`console.error ${page.url()}: ${message.text()}`); });
 
-  await t.test('项目目录通过操作栏进入稳定详情', async () => {
+  if (selected('shell')) await t.test('应用 Shell 可启动、导航且无浏览器错误', async () => {
+    await page.goto(url);
+    assert.equal(await page.locator('#shell-workspace-name').innerText(), 'browser-smoke');
+    const projects = page.locator('a[href="/projects"][data-route]');
+    assert.ok(await projects.count() >= 1, '至少存在一个项目导航入口');
+    await projects.first().click();
+    await page.waitForURL(`${url}/projects`);
+  });
+
+  if (selected('project')) await t.test('项目目录通过操作栏进入稳定详情', async () => {
     await page.goto(`${url}/projects`);
     const row = page.locator('#project-table-body tr').filter({ hasText: '演示项目' });
     await unique(row, '项目行');
@@ -106,7 +120,7 @@ test('本机应用浏览器冒烟覆盖项目、服务和变更主流程', { tim
     assert.equal(await page.locator('#project-service-count').innerText(), '1');
   });
 
-  await t.test('服务目录按项目过滤并打开真实详情', async () => {
+  if (selected('service')) await t.test('服务目录按项目过滤并打开真实详情', async () => {
     await page.goto(`${url}/services?project=demo`);
     const projectSelect = page.locator('#service-project-select');
     await unique(projectSelect, '服务所属项目过滤器');
@@ -122,7 +136,7 @@ test('本机应用浏览器冒烟覆盖项目、服务和变更主流程', { tim
     assert.equal(await page.locator('#service-type').inputValue(), 'backend');
   });
 
-  await t.test('变更目录过滤、详情和 Agent prompt 保持只读', async () => {
+  if (selected('change')) await t.test('变更目录过滤、详情和 Agent prompt 保持只读', async () => {
     await page.goto(`${url}/changes`);
     const lifecycle = page.locator('#change-lifecycle-filter');
     await unique(lifecycle, 'Change 生命周期过滤器');

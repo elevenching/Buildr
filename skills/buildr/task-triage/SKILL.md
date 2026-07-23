@@ -115,7 +115,7 @@ OpenSpec change 状态：
 - 具体专项检查和完整验证命令由当前 workspace 或 Project 的规则、OpenSpec 或开发文档定义；不得把 Buildr 产品仓的 package check、临时 workspace E2E 或产品总验证规定为所有项目的固定入口。
 - 安全边界、不可逆迁移或用户明确要求的即时检查不因批量编排而省略。
 
-实际执行、候选 identity、耗时测量和用户报告由 selected `buildr.task-verification/v1` provider 负责；`task-triage` 不声明该 capability dependency，因为任务语义分流和 artifacts 规划本身不应因验证 provider 暂时不可用而 blocked。
+实际执行、候选 identity、耗时测量和用户报告由 selected `buildr.task-verification/v2` provider 负责；`task-triage` 不声明该 capability dependency，因为任务语义分流和 artifacts 规划本身不应因验证 provider 暂时不可用而 blocked。
 
 <!-- buildr:skill-contributions change-ready -->
 
