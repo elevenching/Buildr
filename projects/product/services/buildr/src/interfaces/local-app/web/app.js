@@ -3,6 +3,8 @@ import { setupAgentActions } from '/features/agent-actions.js';
 import { renderProjectDetail } from '/features/project-detail.js';
 import { renderProjects } from '/features/projects.js';
 import { renderServices } from '/features/services.js';
+import { renderChanges } from '/features/changes.js';
+import { renderChangeDetail } from '/features/change-detail.js';
 import { renderWorkspaceOverview, renderWorkspaceSettings } from '/features/workspace.js';
 import { createRouter } from '/router.js';
 
@@ -21,6 +23,16 @@ const routeDefinitions = {
     render: renderProjectDetail,
   },
   '/services': { id: 'services', label: '服务', render: renderServices },
+  '/changes': { id: 'changes', label: '变更', render: renderChanges },
+  '/changes/:projectCode/:changeRef': {
+    id: 'changes',
+    label: '变更详情',
+    match(pathname) {
+      const match = pathname.match(/^\/changes\/([A-Za-z0-9][A-Za-z0-9._-]*)\/([^/]+)$/);
+      return match ? { projectCode: decodeURIComponent(match[1]), changeRef: decodeURIComponent(match[2]) } : null;
+    },
+    render: renderChangeDetail,
+  },
 };
 
 function updateWorkspaceContext(data) {
@@ -38,8 +50,8 @@ function updateRouteState(route) {
     else item.removeAttribute('aria-current');
   }
   const resourceGroup = document.querySelector('[data-nav-group="resources"]');
-  resourceGroup.classList.toggle('active', route.id === 'projects' || route.id === 'services');
-  if ((route.id === 'projects' || route.id === 'services') && window.matchMedia('(max-width: 700px)').matches) setResourceNavigation(false);
+  resourceGroup.classList.toggle('active', ['projects', 'services', 'changes'].includes(route.id));
+  if (['projects', 'services', 'changes'].includes(route.id) && window.matchMedia('(max-width: 700px)').matches) setResourceNavigation(false);
 }
 
 function setResourceNavigation(expanded) {

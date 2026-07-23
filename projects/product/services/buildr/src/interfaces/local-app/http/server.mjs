@@ -7,8 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 const MAX_JSON_BODY_BYTES = 32 * 1024;
 const STATIC_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../web');
-const APP_ROUTES = new Set(['/', '/settings/workspace', '/projects', '/services']);
+const APP_ROUTES = new Set(['/', '/settings/workspace', '/projects', '/services', '/changes']);
 const PROJECT_DETAIL_ROUTE = /^\/projects\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const CHANGE_DETAIL_ROUTE = /^\/changes\/[A-Za-z0-9][A-Za-z0-9._-]*\/[^/]+$/;
 const STATIC_ASSETS = new Map([
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/api-client.js', ['api-client.js', 'text/javascript; charset=utf-8']],
@@ -18,6 +19,8 @@ const STATIC_ASSETS = new Map([
   ['/features/projects.js', ['features/projects.js', 'text/javascript; charset=utf-8']],
   ['/features/project-detail.js', ['features/project-detail.js', 'text/javascript; charset=utf-8']],
   ['/features/services.js', ['features/services.js', 'text/javascript; charset=utf-8']],
+  ['/features/changes.js', ['features/changes.js', 'text/javascript; charset=utf-8']],
+  ['/features/change-detail.js', ['features/change-detail.js', 'text/javascript; charset=utf-8']],
   ['/features/agent-actions.js', ['features/agent-actions.js', 'text/javascript; charset=utf-8']],
 ]);
 
@@ -129,7 +132,7 @@ export function createLocalWorkspaceServer(runtime, { targetRoot, port = 0 } = {
         error.status = 400;
         throw error;
       }
-      if (request.method === 'GET' && (APP_ROUTES.has(requestUrl.pathname) || PROJECT_DETAIL_ROUTE.test(requestUrl.pathname))) {
+      if (request.method === 'GET' && (APP_ROUTES.has(requestUrl.pathname) || PROJECT_DETAIL_ROUTE.test(requestUrl.pathname) || CHANGE_DETAIL_ROUTE.test(requestUrl.pathname))) {
         textResponse(response, 200, staticFile('index.html').replace('__BUILDR_SESSION_TOKEN__', sessionToken), 'text/html; charset=utf-8');
         return;
       }
@@ -149,6 +152,10 @@ export function createLocalWorkspaceServer(runtime, { targetRoot, port = 0 } = {
       }
       if (request.method === 'GET' && requestUrl.pathname === '/api/v1/projects') {
         jsonResponse(response, 200, runtime.listProjects(root));
+        return;
+      }
+      if (request.method === 'GET' && requestUrl.pathname === '/api/v1/changes') {
+        jsonResponse(response, 200, runtime.listChanges(root));
         return;
       }
       const projectMatch = requestUrl.pathname.match(/^\/api\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)$/);
@@ -176,6 +183,16 @@ export function createLocalWorkspaceServer(runtime, { targetRoot, port = 0 } = {
         jsonResponse(response, 200, runtime.updateServiceMetadata(root, serviceMatch[1], serviceMatch[2], await readJsonBody(request)));
         return;
       }
+      const changesMatch = requestUrl.pathname.match(/^\/api\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/changes$/);
+      if (request.method === 'GET' && changesMatch) {
+        jsonResponse(response, 200, runtime.listProjectChanges(root, changesMatch[1]));
+        return;
+      }
+      const changeMatch = requestUrl.pathname.match(/^\/api\/v1\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/changes\/([^/]+)$/);
+      if (request.method === 'GET' && changeMatch) {
+        jsonResponse(response, 200, runtime.changeDetail(root, changeMatch[1], decodeURIComponent(changeMatch[2])));
+        return;
+      }
       if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/workspace-create') {
         assertWriteRequest(request, origin, sessionToken);
         jsonResponse(response, 200, runtime.generateWorkspaceCreatePrompt(await readJsonBody(request)));
@@ -189,6 +206,16 @@ export function createLocalWorkspaceServer(runtime, { targetRoot, port = 0 } = {
       if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/service-create') {
         assertWriteRequest(request, origin, sessionToken);
         jsonResponse(response, 200, runtime.generateServiceCreatePrompt(await readJsonBody(request)));
+        return;
+      }
+      if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/change-create') {
+        assertWriteRequest(request, origin, sessionToken);
+        jsonResponse(response, 200, runtime.generateChangeCreatePrompt(root, await readJsonBody(request)));
+        return;
+      }
+      if (request.method === 'POST' && requestUrl.pathname === '/api/v1/prompts/change-action') {
+        assertWriteRequest(request, origin, sessionToken);
+        jsonResponse(response, 200, runtime.generateChangeActionPrompt(root, await readJsonBody(request)));
         return;
       }
       jsonResponse(response, 404, { error: { code: 'not_found', message: '请求的 Buildr 本地应用资源不存在。' } });

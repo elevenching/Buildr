@@ -2,6 +2,7 @@ const ACTION_LABELS = {
   workspace: '工作空间',
   project: '项目',
   service: '服务',
+  change: '变更',
 };
 
 export function setupAgentActions({ api }) {
@@ -23,12 +24,14 @@ export function setupAgentActions({ api }) {
         <button class="action-choice" type="button" data-action="workspace"><span class="action-symbol">⌂</span><span><strong>创建工作空间</strong><small>核对目标位置、runtime 与初始化边界</small></span><span>→</span></button>
         <button class="action-choice" type="button" data-action="project"><span class="action-symbol">◇</span><span><strong>创建项目</strong><small>登记业务或长期工作单元</small></span><span>→</span></button>
         <button class="action-choice" type="button" data-action="service"><span class="action-symbol">◫</span><span><strong>创建服务</strong><small>接入代码仓、应用或可执行资产</small></span><span>→</span></button>
+        <button class="action-choice" type="button" data-action="change"><span class="action-symbol">△</span><span><strong>创建变更</strong><small>在项目中建立 OpenSpec 变更契约</small></span><span>→</span></button>
       </div>`;
     for (const button of content.querySelectorAll('[data-action]')) button.addEventListener('click', () => open(button.dataset.action));
   }
 
-  function formHeader(noun) {
-    return `<div class="form-header"><button class="text-button" type="button" data-back>← 返回</button><span>创建${noun}</span></div><p class="drawer-copy">填写声明后生成 Agent 指令。复制指令不代表${noun}已经创建。</p><div id="agent-action-error" class="alert error hidden" role="alert"></div>`;
+  function formHeader(noun, action = '创建') {
+    const copy = action === '创建' ? `填写声明后生成 Agent 指令。复制指令不代表${noun}已经创建。` : `生成交给 Agent 的${action}指令，Buildr 不会直接修改${noun}。`;
+    return `<div class="form-header"><button class="text-button" type="button" data-back>← 返回</button><span>${action}${noun}</span></div><p class="drawer-copy">${copy}</p><div id="agent-action-error" class="alert error hidden" role="alert"></div>`;
   }
 
   function renderWorkspaceForm() {
@@ -85,11 +88,32 @@ export function setupAgentActions({ api }) {
     bindForm('service', async () => api('/api/v1/prompts/service-create', { method: 'POST', body: JSON.stringify({ projectCode: value('action-project'), code: value('action-code'), name: value('action-name'), description: value('action-description'), type: value('action-type'), sourceType: value('action-source'), localPath: value('action-local-path'), gitUrl: value('action-git-url'), remote: value('action-remote'), integrationBranch: value('action-branch') }) }));
   }
 
+  function renderChangeForm(context) {
+    if (context.ref && context.action) {
+      const actionLabel = context.action === 'review' ? '审查' : '继续推进';
+      content.innerHTML = `${formHeader('变更', actionLabel)}
+        <form id="agent-action-form">
+          <div class="context-help">${actionLabel}项目 <strong>${context.projectCode}</strong> 中的 Change。Buildr 只生成指令，不直接修改 Change。</div>
+          <div class="actions"><button class="button primary" type="submit">生成${actionLabel}指令</button></div>
+        </form>`;
+      bindForm('change', async () => api('/api/v1/prompts/change-action', { method: 'POST', body: JSON.stringify({ projectCode: context.projectCode, ref: context.ref, action: context.action }) }), 'Change 文件未被修改。');
+      return;
+    }
+    content.innerHTML = `${formHeader('变更')}
+      <form id="agent-action-form">
+        <label>所属项目<input id="action-project" autocomplete="off" required></label>
+        <label>变更目标<textarea id="action-goal" rows="6" required placeholder="描述要解决的问题、期望结果与重要边界"></textarea></label>
+        <div class="actions"><button class="button primary" type="submit">生成变更指令</button></div>
+      </form>`;
+    document.getElementById('action-project').value = context.projectCode || '';
+    bindForm('change', async () => api('/api/v1/prompts/change-create', { method: 'POST', body: JSON.stringify({ projectCode: value('action-project'), goal: value('action-goal') }) }));
+  }
+
   function value(id) {
     return document.getElementById(id)?.value || '';
   }
 
-  function bindForm(action, generate) {
+  function bindForm(action, generate, unchangedState = '') {
     content.querySelector('[data-back]').addEventListener('click', renderChooser);
     document.getElementById('agent-action-form').addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -99,9 +123,10 @@ export function setupAgentActions({ api }) {
         const result = await generate();
         const noun = ACTION_LABELS[action];
         document.getElementById('agent-action-result')?.remove();
-        content.insertAdjacentHTML('beforeend', `<div id="agent-action-result" class="prompt-result"><label>可复制指令<textarea id="action-prompt-output" rows="13" readonly></textarea></label><div class="copy-row"><button id="copy-action-prompt" class="button secondary" type="button">复制指令</button><span id="action-copy-state">${noun}尚未创建。</span></div></div>`);
+        const state = unchangedState || `${noun}尚未创建。`;
+        content.insertAdjacentHTML('beforeend', `<div id="agent-action-result" class="prompt-result"><label>可复制指令<textarea id="action-prompt-output" rows="13" readonly></textarea></label><div class="copy-row"><button id="copy-action-prompt" class="button secondary" type="button">复制指令</button><span id="action-copy-state">${state}</span></div></div>`);
         document.getElementById('action-prompt-output').value = result.prompt;
-        document.getElementById('copy-action-prompt').addEventListener('click', () => copyPrompt(noun));
+        document.getElementById('copy-action-prompt').addEventListener('click', () => copyPrompt(noun, unchangedState));
       } catch (error) {
         errorBox.textContent = error.message;
         errorBox.classList.remove('hidden');
@@ -109,14 +134,14 @@ export function setupAgentActions({ api }) {
     });
   }
 
-  async function copyPrompt(noun) {
+  async function copyPrompt(noun, unchangedState = '') {
     const output = document.getElementById('action-prompt-output');
     try {
       await navigator.clipboard.writeText(output.value);
-      document.getElementById('action-copy-state').textContent = `指令已复制。${noun}尚未创建。`;
+      document.getElementById('action-copy-state').textContent = `指令已复制。${unchangedState || `${noun}尚未创建。`}`;
     } catch {
       output.select();
-      document.getElementById('action-copy-state').textContent = `已选中指令，请手动复制。${noun}尚未创建。`;
+      document.getElementById('action-copy-state').textContent = `已选中指令，请手动复制。${unchangedState || `${noun}尚未创建。`}`;
     }
   }
 
@@ -124,6 +149,7 @@ export function setupAgentActions({ api }) {
     if (action === 'workspace') renderWorkspaceForm();
     else if (action === 'project') renderProjectForm();
     else if (action === 'service') renderServiceForm(context);
+    else if (action === 'change') renderChangeForm(context);
     else renderChooser();
     setOpen(true);
     content.querySelector('input, button')?.focus();

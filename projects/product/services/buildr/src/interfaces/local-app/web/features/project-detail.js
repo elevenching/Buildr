@@ -35,6 +35,18 @@ function renderServices(data) {
   }
 }
 
+function renderChanges(data) {
+  text('project-change-count', String(data.changes.length));
+  const list = document.getElementById('project-change-list'); list.replaceChildren();
+  const empty = document.getElementById('project-change-empty'); empty.classList.toggle('hidden', data.changes.length > 0); empty.textContent = `项目“${data.project.name}”尚无 OpenSpec Change。`;
+  for (const change of data.changes.slice(0, 5)) {
+    const link = document.createElement('a'); link.href = `/changes/${encodeURIComponent(data.project.code)}/${encodeURIComponent(change.ref)}`; link.dataset.route = '';
+    const title = document.createElement('strong'); title.textContent = change.name;
+    const metadata = document.createElement('span'); metadata.textContent = `${change.code} · ${change.lifecycle === 'active' ? '进行中' : '已归档'} · ${change.progress.exists ? `${change.progress.completed}/${change.progress.total}` : '未声明 tasks'}`;
+    link.append(title, metadata); list.append(link);
+  }
+}
+
 export async function renderProjectDetail({ root, api, onWorkspace, openAgentAction, params }) {
   const code = params?.projectCode;
   root.innerHTML = `
@@ -47,6 +59,7 @@ export async function renderProjectDetail({ root, api, onWorkspace, openAgentAct
       <article class="metric-card identity-card"><span>代码标识（Code）</span><strong id="project-detail-code">—</strong><small>项目稳定的人类与 CLI 标识</small></article>
       <article class="metric-card"><span>所属服务</span><strong id="project-service-count">—</strong><small>来自当前项目 registry</small></article>
       <article class="metric-card"><span>来源类型</span><strong id="project-source-type">—</strong><small id="project-source-path">—</small></article>
+      <article class="metric-card"><span>变更（Change）</span><strong id="project-change-count">—</strong><small>进行中与已归档 OpenSpec Change</small></article>
     </section>
     <section class="content-grid project-overview-grid">
       <article class="panel">
@@ -59,12 +72,17 @@ export async function renderProjectDetail({ root, api, onWorkspace, openAgentAct
       <div class="panel-heading"><div><p class="eyebrow">所属服务</p><h2>服务</h2></div><a class="button secondary" id="manage-project-services" href="/services" data-route>管理服务</a></div>
       <div id="project-service-list" class="project-service-list"></div><div id="project-service-empty" class="empty-state">正在读取服务…</div>
     </section>
-    <section class="panel project-assets-panel"><div class="panel-heading"><div><p class="eyebrow">项目资产</p><h2>后续管理能力</h2></div><span class="state muted-state">后续阶段</span></div><div class="asset-preview-grid"><article><strong>OpenSpec</strong><p>项目需求与决策契约。</p><small>后续阶段</small></article><article><strong>规则</strong><p>项目范围的约束与边界。</p><small>后续阶段</small></article><article><strong>验证</strong><p>项目测试能力与门禁。</p><small>后续阶段</small></article><article><strong>命令</strong><p>项目声明的命令要求。</p><small>后续阶段</small></article></div></section>`;
+    <section class="panel project-changes-panel">
+      <div class="panel-heading"><div><p class="eyebrow">项目变更</p><h2>变更（Change）</h2></div><div class="panel-actions"><button id="create-project-change" class="button secondary" type="button">创建变更</button><a id="manage-project-changes" class="button secondary" href="/changes" data-route>管理变更</a></div></div>
+      <div id="project-change-list" class="project-service-list"></div><div id="project-change-empty" class="empty-state">正在读取 Change…</div>
+    </section>
+    <section class="panel project-assets-panel"><div class="panel-heading"><div><p class="eyebrow">项目资产</p><h2>后续管理能力</h2></div><span class="state muted-state">后续阶段</span></div><div class="asset-preview-grid"><article><strong>规则</strong><p>项目范围的约束与边界。</p><small>后续阶段</small></article><article><strong>验证</strong><p>项目测试能力与门禁。</p><small>后续阶段</small></article><article><strong>命令</strong><p>项目声明的命令要求。</p><small>后续阶段</small></article></div></section>`;
 
   let currentProject;
   document.getElementById('create-project-service').addEventListener('click', () => openAgentAction('service', { projectCode: code }));
+  document.getElementById('create-project-change').addEventListener('click', () => openAgentAction('change', { projectCode: code }));
   try {
-    const [workspace, projectData, servicesData] = await Promise.all([api('/api/v1/workspace'), api(`/api/v1/projects/${encodeURIComponent(code)}`), api(`/api/v1/projects/${encodeURIComponent(code)}/services`)]);
+    const [workspace, projectData, servicesData, changesData] = await Promise.all([api('/api/v1/workspace'), api(`/api/v1/projects/${encodeURIComponent(code)}`), api(`/api/v1/projects/${encodeURIComponent(code)}/services`), api(`/api/v1/projects/${encodeURIComponent(code)}/changes`)]);
     currentProject = projectData; onWorkspace(workspace);
     const project = projectData.project;
     text('project-detail-name', project.name); text('project-detail-description', project.description); text('project-detail-code', project.code); text('project-source-type', project.source.type); text('project-source-path', project.source.path);
@@ -76,7 +94,8 @@ export async function renderProjectDetail({ root, api, onWorkspace, openAgentAct
     text('project-save-state', readOnly ? '迁移前只读' : '已读取真实 registry');
     const alert = document.getElementById('project-migration-alert'); alert.classList.toggle('hidden', !readOnly); alert.textContent = readOnly ? projectData.nextActions.join(' ') : '';
     const servicesHref = `/services?project=${encodeURIComponent(code)}`; document.getElementById('manage-project-services').href = servicesHref;
-    renderFindings(projectData.comparison?.findings); renderServices(servicesData);
+    document.getElementById('manage-project-changes').href = `/changes?project=${encodeURIComponent(code)}`;
+    renderFindings(projectData.comparison?.findings); renderServices(servicesData); renderChanges(changesData);
   } catch (error) { errorPage(root, error.message); return; }
 
   document.getElementById('project-form').addEventListener('submit', async (event) => {

@@ -148,12 +148,12 @@ test('本地应用只监听 loopback，并保护写 API、revision 与 prompt-on
   assert.match(html, /工作空间设置/);
   assert.doesNotMatch(html, /https?:\/\//);
   let response;
-  for (const route of ['/settings/workspace', '/projects', '/projects/product', '/services']) {
+  for (const route of ['/settings/workspace', '/projects', '/projects/product', '/services', '/changes', '/changes/product/active~demo']) {
     response = await fetch(`${url}${route}`);
     assert.equal(response.status, 200);
     assert.match(await response.text(), /Buildr 工作空间/);
   }
-  for (const asset of ['/app.js', '/api-client.js', '/router.js', '/features/workspace.js', '/features/projects.js', '/features/project-detail.js', '/features/services.js', '/features/agent-actions.js']) {
+  for (const asset of ['/app.js', '/api-client.js', '/router.js', '/features/workspace.js', '/features/projects.js', '/features/project-detail.js', '/features/services.js', '/features/changes.js', '/features/change-detail.js', '/features/agent-actions.js']) {
     response = await fetch(`${url}${asset}`);
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type'), /text\/javascript/);
@@ -161,6 +161,8 @@ test('本地应用只监听 loopback，并保护写 API、revision 与 prompt-on
   const projectFeature = fs.readFileSync(path.join(PRODUCT_ROOT, 'src', 'interfaces', 'local-app', 'web', 'features', 'projects.js'), 'utf8');
   const projectDetailFeature = fs.readFileSync(path.join(PRODUCT_ROOT, 'src', 'interfaces', 'local-app', 'web', 'features', 'project-detail.js'), 'utf8');
   const serviceFeature = fs.readFileSync(path.join(PRODUCT_ROOT, 'src', 'interfaces', 'local-app', 'web', 'features', 'services.js'), 'utf8');
+  const changesFeature = fs.readFileSync(path.join(PRODUCT_ROOT, 'src', 'interfaces', 'local-app', 'web', 'features', 'changes.js'), 'utf8');
+  const changeDetailFeature = fs.readFileSync(path.join(PRODUCT_ROOT, 'src', 'interfaces', 'local-app', 'web', 'features', 'change-detail.js'), 'utf8');
   assert.match(projectFeature, /id="create-project-button"/);
   assert.match(projectFeature, /id="project-table-body"/);
   assert.match(projectFeature, /\/projects\/\$\{encodeURIComponent\(project\.code\)\}/);
@@ -169,12 +171,19 @@ test('本地应用只监听 loopback，并保护写 API、revision 与 prompt-on
   assert.match(projectFeature, /operationLink\('服务'/);
   assert.match(projectDetailFeature, /id="project-service-count"/);
   assert.match(projectDetailFeature, /openAgentAction\('service', \{ projectCode: code \}\)/);
+  assert.match(projectDetailFeature, /id="project-change-count"/);
+  assert.match(projectDetailFeature, /openAgentAction\('change', \{ projectCode: code \}\)/);
   assert.match(serviceFeature, /id="create-service-button"/);
   assert.match(serviceFeature, /id="service-project-select"/);
   assert.match(serviceFeature, /id="service-table-body"/);
   assert.match(serviceFeature, /dataset\.serviceDetail = service\.code/);
   assert.match(serviceFeature, /history\.replaceState/);
   assert.match(serviceFeature, /class="panel service-detail-panel hidden"/);
+  assert.match(changesFeature, /id="change-project-filter"/);
+  assert.match(changesFeature, /id="change-lifecycle-filter"/);
+  assert.match(changesFeature, /className = 'table-operations'/);
+  assert.match(changeDetailFeature, /id="change-artifacts"/);
+  assert.match(changeDetailFeature, /openAgentAction\('change'/);
   assert.doesNotMatch(`${projectFeature}\n${serviceFeature}`, /project-prompt-form|service-prompt-form|legacy\/resources/);
   response = await fetch(`${url}/unknown-page`);
   assert.equal(response.status, 404);
@@ -187,6 +196,8 @@ test('本地应用只监听 loopback，并保护写 API、revision 与 prompt-on
   const current = await fetch(`${url}/api/v1/workspace`).then((response) => response.json());
   assert.equal(current.workspace.name, 'Demo');
   assert.equal(sha256(metadataFile), beforeHash, '只读启动和读取不得修改 Workspace');
+  const changes = await fetch(`${url}/api/v1/changes`).then((response) => response.json());
+  assert.deepEqual(changes.changes, []);
 
   response = await fetch(`${url}/api/v1/workspace`, {
     method: 'PUT',
