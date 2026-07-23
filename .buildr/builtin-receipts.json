@@ -125,11 +125,11 @@
       "type": "skill",
       "id": "task-worktree",
       "target": "skills/buildr/task-worktree",
-      "integrity": "sha256-acb1900728979d4c4fd4354c6967481bcac131ca152f69b0fc297e9689dbc4da",
+      "integrity": "sha256-7ed3a2aa2d7fc6c3b05bf13825797c2c5642dbcc1ca99b6bf692a90ac9d2d50e",
       "files": [
         {
           "path": "SKILL.md",
-          "integrity": "sha256-57e36986d0bc84808add0e3a2a3632b4746c838d6362d657abb9a76d75898fa5"
+          "integrity": "sha256-a19c267a77d34f0f4c8aee9c64294098e4cb9e8ffd5d9d9019b2d74e73d822e2"
         }
       ]
     }
