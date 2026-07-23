@@ -14,13 +14,13 @@ function operationLink(label, href) {
 
 export async function renderProjects({ root, api, onWorkspace, openAgentAction }) {
   root.innerHTML = `
-    <section class="page-header page-header-row">
-      <div><p class="eyebrow">项目（Project）</p><h1>项目</h1><p class="page-copy">管理当前工作空间的项目，并从明确的操作入口进入项目详情或所属服务。</p></div>
-      <button id="create-project-button" class="button primary" type="button">创建项目</button>
+    <section class="resource-toolbar">
+      <div><p class="eyebrow">项目</p><h1>项目目录</h1><p class="page-copy">查看当前工作空间的项目，并从独立详情页编辑稳定元数据。</p></div>
+      <div class="toolbar-actions"><span id="projects-state" class="count-label">正在读取</span><button id="create-project-button" class="button primary" type="button">让 Agent 创建项目</button></div>
     </section>
     <div id="projects-migration-alert" class="alert hidden" role="status"></div>
-    <section class="panel">
-      <div class="panel-heading"><div><p class="eyebrow">项目目录</p><h2>全部项目</h2></div><span id="projects-state" class="state">正在读取</span></div>
+    <section class="resource-list-section">
+      <div class="section-heading"><div><h2>全部项目</h2><p class="section-copy">选择详情可查看来源、观察状态、关联服务与变更。</p></div></div>
       <div id="project-table-wrap" class="management-table-wrap hidden">
         <table class="management-table">
           <thead><tr><th scope="col">名称</th><th scope="col">代码</th><th scope="col">来源</th><th scope="col">服务数</th><th scope="col" class="operation-column">操作</th></tr></thead>
@@ -66,7 +66,9 @@ export async function renderProjects({ root, api, onWorkspace, openAgentAction }
       const operations = document.createElement('td'); operations.className = 'table-operations';
       operations.append(
         operationLink('详情', `/projects/${encodeURIComponent(project.code)}`),
+        operationLink('编辑', `/projects/${encodeURIComponent(project.code)}/edit`),
         operationLink('服务', `/services?project=${encodeURIComponent(project.code)}`),
+        operationLink('变更', `/changes?project=${encodeURIComponent(project.code)}`),
       );
       row.append(name, code, source, count, operations); body.append(row);
     }

@@ -14,6 +14,7 @@ import { createLocalWorkspaceServer } from '../../src/interfaces/local-app/http/
 const PRODUCT_ROOT = path.resolve(import.meta.dirname, '../..');
 const BUILDR = path.join(PRODUCT_ROOT, 'bin', 'buildr.mjs');
 const SELECTOR = process.argv[2] ?? 'all';
+const SCREENSHOT_DIR = process.env.BUILDR_SCREENSHOT_DIR;
 const KNOWN_SELECTORS = new Set(['all', 'shell', 'project', 'service', 'change']);
 
 if (!KNOWN_SELECTORS.has(SELECTOR)) throw new Error(`Unknown browser integration selector: ${SELECTOR}`);
@@ -77,6 +78,12 @@ async function unique(locator, description) {
   return locator;
 }
 
+async function capture(page, name) {
+  if (!SCREENSHOT_DIR) return;
+  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  await page.screenshot({ path: path.join(SCREENSHOT_DIR, name), fullPage: true });
+}
+
 test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t) => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-browser-smoke-'));
   const workspaceRoot = path.join(base, 'workspace');
@@ -112,9 +119,15 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
     assert.equal(await page.locator('#workspace-grid .workspace-card').count(), 2);
     const target = page.locator('#workspace-grid .workspace-card').filter({ has: page.locator('h2').filter({ hasText: /^browser-smoke$/ }) });
     await unique(target, 'browser-smoke 工作空间卡片');
-    await target.getByRole('link', { name: '打开工作空间' }).click();
+    await target.getByRole('link', { name: '进入工作空间' }).click();
     await page.waitForURL(`${workspaceUrl}/`);
     assert.equal(await page.locator('#overview-title').innerText(), 'browser-smoke');
+    await page.setViewportSize({ width: 1024, height: 720 });
+    await page.goto(url);
+    await page.locator('#workspace-grid .workspace-card').first().waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#workspace-grid').evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(' ').length), 2);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await page.setViewportSize({ width: 1280, height: 720 });
     let current = runtime.listRegisteredWorkspaces();
     for (const entry of [...current.workspaces]) current = runtime.removeRegisteredWorkspace({ rootPath: entry.rootPath, revision: current.revision });
     await page.goto(url);
@@ -126,33 +139,72 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
     runtime.registerLocalWorkspace({ rootPath: otherRoot, revision: current.revision });
   });
 
-  if (selected('project')) await t.test('项目目录通过操作栏进入稳定详情', async () => {
+  if (selected('project')) await t.test('项目目录在操作栏提供关联跳转，详情只展示统一事实', async () => {
     await page.goto(`${workspaceUrl}/projects`);
     const row = page.locator('#project-table-body tr').filter({ hasText: '演示项目' });
     await unique(row, '项目行');
     const detail = row.getByRole('link', { name: '详情', exact: true });
     await unique(detail, '项目详情操作');
+    await unique(row.getByRole('link', { name: '服务', exact: true }), '项目服务目录操作');
+    await unique(row.getByRole('link', { name: '变更', exact: true }), '项目变更目录操作');
     await detail.click();
     await page.waitForURL(`${workspaceUrl}/projects/demo`);
     assert.equal(await page.locator('#project-detail-name').innerText(), '演示项目');
     assert.equal(await page.locator('#project-detail-code').innerText(), 'demo');
-    assert.equal(await page.locator('#project-service-count').innerText(), '1');
+    assert.equal(await page.locator('#project-service-summary').innerText(), '1 个已登记服务');
+    assert.equal(await page.locator('#app-view input, #app-view textarea').count(), 0);
+    assert.equal(await page.getByText('操作', { exact: true }).count(), 0);
+    assert.equal(await page.locator('.overview-strip, .related-resource-links').count(), 0);
+    assert.equal(await page.locator('.detail-facts > div').count(), 5);
+    assert.equal(await page.locator('[data-nav="projects"]').evaluate((item) => item.classList.contains('active')), true);
+    await page.getByRole('link', { name: '编辑项目', exact: true }).first().click();
+    await page.waitForURL(`${workspaceUrl}/projects/demo/edit`);
+    await page.locator('#project-description').fill('已在独立编辑页更新');
+    await page.getByRole('button', { name: '保存修改', exact: true }).click();
+    assert.equal(await page.locator('#project-save-state').innerText(), '保存成功');
   });
 
-  if (selected('service')) await t.test('服务目录按项目过滤并打开真实详情', async () => {
+  if (selected('service')) await t.test('服务目录在操作栏提供关联跳转，详情与编辑分离', async () => {
     await page.goto(`${workspaceUrl}/services?project=demo`);
     const projectSelect = page.locator('#service-project-select');
     await unique(projectSelect, '服务所属项目过滤器');
     assert.equal(await projectSelect.inputValue(), 'demo');
     const row = page.locator('#service-table-body tr').filter({ hasText: '演示服务' });
     await unique(row, '服务行');
-    const detail = row.getByRole('button', { name: '详情', exact: true });
+    await capture(page, 'local-app-services-desktop.png');
+    const detail = row.getByRole('link', { name: '详情', exact: true });
     await unique(detail, '服务详情操作');
+    await unique(row.getByRole('link', { name: '项目', exact: true }), '服务所属项目操作');
     await detail.click();
-    await page.locator('#service-detail').waitFor({ state: 'visible' });
-    assert.equal(await page.locator('#service-title').innerText(), '演示服务');
-    assert.equal(await page.locator('#service-code').innerText(), 'api');
-    assert.equal(await page.locator('#service-type').inputValue(), 'backend');
+    await page.waitForURL(`${workspaceUrl}/services/demo/api`);
+    assert.equal(await page.locator('#service-detail-name').innerText(), '演示服务');
+    assert.equal(await page.locator('#service-project-code').textContent(), 'demo');
+    assert.equal(await page.locator('#service-detail-type').innerText(), 'backend');
+    assert.equal(await page.locator('#app-view input, #app-view textarea').count(), 0);
+    assert.equal(await page.getByText('操作', { exact: true }).count(), 0);
+    assert.equal(await page.locator('.overview-strip, .related-resource-links').count(), 0);
+    assert.equal(await page.locator('.detail-facts > div').count(), 6);
+    assert.equal(await page.locator('[data-nav="services"]').evaluate((item) => item.classList.contains('active')), true);
+    await page.getByRole('link', { name: '编辑服务', exact: true }).first().click();
+    await page.waitForURL(`${workspaceUrl}/services/demo/api/edit`);
+    await page.locator('#service-description').fill('已在独立详情页更新');
+    await page.getByRole('button', { name: '保存修改', exact: true }).click();
+    assert.equal(await page.locator('#service-save-state').innerText(), '保存成功');
+    await page.reload();
+    assert.equal(await page.locator('#service-description').inputValue(), '已在独立详情页更新');
+  });
+
+  if (selected('service')) await t.test('390px 下目录与详情不产生页面横向溢出', async () => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${workspaceUrl}/services?project=demo`);
+    await page.locator('#service-table-wrap').waitFor({ state: 'visible' });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await page.getByRole('link', { name: '详情', exact: true }).click();
+    await page.locator('#service-detail-name').waitFor({ state: 'visible' });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await unique(page.getByRole('link', { name: '编辑服务', exact: true }).first(), '服务详情编辑操作');
+    await capture(page, 'local-app-service-detail-mobile.png');
+    await page.setViewportSize({ width: 1280, height: 720 });
   });
 
   if (selected('change')) await t.test('变更目录过滤、详情和 Agent prompt 保持只读', async () => {

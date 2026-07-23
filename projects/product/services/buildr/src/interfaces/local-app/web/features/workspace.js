@@ -10,7 +10,7 @@ function errorPage(root, title, message) {
 
 export async function renderWorkspaceOverview({ root, api, onWorkspace }) {
   root.innerHTML = `
-    <section class="page-header page-header-row">
+    <section class="detail-page-header">
       <div><p class="eyebrow">工作空间概览</p><h1 id="overview-title">正在读取…</h1><p id="overview-description" class="page-copy">从本地真实源资产生成当前摘要。</p></div>
       <a class="button secondary" href="/settings" data-route>编辑工作空间</a>
     </section>
@@ -18,14 +18,14 @@ export async function renderWorkspaceOverview({ root, api, onWorkspace }) {
     <section class="metric-grid" aria-label="工作空间资源摘要">
       <article class="metric-card"><span>项目（Project）</span><strong id="project-count">—</strong><small>登记在当前工作空间</small></article>
       <article class="metric-card"><span>服务（Service）</span><strong id="service-count">—</strong><small id="service-count-note">按项目汇总</small></article>
-      <article class="metric-card identity-card"><span>工作空间 ID（Workspace ID）</span><strong id="overview-id">—</strong><small id="overview-schema">—</small></article>
+      <article class="metric-card identity-card"><span>工作空间身份</span><strong id="overview-id">—</strong><small id="overview-schema">—</small></article>
     </section>
     <section class="content-grid">
       <article class="panel">
         <div class="panel-heading"><div><p class="eyebrow">管理</p><h2>从这里开始</h2></div></div>
         <div class="action-list">
-          <a href="/projects" data-route><span class="action-symbol">◇</span><span><strong>管理项目</strong><small>查看项目目录、详情与来源信息。</small></span><span>→</span></a>
-          <a href="/services" data-route><span class="action-symbol">◫</span><span><strong>管理服务</strong><small>按所属项目查看和管理服务。</small></span><span>→</span></a>
+          <a href="/projects" data-route><span class="action-symbol">◇</span><span><strong>项目目录</strong><small>查看项目详情、来源和关联资源。</small></span><span>→</span></a>
+          <a href="/services" data-route><span class="action-symbol">◫</span><span><strong>服务目录</strong><small>按所属项目查看服务与独立详情。</small></span><span>→</span></a>
           <a href="/settings" data-route><span class="action-symbol">⚙</span><span><strong>工作空间设置</strong><small>修改名称与说明，查看 ID、路径、Schema 和 Revision。</small></span><span>→</span></a>
         </div>
       </article>

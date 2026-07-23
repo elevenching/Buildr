@@ -1,8 +1,11 @@
 import { api, setWorkspaceId } from '/api-client.js';
 import { setupAgentActions } from '/features/agent-actions.js';
 import { renderProjectDetail } from '/features/project-detail.js';
+import { renderProjectEdit } from '/features/project-edit.js';
 import { renderProjects } from '/features/projects.js';
 import { renderServices } from '/features/services.js';
+import { renderServiceDetail } from '/features/service-detail.js';
+import { renderServiceEdit } from '/features/service-edit.js';
 import { renderChanges } from '/features/changes.js';
 import { renderChangeDetail } from '/features/change-detail.js';
 import { renderWorkspaceOverview, renderWorkspaceSettings } from '/features/workspace.js';
@@ -11,6 +14,7 @@ import { createRouter } from '/router.js';
 
 const view = document.getElementById('app-view');
 let currentWorkspaceId = null;
+let currentWorkspaceName = '工作空间';
 
 const routeDefinitions = {
   '/': { id: 'workspaces', label: '工作空间', render: renderWorkspaces, global: true },
@@ -25,7 +29,31 @@ const routeDefinitions = {
     },
     render: renderProjectDetail,
   },
+  '/projects/:projectCode/edit': {
+    id: 'projects', label: '编辑项目',
+    match(pathname) {
+      const match = pathname.match(/^\/projects\/([A-Za-z0-9][A-Za-z0-9._-]*)\/edit$/);
+      return match ? { projectCode: decodeURIComponent(match[1]) } : null;
+    },
+    render: renderProjectEdit,
+  },
   '/services': { id: 'services', label: '服务', render: renderServices },
+  '/services/:projectCode/:serviceCode': {
+    id: 'services', label: '服务详情',
+    match(pathname) {
+      const match = pathname.match(/^\/services\/([A-Za-z0-9][A-Za-z0-9._-]*)\/([A-Za-z0-9][A-Za-z0-9._-]*)$/);
+      return match ? { projectCode: decodeURIComponent(match[1]), serviceCode: decodeURIComponent(match[2]) } : null;
+    },
+    render: renderServiceDetail,
+  },
+  '/services/:projectCode/:serviceCode/edit': {
+    id: 'services', label: '编辑服务',
+    match(pathname) {
+      const match = pathname.match(/^\/services\/([A-Za-z0-9][A-Za-z0-9._-]*)\/([A-Za-z0-9][A-Za-z0-9._-]*)\/edit$/);
+      return match ? { projectCode: decodeURIComponent(match[1]), serviceCode: decodeURIComponent(match[2]) } : null;
+    },
+    render: renderServiceEdit,
+  },
   '/changes': { id: 'changes', label: '变更', render: renderChanges },
   '/changes/:projectCode/:changeRef': {
     id: 'changes', label: '变更详情',
@@ -45,6 +73,7 @@ function routeContext(pathname) {
 }
 
 function updateWorkspaceContext(data) {
+  currentWorkspaceName = data.workspace.name;
   document.getElementById('shell-workspace-name').textContent = data.workspace.name;
   document.getElementById('shell-workspace-path').textContent = data.rootPath;
   document.title = `${data.workspace.name} · Buildr`;
@@ -63,8 +92,8 @@ function setWorkspaceShell(global) {
   }
 }
 
-function updateRouteState(route) {
-  document.getElementById('page-breadcrumb').textContent = route.label;
+function updateRouteState(route, global) {
+  updateBreadcrumb(global ? ['工作空间'] : [currentWorkspaceName, route.label]);
   for (const item of document.querySelectorAll('[data-nav]')) {
     const active = item.dataset.nav === route.id;
     item.classList.toggle('active', active);
@@ -73,6 +102,16 @@ function updateRouteState(route) {
   }
   const resourceGroup = document.querySelector('[data-nav-group="resources"]');
   resourceGroup.classList.toggle('active', ['projects', 'services', 'changes'].includes(route.id));
+}
+
+function updateBreadcrumb(parts) {
+  const breadcrumb = document.getElementById('page-breadcrumb');
+  breadcrumb.replaceChildren();
+  parts.forEach((part, index) => {
+    const item = document.createElement(index === parts.length - 1 ? 'strong' : 'span');
+    item.textContent = part;
+    breadcrumb.append(item);
+  });
 }
 
 function setResourceNavigation(expanded) {
@@ -101,9 +140,17 @@ const router = createRouter({
     const route = router.resolve ? router.resolve(context.pathname) : null;
     const resolved = route || (context.workspaceId ? routeDefinitions['/overview'] : routeDefinitions['/']);
     setWorkspaceShell(!context.workspaceId);
-    updateRouteState(resolved);
+    updateRouteState(resolved, !context.workspaceId);
     view.innerHTML = '<div class="page-loading"><span class="loader"></span><p>正在读取真实信息…</p></div>';
-    await resolved.render({ root: view, api, onWorkspace: updateWorkspaceContext, navigate: router.navigate, openAgentAction: agentActions.open, params: resolved.params || {} });
+    await resolved.render({
+      root: view,
+      api,
+      onWorkspace: updateWorkspaceContext,
+      onBreadcrumb: (parts) => updateBreadcrumb([currentWorkspaceName, ...parts]),
+      navigate: router.navigate,
+      openAgentAction: agentActions.open,
+      params: resolved.params || {},
+    });
     view.focus({ preventScroll: true });
   },
 });
