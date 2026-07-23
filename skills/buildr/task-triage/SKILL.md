@@ -13,6 +13,8 @@ description: 用户要求修 bug、实现或调整功能、改需求、重构、
 - 影响的是产品/业务语义、已有事实文档，还是实现细节。
 - 是否需要业务确认。
 - 后续处理方式是 `code-only`、`spec-maintenance`、`change-flow`，还是暂停确认。
+- 执行形态是 `implementation`、`metadata-only`，还是待确认。
+- 当前任务需要创建、复用或不使用 task worktree，还是暂停确认。
 - 当前任务是否需要创建或继续维护任务看板。
 
 ## 判断步骤
@@ -30,7 +32,15 @@ description: 用户要求修 bug、实现或调整功能、改需求、重构、
    - 是否只是让代码符合已有 spec。
    - 是否只是把已接受的现有事实补写到文档。
 4. 输出后续处理方式。
-5. 判断任务看板：
+5. 独立判断执行形态：
+   - 预计进入代码修改、构建、测试或需要长期开发上下文时选择 `implementation`。
+   - 明确只维护 OpenSpec artifacts、规则、Skills、文档或模板，且不进入代码、构建或测试时选择 `metadata-only`。
+   - 当前信息不足以判断是否会进入实现时选择“待确认”，不得先写入 change artifacts 再决定位置。
+6. 判断任务位置：
+   - `implementation` 使用 `task-worktree` Skill 创建或复用 canonical task worktree。
+   - `metadata-only` 默认在当前 workspace 维护；后来升级为实现时重新判断并收敛到唯一 worktree。
+   - 选择 `change-flow + implementation` 时，必须等 task worktree ready 后才进入 OpenSpec propose。
+7. 判断任务看板：
    - 简单、短时、无持续跟踪价值时选择“不需要”。
    - 跨批次、跨 change、跨服务或团队，存在交叉依赖、长期跟踪或多次用户判断时选择“创建”或“继续维护”。
    - 用户明确要求任务可视化、任务看板、整体进度、任务全景，或使用旧称“任务驾驶舱”时，使用 `task-board` Skill。
@@ -44,6 +54,17 @@ description: 用户要求修 bug、实现或调整功能、改需求、重构、
 - 用户任务意图：
 - 是否改变业务语义：
 - 是否需要业务确认：
+```
+
+任务位置判断：
+
+```text
+- 执行形态：implementation / metadata-only / 待确认
+- Worktree：创建 / 复用 / 不需要 / 待确认
+- Task ID：<可确认时填写；尚未确定时明确说明>
+- 任务分支：<可确认时填写；尚未确定时明确说明>
+- Canonical 路径：<可确认时填写；尚未确定时明确说明>
+- 判断依据：<代码、构建、测试、长期上下文或纯元内容事实>
 ```
 
 任务看板判断：
@@ -97,6 +118,15 @@ OpenSpec change 状态：
 - 一个独立业务目标使用一个 change；多个独立业务目标分别维护。
 - 选择或继续 OpenSpec change-flow 时，在用户可见回复中说明当前 change 状态、进度以及下一步或阻塞原因。
 
+## 执行位置判断
+
+- 执行位置与是否创建 OpenSpec change 是两个独立判断；不能把 `change-flow` 等同于必然创建 worktree，也不能把 `code-only` 等同于不需要 worktree。
+- `change-flow + implementation`：先使用 `task-worktree` 创建或复用 canonical checkout，确认 ready 后才执行 propose，proposal、design、specs、tasks、实现和候选验证只写入该 worktree。
+- `code-only + implementation`：不创建 OpenSpec change，但仍先使用 `task-worktree` 创建或复用 canonical checkout。
+- `change-flow + metadata-only`：允许在当前 workspace 创建或维护 artifacts；若后来进入代码、构建或测试，先迁移到 canonical task worktree 并清除重复副本。
+- 执行形态待确认：先澄清是否进入实现，不得为抢跑进度提前创建 change artifacts。
+- 本 Skill 只选择任务位置，不复制 worktree 创建、doctor、sync、保留或清理流程；具体动作由 `task-worktree` Skill 执行。
+
 ## 任务看板判断
 
 - 驾驶舱与任务看板是同一 artifact，覆盖整个任务；至少关联一个真实 OpenSpec change，也可以跨多个 change 并包含 code-only 工作、外部依赖和已完成批次，不把当前 `tasks.md` 当作唯一边界。
@@ -129,4 +159,6 @@ OpenSpec change 状态：
 - 不为简单任务机械创建空洞驾驶舱，也不把驾驶舱当作 OpenSpec change 的翻译。
 - OpenSpec 只记录业务语义，不记录代码风格、工具类、SQL 默认值等工程约定。
 - 不使用未经 OpenSpec CLI 确认的路径、进度或完成状态填充 change 状态摘要。
+- 不在实现型 OpenSpec change 创建 artifacts 后才补做 worktree 决策。
+- 不因任务选择 `code-only` 而跳过 implementation 的 worktree 判断。
 - 不把“按任务组集中验证”解释为跳过最终候选完整验证。

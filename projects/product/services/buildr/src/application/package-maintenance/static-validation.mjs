@@ -285,6 +285,19 @@ export function createPackageStaticValidator(deps) {
         files.push(record.file);
         componentOwnedWorkspaceFiles.add(toPosixRelative(root, record.file));
         for (const message of validatePackageComponentMembers(manifest, record)) problems.push(message);
+        if (entry.id === 'openspec') {
+          const proposeSidebar = packageComponentSourcePath('components/buildr/openspec/contributions/openspec-propose-sidebar.md');
+          const content = fs.readFileSync(proposeSidebar, 'utf8');
+          for (const requiredText of [
+            '执行 `openspec new change` 或写入任何 change artifacts 前',
+            '代码修改、构建、测试或需要长期开发上下文',
+            '先使用 `task-worktree` 创建或复用 canonical task worktree',
+            '无法判断是否会进入实现时，先澄清执行范围',
+            '不修改外部 `openspec-propose` Skill 的上游正文',
+          ]) {
+            if (!content.includes(requiredText)) problems.push(`OpenSpec propose sidebar must include ${JSON.stringify(requiredText)}.`);
+          }
+        }
         for (const member of componentMemberPaths(record.definition)) {
           const previousOwner = componentMemberOwners.get(member);
           if (previousOwner && previousOwner !== entry.id) problems.push(`Package Component ownership conflict for ${member}: ${previousOwner}, ${entry.id}.`);
@@ -854,7 +867,7 @@ export function createPackageStaticValidator(deps) {
         }
       }
       if (skill.id === 'task-triage') {
-        for (const requiredText of ['OpenSpec change 状态', 'artifact 或 task 进度', '下一步或阻塞原因', 'openspec status --change <id> --json', '文档正文使用中文', 'openspec-*` Skills', '实现型任务的验证节点规划', 'selected `buildr.task-verification/v2` provider', '有语义的任务组', '完整候选验证放在全部实现', '不得把 Buildr 产品仓的 package check', '<!-- buildr:skill-contributions change-ready -->']) {
+        for (const requiredText of ['OpenSpec change 状态', 'artifact 或 task 进度', '下一步或阻塞原因', 'openspec status --change <id> --json', '文档正文使用中文', 'openspec-*` Skills', '执行形态：implementation / metadata-only / 待确认', 'Worktree：创建 / 复用 / 不需要 / 待确认', '`change-flow + implementation`', '`code-only + implementation`', '等 task worktree ready 后才进入 OpenSpec propose', '不得先写入 change artifacts 再决定位置', '本 Skill 只选择任务位置', '实现型任务的验证节点规划', 'selected `buildr.task-verification/v2` provider', '有语义的任务组', '完整候选验证放在全部实现', '不得把 Buildr 产品仓的 package check', '<!-- buildr:skill-contributions change-ready -->']) {
           if (!skillContent.includes(requiredText)) problems.push(`task-triage Skill must include ${JSON.stringify(requiredText)}.`);
         }
         if (skillContent.includes('buildr openspec')) problems.push('task-triage source must not hard-code OpenSpec contract guard commands; installed Components contribute them at render time.');
