@@ -26,8 +26,10 @@ test('macOS launcher bundle 携带 Node runtime、Buildr Web 资源和可双击 
   assert.ok(fs.statSync(path.join(app, 'MacOS', 'Buildr')).mode & 0o100);
   const launcher = fs.readFileSync(path.join(app, 'MacOS', 'Buildr'), 'utf8');
   assert.match(launcher, /launcher\.log/);
-  assert.match(launcher, /osascript/);
-  assert.match(launcher, /Buildr 无法启动/);
+  assert.match(launcher, /\/usr\/bin\/nohup/);
+  assert.match(launcher, /buildr\.mjs" app .*&/);
+  assert.match(launcher, /exit 0/);
+  assert.doesNotMatch(launcher, /STATUS=\$\?/);
   assert.ok(fs.existsSync(path.join(app, 'Resources', 'Buildr.icns')));
   const identity = JSON.parse(fs.readFileSync(path.join(app, 'Resources', 'launcher-identity.json'), 'utf8'));
   assert.equal(identity.schemaVersion, 'buildr.launcher-identity/v1');
@@ -41,6 +43,25 @@ test('macOS launcher bundle 携带 Node runtime、Buildr Web 资源和可双击 
   const version = spawnSync(node, [path.join(buildr, 'bin', 'buildr.mjs'), '--version'], { encoding: 'utf8' });
   assert.equal(version.status, 0, version.stderr);
   assert.match(version.stdout, /^0\.1\.0-rc\.6/);
+});
+
+test('macOS launcher 不等待本地服务进程，避免 Finder 将图标判为无响应', (t) => {
+  if (process.platform !== 'darwin') return t.skip('仅在 macOS 执行 shell launcher 行为检查');
+  const output = build(t, 'darwin');
+  const app = path.join(output, 'Buildr.app', 'Contents');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-launcher-home-'));
+  const pidFile = path.join(home, 'launcher-child.pid');
+  const runtime = path.join(app, 'MacOS', 'node');
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  fs.writeFileSync(runtime, `#!/bin/sh\nprintf '%s\\n' "$$" > "$HOME/launcher-child.pid"\nexec sleep 5\n`, { mode: 0o755 });
+
+  const result = spawnSync(path.join(app, 'MacOS', 'Buildr'), [], { encoding: 'utf8', env: { ...process.env, HOME: home } });
+  assert.equal(result.status, 0, result.stderr);
+  for (let attempt = 0; attempt < 20 && !fs.existsSync(pidFile); attempt += 1) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+  assert.ok(fs.existsSync(pidFile), 'launcher should start the local app after the shell returns');
+  const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+  assert.doesNotThrow(() => process.kill(pid, 0));
+  process.kill(pid, 'SIGTERM');
 });
 
 test('Windows launcher bundle 携带 runtime、Web 资源与桌面/开始菜单快捷方式安装入口', (t) => {

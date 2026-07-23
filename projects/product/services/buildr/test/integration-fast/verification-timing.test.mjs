@@ -132,6 +132,36 @@ test('timing summary verifier rejects source identity drift', () => {
   assert.deepEqual(result.findings.map((finding) => finding.code), ['source.candidateFingerprint_mismatch']);
 });
 
+test('timing summary verifier preserves the Product-level candidate scope', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-summary-project-scope-'));
+  try {
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'buildr-test@example.com'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'Buildr Test'], { cwd: root });
+    const project = path.join(root, 'projects', 'product');
+    const service = path.join(project, 'services', 'buildr');
+    fs.mkdirSync(service, { recursive: true });
+    fs.writeFileSync(path.join(service, 'launcher.mjs'), 'baseline\n');
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync('git', ['commit', '--quiet', '-m', 'fixture'], { cwd: root });
+    fs.writeFileSync(path.join(project, 'project-change.md'), 'candidate\n');
+
+    const summary = {
+      schemaVersion: 'buildr.verification-timing/v1',
+      status: 'passed',
+      run: { kind: 'candidate' },
+      source: collectVerificationSourceIdentity(service, { projectRoot: project }),
+    };
+    const summaryFile = path.join(root, 'timing.json');
+    fs.writeFileSync(summaryFile, `${JSON.stringify(summary)}\n`);
+    const verified = spawnSync(process.execPath, [summaryVerifier, summaryFile, service, 'candidate'], { encoding: 'utf8' });
+    assert.equal(verified.status, 0, verified.stderr);
+    assert.equal(JSON.parse(verified.stdout).ok, true);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('default verification evidence paths are run-scoped while explicit paths remain supported', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-evidence-paths-'));
   try {

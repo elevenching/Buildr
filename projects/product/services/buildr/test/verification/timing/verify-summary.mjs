@@ -10,7 +10,9 @@ if (!summaryFile) throw new Error('Usage: node verify-summary.mjs <timing.json> 
 
 const summaryPath = path.resolve(summaryFile);
 const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
-const source = collectVerificationSourceIdentity(path.resolve(productRoot));
+const source = collectVerificationSourceIdentity(path.resolve(productRoot), {
+  projectRoot: path.resolve(summary.source?.projectRoot ?? productRoot),
+});
 const validation = validateVerificationTimingEvidence(summary, source, expectedKind);
 const result = {
   schemaVersion: 'buildr.verification-timing-check/v1',

@@ -198,7 +198,7 @@ export function validateVerificationTimingEvidence(summary, currentSource, expec
   expect(summary?.schemaVersion === 'buildr.verification-timing/v1', 'schema.invalid', 'Timing summary schema is not buildr.verification-timing/v1.');
   expect(summary?.status === 'passed', 'status.not_passed', 'Timing summary status is not passed.');
   expect(summary?.run?.kind === expectedKind, 'run.kind_mismatch', `Timing summary run kind is not ${expectedKind}.`);
-  for (const field of ['repositoryRoot', 'productRoot', 'head', 'candidateFingerprint', 'fingerprintAlgorithm']) {
+  for (const field of ['repositoryRoot', 'productRoot', 'projectRoot', 'head', 'candidateFingerprint', 'fingerprintAlgorithm']) {
     expect(summary?.source?.[field] === currentSource[field], `source.${field}_mismatch`, `Timing summary source ${field} does not match the current candidate.`);
   }
   return { ok: findings.length === 0, findings };
