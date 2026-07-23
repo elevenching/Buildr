@@ -13,6 +13,7 @@ import {
   releaseLocalAppStartLock,
   waitForLocalAppInstance,
   writeLocalAppInstance,
+  readLauncherIdentityFromEnvironment,
 } from '../runtime/instance-manager.mjs';
 import { pickWorkspaceDirectory } from '../runtime/directory-picker.mjs';
 
@@ -139,7 +140,7 @@ function ensureRegisteredTarget(runtime, targetRoot) {
   return entry?.workspace?.id || null;
 }
 
-export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 0, instanceSecret = null, onShutdown = null } = {}) {
+export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 0, instanceSecret = null, launcherIdentity = null, onShutdown = null } = {}) {
   const initialWorkspaceId = ensureRegisteredTarget(runtime, targetRoot);
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const healthSecret = instanceSecret || crypto.randomBytes(32).toString('hex');
@@ -168,7 +169,7 @@ export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 
           jsonResponse(response, 403, { error: { code: 'instance_forbidden', message: 'Buildr instance secret 无效。' } });
           return;
         }
-        jsonResponse(response, 200, { schemaVersion: 'buildr.local-app-health/v1', status: closing ? 'stopping' : 'ready', pid: process.pid });
+        jsonResponse(response, 200, { schemaVersion: 'buildr.local-app-health/v1', status: closing ? 'stopping' : 'ready', pid: process.pid, launcherIdentity });
         return;
       }
       if (request.method === 'GET' && pathname === '/api/v1/workspaces') {
@@ -293,11 +294,15 @@ export function registerLocalWorkspaceAppInterface(runtime) {
     const port = Number(rawPort);
     if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`Invalid app port: ${rawPort}`);
     const noOpen = args.includes('--no-open');
+    const launcherIdentity = readLauncherIdentityFromEnvironment();
     let initialWorkspaceId = null;
     if (targetRoot) initialWorkspaceId = ensureRegisteredTarget(runtime, targetRoot);
     const recorded = readLocalAppInstance();
     const healthy = await healthyLocalAppInstance(recorded);
     if (healthy) {
+      if (launcherIdentity && healthy.launcherIdentity && launcherIdentity.protocolVersion !== healthy.launcherIdentity.protocolVersion) {
+        throw new Error(`已运行 Buildr App protocol v${healthy.launcherIdentity.protocolVersion} 与当前 launcher v${launcherIdentity.protocolVersion} 不兼容，请先退出旧实例。`);
+      }
       const pageUrl = initialWorkspaceId ? `${healthy.url}/workspaces/${initialWorkspaceId}/` : healthy.url;
       if (!noOpen) openDefaultBrowser(pageUrl);
       console.log(`Buildr 本地应用已运行：${pageUrl}`);
@@ -320,10 +325,11 @@ export function registerLocalWorkspaceAppInterface(runtime) {
       instance = createLocalWorkspaceServer(runtime, {
         port,
         instanceSecret: secret,
+        launcherIdentity,
         onShutdown: () => state && clearLocalAppInstance(state),
       });
       const ready = await instance.ready;
-      state = { url: ready.url, secret, pid: process.pid };
+      state = { url: ready.url, secret, pid: process.pid, launcherIdentity };
       writeLocalAppInstance(runtime, state);
       releaseLocalAppStartLock(startLock);
       const pageUrl = initialWorkspaceId ? `${ready.url}/workspaces/${initialWorkspaceId}/` : ready.url;

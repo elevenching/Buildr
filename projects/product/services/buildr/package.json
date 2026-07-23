@@ -59,6 +59,8 @@
     "test:candidate": "./scripts/verify-buildr-product",
     "test:release": "node test/verification/release/release-smoke.mjs",
     "package:launcher": "node package/launchers/build.mjs",
+    "install:local": "./scripts/install-buildr-local",
+    "install:development": "./scripts/install-buildr-development",
     "pack:check": "npm pack --dry-run"
   },
   "engines": {

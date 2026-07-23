@@ -12,6 +12,8 @@ import { createLocalWorkspaceServer } from '../../src/interfaces/local-app/http/
 
 const PRODUCT_ROOT = path.resolve(import.meta.dirname, '../..');
 const BUILDR = path.join(PRODUCT_ROOT, 'bin', 'buildr.mjs');
+const TEST_APP_DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-workspace-product-app-data-'));
+process.once('exit', () => fs.rmSync(TEST_APP_DATA, { recursive: true, force: true }));
 
 function temporaryRoot(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-workspace-product-'));
@@ -20,7 +22,8 @@ function temporaryRoot(t) {
 }
 
 function runBuildr(args, options = {}) {
-  return spawnSync(process.execPath, [BUILDR, ...args], { cwd: PRODUCT_ROOT, encoding: 'utf8', ...options });
+  const env = options.env || { ...process.env, BUILDR_APP_DATA_DIR: process.env.BUILDR_APP_DATA_DIR || TEST_APP_DATA };
+  return spawnSync(process.execPath, [BUILDR, ...args], { cwd: PRODUCT_ROOT, encoding: 'utf8', ...options, env });
 }
 
 function initWorkspace(t, options = {}) {

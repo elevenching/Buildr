@@ -115,6 +115,15 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
     await target.getByRole('link', { name: '打开工作空间' }).click();
     await page.waitForURL(`${workspaceUrl}/`);
     assert.equal(await page.locator('#overview-title').innerText(), 'browser-smoke');
+    let current = runtime.listRegisteredWorkspaces();
+    for (const entry of [...current.workspaces]) current = runtime.removeRegisteredWorkspace({ rootPath: entry.rootPath, revision: current.revision });
+    await page.goto(url);
+    await page.locator('#workspace-empty').waitFor({ state: 'visible' });
+    assert.equal(await page.getByRole('button', { name: '选择已有工作空间' }).count(), 1);
+    assert.equal(await page.getByRole('button', { name: '交给 Agent 新建' }).count(), 1);
+    assert.equal(await page.getByRole('button', { name: '稍后处理' }).count(), 1);
+    current = runtime.registerLocalWorkspace({ rootPath: workspaceRoot, revision: current.revision });
+    runtime.registerLocalWorkspace({ rootPath: otherRoot, revision: current.revision });
   });
 
   if (selected('project')) await t.test('项目目录通过操作栏进入稳定详情', async () => {

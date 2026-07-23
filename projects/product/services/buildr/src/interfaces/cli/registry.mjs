@@ -4,9 +4,13 @@ import { registerCommandHelp } from './help.mjs';
 import { isVersionRequest, printVersion } from './identity.mjs';
 import { printCliError } from './diagnostics.mjs';
 import { registerLocalWorkspaceAppInterface } from '../local-app/http/server.mjs';
+import { registerLauncherInterface } from './launcher.mjs';
 
 export const COMMAND_REGISTRY = [
   { key: 'init', match: ({ domain }) => domain === 'init', run: (r, c) => r.initBuildr(c.argv.slice(3)) },
+  { key: 'app launcher install', match: ({ domain, action, runtimeId }) => domain === 'app' && action === 'launcher' && runtimeId === 'install', run: (r, c) => r.manageLocalAppLauncher('install', c.argv.slice(5)) },
+  { key: 'app launcher status', match: ({ domain, action, runtimeId }) => domain === 'app' && action === 'launcher' && runtimeId === 'status', run: (r, c) => r.manageLocalAppLauncher('status', c.argv.slice(5)) },
+  { key: 'app launcher uninstall', match: ({ domain, action, runtimeId }) => domain === 'app' && action === 'launcher' && runtimeId === 'uninstall', run: (r, c) => r.manageLocalAppLauncher('uninstall', c.argv.slice(5)) },
   { key: 'app', match: ({ domain }) => domain === 'app', run: (r, c) => r.startLocalWorkspaceApp(c.argv.slice(3)) },
   { key: 'bootstrap guide', match: ({ domain, action }) => domain === 'bootstrap' && action === 'guide', run: (r) => r.bootstrapGuide() },
   { key: 'package check', match: ({ domain, action }) => domain === 'package' && action === 'check', run: (r) => r.packageCheck() },
@@ -92,6 +96,7 @@ function runScopedRender(r, context) {
 export function dispatch(argv = process.argv) {
   const runtime = createRuntime();
   registerLocalWorkspaceAppInterface(runtime);
+  registerLauncherInterface(runtime);
   registerCommandHelp(runtime);
   const rawArgs = argv.slice(2);
   const commandCandidates = ['version', 'help', ...COMMAND_REGISTRY.map((item) => item.key)];

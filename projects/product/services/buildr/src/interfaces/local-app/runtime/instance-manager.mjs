@@ -7,6 +7,15 @@ import { localAppDataRoot } from '../../../infrastructure/filesystem/workspace-r
 
 const INSTANCE_SCHEMA = 'buildr.local-app-instance/v1';
 
+export function readLauncherIdentityFromEnvironment(env = process.env) {
+  const file = env.BUILDR_LAUNCHER_IDENTITY;
+  if (!file) return null;
+  try {
+    const value = JSON.parse(fs.readFileSync(path.resolve(file), 'utf8'));
+    return value?.schemaVersion === 'buildr.launcher-identity/v1' && Number.isInteger(value.protocolVersion) ? value : null;
+  } catch { return null; }
+}
+
 export function localAppInstancePath() {
   return path.join(localAppDataRoot(), 'instance.json');
 }
@@ -45,7 +54,7 @@ export function readLocalAppInstance() {
   try {
     const value = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (value.schemaVersion !== INSTANCE_SCHEMA || typeof value.url !== 'string' || typeof value.secret !== 'string' || !Number.isInteger(value.pid)) return null;
-    return { ...value, file };
+    return { ...value, launcherIdentity: value.launcherIdentity ?? null, file };
   } catch {
     return null;
   }
@@ -53,7 +62,7 @@ export function readLocalAppInstance() {
 
 export function writeLocalAppInstance(runtime, value) {
   const file = localAppInstancePath();
-  runtime.atomicWriteJson(file, { schemaVersion: INSTANCE_SCHEMA, url: value.url, secret: value.secret, pid: value.pid });
+  runtime.atomicWriteJson(file, { schemaVersion: INSTANCE_SCHEMA, url: value.url, secret: value.secret, pid: value.pid, launcherIdentity: value.launcherIdentity ?? null });
   return file;
 }
 
@@ -73,7 +82,7 @@ export async function healthyLocalAppInstance(instance = readLocalAppInstance())
     });
     if (!response.ok) return null;
     const body = await response.json();
-    return body.schemaVersion === 'buildr.local-app-health/v1' && body.status === 'ready' ? instance : null;
+    return body.schemaVersion === 'buildr.local-app-health/v1' && body.status === 'ready' ? { ...instance, launcherIdentity: body.launcherIdentity ?? instance.launcherIdentity ?? null } : null;
   } catch {
     return null;
   }

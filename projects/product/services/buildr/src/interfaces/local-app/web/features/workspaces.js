@@ -27,7 +27,7 @@ function workspaceCard(entry, revision) {
   return article;
 }
 
-export async function renderWorkspaces({ root, api, navigate }) {
+export async function renderWorkspaces({ root, api, navigate, openAgentAction }) {
   root.innerHTML = `
     <section class="page-header page-header-row">
       <div><p class="eyebrow">BUILDR GLOBAL APP</p><h1>工作空间</h1><p class="page-copy">在一个本机入口中管理已经登记的 Buildr 工作空间。</p></div>
@@ -35,7 +35,7 @@ export async function renderWorkspaces({ root, api, navigate }) {
     </section>
     <div id="workspace-global-message" class="alert hidden" role="status"></div>
     <section id="workspace-grid" class="content-grid"></section>
-    <section id="workspace-empty" class="empty-state hidden"><h2>还没有工作空间</h2><p>点击“添加工作空间”，选择已有 Buildr Workspace 目录。</p></section>`;
+    <section id="workspace-empty" class="empty-state hidden"><h2>欢迎使用 Buildr</h2><p>选择已有 Buildr 工作空间，或生成交给 Agent 的新建指令。Buildr 不会自动扫描磁盘。</p><div class="actions"><button id="empty-add-workspace" class="button primary" type="button">选择已有工作空间</button><button id="empty-create-workspace" class="button secondary" type="button">交给 Agent 新建</button><button id="empty-later" class="text-button" type="button">稍后处理</button></div></section>`;
 
   async function load() {
     const registry = await api('/api/v1/workspaces');
@@ -74,5 +74,12 @@ export async function renderWorkspaces({ root, api, navigate }) {
     } finally {
       button.disabled = false;
     }
+  });
+  document.getElementById('empty-add-workspace').addEventListener('click', () => document.getElementById('add-workspace').click());
+  document.getElementById('empty-create-workspace').addEventListener('click', () => openAgentAction('workspace'));
+  document.getElementById('empty-later').addEventListener('click', () => {
+    const alert = document.getElementById('workspace-global-message');
+    alert.classList.remove('hidden');
+    alert.textContent = '没有登记任何工作空间。你可以直接退出 Buildr，稍后再次打开。';
   });
 }

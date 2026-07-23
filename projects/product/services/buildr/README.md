@@ -10,9 +10,12 @@ Workspace 等同于 Buildr 治理的工作目录，也是 Skill 的唯一 source
 
 ```bash
 npm install --global @buildr-ai/buildr@next
+buildr app launcher install --channel release
 buildr runtime list --json
 buildr init --agent <agent> --target . --name <name> --description <description> --profile <personal|team|company>
 ```
+
+用户让 Agent“安装 Buildr”时，默认同时完成 CLI 与当前平台 launcher，并分别验证命令和系统图标入口。全局安装不会猜测 Workspace 或写入 Agent runtime；选择目标 Workspace 后，`init --agent` 首次投射 Buildr Skill，后续由 `sync`/`render` 收敛。Buildr 开发 checkout 使用 `npm run install:development` 同时更新 checkout CLI 与隔离的 `Buildr Dev` launcher。
 
 初始化后可运行 `buildr app --target .`，登记当前 Workspace、启动或复用只监听本机的全局 Web 应用并打开浏览器。此后直接运行 `buildr app` 即可查看和切换本机登记的多个 Workspace；页面可受控修改 metadata，并展示 Project、Service、Change 与实时 Git 状态。新建 Workspace、Project、Service 或 Change 仍只生成可复制给 Agent 的指令。
 

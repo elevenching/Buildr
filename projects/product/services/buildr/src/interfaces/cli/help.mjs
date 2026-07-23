@@ -13,6 +13,7 @@ export function registerCommandHelp(runtime) {
     console.error('Usage:');
     console.error(`  buildr init [--agent <${runtimeIds}>] [--target <dir>] [--name <name>] [--description <text>] [--profile <personal|team|company>]`);
     console.error('  buildr app [--target <workspace>] [--port <port>] [--no-open]');
+    console.error('  buildr app launcher <install|status|uninstall> [--channel <release|development>] [--target <dir>] [--json]');
     console.error('  buildr project create <code> [--target <dir>] [--name <text>] [--description <text>] [--repo <git-url>] [--remote <name>] [--integration-branch <branch>]');
     console.error('  buildr service create <project>/<service> <repo-ref> [--target <dir>] [--name <text>] [--description <text>] [--type <type>] [--remote <name>] [--integration-branch <branch>] [--json]');
     console.error(`  buildr worktree create <task-id> --agent <${runtimeIds}> --branch <branch> [--start-point <ref>] [--target <workspace>] [--json]`);
@@ -60,6 +61,7 @@ export function registerCommandHelp(runtime) {
       'Public workspace commands:',
       '  init                 初始化 Buildr workspace；传入 --agent 时一次完成 runtime 与最终 doctor。',
       '  app                  启动仅限本机访问的 Buildr Workspace 可视化应用。',
+      '  app launcher         安装、检查或卸载当前平台的 Buildr launcher。',
       '  version              输出当前 Buildr CLI package version；支持 --json。',
       '  project create       创建或登记 Project。',
       '  service create       创建或登记 Service。',
@@ -104,6 +106,22 @@ export function registerCommandHelp(runtime) {
       '页面不会 checkout、stash、merge 或改写 Project Git source。',
       '旧 Workspace metadata 可以只读查看，完成 canonical sync 迁移后才能从页面保存。',
       '本机登记列表只保存 Workspace root；事实仍来自各 Workspace，应用不提供远程服务或 Agent session connector。',
+    ],
+    'app launcher install': [
+      'Usage: buildr app launcher install [--channel <release|development>] [--target <dir>] [--json]',
+      '',
+      '构建到新的 staging、验证后安全切换 launcher；development 安装为隔离的 Buildr Dev。',
+      '默认安装到用户级应用目录，不安装 Buildr Skill，也不修改 Workspace 源资产。',
+    ],
+    'app launcher status': [
+      'Usage: buildr app launcher status [--channel <release|development>] [--target <dir>] [--json]',
+      '',
+      '报告 launcher 的真实安装位置、channel、版本与 checkout identity。',
+    ],
+    'app launcher uninstall': [
+      'Usage: buildr app launcher uninstall [--channel <release|development>] [--target <dir>] [--json]',
+      '',
+      '只移除对应 channel 拥有的 launcher 和上一版本；保留 Workspace Registry 与 Workspace 源资产。',
     ],
     version: [
       'Usage: buildr version [--json]',

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "complete-local-app-installation",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-c2dcfbeecbee8a51213c5872f2639e3ed1c82b88c00e2fff987cdb47911df035",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "local-workspace-application",
+      "title": "平台安装必须提供完整且可解释的 Buildr App",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "Buildr App 首次启动必须引导建立 Workspace 上下文",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "Launcher 必须暴露可诊断的运行身份和失败反馈",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "开发 launcher 必须支持安全的重复构建和本机更新",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "Launcher 卸载必须保留用户工作资产",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "npm-cli-package",
+      "title": "CLI 与平台 Launcher 必须共享产品身份但保持安装事实独立",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "npm-cli-package",
+      "title": "Buildr Skill 必须由目标 Workspace 生命周期投射",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "npm-cli-package",
+      "title": "各安装渠道必须拥有明确的更新责任",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "npm-cli-package",
+      "title": "Launcher 发布产物必须接受安装生命周期验证",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}
