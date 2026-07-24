@@ -5,6 +5,9 @@
 .qoder/
 .agents/
 
+# macOS Finder metadata
+.DS_Store
+
 # Task worktrees
 /.worktrees/
 # Buildr transaction state

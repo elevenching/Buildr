@@ -1,139 +1,184 @@
 ---
 name: task-asset-review
-description: 用户明确要求复盘任务执行质量、总结可沉淀的 Skill 或 Rule、把本次工作方法留给后续 Agent，Agent 已发现明确长期候选，或 finish consumer 的轻量资格判断命中时使用。基于可观察任务节点和最终证据反思执行质量，只提出 Rule 或 Skill 候选，不读取隐藏推理、不保存完整轨迹、不自动写入组织资产。
+description: 非简单 Workspace 任务开始探索、设计、诊断、实现或验证时，持续收集可能影响长期 Rule、Skill、capability Contract 或产品能力的轻量信号；用户要求复盘或沉淀，或 Task Finish 触发 finalize 时也使用。负责 observation、资格审查、人工决定和新任务交接，不保存完整轨迹。
 ---
 
 # Task Asset Review Skill
 
-本 Skill 是 `buildr.task-asset-review/v1` 的默认 provider，在任务结果稳定后执行只读审查：先反馈本次任务的执行质量，再筛选值得长期复用的 Rule 或 Skill 候选。它不判断当前任务是否需要 OpenSpec change，不替代 finish consumer 的完成检查，也不把审查结论直接写入 Buildr 源资产。
+本 Skill 是 `buildr.task-asset-review/v2` 的默认 provider。它从任务期间的公开、可观察节点维护轻量 observation，在任务结束时完成审查并请求人工 accept/reject；它不读取隐藏推理，不保存完整轨迹，也不在原任务修改长期资产。
 
-## 调用边界
+## 职责边界
 
-- 用户明确要求复盘、总结技能或规则、沉淀经验或把工作方法留给后续 Agent 时，执行完整审查。
-- Agent 已发现具体、可验证、可能长期复用的候选时，可以主动执行完整审查；不要为形式完整机械复盘简单任务。
-- Finish consumer 只在自身轻量资格判断命中后调用 selected provider；本 Skill 不重复资格判断。
-- 条件调用保持只读和非阻塞。证据不足、provider 不可用或审查失败时，向 finish consumer 返回降级原因，不把沉淀能力作为收尾成功条件。
-- 当前候选 Git tree 已有同一轮有效审查结果时复用结果，不重复扫描、读取或验证。
+- 本 Skill 拥有：是否创建 observation、信号筛选、持续更新、资格审查、候选分类、人工决定、去向交接和删除条件。
+- `task-finish` 只触发 selected provider 的 finalize 并等待结果；不得汇总信号、执行资格门禁或判断最终沉淀什么。
+- accept 只建立新任务 handoff。后续必须重新进入 `task-triage`，原任务保持结束。
+- provider optional 不可用或本地状态不可写时，报告降级；不得用最终总结伪造持久化 observation。
+- 不为简单问答、翻译、单一稳定事实查询或没有 Workspace 资产含义的对话机械创建 observation。
 
-## 证据边界
+## 共享位置与写入者
 
-按相关性检查当前 runtime 和 session 已可访问的证据，只选择会改变结论、暴露执行质量或产生复用价值的高信息量节点：
-
-- 用户原始目标、纠正和明确决策；
-- Agent 对外可见的计划、状态、假设和阶段结论；
-- 文件搜索、代码阅读、命令、工具调用及其输出；
-- 失败、重试、回退、阻塞和根因定位；
-- 关键选择及被排除的方案；
-- subagent 的任务划分、证据和最终报告；
-- OpenSpec artifacts、最终 Git diff、提交范围、测试、构建、静态检查和验收结果；
-- 候选目标资产的源文件、manifest、随附模板、脚本、metadata 和其他实际参与运行的资源；必要时对照 runtime 投射与真实产物；
-- 遗留风险、外部依赖和最终证据限制。
-
-不得声称读取模型隐藏推理、chain-of-thought 或内部 deliberation。不得为了审查采集或保存完整原始对话、完整工具日志、逐节点回放或完整任务轨迹。早期节点不可访问时，明确证据限制，使用仍可访问的用户决策、artifacts、diff 和验证结果完成降级审查；缺少完整节点不等于任务失败。
-
-## 审查流程
-
-1. 确认任务结果已经稳定，记录任务/change identity、候选 tree 和最终验证证据；如果由 finish consumer 调用，直接复用其完成检查和 contract sidebar 结论。
-2. 重建简短执行轮廓：主要阶段、关键转折、失败回退和最终验证。不要逐条复述全部节点，也不要用最终总结代替过程审查。
-3. 选择高信息量转折点，优先检查：
-   - 用户纠正了对象边界、产品语义、scope 或授权；
-   - 初始假设被代码、文档、命令、测试或用户反馈推翻；
-   - 同一搜索、工具、修复或验证出现无效重复；
-   - 失败、回退或绕路最终形成了明确根因；
-   - 验证发现实现与契约、预期或阶段结论不一致；
-   - 缺少长期事实或流程导致临时摸索；
-   - 用户级单例、状态目录、端口、锁或 launcher 与多个 worktree 的所有权、并发或清理发生冲突；
-   - 某个有效步骤显著降低风险或缩短定位。
-4. 对每个重要节点检查：
-   - 目标一致性：是否持续对齐用户真实目标，哪里发生偏移；
-   - 路径效率：哪些步骤有效，哪些属于可避免的绕路、重复或过度检查；
-   - 证据质量：结论是否由用户确认、代码、spec、命令、diff 或测试支撑；
-   - 边界质量：scope、授权、资产职责和生命周期是否处理正确；
-   - 成本质量：是否存在无关 Skill/Rule 加载、重复读取、无效全量搜索、重复工具、重复完整验证、过度 subagent 或未被使用的冗长输出；
-   - 复用机会：缺少什么长期事实、约束或流程，导致本次需要重新发现。
-   - 并发边界：本机进程、用户级状态和 task environment 是否具有可验证 owner、environment root、CLI source、实际 cwd、完整 repository set、验证 evidence、隔离命名空间和不影响其他任务的停止/清理路径；不能只审查 Local App owner。
-5. 对可能落入现有资产的发现执行覆盖核验：定位目标源资产及其模板、脚本、metadata、manifest 等资源，比较它们是否真正支持本次发现；不得只凭 description、标题或原则性文字判定“已经覆盖”。
-6. 如果真实产物采用了更完整的数据模型、流程或检查，而通用源资产仍缺少对应能力，直接记为“部分覆盖”证据。runtime 投射只能证明同步状态，不能代替源资产事实。
-7. 有 runtime token usage 时只把它作为辅助证据；没有精确 usage 时只做定性判断，不伪造 token 数量。安全检查、候选 tree 变化后的重验和契约要求产生的成本属于必要成本，不得为节省 token 削弱正确性。
-8. 将结果分为“执行质量反馈”和“资产沉淀建议”。一次性失误、偶发环境状态和任务特有绕路可以进入质量反馈，但不自动晋升为长期资产。
-
-## 现有资产覆盖判断
-
-对准现有 Rule、`AGENTS.md` 或 Skill 时必须给出一种结论：
-
-- **完整覆盖**：源正文和实现能力所需的模板、脚本、metadata、manifest 等资源都已实现本次发现，不再提出重复候选。
-- **部分覆盖**：源资产提到原则、目标或相近场景，但流程、资源、验证门槛或输出契约仍有缺口；继续作为现有资产更新候选。
-- **存在冲突**：已验证发现与现有资产存在实质语义冲突；列出双方证据和待用户判断选项，不自行覆盖。
-- **尚无资产**：没有合适现有资产，才考虑新增 Rule 或 Skill。
-
-Skill description 只负责意图路由，不能证明 body 和资源已经具备实际能力。runtime、任务专属文档或一次性产物已经做对，也不能证明 Buildr 源资产已经沉淀。
-
-## 候选门槛
-
-只有同时满足以下条件的发现才能成为候选：
-
-- 有明确的用户决策、文件、命令、diff、测试或其他可观察证据；
-- 任务结束后仍可能长期有效，不只是当前机器、session 或偶发错误；
-- 能转化为可操作的约束或做法；
-- 对后续同类任务有复用价值；
-- 可以确定 Organization、Project 或 Service scope；
-- 已核验现有 OpenSpec、Rule、`AGENTS.md` 或 Skill 的实际覆盖，不存在未解决的重复或冲突；“部分覆盖”作为更新现有资产的候选继续评估。
-
-与权威事实冲突时，说明冲突来源和可选处理方式，停止自动选择或覆盖。范围外的产品问题、Command、Component、普通 docs 或其他资产线索只标记为普通 follow-up，后续重新使用 `task-triage` 或对应资产生命周期。
-
-## 资产映射
-
-- 候选回答 Agent“必须遵守什么”，包含价值观、长期边界、约束或禁止事项时，映射为对应 scope 的 Rule 或 Project/Service `AGENTS.md`；不要把场景化操作手册写入 Rule。
-- 候选回答 Agent“遇到同类任务时怎么做”，包含专业动作、判断流程、命令、检查和完成标准时，映射为对应 scope 的 Skill；description 只负责意图路由，流程写入 Skill body。
-- OpenSpec 只作为当前任务契约、用户决策和验证结论的证据；本 Skill 不得输出 Specs 候选，也不判断是否需要新 OpenSpec change。
-- 不创建新的通用 Memory、Execution Trace、Task State 或 Task Summary 资产类型。
-
-## 输出
-
-显式复盘时输出：
-
-1. 执行轮廓：主要阶段和关键转折；
-2. 执行质量反馈：重要有效做法、可避免问题、证据缺口及其依据；
-3. 资产沉淀建议：只列通过门槛的 Rule/Skill 候选；
-4. 普通 follow-up：仅在发现非 Rule/Skill 线索时列出。
-
-Finish consumer 条件调用时，没有重要质量发现或合格候选则静默返回；有发现时只返回可放入最终收尾报告的简短摘要，不中断收尾等待确认。
-
-每个候选使用以下确认格式：
+内部 helper 位于：
 
 ```text
-候选：
-- 触发场景：
-- 已验证发现：
-- 证据：
-- 现有资产覆盖结论：完整覆盖 / 部分覆盖 / 存在冲突 / 尚无资产
-- 可复用动作或约束：
-- 目标资产：Rule / Skill
-- 目标 scope：
-- 拟修改位置：列出具体源文件及需同步调整的模板、脚本、metadata 或 manifest
-- 验证方式：
+scripts/observation.mjs
 ```
 
-在 worktree 清理前，为每个合格候选生成可独立引用的证据胶囊：
+它从 `--workspace-root` 向上定位 `.buildr/workspace.yml`，按稳定 `workspace.id` 解析：
 
 ```text
-证据胶囊：
-- 任务或 change：
-- 关键发现与证据摘要：
-- 现有资产差距：
-- 最终 commit / diff：
-- 归档 OpenSpec change：
-- 稳定文件或任务看板：
-- 目标资产与 scope：
-- 建议动作：
-- 证据限制：
+<Buildr user state>/asset-review/<workspace-id>/inbox/<observation-id>.md
 ```
 
-优先引用最终 commit、相关 diff、归档 change、稳定文件路径或已有任务看板。若关键依据只能来自临时 session 节点，保留必要的自包含摘要并标记证据耐久性较弱，不声称以后可以恢复全部原始过程。
+这是用户级共享 inbox：同一 Workspace 的所有 worktree 与非 worktree 任务使用同一位置。每个任务使用独立 observation id；root Agent 是单一写者，`--owner` 必须稳定且与文件 owner 匹配。不要让 subagent 直接写 observation；由 root Agent 吸收其可验证报告。owner mismatch 必须停止，不得覆盖或选择任意文件。helper 对文件使用同目录临时文件加 rename 的原子替换。
 
-## 写回边界
+helper 是 Skill 内部资源，不是公共 Buildr CLI。不要为该生命周期启动 Hook、daemon、watcher、事件总线、数据库、全局索引、CAS 或复杂锁。
 
-- 提出具体候选后等待用户确认；“收尾”不授权写入 Rule、Skill 或其他组织资产。
-- 用户只确认部分候选时，只处理已确认部分。
-- 用户确认后，重新通过目标 Rule 或 Skill 的现有维护、授权和验证流程写回；不要把本 Skill 的审查步骤当作写入实现。
-- 没有合格候选时正常结束，不创建空洞资产或形式化总结。
+## 何时开始观察
+
+进入非简单 Workspace 探索、设计、诊断、实现或验证任务后，先判断当前可见事实是否可能暴露长期资产差距。高价值信号包括：
+
+- 用户纠正了长期边界、职责、scope、授权或领域语义；
+- 初始假设被代码、文档、命令、测试或用户反馈推翻；
+- 同类失败、重试、回退或无效重复暴露了稳定根因；
+- 现有 Rule、Skill 或 capability Contract 只部分覆盖真实流程或资源；
+- consumer/provider guarantees、effects、authorization 或 result evidence 需要变化；
+- 任务暴露了产品行为、API、状态、数据模型或体验缺口；
+- 并发 task environment 与共享本机状态的 owner、identity、隔离或 cleanup 发生可复现冲突；
+- 某个可复用动作显著降低风险或成本。
+
+不要把特定 CLI、Launcher、daemon、端口或 registry 当成固定检查清单。它们只有在体现更一般的共享状态、所有权或并发边界时才成为信号。
+
+首次命中后执行：
+
+```bash
+node "<skill-root>/scripts/observation.mjs" start \
+  --workspace-root "<workspace-root>" \
+  --observation-id "<task-or-thread-stable-id>" \
+  --owner "<root-agent-task-owner>" \
+  --source '{"task":"...","thread":"...","worktree":"...","branch":"...","change":"...","commit":"...","project":"...","service":"..."}'
+```
+
+来源字段只填实际存在的值。observation id 和 owner 使用稳定的字母、数字、点、下划线或连字符。
+
+## 持续记录
+
+任务出现新的高信息量节点时追加一条精炼 observation：
+
+```bash
+node "<skill-root>/scripts/observation.mjs" observe \
+  --workspace-root "<workspace-root>" \
+  --observation-id "<id>" \
+  --owner "<owner>" \
+  --message "<已验证事实及其潜在长期含义>" \
+  --evidence "<用户决定、文件、命令、diff、测试或稳定引用>"
+```
+
+只保存会改变资产审查结论的精炼事实和证据引用。不得保存完整原始对话、完整工具日志、逐节点回放、模型隐藏推理、chain-of-thought 或内部 deliberation。一次性失误、偶发机器状态和已被现有资产完整覆盖的事实可以不记录。
+
+## Finalize 与资格审查
+
+显式任务结束、Task Finish finalize 或用户要求复盘时：
+
+1. 读取当前 observation 和仍可访问的最终证据。
+2. 重建简短执行轮廓，选择高信息量转折点；不逐条复述。
+3. 核验候选目标源资产及其正文、manifest、模板、脚本、metadata、contract 和必要的真实产物。
+4. 对覆盖度给出：完整覆盖、部分覆盖、存在冲突、尚无资产。
+5. 只有同时具有明确证据、长期有效、可操作、可复用、scope 可确定且未被完整覆盖的发现才合格。
+6. 将结论限制为四类：
+   - `rule`：长期价值、边界、约束或禁止事项；
+   - `skill`：可复用专业动作、流程、命令、检查和完成标准；
+   - `capability-contract`：consumer/provider 的 guarantees、effects、authorization、decision points 或 result evidence；
+   - `product-followup`：产品行为、API、数据模型、状态流或用户体验变化。
+7. Command、Component 和普通 docs 不作为直接候选；只分析其背后的四类语义。
+
+执行：
+
+```bash
+node "<skill-root>/scripts/observation.mjs" finalize \
+  --workspace-root "<workspace-root>" \
+  --observation-id "<id>" \
+  --owner "<owner>" \
+  --review "<覆盖核验、候选类型、证据和建议动作>"
+```
+
+若任务从未产生 observation，返回 `no-observation`。若现有 observation 经审查没有价值，明确向用户说明建议 reject；不要把它升级为 tracked 记录。存在候选时返回 `awaiting-human` 并请求明确 accept/reject。
+
+## 人工决定
+
+### Reject
+
+用户明确认为无价值或拒绝候选时：
+
+```bash
+node "<skill-root>/scripts/observation.mjs" reject \
+  --workspace-root "<workspace-root>" --observation-id "<id>" --owner "<owner>"
+```
+
+精确删除 observation；不创建 tombstone、Git 记录或“调查无修改”日志。
+
+### Accept
+
+用户接受候选时：
+
+```bash
+node "<skill-root>/scripts/observation.mjs" accept \
+  --workspace-root "<workspace-root>" --observation-id "<id>" --owner "<owner>" \
+  --candidate-type "<rule|skill|capability-contract|product-followup>" \
+  --summary "<用户接受的明确范围>"
+```
+
+然后结束原任务并创建新的 `task-triage`。根据新任务自身语义决定 main checkout 或 task worktree；accept 不自动扩大写入授权。
+
+## 新任务 Handoff 与长期记录
+
+新任务确定位置后记录 destination：
+
+```bash
+node "<skill-root>/scripts/observation.mjs" handoff \
+  --workspace-root "<workspace-root>" --observation-id "<id>" --owner "<owner>" \
+  --destination '{"task":"...","worktree":"...","branch":"...","change":"...","assetType":"...","assetId":"..."}'
+```
+
+### Rule、Skill、capability Contract
+
+只有新任务实际修改目标资产时，才从 `templates/asset-maintenance-record.md` 创建：
+
+```text
+asset-maintenance/
+  rules/<rule-id>/records/<date>-<record-id>.md
+  skills/<skill-id>/records/<date>-<record-id>.md
+  capability-contracts/<contract-id>/records/<date>-<record-id>.md
+```
+
+维护记录包含 observation 来源、正式核验结论、实际修改、OpenSpec change、验证、commit 和集成去向，并与资产修改一起提交。不要创建 `asset.yml`；当前资产事实继续来自已有 manifest、frontmatter 和 contracts。
+
+只有记录与资产变更成功集成后，才能执行：
+
+```bash
+node "<skill-root>/scripts/observation.mjs" complete ... --outcome asset-integrated
+```
+
+新任务暂停或失败时保留 observation。正式调查后不修改资产时不保留 tracked 记录，记录 destination 后以 `--outcome no-change` 删除 observation。
+
+### Product follow-up
+
+product follow-up 重新使用 `task-triage` 和 OpenSpec。新 proposal 或 design 必须吸收必要来源事实；不得再复制 `asset-maintenance` 历史。facts 安全进入 artifacts 后，以 `--outcome product-absorbed` 删除 observation。
+
+## 输出契约
+
+显式复盘或 awaiting-human 时向用户输出：
+
+1. 简短执行轮廓与关键转折；
+2. 执行质量反馈及证据；
+3. 候选类型、覆盖结论、目标 scope/asset 和建议动作；
+4. observation identity 与共享 inbox 状态；
+5. 明确的 accept/reject 请求。
+
+Task Finish 调用时返回：
+
+- `no-observation`：没有 observation，继续收尾；
+- `discarded`：审查无价值且用户已 reject，继续收尾；
+- `awaiting-human`：必须在 cleanup 前等待决定；
+- degradation：provider/helper 不可用，报告原因但不伪造结果。
+
+不要把“收尾”解释为长期资产写入授权，也不要在原任务自动实施接受的建议。

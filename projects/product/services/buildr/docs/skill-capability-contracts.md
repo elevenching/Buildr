@@ -100,6 +100,8 @@ render/sync 会在 `task-finish` 的 runtime 派生版本中注入受管 binding
 
 对 `buildr.task-verification/v2`，调用 provider 还必须携带 operation、任务/change、发布意图、风险信号、变更路径、候选 identity 与已有 evidence。`inspect` 只核对已有 evidence，`execute` 才启动验证，`cleanup` 只处理已消费 evidence。provider 返回 `requiredAssurance: affected | candidate`；Task Finish 只核对 evidence 是否满足该保证。实现内容变化时重新执行同一 required assurance，不机械升级为 Candidate。`same-content` 或可归因 `closeout-metadata-only` transition 使用 `inspect`，两个 executor 调用计数均为 0。
 
+对 optional `buildr.task-asset-review/v2`，provider 从非简单 Workspace 任务期间开始维护用户级 observation，并独占信号筛选、资格审查、人工决定和新任务交接政策。Task Finish consumer 只传递 Workspace/task identity 与最终证据引用并触发 finalize；它不复制 provider 的门禁。v2 允许写当前 owner 的本地 observation，因此不能用只读 v1 contract 替代。
+
 ### 6. 用户替换实现
 
 若组织创建 `internal-git` 并声明提供同一 contract，安装它不会改变当前流程。Agent 先验证 `internal-git` 与 `task-finish` 的组合，再把 binding 显式切换为 `internal-git`。只要 contract guarantees 和 result evidence 保持兼容，内部实现可以使用 feature + PR、merge queue 或其他组织策略，`task-finish` 无需修改。

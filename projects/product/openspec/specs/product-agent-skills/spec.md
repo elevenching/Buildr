@@ -259,22 +259,20 @@ Buildr 产品内置 Skill MUST 在用户只表达卸载对象而未明确 Compon
 - **AND** Agent MUST NOT 为了执行卸载临时创建 Component
 
 ### Requirement: 产品入口 Buildr Skill 路由任务资产沉淀审查
-产品内置 Buildr Skill MUST 帮助 Agent 发现 `task-asset-review`，并在用户意图或任务证据匹配时路由到该场景化 Skill。
+产品内置 Buildr Skill MUST 帮助 Agent 发现 selected `buildr.task-asset-review/v2` provider，并在非简单 Workspace 任务开始、任务过程出现资产信号、用户明确复盘或任务结束 finalize 时路由到该 provider。
 
-#### Scenario: 用户要求复盘或沉淀
-- **WHEN** 用户要求复盘任务、总结可沉淀的技能或规则、把本次工作方法留给后续 Agent 或表达等价意图
-- **THEN** Buildr Skill MUST 引导 Agent 使用 `task-asset-review`
-- **AND** Buildr Skill MUST NOT 在自身正文复制完整的沉淀审查流程
+#### Scenario: 非简单任务开始
+- **WHEN** Agent 开始探索、设计、诊断、实现或验证非简单 Workspace 任务
+- **THEN** Buildr Skill MUST 引导 Agent 使用 selected provider 判断是否维护 observation
+- **AND** Buildr Skill MUST NOT 在自身正文复制完整观察流程
 
-#### Scenario: Agent runtime 找不到任务资产审查 Skill
-- **WHEN** 当前 workspace 应提供 `task-asset-review` 但 Agent runtime 无法发现它
-- **THEN** Buildr Skill MUST 引导 Agent检查 builtin、workspace Skill 源和 runtime 投射状态
-- **AND** Agent MUST 优先根据 doctor 运行 sync、render 或 builtin restore，而不是把该 Skill 的正文临时写入 Rule
+#### Scenario: Runtime 找不到 provider
+- **WHEN** capability graph 表示 provider 应存在但 runtime 无法发现
+- **THEN** Buildr Skill MUST 引导 Agent 检查 builtin、workspace source、binding 和 runtime 投射
 
 #### Scenario: Skill 已卸载
-- **WHEN** 用户已经显式卸载 optional `task-asset-review`
-- **THEN** Buildr Skill MUST 尊重卸载状态
-- **AND** Agent MUST NOT 把缺少该 Skill 描述为必须立即修复的错误
+- **WHEN** 用户已显式卸载 optional provider
+- **THEN** Buildr Skill MUST 尊重卸载状态并使用 degraded semantics
 
 ### Requirement: 产品入口识别工作能力适配意图
 产品入口 Buildr Skill MUST 识别可能改变 Skill 行为或跨 Skill 协作关系的用户工作意图，并 MUST 将具体资产开发路由到 `capability-adaptation` 管理 Skill。
@@ -296,55 +294,16 @@ Buildr 产品内置 Skill MUST 在用户只表达卸载对象而未明确 Compon
 - **AND** 产品入口 MUST NOT 作为具有全部 capabilities required dependencies 的 workspace manifest consumer
 
 ### Requirement: 产品入口按 capability 路由用户意图
-产品入口 Buildr Skill MUST 将跨 Skill 用户意图路由到已解析 capability provider，并 MUST NOT 把 builtin Skill id 当作不可替换入口；尚未声明 capability contract 的当前 builtin MUST 使用无歧义的当前 identity routing，并 MUST 将 legacy 名称意图收敛到当前入口。
+产品入口 Buildr Skill MUST 将资产观察、显式复盘和结束 finalize 路由到 `buildr.task-asset-review/v2` selected provider，并 MUST NOT 将 builtin Skill id 当作不可替换入口。
 
-#### Scenario: 完整 sync 生成 routing evidence
-- **WHEN** `buildr sync <agent>` 在已初始化 workspace 中同时投射产品入口 Buildr Skill 和 workspace Skills
-- **THEN** runtime Buildr Skill MUST 包含按适用 Project context 分组的受管 capability routing evidence
-- **AND** evidence MUST 记录 contract、selected provider、provider runtime path、readiness、reason、contract digest 和 provenance
-
-#### Scenario: Routing evidence 已陈旧
-- **WHEN** existing runtime projection check 发现当前 scope/runtime 的 capability routing evidence 与重新解析结果不一致
-- **THEN** evidence MUST 被标记为 stale
-- **AND** 产品入口 Buildr Skill MUST 使用当前 workspace doctor 取得最新 capability graph 后再路由
-- **AND** Agent MUST NOT 因存在旧 evidence 而继续使用已卸载或已改绑 provider
-- **AND** Buildr MUST reuse the existing managed runtime content hash rather than introduce a separate graph digest protocol
-
-#### Scenario: 独立 Skill install 没有当前 binding evidence
-- **WHEN** 产品入口 Buildr Skill 由独立 `buildr skill install <agent>` 安装，或现有 routing evidence 不适用于当前 scope
-- **THEN** Buildr Skill MUST NOT 猜测 builtin provider 或依赖静态 Skill id
-- **AND** 在已初始化 workspace 中 MUST 使用当前 workspace doctor 的 capability graph 解析 provider 后再路由
-- **AND** v1 MUST NOT 为此新增独立 capability dispatch CLI
-
-#### Scenario: 路由单项 Git 意图
-- **WHEN** 用户通过产品入口表达明确单项 Git 意图
-- **THEN** Buildr Skill MUST route it to the bound `buildr.git-single-operation/v1` provider
-- **AND** runtime routing evidence or current doctor result MUST identify the selected provider and scope
-
-#### Scenario: 路由任务工作流意图
-- **WHEN** 用户表达验证改动、判断开发验证是否完成、报告验证耗时、worktree、完整收尾或资产审查意图
-- **THEN** Buildr Skill MUST route to the bound `buildr.task-verification/v1`、`buildr.task-worktree-lifecycle/v1`、`buildr.task-finish/v1` or `buildr.task-asset-review/v1` provider as applicable
+#### Scenario: 路由任务资产审查
+- **WHEN** 用户意图或任务节点需要观察、审查或 finalize
+- **THEN** Buildr Skill MUST 使用当前 capability graph 的 v2 selected provider
 - **AND** Buildr Skill MUST honor blocked and degraded semantics
 
-#### Scenario: 实现完成节点自动发现验证 provider
-- **WHEN** Agent 在实现型任务中到达验证节点或准备声称实现完成
-- **THEN** task-verification provider description MUST 覆盖该任务上下文，即使用户没有另行要求运行测试
-- **AND** capability binding MUST 只选择 provider，不替代 runtime description 的入口发现
-
-#### Scenario: 用户替换 builtin provider
-- **WHEN** a workspace or Project binding selects an internal Skill with a different id
-- **THEN** Buildr Skill MUST route to that provider without requiring an identically named builtin
-- **AND** provider substitution MUST survive update、sync and runtime render
-
-#### Scenario: 未进入 capability contracts 的当前 builtin
-- **WHEN** 用户意图路由到 `task-triage`、`task-board` 或其他尚未声明 capability contract 的当前 builtin
-- **THEN** 产品入口 Buildr Skill MUST 使用当前 identity routing
-- **AND** Buildr MUST NOT 声称该 builtin 已支持透明 provider substitution
-
-#### Scenario: 旧任务驾驶舱意图路由到当前入口
-- **WHEN** 用户仍使用“任务驾驶舱”或 `task-cockpit` 表达复杂任务可视化意图
-- **THEN** 产品入口 Buildr Skill MUST 路由到 `task-board`
-- **AND** runtime discovery MUST NOT 同时提供可被误选的受管 `task-cockpit` 入口
+#### Scenario: 用户替换 provider
+- **WHEN** workspace 绑定兼容的内部 v2 provider
+- **THEN** Buildr Skill MUST 路由到该 provider而不要求 `task-asset-review` Skill id
 
 ### Requirement: Buildr Skill 使用 workspace source 与两种 render destination
 产品入口 Buildr Skill MUST 将 Skill 源资产维护统一路由到 workspace，并 MUST 根据用户意图区分 user 与 workspace render destination。

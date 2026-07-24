@@ -45,15 +45,27 @@
       "type": "skill",
       "id": "task-asset-review",
       "target": "skills/buildr/task-asset-review",
-      "integrity": "sha256-6669e38ccb8c85907d644cf285f18aa6f7d9839048b7485445dcdf332d54f7a7",
+      "integrity": "sha256-e7224325aa5b2d183d9a152f336e4f24699e3fd10ea5505e08d90bd77f09f642",
       "files": [
         {
           "path": "SKILL.md",
-          "integrity": "sha256-42abecc856c62afe2616ab7bd7702b9247dd554e833c232e8a20722f5e4c19c8"
+          "integrity": "sha256-7f8f7028e11c37311ffa4ed1a86a830bc18ae193413d8deb99166a305f03cfff"
         },
         {
           "path": "agents/openai.yaml",
-          "integrity": "sha256-5d006074cc36379627134e0b5067027a9b841885bf45c535d9f2b64ad92d56b9"
+          "integrity": "sha256-cbd155914fc5a2cbc4a86d6ab181fbdd2ddd9f2e8e415e68f5cb7829c65b5fa5"
+        },
+        {
+          "path": "scripts/observation.mjs",
+          "integrity": "sha256-96d7dcec0ab661ab3dd910bd4c5b971dc9862f67a00a7bac20b2cce6c62f955e"
+        },
+        {
+          "path": "templates/asset-maintenance-record.md",
+          "integrity": "sha256-dabada1f8f142c798736e9e27cb233518112ca337623084f86dbad20661bd7d1"
+        },
+        {
+          "path": "templates/observation.md",
+          "integrity": "sha256-9461ef9e03fccc838dc044c4fc36bf4813060777847828122410476744f8ab5f"
         }
       ]
     },
@@ -81,11 +93,11 @@
       "type": "skill",
       "id": "task-finish",
       "target": "skills/buildr/task-finish",
-      "integrity": "sha256-5eb0398539c00395955dedf06c4c428553035b2c42b760cd7daa15bb21055676",
+      "integrity": "sha256-ba4e0f984a5a96e5e0f0be13642a37ee7a7308c80c9bb0037df758d59c8098bb",
       "files": [
         {
           "path": "SKILL.md",
-          "integrity": "sha256-bc12d57328a16616a6c1a9dac80664de81d7aab575dd5437ea8e6ee43c4d9c57"
+          "integrity": "sha256-c137ba10ccbe5f22b172c88736566fd0d9023ed0479cc4294c9044532650d902"
         }
       ]
     },

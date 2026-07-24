@@ -52,10 +52,10 @@ capabilityContracts:
     path: package/targets/workspace/skills/contracts/buildr/task-finish/v1.md
     target: skills/contracts/buildr/task-finish/v1.md
   - id: buildr.task-asset-review
-    version: 1
-    description: 审查任务过程并提出可沉淀工作资产候选。
-    path: package/targets/workspace/skills/contracts/buildr/task-asset-review/v1.md
-    target: skills/contracts/buildr/task-asset-review/v1.md
+    version: 2
+    description: 持续维护任务资产 observation，并完成审查、人工决定和独立任务交接。
+    path: package/targets/workspace/skills/contracts/buildr/task-asset-review/v2.md
+    target: skills/contracts/buildr/task-asset-review/v2.md
 
 initialSkillBindings:
   - capability: buildr.git-single-operation
@@ -77,7 +77,7 @@ initialSkillBindings:
     version: 1
     provider: task-finish
   - capability: buildr.task-asset-review
-    version: 1
+    version: 2
     provider: task-asset-review
 
 builtins:
@@ -115,11 +115,11 @@ builtins:
     - id: task-asset-review
       path: package/targets/workspace/skills/buildr/task-asset-review
       target: skills/buildr/task-asset-review
-      description: 用户明确要求复盘任务执行质量、核对现有资产覆盖、总结可沉淀的 Skill 或 Rule，Agent 已发现明确长期候选，或 finish consumer 的轻量资格判断命中时使用。
+      description: 非简单 Workspace 任务开始探索、设计、诊断、实现或验证时持续收集轻量资产信号，用户要求复盘或沉淀，或 Task Finish 触发 finalize 时使用。
       required: false
       provides:
         - capability: buildr.task-asset-review
-          version: 1
+          version: 2
       runtimes: ["claude-code","codex","cursor","qoder","trae","trae-work","workbuddy"]
     - id: task-worktree
       path: package/targets/workspace/skills/buildr/task-worktree
@@ -161,7 +161,7 @@ builtins:
           version: 1
           mode: required
         - capability: buildr.task-asset-review
-          version: 1
+          version: 2
           mode: optional
       legacyIntegrities:
         - sha256-0607663344932ed85cdff84fe5c8dc817e4fc12a159a047eac054fa307fc1fd1
@@ -255,6 +255,7 @@ workspaceFiles:
   - package/targets/workspace/skills/contracts/buildr/task-verification/v2.md => skills/contracts/buildr/task-verification/v2.md copy
   - package/targets/workspace/skills/contracts/buildr/task-finish/v1.md => skills/contracts/buildr/task-finish/v1.md copy
   - package/targets/workspace/skills/contracts/buildr/task-asset-review/v1.md => skills/contracts/buildr/task-asset-review/v1.md copy
+  - package/targets/workspace/skills/contracts/buildr/task-asset-review/v2.md => skills/contracts/buildr/task-asset-review/v2.md copy
   - package/targets/workspace/skills/buildr/task-triage/SKILL.md => skills/buildr/task-triage/SKILL.md copy
   - package/targets/workspace/skills/buildr/task-board/SKILL.md => skills/buildr/task-board/SKILL.md copy
   - package/targets/workspace/skills/buildr/task-board/agents/openai.yaml => skills/buildr/task-board/agents/openai.yaml copy
@@ -263,6 +264,9 @@ workspaceFiles:
   - package/targets/workspace/skills/buildr/capability-adaptation/agents/openai.yaml => skills/buildr/capability-adaptation/agents/openai.yaml copy
   - package/targets/workspace/skills/buildr/task-asset-review/SKILL.md => skills/buildr/task-asset-review/SKILL.md copy
   - package/targets/workspace/skills/buildr/task-asset-review/agents/openai.yaml => skills/buildr/task-asset-review/agents/openai.yaml copy
+  - package/targets/workspace/skills/buildr/task-asset-review/scripts/observation.mjs => skills/buildr/task-asset-review/scripts/observation.mjs copy
+  - package/targets/workspace/skills/buildr/task-asset-review/templates/observation.md => skills/buildr/task-asset-review/templates/observation.md copy
+  - package/targets/workspace/skills/buildr/task-asset-review/templates/asset-maintenance-record.md => skills/buildr/task-asset-review/templates/asset-maintenance-record.md copy
   - package/targets/workspace/skills/buildr/task-worktree/SKILL.md => skills/buildr/task-worktree/SKILL.md copy
   - package/targets/workspace/skills/buildr/task-verification/SKILL.md => skills/buildr/task-verification/SKILL.md copy
   - package/targets/workspace/skills/buildr/task-verification/references/project-verification-v1.md => skills/buildr/task-verification/references/project-verification-v1.md copy
