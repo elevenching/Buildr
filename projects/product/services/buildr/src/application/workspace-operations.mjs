@@ -342,7 +342,9 @@ export function registerApplicationWorkspaceOperations(runtime) {
         throw new Error(`Workspace 源资产已初始化，但 ${agent} onboarding 未完成。\n修复问题后运行：buildr sync ${agent} --target ${targetRoot}\n原因：${error.message}`);
       }
       console.log(`Buildr onboarding 已完成：${agent}（包含 sync 与最终 doctor）。`);
-      console.log(`下一步可按需创建 Project：buildr project create <project> --target ${targetRoot}`);
+      console.log('下一步：请由当前 Agent 完成一次首次使用交接。');
+      console.log('用普通语言说明 Workspace → Project → Service：Project 是业务、产品、系统或长期工作；Service 只在需要代码仓、应用、模块或可执行资产时接入。');
+      console.log('先根据真实 Project/Service 状态确认唯一范围或只询问必要歧义，然后邀请用户直接描述第一项真实工作；不要把 project create 命令作为面向用户的默认下一步。');
       return;
     }
     console.log('');

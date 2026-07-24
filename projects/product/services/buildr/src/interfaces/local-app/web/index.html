@@ -22,17 +22,19 @@
       </div>
       <nav class="nav-list">
         <a href="/" data-route data-nav="workspaces"><span class="nav-icon">▦</span><span>工作空间</span></a>
-        <a href="/overview" data-route data-nav="overview" data-workspace-route="/"><span class="nav-icon">⌂</span><span>概览</span></a>
+        <a href="/overview" data-route data-nav="overview" data-workspace-route="/"><span class="nav-icon">⌂</span><span>开始</span></a>
       </nav>
       <div class="nav-group" data-nav-group="resources">
         <button id="resource-nav-toggle" class="nav-group-toggle" type="button" aria-expanded="true" aria-controls="resource-nav-children">
-          <span class="nav-icon">◇</span><span>资源</span><span class="nav-chevron">⌄</span>
+          <span class="nav-icon">◇</span><span>核心范围</span><span class="nav-chevron">⌄</span>
         </button>
         <nav id="resource-nav-children" class="nav-children" aria-label="资源类型">
           <a href="/projects" data-route data-nav="projects" data-workspace-route="/projects"><span>项目</span><small>Project</small></a>
           <a href="/services" data-route data-nav="services" data-workspace-route="/services"><span>服务</span><small>Service</small></a>
-          <a href="/changes" data-route data-nav="changes" data-workspace-route="/changes"><span>变更</span><small>Change</small></a>
         </nav>
+      </div>
+      <div class="nav-group" data-nav-group="more">
+        <nav class="nav-children" aria-label="更多能力"><a href="/changes" data-route data-nav="changes" data-workspace-route="/changes"><span>变更</span><small>Change</small></a></nav>
       </div>
       <nav class="nav-list nav-secondary">
         <a href="/settings" data-route data-nav="settings" data-workspace-route="/settings"><span class="nav-icon">⚙</span><span>工作空间设置</span></a>

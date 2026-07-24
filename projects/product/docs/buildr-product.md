@@ -69,7 +69,7 @@ Organization/Root
 - **Service**：Project 管理的代码仓、应用、模块或可执行资产。
 - **Agent runtime**：Agent 实际运行资产的位置，是面向当前 Agent 的可重建入口。
 
-Project 可以拥有自己的资产 repo；Service repo 由自身 Git 管理，Buildr 维护 Project registry 与 Service registry。
+工作空间、Project 与 Service 可以各自拥有独立 Git repo，也可以沿层级共用同一个 Git repo。Buildr 按真实 Git 边界维护 Project registry 与 Service registry，不把目录层级误判为 Git 边界。
 
 ## 工作资产
 
@@ -112,6 +112,14 @@ CLI 是 Agent 的确定性执行层。Agent 负责理解目标、发现相关信
 doctor 是轻量、通用的 workspace 事实入口，不是所有专项验收的合集。它每次检查 canonical workspace identity、mutation 与 root registries，并在相关资产或 runtime adapter 适用时执行条件通用检查；Git 操作 readiness、OpenSpec change 契约、构建和测试仍由对应专业工作流负责。显式 `--agent <agent>` 选择当前 runtime 并让其 actionable findings 参与 readiness；未选择 Agent 时只检查有 Buildr managed marker/receipt 的 runtime inventory，未选中 runtime drift 不降低通用 workspace readiness。doctor 的 `ok` 只保持“没有 error”的兼容含义，是否可直接继续工作以独立的 `health.ready`、`health.actionRequired` 和根因化 `repairPlan` 为准。
 
 这种结构让不同岗位不必先把各自工作内容手工整理成一份给当前执行者的临时说明。只要相关内容已经作为 Project 或 workspace 工作资产被组织，Agent 就能在任务需要时发现它，为跨服务、跨岗位的端到端工作提供共同基础。Buildr 不使用固定岗位路由，也不承诺自动推断所有依赖；语义相关性仍由 Agent 根据任务判断。
+
+### local app：人的认知与治理入口
+
+local app 不是第二个 Agent，也不是聊天客户端或任务执行器。它帮助人理解当前 Workspace、Project 与可选 Service 的真实范围，查看可解释状态、维护名称和说明等低风险 metadata，并生成带 canonical scope 的 prompt 交给 Agent。
+
+第一次使用时，local app 先解释 Workspace 是人和 Agent 共同工作的顶层目录，再渐进引导 Project（业务、产品、系统或长期工作）与可选 Service（代码仓、应用、模块或可执行资产）。Service 不是开始工作的门槛：没有 Service 的 Project 可以直接交给 Agent 推进。
+
+真正的创建、迁移、修复和专业任务仍由 Agent 在核对目录、Git、授权和适用工作资产后执行与验证。local app 与 Agent-only 入口都从同一 Workspace 源资产读取事实，不维护独立数据库、聊天记录或完成 checklist。任何试图让 local app 承担对话、自动规划、Agent session 管理或专业执行的新能力，都必须单独证明它具有长期治理、跨 Agent 复用、确定性约束或可验证诊断价值；否则保留给 Agent。
 
 ## CLI 产品表面
 

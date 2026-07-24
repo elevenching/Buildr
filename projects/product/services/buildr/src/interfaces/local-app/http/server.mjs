@@ -20,7 +20,7 @@ import { pickWorkspaceDirectory } from '../runtime/directory-picker.mjs';
 const MAX_JSON_BODY_BYTES = 32 * 1024;
 const STATIC_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../web');
 const WORKSPACE_ID = '[0-9a-fA-F-]{36}';
-const WORKSPACE_APP_ROUTE = new RegExp(`^/workspaces/${WORKSPACE_ID}(?:/settings|/projects(?:/[A-Za-z0-9][A-Za-z0-9._-]*(?:/edit)?)?|/services(?:/[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*(?:/edit)?)?|/changes(?:/[A-Za-z0-9][A-Za-z0-9._-]*/[^/]+)?)?/?$`);
+const WORKSPACE_APP_ROUTE = new RegExp(`^/workspaces/${WORKSPACE_ID}(?:/overview|/settings|/projects(?:/[A-Za-z0-9][A-Za-z0-9._-]*(?:/edit)?)?|/services(?:/[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*(?:/edit)?)?|/changes(?:/[A-Za-z0-9][A-Za-z0-9._-]*/[^/]+)?)?/?$`);
 const STATIC_ASSETS = new Map([
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/api-client.js', ['api-client.js', 'text/javascript; charset=utf-8']],
@@ -192,7 +192,7 @@ export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 
           jsonResponse(response, 200, { canceled: true });
           return;
         }
-        jsonResponse(response, 200, runtime.registerLocalWorkspace({ rootPath, revision: input.revision }));
+        jsonResponse(response, 200, runtime.inspectLocalWorkspaceCandidate(rootPath, input.revision));
         return;
       }
       if (request.method === 'DELETE' && pathname === '/api/v1/workspaces') {
@@ -231,6 +231,9 @@ export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 
         const suffix = apiMatch[2] || '';
         const { rootPath: root } = runtime.resolveRegisteredWorkspace(workspaceId, { touch: request.method === 'GET' });
         if (request.method === 'GET' && suffix === '') return jsonResponse(response, 200, runtime.getWorkspace(root));
+        if (request.method === 'GET' && suffix === '/getting-started') {
+          return jsonResponse(response, 200, runtime.getWorkspaceGettingStarted(root, { projectCode: requestUrl.searchParams.get('project') || undefined }));
+        }
         if (request.method === 'PUT' && suffix === '') {
           assertWriteRequest(request, origin, sessionToken);
           return jsonResponse(response, 200, runtime.updateWorkspaceMetadata(root, await readJsonBody(request)));
@@ -261,7 +264,11 @@ export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 
         }
         if (request.method === 'POST' && suffix === '/prompts/service-create') {
           assertWriteRequest(request, origin, sessionToken);
-          return jsonResponse(response, 200, runtime.generateServiceCreatePrompt(await readJsonBody(request)));
+          return jsonResponse(response, 200, runtime.generateServiceCreatePrompt(root, await readJsonBody(request)));
+        }
+        if (request.method === 'POST' && suffix === '/prompts/start-work') {
+          assertWriteRequest(request, origin, sessionToken);
+          return jsonResponse(response, 200, runtime.generateStartWorkPrompt(root, await readJsonBody(request)));
         }
         if (request.method === 'POST' && suffix === '/prompts/change-create') {
           assertWriteRequest(request, origin, sessionToken);

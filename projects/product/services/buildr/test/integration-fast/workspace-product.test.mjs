@@ -77,6 +77,39 @@ test('Workspace 应用层只修改白名单字段并防止 revision 覆盖', (t)
   assert.equal(runtime.getWorkspace(root).workspace.name, 'Renamed');
 });
 
+test('Getting Started projection 与开始工作 prompt 只读取 canonical 范围', (t) => {
+  const root = initWorkspace(t);
+  const runtime = createRuntime();
+  let projection = runtime.getWorkspaceGettingStarted(root);
+  assert.equal(projection.phase, 'project-empty');
+  assert.equal(projection.primaryAction.type, 'project-create');
+  assert.equal(runtime.listProjects(root).projects.length, 0);
+  const created = runBuildr(['project', 'create', 'demo', '--target', root, '--name', 'Demo', '--description', 'Demo project']);
+  assert.equal(created.status, 0, created.stderr);
+  projection = runtime.getWorkspaceGettingStarted(root);
+  assert.equal(projection.phase, 'service-empty');
+  assert.equal(projection.selectedProject.code, 'demo');
+  const prompt = runtime.generateStartWorkPrompt(root, { projectCode: 'demo', goal: '先梳理项目范围' });
+  assert.match(prompt.prompt, /Project：Demo（demo）/);
+  assert.match(prompt.prompt, /本次不限定/);
+  assert.equal(prompt.copiedMeansStarted, false);
+  assert.throws(() => runtime.generateStartWorkPrompt(root, { projectCode: 'missing', goal: '不应回退' }), (error) => error.code === 'project_not_found');
+  assert.throws(() => runtime.generateStartWorkPrompt(root, { projectCode: 'demo', goal: 'x', rootPath: root }), (error) => error.code === 'workspace_start_work_field_forbidden');
+});
+
+test('目录选择候选以结构化结果恢复，不在失败时写入 Registry', (t) => {
+  const appData = path.join(temporaryRoot(t), 'picker-app-data');
+  const previous = process.env.BUILDR_APP_DATA_DIR;
+  process.env.BUILDR_APP_DATA_DIR = appData;
+  t.after(() => { if (previous === undefined) delete process.env.BUILDR_APP_DATA_DIR; else process.env.BUILDR_APP_DATA_DIR = previous; });
+  const runtime = createRuntime();
+  const candidate = path.join(temporaryRoot(t), 'not-initialized'); fs.mkdirSync(candidate);
+  const result = runtime.inspectLocalWorkspaceCandidate(candidate, runtime.listRegisteredWorkspaces().revision);
+  assert.equal(result.status, 'uninitialized');
+  assert.match(result.prompt, new RegExp(candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.deepEqual(runtime.listRegisteredWorkspaces().workspaces, []);
+});
+
 test('本机 Workspace 登记只保存 root，并支持幂等登记、切换、移除和 revision CAS', (t) => {
   const appData = path.join(temporaryRoot(t), 'app-data');
   const previous = process.env.BUILDR_APP_DATA_DIR;

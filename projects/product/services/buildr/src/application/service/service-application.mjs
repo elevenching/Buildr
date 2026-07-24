@@ -120,7 +120,11 @@ export function registerServiceApplication(runtime) {
     });
   }
 
-  function generateServiceCreatePrompt(input) {
+  function generateServiceCreatePrompt(targetRoot, input) {
+    if (input === undefined) {
+      input = targetRoot;
+      targetRoot = null;
+    }
     assertObject(input, 'service_prompt_invalid', 'Service prompt 请求必须是对象。');
     const allowed = new Set(['projectCode', 'code', 'name', 'description', 'type', 'sourceType', 'localPath', 'gitUrl', 'remote', 'integrationBranch']);
     for (const field of Object.keys(input)) if (!allowed.has(field)) throw serviceError('service_prompt_field_forbidden', `Service prompt 不支持字段：${field}。`);
@@ -129,13 +133,16 @@ export function registerServiceApplication(runtime) {
     const name = String(input.name || '').trim();
     const description = String(input.description || '').trim();
     const type = String(input.type || '').trim();
-    if (!projectCode || !code || !name || !description || !type) throw serviceError('service_prompt_fields_required', '请填写 Project、Service code、名称、说明和类型。');
+    if (!projectCode || !name || !description) throw serviceError('service_prompt_fields_required', '请填写所属 Project、名称和用途。');
+    let project = null;
+    if (targetRoot) project = parentRecord(targetRoot, projectCode).project;
     const sourceType = input.sourceType === 'git' ? 'git' : 'local';
     const ref = sourceType === 'git' ? String(input.gitUrl || '').trim() || '<尚未提供 Git URL>' : String(input.localPath || '').trim() || '<尚未提供本地路径>';
-    const options = [`--name ${JSON.stringify(name)}`, `--description ${JSON.stringify(description)}`, `--type ${JSON.stringify(type)}`];
+    const options = [`--name ${JSON.stringify(name)}`, `--description ${JSON.stringify(description)}`];
+    if (type) options.push(`--type ${JSON.stringify(type)}`);
     if (sourceType === 'git') options.push(`--remote ${JSON.stringify(String(input.remote || '').trim() || 'origin')}`, `--integration-branch ${JSON.stringify(String(input.integrationBranch || '').trim() || '<请先解析远端 HEAD 或询问>')}`);
     return {
-      prompt: ['请在当前 Buildr Workspace 中创建一个 Service。', '', `所属 Project：${projectCode}`, `Code：${code}`, `名称：${name}`, `说明：${description}`, `类型：${type}`, `来源：${sourceType === 'git' ? 'Git repository' : '本地路径'}`, `来源引用：${ref}`, `物化路径：projects/${projectCode}/services/${code}`, '', '执行要求：', '1. 读取并遵循 Buildr Skill，核对 Workspace 与 Project identity。', '2. 在写入前核对来源、目标目录和 nested Git ownership，不保留 workspace 外部本地路径。', sourceType === 'git' ? '3. 核对 Git URL、remote、integration branch 与既有 repo/metadata identity，不盲目 checkout 或 stash。' : '3. 校验本地来源可访问且目标不存在，不创建外部目录链接。', `4. 使用 canonical 命令 buildr service create ${projectCode}/${code} ${JSON.stringify(ref)} ${options.join(' ')} 完成创建。`, '5. 完成后运行适用 doctor，说明 Service Domain、实际路径、Git 状态和剩余问题。'].join('\n'),
+      prompt: ['请在当前 Buildr Workspace 中创建或接入一个 Service。', '', `所属 Project：${project ? `${project.name}（${project.code}）` : projectCode}`, `Code：${code || '<尚未提供，请根据名称、来源和现有资产提出候选并确认>'}`, `名称：${name}`, `用途：${description}`, `类型：${type || '<尚未提供，请由 Agent 根据真实资产提出候选>'}`, `来源：${sourceType === 'git' ? 'Git repository' : '本地路径'}`, `来源引用：${ref}`, ...(code ? [`物化路径：projects/${projectCode}/services/${code}`] : ['物化路径：尚未确定；先确认 code 后再计算。']), '', '执行要求：', '1. 读取并遵循 Buildr Skill，核对 Workspace 与所属 Project identity。', '2. 先确认该 Project 是否确实需要代码仓、应用、模块或可执行资产；不需要时可直接保持 Project 范围工作。', '3. 在写入前核对来源、目标目录和 nested Git ownership，不保留 workspace 外部本地路径。', sourceType === 'git' ? '4. 核对 Git URL、remote、integration branch 与既有 repo/metadata identity，不盲目 checkout 或 stash。' : '4. 校验本地来源可访问且目标不存在，不创建外部目录链接。', code ? `5. 使用 canonical 命令 buildr service create ${projectCode}/${code} ${JSON.stringify(ref)} ${options.join(' ')} 完成创建。` : '5. 补齐必要 code、type 和来源声明后，再使用 canonical buildr service create；不要猜测缺失信息。', '6. 完成后运行适用 doctor，说明 Service Domain、实际路径、Git 状态和剩余问题。'].join('\n'),
       copiedMeansCreated: false,
     };
   }

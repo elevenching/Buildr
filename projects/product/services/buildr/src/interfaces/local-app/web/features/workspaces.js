@@ -27,12 +27,12 @@ function workspaceCard(entry, revision) {
 export async function renderWorkspaces({ root, api, navigate, openAgentAction }) {
   root.innerHTML = `
     <section class="resource-toolbar">
-      <div><p class="eyebrow">本机目录</p><h1>工作空间</h1><p class="page-copy">在一个本机入口中管理已登记的 Buildr 工作空间。</p></div>
+      <div><p class="eyebrow">从这里建立工作范围</p><h1>工作空间</h1><p class="page-copy">Workspace 是你和 Agent 共同工作的顶层目录；Project 表示长期工作单元，Service 按需登记代码仓、应用或模块。</p></div>
       <div class="toolbar-actions"><button id="add-workspace" class="button primary" type="button">添加已有工作空间</button></div>
     </section>
     <div id="workspace-global-message" class="alert hidden" role="status"></div>
     <section id="workspace-grid" class="workspace-grid" aria-label="已登记工作空间"></section>
-    <section id="workspace-empty" class="empty-state hidden"><h2>欢迎使用 Buildr</h2><p>选择已有 Buildr 工作空间，或生成交给 Agent 的新建指令。Buildr 不会自动扫描磁盘。</p><div class="actions"><button id="empty-add-workspace" class="button primary" type="button">选择已有工作空间</button><button id="empty-create-workspace" class="button secondary" type="button">交给 Agent 新建</button><button id="empty-later" class="text-button" type="button">稍后处理</button></div></section>`;
+    <section id="workspace-empty" class="empty-state hidden"><p class="eyebrow">WORKSPACE → PROJECT → SERVICE</p><h2>先选择一个共同工作的目录</h2><p>添加已有 Workspace 只保存本机入口：不会移动目录、修改源资产或自动扫描磁盘。进入后，Buildr 会再引导你建立 Project，并按需接入 Service。</p><div class="actions"><button id="empty-add-workspace" class="button primary" type="button">添加已有工作空间</button><button id="empty-create-workspace" class="button secondary" type="button">让 Agent 创建工作空间</button><button id="empty-later" class="text-button" type="button">稍后处理</button></div></section>`;
 
   async function load() {
     const registry = await api('/api/v1/workspaces');
@@ -59,10 +59,15 @@ export async function renderWorkspaces({ root, api, navigate, openAgentAction })
     button.disabled = true;
     try {
       const result = await api('/api/v1/workspaces/pick', { method: 'POST', body: JSON.stringify({ revision: registry.revision }) });
-      if (!result.canceled) {
-        registry = result;
+      if (!result.canceled && result.status === 'canonical') {
+        registry = result.registry;
         await load();
-        if (result.lastOpenedWorkspaceId) navigate(`/workspaces/${result.lastOpenedWorkspaceId}/`);
+        if (result.registry.lastOpenedWorkspaceId) navigate(`/workspaces/${result.registry.lastOpenedWorkspaceId}/`);
+      } else if (!result.canceled) {
+        const alert = document.getElementById('workspace-global-message');
+        alert.classList.remove('hidden');
+        alert.textContent = result.message || '该目录暂时不能登记。';
+        if (result.prompt) openAgentAction('workspace-recovery', { prompt: result.prompt });
       }
     } catch (error) {
       const alert = document.getElementById('workspace-global-message');

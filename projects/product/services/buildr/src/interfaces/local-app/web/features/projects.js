@@ -27,7 +27,7 @@ export async function renderProjects({ root, api, onWorkspace, openAgentAction }
           <tbody id="project-table-body"></tbody>
         </table>
       </div>
-      <div id="project-empty" class="empty-state hidden">当前工作空间尚未登记项目。</div>
+      <div id="project-empty" class="empty-state hidden">当前 Workspace 还没有 Project。先告诉 Agent 你要长期管理的业务、产品、系统或已有资产。</div>
     </section>`;
 
   document.getElementById('create-project-button').addEventListener('click', () => openAgentAction('project'));

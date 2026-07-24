@@ -18,7 +18,7 @@ let currentWorkspaceName = '工作空间';
 
 const routeDefinitions = {
   '/': { id: 'workspaces', label: '工作空间', render: renderWorkspaces, global: true },
-  '/overview': { id: 'overview', label: '概览', render: renderWorkspaceOverview },
+  '/overview': { id: 'overview', label: '开始', render: renderWorkspaceOverview },
   '/settings': { id: 'settings', label: '工作空间设置', render: renderWorkspaceSettings },
   '/projects': { id: 'projects', label: '项目', render: renderProjects },
   '/projects/:projectCode': {
@@ -101,7 +101,9 @@ function updateRouteState(route, global) {
     else item.removeAttribute('aria-current');
   }
   const resourceGroup = document.querySelector('[data-nav-group="resources"]');
-  resourceGroup.classList.toggle('active', ['projects', 'services', 'changes'].includes(route.id));
+  resourceGroup.classList.toggle('active', ['projects', 'services'].includes(route.id));
+  const moreGroup = document.querySelector('[data-nav-group="more"]');
+  moreGroup.classList.toggle('active', route.id === 'changes');
 }
 
 function updateBreadcrumb(parts) {

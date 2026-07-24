@@ -16,6 +16,7 @@ workspace 尚未初始化时，用一个高层命令完成源资产、Buildr Ski
 ```bash
 buildr init --agent <agent> --target <dir> --name <name> --profile <personal|team|company>
 ```
+技术初始化完成后，不把 `project create` 命令直接交给用户。Agent 应读取最终 doctor 和真实 Workspace 状态，用普通语言完成一次首次使用交接：Workspace 是人和 Agent 共同工作的顶层目录；Project 是业务、产品、系统或长期工作；Service 只在需要代码仓、应用、模块或可执行资产时接入。没有 Project 时询问用户要长期管理什么；唯一 Project 没有 Service 时询问是接入已有资产还是直接开始 Project 范围工作；范围唯一时直接邀请用户描述第一项真实目标；有多个候选时只询问消除范围歧义所必需的问题。不要生成 `WELCOME.md`、持久 checklist 或固定教学 Rule。
 已有 workspace 中，用户要求“更新 Buildr”或“同步 Buildr”时先更新 CLI，再用新入口安装最新产品入口 Buildr Skill，不同步整个 workspace：
 
 ```bash
@@ -23,7 +24,6 @@ buildr update
 command -v buildr
 buildr skill install <agent> --target <workspace-root>
 ```
-
 用户要求“更新 workspace”或“同步 workspace”时，先确认 workspace root 是否由 Git 管理。Git 管理的 workspace 解析 `buildr.git-workspace-update/v1` binding，读取 selected provider 后检查当前分支、upstream 和工作区状态并安全更新本地 checkout；required provider blocked 或遇到本地改动、分叉、冲突、缺少 upstream 等决策点时停止说明，不自动 stash、rebase、覆盖，也不继续 sync。Git 更新成功后不重复询问 sync；非 Git workspace 跳过 Git provider。然后使用当前 CLI 执行 sync，不先更新 CLI；这不是 `buildr sync` 的隐式 Git 行为：
 
 ```bash

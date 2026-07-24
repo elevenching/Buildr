@@ -17,8 +17,8 @@ export async function renderServiceDetail({ root, api, onWorkspace, onBreadcrumb
     const [workspace, data] = await Promise.all([api('/api/v1/workspace'), api(`/api/v1/projects/${encodeURIComponent(projectCode)}/services/${encodeURIComponent(serviceCode)}`)]);
     onWorkspace(workspace);
     const service = data.service;
-    onBreadcrumb(['项目', projectCode, '服务', service.name]);
-    text('service-detail-name', service.name); text('service-detail-description', service.description || '尚未填写服务说明。'); text('service-detail-project', projectCode); text('service-detail-type', service.type); text('service-detail-source', service.source.type === 'git' ? 'Git' : '本地路径'); text('service-code', service.code); text('service-path', service.source.path);
+    onBreadcrumb(['项目', data.project?.name || projectCode, '服务', service.name]);
+    text('service-detail-name', service.name); text('service-detail-description', service.description || '尚未填写服务说明。'); text('service-detail-project', `${data.project?.name || projectCode}（${projectCode}）`); text('service-detail-type', service.type); text('service-detail-source', service.source.type === 'git' ? 'Git' : '本地路径'); text('service-code', service.code); text('service-path', service.source.path);
     text('service-id', service.id || '迁移后生成'); text('service-project-code', projectCode); text('service-revision', data.revision); text('service-integration-branch', service.source.git?.integrationBranch || '不适用'); text('service-current-branch', data.observed?.currentBranch || (service.source.type === 'git' ? '暂时无法读取' : '不适用')); text('service-git-state', data.observed ? `${data.observed.dirty ? '有未提交变化' : '干净'} · ahead ${data.observed.ahead ?? '—'} / behind ${data.observed.behind ?? '—'}` : '不适用');
     const findings = document.getElementById('service-findings'); for (const finding of data.comparison?.findings || []) { const item = document.createElement('div'); item.className = `finding ${finding.status || ''}`; item.textContent = finding.message; findings.append(item); }
     document.getElementById('service-edit-link').href = `/services/${encodeURIComponent(projectCode)}/${encodeURIComponent(serviceCode)}/edit`;

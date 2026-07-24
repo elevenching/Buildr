@@ -154,7 +154,6 @@ export function registerProjectApplication(runtime) {
     const name = typeof input.name === 'string' ? input.name.trim() : '';
     const description = typeof input.description === 'string' ? input.description.trim() : '';
     const sourceType = input.sourceType === 'git' ? 'git' : 'workspace';
-    if (!code) throw projectError('project_prompt_code_required', '请填写 Project code。');
     if (!name) throw projectError('project_prompt_name_required', '请填写 Project 名称。');
     if (!description) throw projectError('project_prompt_description_required', '请填写 Project 说明。');
     const sourceLines = sourceType === 'git'
@@ -169,15 +168,15 @@ export function registerProjectApplication(runtime) {
       prompt: [
         '请在当前 Buildr Workspace 中创建一个 Project。',
         '',
-        `Code：${code}`,
+        `Code：${code || '<尚未提供，请根据名称和现有资产提出候选并确认>'}`,
         `名称：${name}`,
         `说明：${description}`,
         ...sourceLines,
-        `物化路径：projects/${code}`,
+        ...(code ? [`物化路径：projects/${code}`] : ['物化路径：尚未确定；先确认 code 后再计算。']),
         '',
         '执行要求：',
         '1. 先读取并遵循当前可用的 Buildr Skill，确认当前 Workspace identity 与写入授权。',
-        '2. 核对 Project code、物化路径和 root/nested Git ownership；不得创建外部目录链接。',
+        '2. 核对或提出 Project code、物化路径和 root/nested Git ownership；不得创建外部目录链接。',
         sourceType === 'git'
           ? '3. 在任何写入前核对 Git URL、remote、integration branch 与既有目录/registry identity；不得盲目 checkout、stash 或 relink。'
           : '3. 确认该 Project 应跟随 root Workspace Git，不要写入 Project-level integration branch。',

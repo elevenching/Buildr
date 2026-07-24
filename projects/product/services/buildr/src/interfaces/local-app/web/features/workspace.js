@@ -8,137 +8,60 @@ function errorPage(root, title, message) {
   root.querySelector('.alert').textContent = message;
 }
 
-export async function renderWorkspaceOverview({ root, api, onWorkspace }) {
-  root.innerHTML = `
-    <section class="detail-page-header">
-      <div><p class="eyebrow">工作空间概览</p><h1 id="overview-title">正在读取…</h1><p id="overview-description" class="page-copy">从本地真实源资产生成当前摘要。</p></div>
-      <a class="button secondary" href="/settings" data-route>编辑工作空间</a>
-    </section>
-    <div id="overview-migration" class="alert hidden" role="status"></div>
-    <section class="metric-grid" aria-label="工作空间资源摘要">
-      <article class="metric-card"><span>项目（Project）</span><strong id="project-count">—</strong><small>登记在当前工作空间</small></article>
-      <article class="metric-card"><span>服务（Service）</span><strong id="service-count">—</strong><small id="service-count-note">按项目汇总</small></article>
-      <article class="metric-card identity-card"><span>工作空间身份</span><strong id="overview-id">—</strong><small id="overview-schema">—</small></article>
-    </section>
-    <section class="content-grid">
-      <article class="panel">
-        <div class="panel-heading"><div><p class="eyebrow">管理</p><h2>从这里开始</h2></div></div>
-        <div class="action-list">
-          <a href="/projects" data-route><span class="action-symbol">◇</span><span><strong>项目目录</strong><small>查看项目详情、来源和关联资源。</small></span><span>→</span></a>
-          <a href="/services" data-route><span class="action-symbol">◫</span><span><strong>服务目录</strong><small>按所属项目查看服务与独立详情。</small></span><span>→</span></a>
-          <a href="/settings" data-route><span class="action-symbol">⚙</span><span><strong>工作空间设置</strong><small>修改名称与说明，查看 ID、路径、Schema 和 Revision。</small></span><span>→</span></a>
-        </div>
-      </article>
-      <aside class="panel facts-panel">
-        <p class="eyebrow">当前上下文</p><h2>本地服务范围</h2>
-        <dl class="fact-list">
-          <div><dt>本地目录</dt><dd id="overview-root">—</dd></div>
-          <div><dt>Revision</dt><dd id="overview-revision">—</dd></div>
-        </dl>
-        <p class="context-help">当前页面只读取这个工作空间；可随时返回工作空间列表切换。</p>
-      </aside>
-    </section>`;
-  try {
-    const [workspaceData, projectsData] = await Promise.all([api('/api/v1/workspace'), api('/api/v1/projects')]);
-    onWorkspace(workspaceData);
-    setText('overview-title', workspaceData.workspace.name);
-    setText('overview-description', workspaceData.workspace.description || '尚未填写工作空间说明。');
-    setText('project-count', String(projectsData.projects.length));
-    setText('overview-id', workspaceData.workspace.id || '迁移后生成');
-    setText('overview-schema', workspaceData.schemaVersion);
-    setText('overview-root', workspaceData.rootPath);
-    setText('overview-revision', workspaceData.revision);
+function phaseCopy(data) {
+  if (data.phase === 'project-empty') return ['先建立第一个 Project', 'Project 是一个业务、产品、系统或长期工作单元。先告诉 Agent 你要长期管理什么。'];
+  if (data.phase === 'project-selection') return ['选择本次工作的 Project', '这个 Workspace 有多个 Project。请先选择本次目标所属的工作范围。'];
+  if (data.phase === 'service-empty') return ['Service 是可选的', 'Service 用来登记代码仓、应用、模块或可执行资产。若这项工作暂时不需要它，可以直接开始。'];
+  if (data.phase === 'degraded') return ['有一项真实状态需要处理', '仍会展示可读取的信息；请让 Agent 先完成明确的迁移或修复。'];
+  return ['可以开始第一项工作', '当前范围已经明确。把目标交给 Agent，它会读取适用资产并按项目规则推进。'];
+}
 
-    const serviceResults = await Promise.allSettled(projectsData.projects.map((project) => api(`/api/v1/projects/${encodeURIComponent(project.code)}/services`)));
-    const available = serviceResults.filter((result) => result.status === 'fulfilled').map((result) => result.value);
-    const serviceCount = available.reduce((total, result) => total + result.services.length, 0);
-    const complete = available.length === projectsData.projects.length;
-    setText('service-count', complete ? String(serviceCount) : `${serviceCount}+`);
-    setText('service-count-note', complete ? '按项目汇总' : '部分项目暂时不可用');
-
-    const migrationActions = [
-      ...(workspaceData.migrationRequired ? workspaceData.nextActions : []),
-      ...(projectsData.migrationRequired ? projectsData.nextActions : []),
-      ...available.flatMap((result) => result.migrationRequired ? result.nextActions : []),
-    ];
-    const alert = document.getElementById('overview-migration');
-    alert.classList.toggle('hidden', migrationActions.length === 0);
-    alert.textContent = [...new Set(migrationActions)].join(' ');
-  } catch (error) {
-    errorPage(root, '无法读取工作空间', error.message);
+export async function renderWorkspaceOverview({ root, api, onWorkspace, openAgentAction, navigate }) {
+  root.innerHTML = `<section class="detail-page-header"><div><p class="eyebrow">开始使用 Buildr</p><h1 id="overview-title">正在读取…</h1><p id="overview-description" class="page-copy">Buildr 正在从真实 Workspace、Project 和 Service 资产生成下一步。</p></div><a class="button secondary" href="/settings" data-route>工作空间设置</a></section><section class="onboarding-panel"><p class="eyebrow">WORKSPACE → PROJECT → SERVICE</p><h2 id="start-heading">正在判断下一步…</h2><p id="start-copy" class="page-copy"></p><div id="start-scope" class="scope-summary"></div><div id="start-actions" class="actions"></div><div id="start-diagnostics" class="alert hidden" role="status"></div></section><section class="content-grid secondary-summary"><article class="panel"><p class="eyebrow">当前事实</p><h2>工作范围摘要</h2><dl class="fact-list"><div><dt>已登记 Project</dt><dd id="project-count">—</dd></div><div><dt>当前 Project 的 Service</dt><dd id="service-count">—</dd></div></dl></article><aside class="panel facts-panel"><p class="eyebrow">技术信息</p><h2>按需查看</h2><dl class="fact-list"><div><dt>本地目录</dt><dd id="overview-root">—</dd></div><div><dt>Schema</dt><dd id="overview-schema">—</dd></div><div><dt>Revision</dt><dd id="overview-revision">—</dd></div></dl></aside></section>`;
+  let data;
+  async function load(projectCode = '') {
+    data = await api(`/api/v1/getting-started${projectCode ? `?project=${encodeURIComponent(projectCode)}` : ''}`);
+    onWorkspace(data.workspace);
+    setText('overview-title', data.workspace.workspace.name);
+    setText('overview-description', data.workspace.workspace.description || '这是你和 Agent 共同工作的顶层目录。');
+    const [heading, copy] = phaseCopy(data); setText('start-heading', heading); setText('start-copy', copy);
+    setText('project-count', String(data.projects.length));
+    setText('service-count', data.completeness === 'partial' ? '部分不可用' : String(data.services.length));
+    setText('overview-root', data.workspace.rootPath); setText('overview-schema', data.workspace.schemaVersion); setText('overview-revision', data.workspace.revision);
+    const scope = document.getElementById('start-scope'); scope.replaceChildren();
+    const workspace = document.createElement('span'); workspace.textContent = `Workspace：${data.workspace.workspace.name}`; scope.append(workspace);
+    if (data.selectedProject) { const project = document.createElement('span'); project.textContent = `Project：${data.selectedProject.name}`; scope.append(project); }
+    if (data.services.length) { const service = document.createElement('span'); service.textContent = `Service：${data.services.length} 个可选资产`; scope.append(service); }
+    const actions = document.getElementById('start-actions'); actions.replaceChildren();
+    if (data.phase === 'project-selection') {
+      const select = document.createElement('select'); select.setAttribute('aria-label', '选择 Project');
+      select.append(new Option('选择本次工作的 Project', ''));
+      for (const project of data.projects) select.append(new Option(`${project.name}（${project.code}）`, project.code));
+      select.addEventListener('change', () => { if (select.value) load(select.value); }); actions.append(select);
+    } else if (data.phase === 'project-empty') {
+      const button = document.createElement('button'); button.className = 'button primary'; button.type = 'button'; button.textContent = '让 Agent 创建第一个 Project'; button.addEventListener('click', () => openAgentAction('project')); actions.append(button);
+    } else if (data.phase === 'degraded') {
+      const button = document.createElement('button'); button.className = 'button primary'; button.type = 'button'; button.textContent = '生成修复指令'; button.addEventListener('click', () => openAgentAction('workspace')); actions.append(button);
+    } else {
+      const start = document.createElement('button'); start.className = 'button primary'; start.type = 'button'; start.textContent = '用 Agent 开始'; start.addEventListener('click', () => openAgentAction('start', { projectCode: data.selectedProject.code })); actions.append(start);
+      if (data.phase === 'service-empty') {
+        const add = document.createElement('button'); add.className = 'button secondary'; add.type = 'button'; add.textContent = '让 Agent 接入 Service'; add.addEventListener('click', () => openAgentAction('service', { projectCode: data.selectedProject.code })); actions.append(add);
+      }
+    }
+    const diagnostics = document.getElementById('start-diagnostics'); diagnostics.classList.toggle('hidden', !data.diagnostics?.length); diagnostics.textContent = (data.diagnostics || []).map((item) => typeof item === 'string' ? item : item.message).join(' ');
   }
+  try { await load(); } catch (error) { errorPage(root, '无法读取工作空间', error.message); }
 }
 
 export async function renderWorkspaceSettings({ root, api, onWorkspace }) {
-  root.innerHTML = `
-    <section class="page-header"><p class="eyebrow">工作空间（Workspace）</p><h1>工作空间设置</h1><p class="page-copy">只修改稳定元数据；身份、目录和 Schema 始终保持只读。</p></section>
-    <div id="settings-migration" class="alert hidden" role="status"></div>
-    <section class="content-grid settings-grid">
-      <article class="panel">
-        <div class="panel-heading"><div><p class="eyebrow">基本信息</p><h2>名称与说明</h2></div><span id="workspace-save-state" class="state">正在读取</span></div>
-        <form id="workspace-form">
-          <label>名称<input id="workspace-name" name="name" autocomplete="off" required></label>
-          <label>说明<textarea id="workspace-description-input" name="description" rows="7" required></textarea></label>
-          <div class="actions"><button id="workspace-save-button" class="button primary" type="submit">保存修改</button></div>
-        </form>
-      </article>
-      <aside class="panel facts-panel">
-        <p class="eyebrow">技术事实</p><h2>只读事实</h2>
-        <dl class="fact-list">
-          <div><dt>工作空间 ID（Workspace ID）</dt><dd id="workspace-id">—</dd></div>
-          <div><dt>本地目录</dt><dd id="workspace-root">—</dd></div>
-          <div><dt>Schema</dt><dd id="workspace-schema">—</dd></div>
-          <div><dt>Revision</dt><dd id="workspace-revision">—</dd></div>
-        </dl>
-      </aside>
-    </section>`;
-
+  root.innerHTML = `<section class="page-header"><p class="eyebrow">工作空间（Workspace）</p><h1>工作空间设置</h1><p class="page-copy">只修改稳定元数据；身份、目录和 Schema 始终保持只读。</p></section><div id="settings-migration" class="alert hidden" role="status"></div><section class="content-grid settings-grid"><article class="panel"><div class="panel-heading"><div><p class="eyebrow">基本信息</p><h2>名称与说明</h2></div><span id="workspace-save-state" class="state">正在读取</span></div><form id="workspace-form"><label>名称<input id="workspace-name" name="name" autocomplete="off" required></label><label>说明<textarea id="workspace-description-input" name="description" rows="7" required></textarea></label><div class="actions"><button id="workspace-save-button" class="button primary" type="submit">保存修改</button></div></form></article><aside class="panel facts-panel"><p class="eyebrow">技术事实</p><h2>只读事实</h2><dl class="fact-list"><div><dt>工作空间 ID</dt><dd id="workspace-id">—</dd></div><div><dt>本地目录</dt><dd id="workspace-root">—</dd></div><div><dt>Schema</dt><dd id="workspace-schema">—</dd></div><div><dt>Revision</dt><dd id="workspace-revision">—</dd></div></dl></aside></section>`;
   let currentWorkspace;
   function render(data) {
-    currentWorkspace = data;
-    onWorkspace(data);
-    setText('workspace-id', data.workspace.id || '迁移后生成');
-    setText('workspace-root', data.rootPath);
-    setText('workspace-schema', data.schemaVersion);
-    setText('workspace-revision', data.revision);
-    document.getElementById('workspace-name').value = data.workspace.name;
-    document.getElementById('workspace-description-input').value = data.workspace.description;
-    const readOnly = data.migrationRequired;
-    for (const id of ['workspace-name', 'workspace-description-input', 'workspace-save-button']) document.getElementById(id).disabled = readOnly;
-    setText('workspace-save-state', readOnly ? '迁移前只读' : '已读取真实文件');
-    const alert = document.getElementById('settings-migration');
-    alert.classList.toggle('hidden', !readOnly);
-    alert.textContent = readOnly ? data.nextActions.join(' ') : '';
+    currentWorkspace = data; onWorkspace(data); setText('workspace-id', data.workspace.id || '迁移后生成'); setText('workspace-root', data.rootPath); setText('workspace-schema', data.schemaVersion); setText('workspace-revision', data.revision);
+    document.getElementById('workspace-name').value = data.workspace.name; document.getElementById('workspace-description-input').value = data.workspace.description;
+    const readOnly = data.migrationRequired; for (const id of ['workspace-name', 'workspace-description-input', 'workspace-save-button']) document.getElementById(id).disabled = readOnly;
+    setText('workspace-save-state', readOnly ? '迁移前只读' : '已读取真实文件'); const alert = document.getElementById('settings-migration'); alert.classList.toggle('hidden', !readOnly); alert.textContent = readOnly ? data.nextActions.join(' ') : '';
   }
-
-  try {
-    render(await api('/api/v1/workspace'));
-  } catch (error) {
-    setText('workspace-save-state', error.message);
-    document.getElementById('workspace-save-button').disabled = true;
-    return;
-  }
-
-  document.getElementById('workspace-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const state = document.getElementById('workspace-save-state');
-    const button = document.getElementById('workspace-save-button');
-    button.disabled = true;
-    state.textContent = '正在保存…';
-    try {
-      const updated = await api('/api/v1/workspace', {
-        method: 'PUT',
-        body: JSON.stringify({
-          revision: currentWorkspace.revision,
-          name: document.getElementById('workspace-name').value,
-          description: document.getElementById('workspace-description-input').value,
-        }),
-      });
-      render(updated);
-      state.textContent = '保存成功';
-    } catch (error) {
-      state.textContent = error.code === 'workspace_revision_conflict' ? '文件已变化，请刷新后重新判断' : error.message;
-      button.disabled = false;
-    }
-  });
+  try { render(await api('/api/v1/workspace')); } catch (error) { setText('workspace-save-state', error.message); document.getElementById('workspace-save-button').disabled = true; return; }
+  document.getElementById('workspace-form').addEventListener('submit', async (event) => { event.preventDefault(); const state = document.getElementById('workspace-save-state'); const button = document.getElementById('workspace-save-button'); button.disabled = true; state.textContent = '正在保存…'; try { render(await api('/api/v1/workspace', { method: 'PUT', body: JSON.stringify({ revision: currentWorkspace.revision, name: document.getElementById('workspace-name').value, description: document.getElementById('workspace-description-input').value }) })); state.textContent = '保存成功'; } catch (error) { state.textContent = error.code === 'workspace_revision_conflict' ? '文件已变化，请刷新后重新判断' : error.message; button.disabled = false; } });
 }

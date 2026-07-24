@@ -308,6 +308,182 @@ export function registerWorkspaceApplication(runtime) {
     };
   }
 
+  function recoveryPrompt(rootPath, kind) {
+    const action = kind === 'migration_required'
+      ? '检查 Workspace metadata、确认正确 identity 后执行 canonical buildr sync <agent>'
+      : '检查该目录是否应作为 Buildr Workspace 初始化，并在获得授权后执行 canonical buildr init --agent <agent>';
+    return [
+      '请帮我处理一个通过 Buildr App 选择的本机目录。',
+      '',
+      `候选位置：${rootPath}`,
+      `当前情况：${kind === 'migration_required' ? '目录需要迁移或修复，尚未登记。' : '目录尚不是可登记的 Buildr Workspace。'}`,
+      '',
+      '执行要求：',
+      '1. 先核对目录、Git 边界、权限和其中已有内容；不要猜测或覆盖 identity。',
+      `2. ${action}。`,
+      '3. 运行适用 doctor，确认真实结果后再建议我回到 Buildr App 登记。',
+    ].join('\n');
+  }
+
+  function inspectLocalWorkspaceCandidate(rootPath, revision) {
+    const root = runtime.path.resolve(rootPath);
+    try {
+      const candidate = readWorkspaceRecord(root);
+      if (!candidate.workspace.id || candidate.migrationRequired) {
+        return {
+          status: 'migration_required',
+          rootPath: root,
+          workspace: candidate.workspace,
+          message: '该目录需要先由 Agent 完成 Workspace metadata 迁移或修复，尚未登记。',
+          prompt: recoveryPrompt(root, 'migration_required'),
+        };
+      }
+      return {
+        status: 'canonical',
+        rootPath: root,
+        registry: registerLocalWorkspace({ rootPath: root, revision }),
+      };
+    } catch (error) {
+      if (error.code === 'workspace_identity_conflict') {
+        return { status: 'identity_conflict', rootPath: root, message: error.message };
+      }
+      if (!runtime.existsDirectory(root)) {
+        return { status: 'unavailable', rootPath: root, message: '该目录当前不可读取或已经不存在。' };
+      }
+      return {
+        status: 'uninitialized',
+        rootPath: root,
+        message: '该目录尚不是可登记的 Buildr Workspace，或其 metadata 无法读取。',
+        prompt: recoveryPrompt(root, 'uninitialized'),
+      };
+    }
+  }
+
+  function getWorkspaceGettingStarted(targetRoot, input = {}) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw workspaceError('workspace_getting_started_invalid', '开始页请求必须是对象。');
+    for (const field of Object.keys(input)) {
+      if (field !== 'projectCode') throw workspaceError('workspace_getting_started_field_forbidden', `开始页不支持字段：${field}。`);
+    }
+    const workspace = getWorkspace(targetRoot);
+    let projects;
+    try {
+      projects = runtime.listProjects(targetRoot);
+    } catch (error) {
+      return {
+        workspace,
+        phase: 'degraded',
+        completeness: 'partial',
+        projects: [],
+        services: [],
+        primaryAction: { type: 'repair', prompt: recoveryPrompt(workspace.rootPath, 'migration_required') },
+        diagnostics: [{ code: error.code || 'project_registry_unavailable', message: error.message }],
+      };
+    }
+    const projectOptions = projects.projects.map((project) => ({ id: project.id, code: project.code, name: project.name, description: project.description }));
+    if (workspace.migrationRequired || projects.migrationRequired) {
+      return {
+        workspace,
+        phase: 'degraded',
+        completeness: 'partial',
+        projects: projectOptions,
+        services: [],
+        primaryAction: { type: 'repair', prompt: recoveryPrompt(workspace.rootPath, 'migration_required') },
+        diagnostics: [...(workspace.nextActions || []), ...(projects.nextActions || [])],
+      };
+    }
+    if (!projectOptions.length) {
+      return {
+        workspace,
+        phase: 'project-empty',
+        completeness: 'complete',
+        projects: [],
+        services: [],
+        primaryAction: { type: 'project-create' },
+        diagnostics: [],
+      };
+    }
+    const requestedProject = typeof input.projectCode === 'string' ? input.projectCode.trim() : '';
+    const selectedProject = projectOptions.find((project) => project.code === requestedProject) || (projectOptions.length === 1 ? projectOptions[0] : null);
+    if (!selectedProject) {
+      return {
+        workspace,
+        phase: 'project-selection',
+        completeness: 'complete',
+        projects: projectOptions,
+        services: [],
+        primaryAction: { type: 'project-select' },
+        diagnostics: [],
+      };
+    }
+    try {
+      const serviceRegistry = runtime.listServices(targetRoot, selectedProject.code);
+      const services = serviceRegistry.services.map((service) => ({ id: service.id, code: service.code, name: service.name, description: service.description, type: service.type }));
+      if (serviceRegistry.migrationRequired) {
+        return {
+          workspace,
+          phase: 'degraded',
+          completeness: 'partial',
+          projects: projectOptions,
+          selectedProject,
+          services,
+          primaryAction: { type: 'repair', prompt: recoveryPrompt(workspace.rootPath, 'migration_required') },
+          diagnostics: serviceRegistry.nextActions || [],
+        };
+      }
+      return {
+        workspace,
+        phase: services.length ? 'ready' : 'service-empty',
+        completeness: 'complete',
+        projects: projectOptions,
+        selectedProject,
+        services,
+        primaryAction: services.length ? { type: 'start-work', projectCode: selectedProject.code } : { type: 'start-work', projectCode: selectedProject.code, serviceOptional: true },
+        diagnostics: [],
+      };
+    } catch (error) {
+      return {
+        workspace,
+        phase: 'degraded',
+        completeness: 'partial',
+        projects: projectOptions,
+        selectedProject,
+        services: [],
+        primaryAction: { type: 'repair', prompt: recoveryPrompt(workspace.rootPath, 'migration_required') },
+        diagnostics: [{ code: error.code || 'service_registry_unavailable', message: error.message }],
+      };
+    }
+  }
+
+  function generateStartWorkPrompt(targetRoot, input) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw workspaceError('workspace_start_work_invalid', '开始工作请求必须是对象。');
+    const allowed = new Set(['projectCode', 'serviceCode', 'goal']);
+    for (const field of Object.keys(input)) if (!allowed.has(field)) throw workspaceError('workspace_start_work_field_forbidden', `开始工作不支持字段：${field}。`);
+    const projectCode = typeof input.projectCode === 'string' ? input.projectCode.trim() : '';
+    const serviceCode = typeof input.serviceCode === 'string' ? input.serviceCode.trim() : '';
+    const goal = typeof input.goal === 'string' ? input.goal.trim() : '';
+    if (!projectCode || !goal) throw workspaceError('workspace_start_work_fields_required', '请选择 Project 并填写要完成的工作。');
+    const workspace = getWorkspace(targetRoot);
+    const project = runtime.projectDetail(targetRoot, projectCode).project;
+    let service = null;
+    if (serviceCode) service = runtime.serviceDetail(targetRoot, projectCode, serviceCode).service;
+    return {
+      prompt: [
+        '请在以下 Buildr 工作范围内开始推进一项真实工作。',
+        '',
+        `Workspace：${workspace.workspace.name}（${workspace.workspace.id}）`,
+        `Project：${project.name}（${project.code}）`,
+        ...(service ? [`Service：${service.name}（${service.code}）`] : ['Service：本次不限定；如不需要代码仓或可执行资产，可保持 Project 范围。']),
+        `目标：${goal}`,
+        '',
+        '执行要求：',
+        '1. 先读取当前 Workspace、Project 与可选 Service scope 的适用工作资产。',
+        '2. 只在必要时询问范围、业务判断或授权；不要根据排序猜测其他 Project 或 Service。',
+        '3. 根据任务性质推进理解、设计、实现和验证，并按当前 Project policy 报告结果。',
+      ].join('\n'),
+      copiedMeansStarted: false,
+    };
+  }
+
   function diagnoseWorkspaceMetadata(result, targetRoot) {
     try {
       const workspace = getWorkspace(targetRoot);
@@ -350,6 +526,9 @@ export function registerWorkspaceApplication(runtime) {
     migrateWorkspaceMetadata,
     updateWorkspaceMetadata,
     generateWorkspaceCreatePrompt,
+    inspectLocalWorkspaceCandidate,
+    getWorkspaceGettingStarted,
+    generateStartWorkPrompt,
     diagnoseWorkspaceMetadata,
   });
   return runtime;

@@ -52,7 +52,7 @@ export async function renderServices({ root, api, onWorkspace, openAgentAction }
       const data = await api(`/api/v1/projects/${encodeURIComponent(projectCode)}/services`);
       const body = document.getElementById('service-table-body'); body.replaceChildren();
       text('services-title', `${data.project.name}的服务`); text('services-copy', '目录负责资源定位与关联跳转；稳定 metadata 使用独立编辑页修改。'); text('services-count', `${data.services.length} 个服务`);
-      const empty = document.getElementById('service-empty'); empty.classList.toggle('hidden', data.services.length > 0); empty.textContent = `项目“${data.project.name}”尚未登记服务。`;
+      const empty = document.getElementById('service-empty'); empty.classList.toggle('hidden', data.services.length > 0); empty.textContent = `项目“${data.project.name}”暂未登记 Service。Service 只在需要管理代码仓、应用、模块或可执行资产时添加；你也可以直接回到“开始”页推进 Project 范围工作。`;
       document.getElementById('service-table-wrap').classList.toggle('hidden', data.services.length === 0);
       const alert = document.getElementById('services-migration-alert'); alert.classList.toggle('hidden', !data.migrationRequired); alert.textContent = data.migrationRequired ? data.nextActions.join(' ') : '';
       for (const service of data.services) {

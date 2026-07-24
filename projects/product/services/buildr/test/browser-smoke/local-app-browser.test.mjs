@@ -122,6 +122,14 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
     await target.getByRole('link', { name: '进入工作空间' }).click();
     await page.waitForURL(`${workspaceUrl}/`);
     assert.equal(await page.locator('#overview-title').innerText(), 'browser-smoke');
+    await unique(page.getByRole('button', { name: '用 Agent 开始', exact: true }), '开始工作操作');
+    await page.getByRole('button', { name: '用 Agent 开始', exact: true }).click();
+    await page.locator('#action-project').waitFor({ state: 'visible' });
+    await page.locator('#action-goal').fill('梳理浏览器 fixture 的下一步工作');
+    await page.getByRole('button', { name: '生成开始工作指令', exact: true }).click();
+    await page.locator('#action-prompt-output').waitFor({ state: 'visible' });
+    assert.match(await page.locator('#action-prompt-output').inputValue(), /Project：演示项目（demo）/);
+    await page.getByRole('button', { name: '关闭', exact: true }).click();
     await page.setViewportSize({ width: 1024, height: 720 });
     await page.goto(url);
     await page.locator('#workspace-grid .workspace-card').first().waitFor({ state: 'visible' });
@@ -132,8 +140,8 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
     for (const entry of [...current.workspaces]) current = runtime.removeRegisteredWorkspace({ rootPath: entry.rootPath, revision: current.revision });
     await page.goto(url);
     await page.locator('#workspace-empty').waitFor({ state: 'visible' });
-    assert.equal(await page.getByRole('button', { name: '选择已有工作空间' }).count(), 1);
-    assert.equal(await page.getByRole('button', { name: '交给 Agent 新建' }).count(), 1);
+    assert.equal(await page.locator('#empty-add-workspace').count(), 1);
+    assert.equal(await page.getByRole('button', { name: '让 Agent 创建工作空间' }).count(), 1);
     assert.equal(await page.getByRole('button', { name: '稍后处理' }).count(), 1);
     current = runtime.registerLocalWorkspace({ rootPath: workspaceRoot, revision: current.revision });
     runtime.registerLocalWorkspace({ rootPath: otherRoot, revision: current.revision });
@@ -159,6 +167,8 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
     assert.equal(await page.locator('[data-nav="projects"]').evaluate((item) => item.classList.contains('active')), true);
     await page.getByRole('link', { name: '编辑项目', exact: true }).first().click();
     await page.waitForURL(`${workspaceUrl}/projects/demo/edit`);
+    assert.equal(await page.locator('.read-only-section .technical-details').count(), 1);
+    assert.equal(await page.getByText('技术信息', { exact: true }).count(), 1);
     await page.locator('#project-description').fill('已在独立编辑页更新');
     await page.getByRole('button', { name: '保存修改', exact: true }).click();
     assert.equal(await page.locator('#project-save-state').innerText(), '保存成功');
@@ -187,6 +197,8 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
     assert.equal(await page.locator('[data-nav="services"]').evaluate((item) => item.classList.contains('active')), true);
     await page.getByRole('link', { name: '编辑服务', exact: true }).first().click();
     await page.waitForURL(`${workspaceUrl}/services/demo/api/edit`);
+    assert.equal(await page.locator('.read-only-section .technical-details').count(), 1);
+    assert.equal(await page.getByText('技术信息', { exact: true }).count(), 1);
     await page.locator('#service-description').fill('已在独立详情页更新');
     await page.getByRole('button', { name: '保存修改', exact: true }).click();
     assert.equal(await page.locator('#service-save-state').innerText(), '保存成功');

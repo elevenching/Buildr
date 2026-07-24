@@ -43,6 +43,9 @@ try {
   assert.equal(result.status, 0, output(result));
   assert.match(result.stdout, /Buildr onboarding 已完成：codex/);
   assert.match(result.stdout, /doctor 通过/);
+  assert.match(result.stdout, /首次使用交接/);
+  assert.match(result.stdout, /第一项真实工作/);
+  assert.doesNotMatch(result.stdout, /下一步可按需创建 Project/);
   assert.equal(fs.existsSync(path.join(onboarded, '.agents', 'skills', 'buildr', 'SKILL.md')), true);
 
   result = run(['init', '--agent', 'codex', '--target', onboarded, '--name', 'onboarded', '--profile', 'team']);
