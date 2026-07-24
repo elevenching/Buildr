@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "prevent-task-branch-remote-push",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-97399ef8ba411a93320f2a98203f91136ebd4541ed65a69965b7ba34f9770877",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "Task Finish 默认不推送远端任务分支",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

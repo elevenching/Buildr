@@ -744,6 +744,8 @@ export function createPackageStaticValidator(deps) {
           '`fetch`、`push` 和普通 `commit`',
           'required Core workspace-transition invariant',
           '本 provider 不拥有或复制该 Buildr 操作手册',
+          '默认 push 只面向已集成的目标分支',
+          '才可推送任务分支',
         ]) {
           if (!skillContent.includes(requiredText)) problems.push(`git-ops Skill must include ${JSON.stringify(requiredText)}.`);
         }
@@ -804,6 +806,9 @@ export function createPackageStaticValidator(deps) {
           'selected worktree-lifecycle provider',
           'required dependency 为 `blocked`',
           '不删除远端任务分支',
+          '默认推送计划只包含已集成的目标分支',
+          '任务分支未推送',
+          '不得因为任务分支存在、已提交或已合入而创建或推送其远端 ref',
           '工作目录切换到主 workspace',
           'instance.json',
           '/api/v1/health',
