@@ -35,6 +35,7 @@ const allowed = new Map([
   ['src/interfaces/local-app/runtime/instance-manager.mjs', new Set([
     'acquireLocalAppStartLock', 'releaseLocalAppStartLock', 'clearLocalAppInstance',
   ])],
+  ['src/interfaces/local-app/runtime/preview-manager.mjs', new Set(['clearOwner'])],
   ['src/application/domains/workspace.mjs', new Set(['createProject', 'createService'])],
   ['src/application/domains/rules.mjs', new Set(['rulesRemoveUnsafe'])],
   ['src/application/domains/skills.mjs', new Set(['copySupportedSkillSource', 'skillsRemoveUnsafe', 'applyProjectSkillMigration'])],

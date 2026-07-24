@@ -14,7 +14,7 @@ const buildr = path.join(productRoot, 'bin', 'buildr.mjs');
 
 function run(args, options = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [buildr, ...args], { cwd: productRoot });
+    const child = spawn(process.execPath, [buildr, ...args], { cwd: productRoot, env: options.env || process.env });
     let stdout = '';
     let stderr = '';
     child.stdout.setEncoding('utf8');
@@ -46,13 +46,15 @@ test('JSON helper 只接受登记 schema 和对象 payload', () => {
 
 test('全部 workspace JSON command family 输出登记的 schemaVersion', async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'buildr-json-contracts-'));
+  const env = { ...process.env, BUILDR_APP_DATA_DIR: path.join(root, 'local-app') };
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  await run(['init', '--target', root, '--name', 'json-contracts', '--description', 'JSON contracts fixture', '--profile', 'team'], { json: false });
+  await run(['init', '--target', root, '--name', 'json-contracts', '--description', 'JSON contracts fixture', '--profile', 'team'], { json: false, env });
 
   const cases = [
     [['version', '--json'], PUBLIC_JSON_SCHEMAS.version],
     [['unknown-command', '--json'], PUBLIC_JSON_SCHEMAS.cliError, 2],
     [['runtime', 'list', '--json'], PUBLIC_JSON_SCHEMAS.runtimeList],
+    [['app', 'preview', 'list', '--json'], PUBLIC_JSON_SCHEMAS.localAppPreview],
     [['app', 'launcher', 'status', '--target', root, '--json'], PUBLIC_JSON_SCHEMAS.launcherStatus],
     [['doctor', '--target', root, '--json'], PUBLIC_JSON_SCHEMAS.doctor],
     [['commands', 'check', '--target', root, '--json'], PUBLIC_JSON_SCHEMAS.commandsCheck],
@@ -61,7 +63,7 @@ test('全部 workspace JSON command family 输出登记的 schemaVersion', async
     [['builtin', 'list', '--target', root, '--json'], PUBLIC_JSON_SCHEMAS.builtinList],
   ];
   for (const [args, expected, expectedStatus = 0] of cases) {
-    assert.equal((await run(args, { expectedStatus })).schemaVersion, expected, args.join(' '));
+    assert.equal((await run(args, { expectedStatus, env })).schemaVersion, expected, args.join(' '));
   }
 });
 
@@ -74,6 +76,7 @@ test('schema registry 覆盖全部当前公开 JSON family', () => {
     'componentList',
     'doctor',
     'launcherStatus',
+    'localAppPreview',
     'openspecBaseline',
     'openspecCheck',
     'runtimeList',

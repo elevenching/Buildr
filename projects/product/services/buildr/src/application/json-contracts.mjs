@@ -6,6 +6,7 @@ export const PUBLIC_JSON_SCHEMAS = Object.freeze({
   componentList: 'buildr.component-list/v1',
   doctor: 'buildr.doctor/v1',
   launcherStatus: 'buildr.launcher-status/v1',
+  localAppPreview: 'buildr.local-app-preview/v1',
   openspecBaseline: 'buildr.openspec-baseline/v1',
   openspecCheck: 'buildr.openspec-check/v1',
   runtimeList: 'buildr.runtime-list/v1',

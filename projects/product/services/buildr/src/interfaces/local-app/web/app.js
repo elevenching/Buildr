@@ -16,6 +16,21 @@ const view = document.getElementById('app-view');
 let currentWorkspaceId = null;
 let currentWorkspaceName = '工作空间';
 
+function previewIdentity() {
+  const raw = document.querySelector('meta[name="buildr-preview"]')?.content;
+  if (!raw) return null;
+  try { return JSON.parse(decodeURIComponent(raw)); } catch { return null; }
+}
+
+function renderPreviewIdentity() {
+  const identity = previewIdentity();
+  const element = document.getElementById('preview-identity');
+  if (!identity) return;
+  element.classList.remove('hidden');
+  element.textContent = `开发预览：${identity.instance} · ${identity.branch} · ${identity.head.slice(0, 12)}${identity.dirty ? ' · 有未提交修改' : ''}`;
+  element.title = identity.worktree;
+}
+
 const routeDefinitions = {
   '/': { id: 'workspaces', label: '工作空间', render: renderWorkspaces, global: true },
   '/overview': { id: 'overview', label: '开始', render: renderWorkspaceOverview },
@@ -171,6 +186,7 @@ const originalResolve = (() => {
 router.resolve = originalResolve;
 
 const agentActions = setupAgentActions({ api });
+renderPreviewIdentity();
 document.getElementById('resource-nav-toggle').addEventListener('click', () => {
   const expanded = document.getElementById('resource-nav-toggle').getAttribute('aria-expanded') === 'true';
   setResourceNavigation(!expanded);

@@ -55,7 +55,7 @@ if (/function\s+(?:doctor|packageCheck|createProject|skillsAdd|componentInstall)
 
 const requiredRuntime = [
   'interfaces/cli/main.mjs', 'interfaces/cli/registry.mjs', 'interfaces/cli/help.mjs',
-  'interfaces/local-app/http/server.mjs', 'interfaces/local-app/web/app.js',
+  'interfaces/local-app/http/server.mjs', 'interfaces/local-app/runtime/preview-manager.mjs', 'interfaces/local-app/web/app.js',
   'application/compose-runtime.mjs', 'application/doctor.mjs', 'application/package-maintenance.mjs',
   'application/workspace/workspace-application.mjs', 'domain/workspace/workspace.mjs',
   'application/worktree/worktree-application.mjs',
@@ -192,7 +192,7 @@ if (fs.existsSync(registry)) {
   const duplicates = keys.filter((key, index) => keys.indexOf(key) !== index);
   if (duplicates.length) problems.push(`duplicate command registry keys: ${[...new Set(duplicates)].join(', ')}`);
   const expectedKeys = [
-    'init', 'app launcher install', 'app launcher status', 'app launcher uninstall', 'app', 'bootstrap guide', 'package check', 'package build', 'project create', 'service create', 'worktree create',
+    'init', 'app launcher install', 'app launcher status', 'app launcher uninstall', 'app preview start', 'app preview list', 'app preview stop', 'app', 'bootstrap guide', 'package check', 'package build', 'project create', 'service create', 'worktree create',
     'doctor', 'mutation recover', 'runtime list', 'commands check', 'commands add', 'commands remove',
     'openspec baseline create', 'openspec check', 'component list', 'component check', 'component install',
     'component uninstall', 'rules add', 'rules remove', 'builtin list', 'builtin uninstall', 'builtin restore',

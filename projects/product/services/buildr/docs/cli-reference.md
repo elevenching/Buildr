@@ -30,7 +30,8 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 | 命令 | 用途 |
 |---|---|
 | `buildr init [--agent <agent>]` | 初始化 Organization/Root；传入 `--agent` 时一次完成 runtime 与最终 doctor，不传时只写源资产。 |
-| `buildr app [--target <workspace>] [--no-open]` | 启动或复用只监听 `127.0.0.1` 的全局本机 Web 应用；默认打开浏览器，登记和切换多个 Workspace，`--target` 登记并打开指定 Workspace。 |
+| `buildr app [--target <workspace>] [--no-open]` | 启动或复用只监听 `127.0.0.1` 的默认本机 Web 应用；默认打开浏览器，登记和切换多个 Workspace，`--target` 登记并打开指定 Workspace。 |
+| `buildr app preview start|list|stop` | Agent 为 task worktree 启动、查看或停止隔离的开发预览；每个 preview 返回可核验 URL 和 checkout identity，不替换默认应用或 `Buildr Dev.app`。 |
 | `buildr app launcher install/status/uninstall` | 安装、诊断或卸载 release/development launcher；使用新 staging 验证后切换，保留 Workspace Registry 和源资产。 |
 | `buildr project create <code>` | 创建或登记 Project；`--name`/`--description` 设置 metadata，`--repo`、`--remote`、`--integration-branch` 声明独立 Git source，并补齐空 `commands.yml` requirement context。 |
 | `buildr service create <project>/<service> <repo-ref>` | 接入本地目录或 Git Service；用 `--name`、`--description`、`--type` 描述 Domain，Git 来源可用 `--remote`、`--integration-branch` 声明稳定来源。 |
@@ -48,7 +49,7 @@ buildr init --agent <claude-code|codex|cursor|qoder|trae|trae-work|workbuddy> --
 
 新 Workspace 使用 `.buildr/workspace.yml` 的 `buildr.workspace/v1` schema，并与 `skills/manifest.yml.workspaceId` 共享同一 UUID。旧 metadata 可以在 `buildr app` 中只读查看；`buildr sync <agent>` 通过同一 source transaction 显式迁移两份 Manifest，identity 冲突时零写入失败。页面修改使用 revision compare-and-swap，不自动覆盖 Agent、Git 或编辑器已经产生的外部变化。
 
-全局 App 的用户级登记文件只保存规范化 Workspace root 和最近使用项；Workspace 名称、说明、Project、Service 与 Change 始终从各 Workspace 实时读取。Registry 为空时页面引导选择已有 Workspace、生成新建 Agent Action 或稍后处理，不自动扫描磁盘。关闭浏览器标签页不会停止本机服务，页面“退出 Buildr”会安全停止实例但保留登记列表和全部源资产。macOS `Buildr.app` 与 Windows launcher bundle 携带运行所需的 Node runtime 和 Web 资源，只负责启动或复用随机 loopback 端口上的服务并打开默认浏览器，不提供 Desktop WebView。
+默认 App 的用户级登记文件只保存规范化 Workspace root 和最近使用项；Workspace 名称、说明、Project、Service 与 Change 始终从各 Workspace 实时读取。Registry 为空时页面引导选择已有 Workspace、生成新建 Agent Action 或稍后处理，不自动扫描磁盘。关闭浏览器标签页不会停止本机服务，页面“退出 Buildr”会安全停止实例但保留登记列表和全部源资产。task worktree 的并发验收使用 `buildr app preview`：每个显式实例名拥有独立的状态目录、登记列表、启动锁和随机 loopback URL，并展示 worktree、分支、HEAD 与 dirty 身份。preview 直接运行请求 worktree 的 checkout，不安装或替换 `Buildr Dev.app`。macOS `Buildr.app` 与 Windows launcher bundle 携带运行所需的 Node runtime 和 Web 资源，只负责启动或复用默认随机 loopback 端口上的服务并打开默认浏览器，不提供 Desktop WebView。
 
 Project registry 使用 `buildr.projects/v2`：每个 Project 保存 UUID `id`、所属 `workspaceId`、可读 `code`、`name`、`description` 和 `source`。`source.path` 是文件系统物化位置；Git source 另外保存 URL、remote 和稳定的 `integrationBranch`。`currentBranch`、HEAD、dirty、upstream 与 ahead/behind 是实时观察状态，不写入 Domain。v1 registry 可只读查询，`buildr sync <agent>` 显式迁移；页面不会静默迁移、切分支、stash 或改写 remote。
 

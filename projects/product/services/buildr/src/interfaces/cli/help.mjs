@@ -13,6 +13,7 @@ export function registerCommandHelp(runtime) {
     console.error('Usage:');
     console.error(`  buildr init [--agent <${runtimeIds}>] [--target <dir>] [--name <name>] [--description <text>] [--profile <personal|team|company>]`);
     console.error('  buildr app [--target <workspace>] [--port <port>] [--no-open]');
+    console.error('  buildr app preview <start|list|stop> ...');
     console.error('  buildr app launcher <install|status|uninstall> [--channel <release|development>] [--target <dir>] [--json]');
     console.error('  buildr project create <code> [--target <dir>] [--name <text>] [--description <text>] [--repo <git-url>] [--remote <name>] [--integration-branch <branch>]');
     console.error('  buildr service create <project>/<service> <repo-ref> [--target <dir>] [--name <text>] [--description <text>] [--type <type>] [--remote <name>] [--integration-branch <branch>] [--json]');
@@ -61,6 +62,7 @@ export function registerCommandHelp(runtime) {
       'Public workspace commands:',
       '  init                 初始化 Buildr workspace；传入 --agent 时一次完成 runtime 与最终 doctor。',
       '  app                  启动仅限本机访问的 Buildr Workspace 可视化应用。',
+      '  app preview          为 task worktree 启动、查看或停止隔离的开发预览。',
       '  app launcher         安装、检查或卸载当前平台的 Buildr launcher。',
       '  version              输出当前 Buildr CLI package version；支持 --json。',
       '  project create       创建或登记 Project。',
@@ -106,6 +108,28 @@ export function registerCommandHelp(runtime) {
       '页面不会 checkout、stash、merge 或改写 Project Git source。',
       '旧 Workspace metadata 可以只读查看，完成 canonical sync 迁移后才能从页面保存。',
       '本机登记列表只保存 Workspace root；事实仍来自各 Workspace，应用不提供远程服务或 Agent session connector。',
+      'task worktree 的并行验收使用 app preview；每个 preview 具有独立状态和 loopback URL，不会改变默认应用或 Buildr Dev.app。',
+    ],
+    'app preview start': [
+      'Usage: buildr app preview start <instance> [--target <workspace>] [--port <port>] [--no-open] [--json]',
+      '',
+      '从当前 task worktree 启动或复用独立的 Buildr 开发预览。输出实例名、URL、worktree、分支、HEAD 与 dirty 身份，供 Agent 交接验收链接。',
+      '实例名不能被其他 worktree 的健康预览接管；该命令不会安装、替换或停止 Buildr Dev.app、全局开发 CLI 或默认本机应用。',
+    ],
+    'app preview': [
+      'Usage: buildr app preview <start|list|stop> ...',
+      '',
+      'task worktree 的开发预览以实例名隔离本地状态与 loopback URL；使用 start 获取验收链接，使用 list 查看归属，使用 stop 只停止指定实例。',
+    ],
+    'app preview list': [
+      'Usage: buildr app preview list [--json]',
+      '',
+      '列出 Buildr 管理的开发预览及其 owner、URL、PID 与健康状态；不会扫描或管理其他系统进程。',
+    ],
+    'app preview stop': [
+      'Usage: buildr app preview stop <instance> [--json]',
+      '',
+      '使用该 preview 的实例 secret 安全停止它，或仅清理其陈旧记录；不会停止默认本机应用或其他 preview。',
     ],
     'app launcher install': [
       'Usage: buildr app launcher install [--channel <release|development>] [--target <dir>] [--json]',
@@ -346,6 +370,8 @@ export function registerCommandHelp(runtime) {
     if (domain === 'render') return 'render';
     if (domain === 'sync') return 'sync';
     if (domain === 'doctor') return 'doctor';
+    if (domain === 'app' && action === 'preview' && ['start', 'list', 'stop'].includes(runtime)) return `app preview ${runtime}`;
+    if (domain === 'app' && action === 'preview') return 'app preview';
     if (domain === 'app') return 'app';
     if (domain === 'init') return 'init';
     if (domain === 'rules' && action === 'render') {

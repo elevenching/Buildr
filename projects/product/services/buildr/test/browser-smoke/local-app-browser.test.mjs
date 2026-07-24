@@ -89,9 +89,11 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
   const workspaceRoot = path.join(base, 'workspace');
   let browser;
   let server;
+  let previewServer;
   t.after(async () => {
     if (browser) await browser.close();
     if (server) await new Promise((resolve) => server.close(resolve));
+    if (previewServer) await new Promise((resolve) => previewServer.close(resolve));
     fs.rmSync(base, { recursive: true, force: true });
   });
 
@@ -106,6 +108,15 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
   const instance = createLocalWorkspaceServer(runtime, { targetRoot: workspaceRoot });
   server = instance.server;
   const { url, initialWorkspaceId } = await instance.ready;
+  const previewInstance = createLocalWorkspaceServer(runtime, {
+    targetRoot: workspaceRoot,
+    previewIdentity: {
+      schemaVersion: 'buildr.local-app-preview/v1', instance: 'browser-preview', worktree: workspaceRoot,
+      repository: workspaceRoot, branch: 'preview-branch', head: '0123456789abcdef', dirty: true,
+    },
+  });
+  previewServer = previewInstance.server;
+  const { url: previewUrl } = await previewInstance.ready;
   const workspaceUrl = `${url}/workspaces/${initialWorkspaceId}`;
   browser = await chromium.launch({ executablePath: resolveBrowserExecutable(), headless: true });
   const page = await browser.newPage({ locale: 'zh-CN' });
@@ -114,6 +125,12 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
   page.on('console', (message) => { if (message.type() === 'error') browserErrors.push(`console.error ${page.url()}: ${message.text()}`); });
 
   if (selected('shell')) await t.test('全局首页展示多个工作空间并进入选定上下文', async () => {
+    await page.goto(url);
+    await page.locator('#workspace-grid .workspace-card').first().waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#preview-identity').isHidden(), true);
+    await page.goto(previewUrl);
+    await page.locator('#preview-identity').waitFor({ state: 'visible' });
+    assert.match(await page.locator('#preview-identity').innerText(), /开发预览：browser-preview · preview-branch · 0123456789ab · 有未提交修改/);
     await page.goto(url);
     await page.locator('#workspace-grid .workspace-card').first().waitFor({ state: 'visible' });
     assert.equal(await page.locator('#workspace-grid .workspace-card').count(), 2);

@@ -56,6 +56,7 @@ a { color: inherit; }
 .app-main { min-width: 0; }
 .topbar { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.9); }
 .breadcrumb { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; }
+.preview-identity { margin-left: auto; margin-right: 14px; max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid #b8dec8; border-radius: 999px; padding: 5px 9px; color: #1d6642; background: #eff9f2; font-size: 11px; font-weight: 650; }
 .breadcrumb span { display: inline-flex; align-items: center; min-width: 0; color: var(--muted); }
 .breadcrumb span::after { margin-left: 8px; color: #a4ada7; content: "/"; }
 .breadcrumb span, .breadcrumb strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -252,6 +253,7 @@ details summary { cursor: pointer; color: var(--ink); font-size: 12px; font-weig
   .mobile-brand { display: flex; font-size: 13px; }
   .mobile-brand .brand-mark { width: 26px; height: 26px; }
   .breadcrumb { display: none; }
+  .preview-identity { max-width: 46vw; margin-left: auto; margin-right: 8px; font-size: 10px; }
   #app-view { width: min(100% - 28px, 1180px); padding: 24px 0 44px; }
   h1 { font-size: 30px; }
   .resource-toolbar, .detail-title-row, .page-header-row { display: grid; align-items: start; gap: 16px; }

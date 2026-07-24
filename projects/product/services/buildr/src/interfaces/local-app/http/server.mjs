@@ -15,6 +15,13 @@ import {
   writeLocalAppInstance,
   readLauncherIdentityFromEnvironment,
 } from '../runtime/instance-manager.mjs';
+import {
+  listPreviews,
+  readPreviewIdentityFromEnvironment,
+  startPreview,
+  stopPreview,
+} from '../runtime/preview-manager.mjs';
+import { PUBLIC_JSON_SCHEMAS, withJsonSchema } from '../../../application/json-contracts.mjs';
 import { pickWorkspaceDirectory } from '../runtime/directory-picker.mjs';
 
 const MAX_JSON_BODY_BYTES = 32 * 1024;
@@ -143,7 +150,7 @@ function ensureRegisteredTarget(runtime, targetRoot) {
   return entry?.workspace?.id || null;
 }
 
-export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 0, instanceSecret = null, launcherIdentity = null, onShutdown = null } = {}) {
+export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 0, instanceSecret = null, launcherIdentity = null, previewIdentity = null, onShutdown = null } = {}) {
   const initialWorkspaceId = ensureRegisteredTarget(runtime, targetRoot);
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const healthSecret = instanceSecret || crypto.randomBytes(32).toString('hex');
@@ -159,7 +166,9 @@ export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 
         return;
       }
       if (request.method === 'GET' && (pathname === '/' || WORKSPACE_APP_ROUTE.test(pathname))) {
-        textResponse(response, 200, staticFile('index.html').replace('__BUILDR_SESSION_TOKEN__', sessionToken), 'text/html; charset=utf-8');
+        textResponse(response, 200, staticFile('index.html')
+          .replace('__BUILDR_SESSION_TOKEN__', sessionToken)
+          .replace('__BUILDR_PREVIEW_IDENTITY__', previewIdentity ? encodeURIComponent(JSON.stringify(previewIdentity)) : ''), 'text/html; charset=utf-8');
         return;
       }
       const staticAsset = STATIC_ASSETS.get(pathname);
@@ -172,7 +181,7 @@ export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 
           jsonResponse(response, 403, { error: { code: 'instance_forbidden', message: 'Buildr instance secret 无效。' } });
           return;
         }
-        jsonResponse(response, 200, { schemaVersion: 'buildr.local-app-health/v1', status: closing ? 'stopping' : 'ready', pid: process.pid, launcherIdentity });
+        jsonResponse(response, 200, { schemaVersion: 'buildr.local-app-health/v1', status: closing ? 'stopping' : 'ready', pid: process.pid, launcherIdentity, previewIdentity });
         return;
       }
       if (request.method === 'GET' && pathname === '/api/v1/workspaces') {
@@ -208,6 +217,16 @@ export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 
       }
       if (request.method === 'POST' && pathname === '/api/v1/app/quit') {
         assertWriteRequest(request, origin, sessionToken);
+        closing = true;
+        jsonResponse(response, 202, { status: 'stopping' });
+        setImmediate(() => server.close(() => onShutdown?.()));
+        return;
+      }
+      if (request.method === 'POST' && pathname === '/api/v1/app/quit-instance') {
+        if (request.headers['x-buildr-instance'] !== healthSecret) {
+          jsonResponse(response, 403, { error: { code: 'instance_forbidden', message: 'Buildr instance secret 无效。' } });
+          return;
+        }
         closing = true;
         jsonResponse(response, 202, { status: 'stopping' });
         setImmediate(() => server.close(() => onShutdown?.()));
@@ -305,6 +324,7 @@ export function registerLocalWorkspaceAppInterface(runtime) {
     if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`Invalid app port: ${rawPort}`);
     const noOpen = args.includes('--no-open');
     const launcherIdentity = readLauncherIdentityFromEnvironment();
+    const previewIdentity = readPreviewIdentityFromEnvironment();
     let initialWorkspaceId = null;
     if (targetRoot) initialWorkspaceId = ensureRegisteredTarget(runtime, targetRoot);
     const recorded = readLocalAppInstance();
@@ -336,6 +356,7 @@ export function registerLocalWorkspaceAppInterface(runtime) {
         port,
         instanceSecret: secret,
         launcherIdentity,
+        previewIdentity,
         onShutdown: () => state && clearLocalAppInstance(state),
       });
       const ready = await instance.ready;
@@ -359,6 +380,35 @@ export function registerLocalWorkspaceAppInterface(runtime) {
     }
   }
 
-  Object.assign(runtime, { startLocalWorkspaceApp });
+  async function manageLocalAppPreview(action, args) {
+    if (action === 'start') {
+      const [name, ...options] = args;
+      if (!name) throw new Error('Usage: buildr app preview start <instance> [--target <workspace>] [--port <port>] [--no-open] [--json]');
+      const result = await startPreview(runtime, name, options);
+      if (options.includes('--json')) console.log(JSON.stringify(withJsonSchema(PUBLIC_JSON_SCHEMAS.localAppPreview, result), null, 2));
+      else console.log(`Buildr 开发预览已${result.status === 'reused' ? '复用' : '启动'}：${result.url}\n实例：${result.owner.instance}\nworktree：${result.owner.worktree}\n分支：${result.owner.branch}\nHEAD：${result.owner.head}${result.owner.dirty ? '（有未提交修改）' : ''}`);
+      return result;
+    }
+    if (action === 'list') {
+      runtime.assertNoUnknownOptions(args, new Set(['--json']), new Set(['--json']));
+      const result = await listPreviews();
+      if (args.includes('--json')) console.log(JSON.stringify(withJsonSchema(PUBLIC_JSON_SCHEMAS.localAppPreview, result), null, 2));
+      else if (!result.previews.length) console.log('没有运行中的 Buildr 开发预览。');
+      else result.previews.forEach((preview) => console.log(`${preview.instance}\t${preview.status}\t${preview.url || '-'}\t${preview.owner.worktree}`));
+      return result;
+    }
+    if (action === 'stop') {
+      const [name, ...options] = args;
+      if (!name) throw new Error('Usage: buildr app preview stop <instance> [--json]');
+      runtime.assertNoUnknownOptions(options, new Set(['--json']), new Set(['--json']));
+      const result = await stopPreview(name);
+      if (options.includes('--json')) console.log(JSON.stringify(withJsonSchema(PUBLIC_JSON_SCHEMAS.localAppPreview, result), null, 2));
+      else console.log(`Buildr 开发预览已停止：${result.instance}`);
+      return result;
+    }
+    throw new Error(`未知 preview 操作：${action}`);
+  }
+
+  Object.assign(runtime, { startLocalWorkspaceApp, manageLocalAppPreview });
   return runtime;
 }

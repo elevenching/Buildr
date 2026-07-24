@@ -75,7 +75,7 @@ test('Windows launcher bundle 携带 runtime、Web 资源与桌面/开始菜单�
   assert.match(script, /Start Menu/);
   assert.match(script, /IconLocation/);
   assert.match(script, /Buildr\.ico/);
-  const launcher = fs.readFileSync(path.join(root, 'Buildr.vbs'), 'utf8');
+  const launcher = fs.readFileSync(path.join(root, 'Buildr.vbs'), 'utf16le').replace(/^\uFEFF/, '');
   assert.match(launcher, /Launch-Buildr\.cmd/);
   assert.match(launcher, /shell\.Run\(command, 0, True\)/);
   assert.match(launcher, /MsgBox "Buildr 无法启动/);

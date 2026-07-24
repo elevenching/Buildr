@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import test from 'node:test';
 import YAML from 'yaml';
 
@@ -30,6 +30,16 @@ function initWorkspace(t, options = {}) {
   const root = path.join(temporaryRoot(t), 'workspace');
   const result = runBuildr(['init', '--target', root, '--name', options.name || 'Demo', '--description', options.description || 'Demo workspace', '--profile', 'team']);
   assert.equal(result.status, 0, result.stderr);
+  return root;
+}
+
+function initGitWorkspace(t, options = {}) {
+  const root = initWorkspace(t, options);
+  execFileSync('git', ['init', '--initial-branch=dev', root], { stdio: 'ignore' });
+  execFileSync('git', ['-C', root, 'config', 'user.email', 'buildr-test@example.com']);
+  execFileSync('git', ['-C', root, 'config', 'user.name', 'Buildr Test']);
+  execFileSync('git', ['-C', root, 'add', '.']);
+  execFileSync('git', ['-C', root, 'commit', '-m', 'fixture'], { stdio: 'ignore' });
   return root;
 }
 
@@ -416,10 +426,59 @@ test('buildr app 重复启动复用单实例并从陈旧 runtime state 恢复', 
   assert.equal(fs.existsSync(path.join(appData, 'instance.json')), false);
 });
 
+test('task preview 并行隔离 worktree、输出身份并只停止自身实例', { timeout: 20_000 }, async (t) => {
+  const base = temporaryRoot(t);
+  const appData = path.join(base, 'preview-data');
+  const env = { ...process.env, BUILDR_APP_DATA_DIR: appData };
+  const first = initGitWorkspace(t, { name: 'preview-first' });
+  const second = initGitWorkspace(t, { name: 'preview-second' });
+  const started = [];
+  t.after(() => {
+    for (const name of started) runBuildr(['app', 'preview', 'stop', name, '--json'], { env });
+  });
+
+  const firstStart = runBuildr(['app', 'preview', 'start', 'first-task', '--target', first, '--no-open', '--json'], { env });
+  assert.equal(firstStart.status, 0, firstStart.stderr);
+  started.push('first-task');
+  const firstPreview = JSON.parse(firstStart.stdout);
+  assert.equal(firstPreview.status, 'started');
+  assert.equal(firstPreview.owner.worktree, first);
+  assert.equal(firstPreview.owner.branch, 'dev');
+  assert.equal(firstPreview.owner.dirty, false);
+  const firstPage = await fetch(firstPreview.url).then((response) => response.text());
+  assert.match(firstPage, /first-task/);
+  assert.match(firstPage, /buildr-preview/);
+
+  const secondStart = runBuildr(['app', 'preview', 'start', 'second-task', '--target', second, '--no-open', '--json'], { env });
+  assert.equal(secondStart.status, 0, secondStart.stderr);
+  started.push('second-task');
+  const secondPreview = JSON.parse(secondStart.stdout);
+  assert.notEqual(secondPreview.url, firstPreview.url);
+  assert.equal(secondPreview.owner.worktree, second);
+
+  const collision = runBuildr(['app', 'preview', 'start', 'first-task', '--target', second, '--no-open', '--json'], { env });
+  assert.notEqual(collision.status, 0);
+  assert.match(collision.stderr, /正由 .* 使用/);
+
+  const listed = runBuildr(['app', 'preview', 'list', '--json'], { env });
+  assert.equal(listed.status, 0, listed.stderr);
+  assert.deepEqual(JSON.parse(listed.stdout).previews.map((item) => item.instance).sort(), ['first-task', 'second-task']);
+
+  const stopped = runBuildr(['app', 'preview', 'stop', 'first-task', '--json'], { env });
+  assert.equal(stopped.status, 0, stopped.stderr);
+  started.splice(started.indexOf('first-task'), 1);
+  assert.equal(JSON.parse(stopped.stdout).status, 'stopped');
+  const remaining = JSON.parse(runBuildr(['app', 'preview', 'list', '--json'], { env }).stdout).previews;
+  assert.deepEqual(remaining.map((item) => item.instance), ['second-task']);
+});
+
 test('public CLI 暴露 app 与 init description help', () => {
   const appHelp = runBuildr(['app', '--help']);
   assert.equal(appHelp.status, 0, appHelp.stderr);
   assert.match(appHelp.stdout, /只监听 127\.0\.0\.1/);
+  const previewHelp = runBuildr(['app', 'preview', 'start', '--help']);
+  assert.equal(previewHelp.status, 0, previewHelp.stderr);
+  assert.match(previewHelp.stdout, /task worktree/);
   const initHelp = runBuildr(['init', '--help']);
   assert.equal(initHelp.status, 0, initHelp.stderr);
   assert.match(initHelp.stdout, /--description <text>/);
