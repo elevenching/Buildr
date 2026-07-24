@@ -81,10 +81,10 @@ test('CLI 集成验证 provider 替换、绑定与 builtin 恢复', { concurrenc
   const internalWorktreeSource = writeSkill(root, 'internal-worktree');
   await run([
     'skills', 'add', '--source', internalWorktreeSource, '--scope', '.', '--target', root,
-    '--provides', 'buildr.task-worktree-lifecycle@1',
+    '--provides', 'buildr.task-worktree-lifecycle@2',
   ]);
   assert.equal(manifest(root).bindings.find((item) => item.capability === 'buildr.task-worktree-lifecycle').provider, 'task-worktree');
-  await run(['skills', 'bind', 'buildr.task-worktree-lifecycle@1', '--provider', 'internal-worktree', '--scope', '.', '--target', root]);
+  await run(['skills', 'bind', 'buildr.task-worktree-lifecycle@2', '--provider', 'internal-worktree', '--scope', '.', '--target', root]);
   await run(['builtin', 'uninstall', 'task-worktree', '--target', root, '--reason', 'internal replacement']);
   const internalVerificationSource = writeSkill(root, 'internal-verification');
   await run([

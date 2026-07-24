@@ -1,9 +1,5 @@
-# Worktree Local App Preview
+## MODIFIED Requirements
 
-## Purpose
-
-Define isolated Local App previews for concurrent task worktrees.
-## Requirements
 ### Requirement: task worktree 必须支持隔离的 Local App 预览实例
 Buildr MUST 提供 `buildr app preview start <instance>`，让 Agent 从指定 task environment 的 Buildr Product checkout 启动或复用独立的 loopback Local App 预览。实例名 MUST 通过稳定安全校验；预览 MUST 使用独立于默认 Local App 和其他 task environments 的状态目录、Workspace registry、实例记录和启动锁，且默认随机选择可用端口。
 

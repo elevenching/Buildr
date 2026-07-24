@@ -105,7 +105,7 @@ export function createServiceDiagnostics(deps) {
         repo: repo,
         path: toPosixRelative(targetRoot, repoPath),
         exists: repoPath ? existsDirectory(repoPath) : false,
-        isGitRepository: repoPath ? existsDirectory(path.join(repoPath, '.git')) : false,
+        isGitRepository: repoPath ? fs.existsSync(path.join(repoPath, '.git')) : false,
       };
       result.services.push(service);
 

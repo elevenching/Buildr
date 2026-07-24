@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "isolate-multi-repo-task-environments",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-f9685e3a4344b46edd51cdca4dc71a6a3e2bc4cf97a60ff4d6ac78d712fa849a",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "任务工作流必须显式可见",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 任务工作流必须显式可见\nBuildr task 和 OpenSpec Skills MUST 在改变 task state 前，以及已报告状态发生实质变化时，明确 workflow selection、task location 和当前 OpenSpec change status。\n\n#### Scenario: 使用 OpenSpec 前说明 change\n- **WHEN** Agent 决定 create、explore、apply、sync 或 archive OpenSpec change\n- **THEN** Agent MUST 在执行动作前说明正在使用 OpenSpec\n- **AND** Agent MUST 在已知时尽快明确 change id、resolved change path 和 intended action\n\n#### Scenario: 采用 OpenSpec 时说明当前 change 状态\n- **WHEN** task triage 选择或继续 OpenSpec change-flow\n- **THEN** Agent MUST 在面向用户的回复中包含当前 change status\n- **AND** status MUST 在已知时标识 change id、resolved change path、current action，以及 change 是 planned、active、blocked、apply-ready、complete 还是 archived\n- **AND** 在可用时，status MUST 汇总 artifact 或 task progress，并明确 next executable action 或 blocking reason\n- **AND** Agent MUST 在首次采用 OpenSpec、状态发生实质变化、工作暂停或完成，或用户询问进度时刷新该 status\n\n#### Scenario: 创建或复用 task worktree 前说明位置\n- **WHEN** Agent 决定 create 或 reuse task worktree\n- **THEN** Agent MUST 在 task edits 前说明正在创建还是复用 worktree\n- **AND** Agent MUST 明确当前 Buildr workspace root、task id、worktree path 和 task branch\n\n#### Scenario: Task worktree canonical location\n- **WHEN** Agent 在 Buildr workspace 中创建 task worktree\n- **THEN** 其 canonical path MUST 为 `<workspace-root>/.worktrees/<task-id>`\n- **AND** Agent MUST NOT 静默回退到 `/tmp` 或其他任意位置\n- **AND** 同一 task MUST reuse 其现有 worktree\n- **AND** multi-repository task MUST 使用 repo-qualified task ids 避免 path collisions\n\n#### Scenario: Task worktree lifecycle remains a Skill concern\n- **WHEN** Buildr 打包 task worktree guidance\n- **THEN** placement、disclosure、reuse、retention 和 cleanup procedures MUST 保留在 task Skills 中\n- **AND** required Core Rule MUST NOT 复制 worktree operation manual\n"
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "Task worktree 提供 change 单写入与验证证据边界",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Task worktree 提供 change 单写入与验证证据边界\nBuildr task triage 和 OpenSpec propose guidance MUST 在首次写入预计进入实现的 OpenSpec change artifacts 前完成执行位置判断，并在需要隔离开发时先创建或复用 canonical task worktree；采用 worktree 后必须保持唯一任务写入位置。worktree lifecycle 与 Git integration providers MUST 只返回各自动作产生的 candidate identity 和 transition evidence，由独立 task-verification capability 管理验证政策与 Candidate evidence。\n\n#### Scenario: Task triage 独立判断执行形态和任务位置\n- **WHEN** Agent 使用 task triage 判断修改、修复、实现或文档任务\n- **THEN** task triage MUST 在语义路径之外独立判断执行形态为 implementation、metadata-only 或待确认\n- **AND** it MUST 输出 worktree 创建、复用、不需要或待确认的任务位置结论及依据\n\n#### Scenario: 实现型 change 在 propose 前创建 worktree\n- **WHEN** task triage 选择 change-flow，且任务预计包含代码修改、构建、测试或长期实现上下文\n- **THEN** Agent MUST 在创建 OpenSpec change artifacts 前创建或复用 canonical task worktree\n- **AND** proposal、design、specs、tasks、实现和候选验证 MUST 只写入该 worktree\n\n#### Scenario: 直接 propose 仍执行 worktree 门禁\n- **WHEN** 用户意图直接命中 installed OpenSpec propose Skill\n- **THEN** Buildr OpenSpec contribution MUST 在 `openspec new change` 或其他 artifact 写入前判断任务是否预计进入代码修改、构建、测试或长期开发上下文\n- **AND** 需要隔离开发时 MUST 先创建或复用 canonical task worktree 并在该 checkout 中继续 propose\n- **AND** 无法判断执行形态时 MUST 先澄清而不是提前创建 artifacts\n\n#### Scenario: 纯元内容任务不创建 worktree\n- **WHEN** 任务明确只维护 OpenSpec artifacts、规则、Skills、文档或模板，且不进入代码实现、构建或测试\n- **THEN** Agent MAY 在当前 workspace 直接维护这些元内容\n- **AND** Agent MUST 在任务升级为实现前重新执行 worktree 决策\n\n#### Scenario: code-only 实现仍使用 worktree\n- **WHEN** task triage 选择 code-only 且任务预计进入代码修改、构建、测试或长期开发上下文\n- **THEN** Agent MUST 创建或复用 canonical task worktree\n- **AND** Agent MUST NOT 因为不创建 OpenSpec change 而跳过任务隔离判断\n\n#### Scenario: artifacts 任务升级为实现\n- **WHEN** 未使用 worktree 的 OpenSpec 任务后来需要代码实现、构建或测试\n- **THEN** Agent MUST 先创建或复用 task worktree并将 change artifacts收敛到该唯一位置\n- **AND** Agent MUST 清除原工作区的重复副本并确认主工作区没有该任务的开发改动后再继续\n\n#### Scenario: 最终候选 identity 交给验证 provider\n- **WHEN** worktree 中的全部内容修改已经结束并准备验证最终候选\n- **THEN** task-worktree provider MUST 提供当前 canonical checkout、repository、clean/dirty 状态和可确认的 tree identity输入\n- **AND** selected task-verification provider MUST 负责建立最终 candidate identity、执行项目要求的 Candidate验证并返回绑定该 identity 的 evidence\n\n#### Scenario: Git 集成改变候选内容\n- **WHEN** rebase、冲突解决、merge、reset 或其他 Git integration操作使集成后的内容 identity 不同于输入 candidate\n- **THEN** selected Git provider MUST 返回操作前后 identity和 `treeChanged` evidence\n- **AND** selected Git provider MUST NOT 执行 Candidate验证或决定既有 evidence是否可复用\n- **AND** selected task-verification provider or its consumer MUST 根据当前 candidate identity决定 evidence失效与重新验证\n\n#### Scenario: Worktree provider 只报告 lifecycle transition\n- **WHEN** task-worktree provider 创建、复用、切换、保留或清理 canonical checkout\n- **THEN** it MUST 返回 lifecycle状态、canonical path、任务分支和由本次 checkout操作产生的 transition evidence\n- **AND** it MUST NOT 监控普通编辑、判断 Git integration内容等价性或决定验证复用与重跑\n\n#### Scenario: 上游 OpenSpec Skill 保持原文\n- **WHEN** Buildr 为 OpenSpec propose 增加执行位置门禁\n- **THEN** Buildr MUST 通过 Component-owned Skill contribution 组合该 guidance\n- **AND** Buildr MUST NOT 修改外部 `openspec-propose` Skill 的上游正文\n"
+    },
+    {
+      "capability": "task-environments",
+      "title": "Buildr 必须将 task worktree 建模为可核验的任务环境",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-environments",
+      "title": "多仓 repository set 必须显式、稳定且可验证",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-environments",
+      "title": "Repository worktrees 必须保持 canonical Workspace 布局",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-environments",
+      "title": "Task environment 创建必须完整预检并可恢复",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-environments",
+      "title": "Task environment 必须提供统一 execution context identity",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-environments",
+      "title": "Task environment CLI JSON 必须表达多仓事实",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-environments",
+      "title": "Task environment 清理必须保护全部成员和其他任务",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-finish-local-app-handoff",
+      "title": "Task Finish 必须按 task environment repository set 收尾",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-finish-local-app-handoff",
+      "title": "Task Finish 必须隔离其他任务的 Local App preview",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Task Finish 必须隔离其他任务的 Local App preview\ntask-finish MUST 根据 preview owner worktree 区分当前任务、默认 Local App 与其他任务预览。当前任务拥有的健康 preview 必须在 worktree 删除前经认证停止并确认不再健康；其他 worktree 拥有的 preview MUST 保持运行，且不得被迁移、停止或清理。\n\n#### Scenario: 收尾当前任务拥有的 preview\n- **WHEN** 即将清理的 task worktree 拥有健康 preview\n- **THEN** task-finish MUST 使用该 preview 的受认证停止流程关闭它\n- **AND** MUST 在删除 worktree 前确认该 preview 不再健康且其状态记录已被安全清理\n\n#### Scenario: 收尾时存在其他任务 preview\n- **WHEN** preview list 中存在 owner worktree 不等于当前任务 worktree 的健康 preview\n- **THEN** task-finish MUST 保持该 preview 运行\n- **AND** MUST NOT 将它迁移到主 checkout、重新分配端口或删除其状态目录\n- **AND** 最终报告 MUST 将其标记为未触碰的并发实例\n\n#### Scenario: 当前任务 preview 无法停止\n- **WHEN** 当前任务拥有的健康 preview 无法通过认证停止或停止后仍保持健康\n- **THEN** task-finish MUST 停止删除该 task worktree 与本地任务分支\n- **AND** MUST 保留 preview identity、失败原因和恢复动作\n"
+    },
+    {
+      "capability": "task-verification",
+      "title": "Task environment 验证证据必须绑定实际执行上下文",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "多仓验证必须按 Project policy 和 repository ownership 组合",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "验证必须精确披露非 Git 隔离状态",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "任务验证能力独立于任务环境生命周期",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 任务验证能力独立于任务环境生命周期\nBuildr MUST 提供 `buildr.task-verification/v1` capability contract 和默认 workspace provider，负责验证政策解析、分层执行、候选身份绑定、耗时测量与结果报告，并 MUST NOT 把 Git worktree 作为使用该能力的前置条件。\n\n#### Scenario: 在 task worktree 中验证候选\n- **WHEN** Agent 在 canonical task worktree 中完成实现并请求最终候选验证\n- **THEN** selected task-verification provider MUST 对准备交付的候选身份执行当前 workspace 或 Project 定义的 Candidate 验证\n- **AND** provider MUST 返回可与该候选比较的验证证据\n\n#### Scenario: 在没有 worktree 的项目中验证\n- **WHEN** 当前任务没有 Git worktree，但 workspace 或 Project 定义了适用验证入口和候选边界\n- **THEN** selected task-verification provider MUST 能独立执行并报告验证\n- **AND** provider MUST NOT 要求安装或调用 `buildr.task-worktree-lifecycle/v1`\n"
+    },
+    {
+      "capability": "worktree-local-app-preview",
+      "title": "task worktree 必须支持隔离的 Local App 预览实例",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: task worktree 必须支持隔离的 Local App 预览实例\nBuildr MUST 提供 `buildr app preview start <instance>`，让 Agent 从指定 task worktree 启动或复用独立的 loopback Local App 预览。实例名 MUST 通过稳定安全校验；预览 MUST 使用独立于默认 Local App 的状态目录、Workspace registry、实例记录和启动锁，且默认随机选择可用端口。\n\n#### Scenario: 启动两个不同任务预览\n- **WHEN** 两个不同 worktree 分别使用不同实例名启动预览\n- **THEN** Buildr MUST 让两个健康实例同时监听各自的 loopback URL\n- **AND** 两个预览 MUST NOT 复用实例记录、启动锁或 Workspace registry\n- **AND** 默认 `buildr app` 实例 MUST 保持不受影响\n\n#### Scenario: 同一 worktree 复用健康预览\n- **WHEN** 当前 worktree 使用相同实例名再次启动健康预览\n- **THEN** Buildr MUST 复用原实例并返回同一 URL 与 owner identity\n- **AND** MUST NOT 额外启动第二个服务进程\n\n#### Scenario: 不同 worktree 请求已被占用的实例名\n- **WHEN** 一个健康 preview 的 owner worktree 与启动请求的 worktree 不一致\n- **THEN** Buildr MUST 拒绝复用或停止该 preview\n- **AND** MUST 返回实例名、已登记 owner 与更换实例名或由 owner 停止的可执行动作\n"
+    },
+    {
+      "capability": "worktree-local-app-preview",
+      "title": "预览必须提供可核验的运行身份",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 预览必须提供可核验的运行身份\n每个 preview MUST 持久化并返回实例名、规范化 worktree 路径、Git repository、branch、HEAD、dirty 状态与 URL。CLI 启动/查看输出、受认证 health 响应和页面开发预览身份条 MUST 表达同一身份；默认 Local App MUST 不显示 preview 身份条。\n\n#### Scenario: Agent 启动预览后交接验收链接\n- **WHEN** `buildr app preview start <instance>` 成功启动或复用实例\n- **THEN** 输出 MUST 包含 URL、实例名、worktree、branch、HEAD 与 dirty 状态\n- **AND** Agent MUST 能仅凭该输出向用户提供可区分的验收链接\n\n#### Scenario: 用户查看并行预览页面\n- **WHEN** 用户打开任一 preview 的页面\n- **THEN** 页面 MUST 展示只读的开发预览实例名和 checkout identity\n- **AND** 页面 MUST NOT 将该身份写入 Workspace 源资产或允许页面修改它\n"
+    },
+    {
+      "capability": "worktree-local-app-preview",
+      "title": "预览实例必须可枚举并安全停止",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 预览实例必须可枚举并安全停止\nBuildr MUST 提供 `buildr app preview list` 与 `buildr app preview stop <instance>`。list MUST 只枚举 Buildr preview 命名空间中的实例及其健康状态；stop MUST 仅能认证停止目标 preview，且不得停止默认实例或其他实例。\n\n#### Scenario: 查看多个 preview 状态\n- **WHEN** Agent 运行 `buildr app preview list`\n- **THEN** Buildr MUST 分别返回每个 preview 的实例名、owner identity、URL、PID 与健康或陈旧状态\n- **AND** MUST NOT 枚举或管理非 Buildr 进程\n\n#### Scenario: 停止当前任务 preview\n- **WHEN** Agent 停止一个健康 preview 并且状态记录的 secret 可认证该实例\n- **THEN** Buildr MUST 请求该 preview 的显式退出并确认其不再健康\n- **AND** MUST 只清理该 preview 命名空间内的实例记录\n\n#### Scenario: 停止陈旧 preview 记录\n- **WHEN** Agent 停止一个无法通过健康检查的 preview\n- **THEN** Buildr MUST 只清理该 preview 命名空间内的陈旧记录\n- **AND** MUST NOT 影响其他 preview、默认 Local App 或 Workspace 源资产\n"
+    },
+    {
+      "capability": "worktree-local-app-preview",
+      "title": "task preview 不得改变 development launcher",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: task preview 不得改变 development launcher\n`buildr app preview` MUST 直接使用请求 worktree 的 checkout 启动预览，且 MUST NOT 安装、更新、替换、停止或重新指向 `Buildr Dev.app`、全局开发 CLI 或默认 Local App。\n\n#### Scenario: worktree 启动 preview\n- **WHEN** Agent 从 task worktree 启动 preview\n- **THEN** 运行 identity MUST 指向该 task worktree 的 checkout\n- **AND** `/Applications/Buildr Dev.app` 的安装 identity MUST 保持不变\n"
+    }
+  ]
+}

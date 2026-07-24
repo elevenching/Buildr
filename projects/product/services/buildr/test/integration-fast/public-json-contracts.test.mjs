@@ -80,6 +80,7 @@ test('schema registry 覆盖全部当前公开 JSON family', () => {
     'openspecBaseline',
     'openspecCheck',
     'runtimeList',
+    'taskEnvironmentContext',
     'update',
     'updateCheck',
     'version',

@@ -21,6 +21,8 @@ export const COMMAND_REGISTRY = [
   { key: 'project create', match: ({ domain, action }) => domain === 'project' && action === 'create', run: (r, c) => r.createProject(c.argv.slice(4)) },
   { key: 'service create', match: ({ domain, action }) => domain === 'service' && action === 'create', run: (r, c) => r.createService(c.argv.slice(4)) },
   { key: 'worktree create', match: ({ domain, action }) => domain === 'worktree' && action === 'create', run: (r, c) => r.createTaskWorktree(c.argv.slice(4)) },
+  { key: 'worktree inspect', match: ({ domain, action }) => domain === 'worktree' && action === 'inspect', run: (r, c) => r.inspectTaskEnvironment(c.argv.slice(4)) },
+  { key: 'worktree context', match: ({ domain, action }) => domain === 'worktree' && action === 'context', run: (r, c) => r.taskEnvironmentContext(c.argv.slice(4)) },
   { key: 'doctor', match: ({ domain }) => domain === 'doctor', run: (r, c) => r.doctor(c.argv.slice(3)) },
   { key: 'mutation recover', match: ({ domain, action }) => domain === 'mutation' && action === 'recover', run: (r, c) => r.mutationRecover(c.argv.slice(4)) },
   { key: 'runtime list', match: ({ domain, action }) => domain === 'runtime' && action === 'list', run: (r, c) => r.runtimeList(c.argv.slice(4)) },

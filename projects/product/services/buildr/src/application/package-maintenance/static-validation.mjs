@@ -291,7 +291,7 @@ export function createPackageStaticValidator(deps) {
           for (const requiredText of [
             '执行 `openspec new change` 或写入任何 change artifacts 前',
             '代码修改、构建、测试或需要长期开发上下文',
-            '先使用 `task-worktree` 创建或复用 canonical task worktree',
+            '先使用 `task-worktree` 声明完整 repository set',
             '无法判断是否会进入实现时，先澄清执行范围',
             '不修改外部 `openspec-propose` Skill 的上游正文',
           ]) {
@@ -648,10 +648,10 @@ export function createPackageStaticValidator(deps) {
       if (skill.id === 'task-worktree') {
         for (const requiredText of [
           '<workspace-root>/.worktrees/<task-id>',
-          'canonical worktree 路径和任务分支',
+          'canonical environment root、repository selectors/checkout paths 和任务分支',
           '不得静默回退到 `/tmp`',
           'propose 和创建 change artifacts 前',
-          'artifacts、实现和合并前候选验证都只能写入该 worktree',
+          'artifacts、实现、CLI、构建、测试和合并前候选验证都只能从 receipt 的 `allowedExecutionRoots` 执行',
           '候选边界交接',
           '不执行验证',
           'selected task-verification provider',
@@ -660,9 +660,9 @@ export function createPackageStaticValidator(deps) {
           '不把 task checkout lifecycle contract 扩张为内容监控、Git integration 或验证执行 contract',
           '不从未合并 task checkout 更新主自举 workspace',
           '`buildr worktree create <task-id>',
-          '产品入口确定性创建 canonical checkout 并运行 doctor',
-          '全部 actionable findings 仅为当前 Agent runtime stale',
-          '其他问题 fail closed、保留现场并返回 nextActions',
+          '产品入口先完整预检再创建 root 与 nested checkout',
+          'actionable findings 仅为当前 Agent runtime stale',
+          '部分失败保留现场和 receipt',
           'required Core workspace-transition invariant',
           '复用既有 worktree且没有发生 tree 转换时不重复检查',
           '通过产品入口 Buildr Skill 完成 doctor、sync 询问、Agent 执行和手动兜底边界',

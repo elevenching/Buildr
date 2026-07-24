@@ -14,8 +14,8 @@ contracts:
     path: contracts/buildr/git-workspace-update/v1.md
     description: 在 workspace sync 前安全更新 Git checkout。
   - id: buildr.task-worktree-lifecycle
-    version: 1
-    path: contracts/buildr/task-worktree-lifecycle/v1.md
+    version: 2
+    path: contracts/buildr/task-worktree-lifecycle/v2.md
     description: 管理任务 worktree 的放置、保留和安全清理。
   - id: buildr.task-verification
     version: 2
@@ -40,7 +40,7 @@ bindings:
     version: 1
     provider: git-ops
   - capability: buildr.task-worktree-lifecycle
-    version: 1
+    version: 2
     provider: task-worktree
   - capability: buildr.task-verification
     version: 2
@@ -112,7 +112,7 @@ skills:
     runtimePath: task-worktree
     provides:
       - capability: buildr.task-worktree-lifecycle
-        version: 1
+        version: 2
   - id: task-verification
     assetIdentity: buildr:skill:task-verification
     sourceIdentity: package:workspace:buildr/task-verification
@@ -146,7 +146,7 @@ skills:
         version: 2
         mode: required
       - capability: buildr.task-worktree-lifecycle
-        version: 1
+        version: 2
         mode: required
       - capability: buildr.git-task-integration
         version: 1

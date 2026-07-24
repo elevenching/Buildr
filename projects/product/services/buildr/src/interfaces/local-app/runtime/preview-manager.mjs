@@ -40,7 +40,20 @@ function readGit(root, args) {
   return execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 }
 
-export function previewOwnerForWorktree(name, targetRoot) {
+function taskEnvironmentOwner(worktree) {
+  try {
+    const common = readGit(worktree, ['rev-parse', '--git-common-dir']);
+    const directory = path.join(path.resolve(worktree, common), 'buildr', 'task-environments');
+    if (!fs.existsSync(directory)) return null;
+    for (const entry of fs.readdirSync(directory).filter((value) => value.endsWith('.json'))) {
+      const receipt = readJson(path.join(directory, entry));
+      if (receipt?.schemaVersion === 'buildr.task-environment-receipt/v1' && path.resolve(receipt.environmentRoot) === worktree) return receipt;
+    }
+  } catch { /* legacy worktree */ }
+  return null;
+}
+
+export function previewOwnerForWorktree(name, targetRoot, productCheckout = null) {
   const worktree = path.resolve(targetRoot);
   let repository;
   let branch;
@@ -56,7 +69,19 @@ export function previewOwnerForWorktree(name, targetRoot) {
     error.code = 'preview_worktree_git_required';
     throw error;
   }
-  return { schemaVersion: PREVIEW_SCHEMA, instance: assertPreviewName(name), worktree, repository, branch, head, dirty };
+  const environment = taskEnvironmentOwner(worktree);
+  return {
+    schemaVersion: PREVIEW_SCHEMA, instance: assertPreviewName(name), worktree, repository, branch, head, dirty,
+    taskId: environment?.taskId || null,
+    environmentRoot: environment?.environmentRoot || worktree,
+    productCheckout: productCheckout ? path.resolve(productCheckout) : null,
+    repositorySet: environment?.repositories?.map((item) => ({ selector: item.selector, checkoutPath: item.checkoutPath, branch: item.branch, head: item.head })) || [{ selector: 'workspace', checkoutPath: worktree, branch, head }],
+    identityMode: environment ? 'task-environment' : 'legacy-worktree',
+  };
+}
+
+function samePreviewOwner(left, right) {
+  return Boolean(left && right && path.resolve(left.environmentRoot || left.worktree) === path.resolve(right.environmentRoot || right.worktree));
 }
 
 export function readPreviewOwner(name, dataRoot) {
@@ -122,11 +147,11 @@ export async function startPreview(runtime, name, args, { cliPath = process.argv
   const rawPort = runtime.optionValue(args, '--port', '0');
   const port = Number(rawPort);
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`Invalid app port: ${rawPort}`);
-  const owner = previewOwnerForWorktree(instance, targetRoot);
+  const owner = previewOwnerForWorktree(instance, targetRoot, path.resolve(path.dirname(cliPath), '..'));
   const existingOwner = readPreviewOwner(instance, dataRoot);
   const existingInstance = readPreviewInstance(instance, dataRoot);
   const healthy = await healthyLocalAppInstance(existingInstance);
-  if (healthy && existingOwner?.worktree !== owner.worktree) {
+  if (healthy && !samePreviewOwner(existingOwner, owner)) {
     const error = new Error(`预览实例 ${instance} 正由 ${existingOwner.worktree} 使用；请改用其他实例名，或由该任务先停止它。`);
     error.code = 'preview_owner_conflict';
     error.details = { instance, owner: existingOwner };
@@ -137,7 +162,7 @@ export async function startPreview(runtime, name, args, { cliPath = process.argv
     if (!args.includes('--no-open')) openDefaultBrowser(healthy.url);
     return result;
   }
-  if (existingOwner && existingOwner.worktree !== owner.worktree && existingInstance) {
+  if (existingOwner && !samePreviewOwner(existingOwner, owner) && existingInstance) {
     const error = new Error(`预览实例 ${instance} 留有其他 worktree 的陈旧记录；请由原任务执行 preview stop 后再复用。`);
     error.code = 'preview_owner_stale_conflict';
     error.details = { instance, owner: existingOwner };

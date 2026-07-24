@@ -4,7 +4,7 @@
 
 在执行 `openspec new change` 或写入任何 change artifacts 前，先判断任务执行形态：
 
-- 预计进入代码修改、构建、测试或需要长期开发上下文时，必须先使用 `task-worktree` 创建或复用 canonical task worktree，确认 ready 并进入该 checkout 后再继续 propose。
+- 预计进入代码修改、构建、测试或需要长期开发上下文时，必须先使用 `task-worktree` 声明完整 repository set，创建或复用 canonical task environment，并用 `worktree context` 确认实际 cwd 属于 allowed execution roots 后再继续 propose。
 - 明确只创建或维护 OpenSpec artifacts、规则、Skills、文档或模板，且不会进入代码、构建或测试时，可以在当前 workspace propose；任务后来升级为实现时必须重新执行 worktree 决策并收敛到唯一副本。
 - 无法判断是否会进入实现时，先澄清执行范围，不得先创建 artifacts 再决定位置。
 

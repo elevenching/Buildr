@@ -119,7 +119,7 @@ test('随包 manifest 原子登记 contract、provider、binding 与 consumer', 
   const gitContract = packageManifest.capabilityContracts.find((item) => item.id === 'buildr.git-task-integration');
   const worktreeContract = packageManifest.capabilityContracts.find((item) => item.id === 'buildr.task-worktree-lifecycle');
   assert.equal(gitContract.version, 1);
-  assert.equal(worktreeContract.version, 1);
+  assert.equal(worktreeContract.version, 2);
   assert.equal(packageManifest.initialSkillBindings.find((item) => item.capability === 'buildr.git-task-integration').provider, 'git-ops');
   assert.equal(packageManifest.initialSkillBindings.find((item) => item.capability === 'buildr.task-worktree-lifecycle').provider, 'task-worktree');
   assert.deepEqual(packageManifest.builtins.skills.find((item) => item.id === 'git-ops').provides.map((item) => item.capability), [
@@ -212,5 +212,5 @@ test('Candidate task checkbox 复用必须由 Buildr sidebar 和 provider consum
 
 test('产品入口分别路由验证与 worktree lifecycle 意图', () => {
   assert.match(buildrSkill, /初始化\/更新测试声明、推进测试能力成熟度，或实现任务到达验证\/完成节点 \| `buildr\.task-verification\/v2` selected provider；用户无需主动点名该能力/);
-  assert.match(buildrSkill, /清理 task worktree \| `buildr\.task-worktree-lifecycle\/v1` selected provider/);
+  assert.match(buildrSkill, /清理单仓\/多仓 task environment \| `buildr\.task-worktree-lifecycle\/v2` selected provider/);
 });

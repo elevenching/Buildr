@@ -443,6 +443,13 @@ test('task preview 并行隔离 worktree、输出身份并只停止自身实例'
   const env = { ...process.env, BUILDR_APP_DATA_DIR: appData };
   const first = initGitWorkspace(t, { name: 'preview-first' });
   const second = initGitWorkspace(t, { name: 'preview-second' });
+  const receiptDirectory = path.join(first, '.git', 'buildr', 'task-environments');
+  fs.mkdirSync(receiptDirectory, { recursive: true });
+  fs.writeFileSync(path.join(receiptDirectory, 'preview-first.json'), `${JSON.stringify({
+    schemaVersion: 'buildr.task-environment-receipt/v1', taskId: 'preview-first', agent: 'codex',
+    workspaceRoot: first, environmentRoot: first, state: 'ready',
+    repositories: [{ selector: 'workspace', checkoutPath: first, branch: 'dev', head: execFileSync('git', ['-C', first, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() }],
+  }, null, 2)}\n`);
   const started = [];
   t.after(() => {
     for (const name of started) runBuildr(['app', 'preview', 'stop', name, '--json'], { env });
@@ -456,6 +463,11 @@ test('task preview 并行隔离 worktree、输出身份并只停止自身实例'
   assert.equal(firstPreview.owner.worktree, first);
   assert.equal(firstPreview.owner.branch, 'dev');
   assert.equal(firstPreview.owner.dirty, false);
+  assert.equal(firstPreview.owner.taskId, 'preview-first');
+  assert.equal(firstPreview.owner.environmentRoot, first);
+  assert.equal(firstPreview.owner.identityMode, 'task-environment');
+  assert.equal(firstPreview.owner.repositorySet[0].selector, 'workspace');
+  assert.equal(firstPreview.owner.productCheckout, PRODUCT_ROOT);
   const firstPage = await fetch(firstPreview.url).then((response) => response.text());
   assert.match(firstPage, /first-task/);
   assert.match(firstPage, /buildr-preview/);
@@ -466,6 +478,7 @@ test('task preview 并行隔离 worktree、输出身份并只停止自身实例'
   const secondPreview = JSON.parse(secondStart.stdout);
   assert.notEqual(secondPreview.url, firstPreview.url);
   assert.equal(secondPreview.owner.worktree, second);
+  assert.equal(secondPreview.owner.identityMode, 'legacy-worktree');
 
   const collision = runBuildr(['app', 'preview', 'start', 'first-task', '--target', second, '--no-open', '--json'], { env });
   assert.notEqual(collision.status, 0);

@@ -37,10 +37,10 @@ capabilityContracts:
     path: package/targets/workspace/skills/contracts/buildr/git-workspace-update/v1.md
     target: skills/contracts/buildr/git-workspace-update/v1.md
   - id: buildr.task-worktree-lifecycle
-    version: 1
-    description: 管理任务 worktree 的放置、保留和安全清理。
-    path: package/targets/workspace/skills/contracts/buildr/task-worktree-lifecycle/v1.md
-    target: skills/contracts/buildr/task-worktree-lifecycle/v1.md
+    version: 2
+    description: 管理单仓或多仓 task environment 的放置、执行边界、保留和安全清理。
+    path: package/targets/workspace/skills/contracts/buildr/task-worktree-lifecycle/v2.md
+    target: skills/contracts/buildr/task-worktree-lifecycle/v2.md
   - id: buildr.task-verification
     version: 2
     description: 编排项目声明或既有政策定义的分层验证，并返回能力选择、候选身份、结果与真实耗时证据。
@@ -68,7 +68,7 @@ initialSkillBindings:
     version: 1
     provider: git-ops
   - capability: buildr.task-worktree-lifecycle
-    version: 1
+    version: 2
     provider: task-worktree
   - capability: buildr.task-verification
     version: 2
@@ -128,7 +128,7 @@ builtins:
       required: false
       provides:
         - capability: buildr.task-worktree-lifecycle
-          version: 1
+          version: 2
       legacyIntegrities:
         - sha256-23e68c3174887ebbf6990526f93e7f1c047199e1bef1f2e8e293b0cba2a3cfad
         - sha256-7c792606db5d07e9364feb4be20755e184fb83291e4ae83a9cbb4884cf731b6d
@@ -155,7 +155,7 @@ builtins:
           version: 2
           mode: required
         - capability: buildr.task-worktree-lifecycle
-          version: 1
+          version: 2
           mode: required
         - capability: buildr.git-task-integration
           version: 1
@@ -251,7 +251,7 @@ workspaceFiles:
   - package/targets/workspace/skills/contracts/buildr/git-single-operation/v1.md => skills/contracts/buildr/git-single-operation/v1.md copy
   - package/targets/workspace/skills/contracts/buildr/git-task-integration/v1.md => skills/contracts/buildr/git-task-integration/v1.md copy
   - package/targets/workspace/skills/contracts/buildr/git-workspace-update/v1.md => skills/contracts/buildr/git-workspace-update/v1.md copy
-  - package/targets/workspace/skills/contracts/buildr/task-worktree-lifecycle/v1.md => skills/contracts/buildr/task-worktree-lifecycle/v1.md copy
+  - package/targets/workspace/skills/contracts/buildr/task-worktree-lifecycle/v2.md => skills/contracts/buildr/task-worktree-lifecycle/v2.md copy
   - package/targets/workspace/skills/contracts/buildr/task-verification/v2.md => skills/contracts/buildr/task-verification/v2.md copy
   - package/targets/workspace/skills/contracts/buildr/task-finish/v1.md => skills/contracts/buildr/task-finish/v1.md copy
   - package/targets/workspace/skills/contracts/buildr/task-asset-review/v1.md => skills/contracts/buildr/task-asset-review/v1.md copy

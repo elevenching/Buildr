@@ -13,7 +13,8 @@ export const PUBLIC_JSON_SCHEMAS = Object.freeze({
   update: 'buildr.update/v1',
   updateCheck: 'buildr.update-check/v1',
   version: 'buildr.version/v1',
-  worktreeCreate: 'buildr.worktree-create/v1',
+  taskEnvironmentContext: 'buildr.task-environment-context/v1',
+  worktreeCreate: 'buildr.worktree-create/v2',
 });
 
 export function withJsonSchema(schemaVersion, payload) {
