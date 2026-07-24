@@ -42,7 +42,8 @@ test('macOS launcher bundle 携带 Node runtime、Buildr Web 资源和可双击 
   assert.ok(fs.existsSync(path.join(buildr, 'node_modules', 'yaml', 'package.json')));
   const version = spawnSync(node, [path.join(buildr, 'bin', 'buildr.mjs'), '--version'], { encoding: 'utf8' });
   assert.equal(version.status, 0, version.stderr);
-  assert.match(version.stdout, /^0\.1\.0-rc\.6/);
+  const packageVersion = JSON.parse(fs.readFileSync(path.join(PRODUCT_ROOT, 'package.json'), 'utf8')).version;
+  assert.equal(version.stdout.trim(), packageVersion);
 });
 
 test('macOS launcher 不等待本地服务进程，避免 Finder 将图标判为无响应', (t) => {
