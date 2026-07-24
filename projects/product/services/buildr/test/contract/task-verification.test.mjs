@@ -131,6 +131,15 @@ test('task-finish 消费 requiredAssurance evidence 并报告耗时', () => {
   assert.match(finishSkill, /Buildr Product.*buildr\.verification-timing\/v1/s);
 });
 
+test('task-finish 将健康 Local App 同端口交接作为 cleanup 门槛', () => {
+  for (const required of [
+    'instance.json', '/api/v1/health', 'buildr app --port <recorded-port> --no-open',
+    '静态资源或运行身份不再指向 task worktree', '随机端口或其他端口替代',
+    'Local App 迁移前后端口与健康结果',
+  ]) assert.ok(finishSkill.includes(required), `task-finish must include Local App handoff requirement ${required}`);
+  assert.ok(finishSkill.indexOf('instance.json') < finishSkill.indexOf('才允许删除 worktree'), 'Local App handoff must precede worktree cleanup');
+});
+
 test('已有 Candidate 进入收尾时按 transition class 去重 executor 调用', () => {
   assert.equal(closeoutFixtures.schemaVersion, 'buildr.task-verification-closeout-fixtures/v2');
   assert.deepEqual(closeoutFixtures.cases.map((item) => item.id), [

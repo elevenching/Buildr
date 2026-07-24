@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "preserve-local-app-port-during-finish",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-34a125c14db1ac8759669985e7a7f26aae8e220917eed4134f2f81a6f5b2d50c",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "task-finish-local-app-handoff",
+      "title": "Task Finish 必须保留运行中 Local App 的端口",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-finish-local-app-handoff",
+      "title": "同端口迁移失败必须阻止 cleanup",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}
