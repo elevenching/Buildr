@@ -38,7 +38,7 @@ skills:
     runtimePath: task-worktree
     provides:
       - capability: buildr.task-worktree-lifecycle
-        version: 1
+        version: 2
   - id: git-ops
     assetIdentity: buildr:skill:git-ops
     sourceIdentity: package:skills/buildr/git-ops
@@ -90,7 +90,7 @@ skills:
         version: 2
         mode: required
       - capability: buildr.task-worktree-lifecycle
-        version: 1
+        version: 2
         mode: required
       - capability: buildr.git-task-integration
         version: 1
@@ -318,6 +318,10 @@ contracts:
     version: 2
     path: contracts/buildr/task-verification/v2.md
     description: 编排项目声明或既有政策定义的分层验证，并返回能力选择、候选身份、结果与真实耗时证据。
+  - id: buildr.task-worktree-lifecycle
+    version: 2
+    path: contracts/buildr/task-worktree-lifecycle/v2.md
+    description: 管理单仓或多仓 task environment 的放置、执行边界、保留和安全清理。
 bindings:
   - capability: buildr.git-single-operation
     version: 1
@@ -340,4 +344,7 @@ bindings:
   - capability: buildr.task-verification
     version: 2
     provider: task-verification
+  - capability: buildr.task-worktree-lifecycle
+    version: 2
+    provider: task-worktree
 workspaceId: f2f40b71-2382-5906-82bd-76a7927b59f3

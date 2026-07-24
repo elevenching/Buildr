@@ -15,6 +15,7 @@ description: 用户要求修 bug、实现或调整功能、改需求、重构、
 - 后续处理方式是 `code-only`、`spec-maintenance`、`change-flow`，还是暂停确认。
 - 执行形态是 `implementation`、`metadata-only`，还是待确认。
 - 当前任务需要创建、复用或不使用 task worktree，还是暂停确认。
+- 实现会触达哪些独立 Git Workspace/Project/Service 仓库；不能仅凭目录层级假设它们属于入口仓库。
 - 当前任务是否需要创建或继续维护任务看板。
 
 ## 判断步骤
@@ -37,7 +38,7 @@ description: 用户要求修 bug、实现或调整功能、改需求、重构、
    - 明确只维护 OpenSpec artifacts、规则、Skills、文档或模板，且不进入代码、构建或测试时选择 `metadata-only`。
    - 当前信息不足以判断是否会进入实现时选择“待确认”，不得先写入 change artifacts 再决定位置。
 6. 判断任务位置：
-   - `implementation` 使用 `task-worktree` Skill 创建或复用 canonical task worktree。
+   - `implementation` 使用 `task-worktree` Skill 创建或复用 canonical task environment，并在写入前声明完整 repository selectors。
    - `metadata-only` 默认在当前 workspace 维护；后来升级为实现时重新判断并收敛到唯一 worktree。
    - 选择 `change-flow + implementation` 时，必须等 task worktree ready 后才进入 OpenSpec propose。
 7. 判断任务看板：
