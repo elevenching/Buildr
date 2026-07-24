@@ -33,11 +33,11 @@
       "type": "skill",
       "id": "git-ops",
       "target": "skills/buildr/git-ops",
-      "integrity": "sha256-7c51acf8f0c0d847994ce8788d41f3ed7973d6882fe9760ac694582ff3fe0618",
+      "integrity": "sha256-1b580bd31ddd9f157f5383432b397fdbd3ec9d00383abd65009e95a6ae9f2688",
       "files": [
         {
           "path": "SKILL.md",
-          "integrity": "sha256-e2dce09ae68af1ba174d6f017e4d1fa3619b379da17cb880f91301e0769fdbe5"
+          "integrity": "sha256-50b5fb04eb75acb1218fc5c34caf4e0e7b66500f0df28e6f296f8b9f89e559b8"
         }
       ]
     },
@@ -81,11 +81,11 @@
       "type": "skill",
       "id": "task-finish",
       "target": "skills/buildr/task-finish",
-      "integrity": "sha256-ded19cd9b4ae861dbe987099d68ccd5e3f082bdbf92aa9d1a2b817975ec9b270",
+      "integrity": "sha256-3010b55fe71f83f11060cb2fba3d5f2bd21318d3af24b10658611eaefb0b5cbb",
       "files": [
         {
           "path": "SKILL.md",
-          "integrity": "sha256-9630acefd540ca2a8d7832830a6d382b072f74f42dfe063cf0f3acbfc4fda370"
+          "integrity": "sha256-f2156a6a590f6e4d509899ea3906a52d3d19d2bbc8503da18b703f3c5d605c50"
         }
       ]
     },
