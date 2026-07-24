@@ -27,7 +27,7 @@ export function setupAgentActions({ api }) {
     content.innerHTML = `
       <p class="drawer-copy">Buildr 帮你确认工作范围并生成受约束指令；真正的创建、迁移和专业执行仍由 Agent 完成。</p>
       <div class="action-choice-grid">
-        <button class="action-choice" type="button" data-action="start"><span class="action-symbol">→</span><span><strong>用 Agent 开始</strong><small>选择 Project、可选 Service，并描述第一项工作</small></span><span>→</span></button>
+        <button class="action-choice" type="button" data-action="start"><span class="action-symbol">→</span><span><strong>用 Agent 开始</strong><small>选择项目、可选服务，并描述第一项工作</small></span><span>→</span></button>
         <button class="action-choice" type="button" data-action="workspace"><span class="action-symbol">⌂</span><span><strong>创建工作空间</strong><small>建立一个共同工作的顶层目录</small></span><span>→</span></button>
         <button class="action-choice" type="button" data-action="project"><span class="action-symbol">◇</span><span><strong>创建项目</strong><small>登记业务、产品、系统或长期工作</small></span><span>→</span></button>
         <button class="action-choice" type="button" data-action="service"><span class="action-symbol">◫</span><span><strong>接入服务</strong><small>按需接入代码仓、应用、模块或可执行资产</small></span><span>→</span></button>
@@ -83,12 +83,12 @@ export function setupAgentActions({ api }) {
   }
 
   function renderProjectForm() {
-    content.innerHTML = `${formHeader('项目')}<form id="agent-action-form" class="prompt-grid"><label>名称<input id="action-name" autocomplete="off" required></label><label class="full">用途或长期目标<textarea id="action-description" rows="4" required placeholder="例如：管理支付产品的需求、设计和服务关系"></textarea></label><details class="full"><summary>补充已有目录或 Git 声明（可选）</summary><div class="prompt-grid advanced-fields"><label>Code（可选）<input id="action-code" autocomplete="off" placeholder="不确定时由 Agent 提议"></label><label>来源<select id="action-source"><option value="workspace">当前工作空间</option><option value="git">独立 Git repository</option></select></label><label>Git URL（可选）<input id="action-git-url" autocomplete="off"></label><label>Remote（可选）<input id="action-remote" autocomplete="off" placeholder="origin"></label><label>集成分支（可选）<input id="action-branch" autocomplete="off"></label></div></details><div class="actions full"><button class="button primary" type="submit">生成项目指令</button></div></form>`;
+    content.innerHTML = `${formHeader('项目')}<form id="agent-action-form" class="prompt-grid"><label>名称<input id="action-name" autocomplete="off" required></label><label class="full">用途或长期目标<textarea id="action-description" rows="4" required placeholder="例如：管理支付产品的需求、设计和服务关系"></textarea></label><details class="full"><summary>补充已有目录或 Git 声明（可选）</summary><div class="prompt-grid advanced-fields"><label>代码（可选）<input id="action-code" autocomplete="off" placeholder="不确定时由 Agent 提议"></label><label>来源<select id="action-source"><option value="workspace">当前工作空间</option><option value="git">独立 Git 仓库</option></select></label><label>Git 地址（可选）<input id="action-git-url" autocomplete="off"></label><label>远端名称（可选）<input id="action-remote" autocomplete="off" placeholder="origin"></label><label>集成分支（可选）<input id="action-branch" autocomplete="off"></label></div></details><div class="actions full"><button class="button primary" type="submit">生成项目指令</button></div></form>`;
     bindForm('project', () => api('/api/v1/prompts/project-create', { method: 'POST', body: JSON.stringify({ code: value('action-code'), name: value('action-name'), description: value('action-description'), sourceType: value('action-source'), gitUrl: value('action-git-url'), remote: value('action-remote'), integrationBranch: value('action-branch') }) }));
   }
 
   async function renderServiceForm(context) {
-    content.innerHTML = `${formHeader('服务')}<form id="agent-action-form" class="prompt-grid"><label>所属项目<select id="action-project" required><option value="">正在读取已登记项目…</option></select></label><label>名称<input id="action-name" autocomplete="off" required></label><label class="full">用途<textarea id="action-description" rows="4" required placeholder="例如：支付 API、管理后台或可执行任务"></textarea></label><details class="full"><summary>补充代码仓或技术声明（可选）</summary><div class="prompt-grid advanced-fields"><label>Code（可选）<input id="action-code" autocomplete="off"></label><label>类型（可选）<input id="action-type" autocomplete="off"></label><label>来源<select id="action-source"><option value="local">本地目录</option><option value="git">Git</option></select></label><label>本地目录（可选）<input id="action-local-path" autocomplete="off"></label><label>Git URL（可选）<input id="action-git-url" autocomplete="off"></label><label>Remote（可选）<input id="action-remote" autocomplete="off" placeholder="origin"></label><label>集成分支（可选）<input id="action-branch" autocomplete="off"></label></div></details><div class="actions full"><button class="button primary" type="submit">生成服务指令</button></div></form>`;
+    content.innerHTML = `${formHeader('服务')}<form id="agent-action-form" class="prompt-grid"><label>所属项目<select id="action-project" required><option value="">正在读取已登记项目…</option></select></label><label>名称<input id="action-name" autocomplete="off" required></label><label class="full">用途<textarea id="action-description" rows="4" required placeholder="例如：支付 API、管理后台或可执行任务"></textarea></label><details class="full"><summary>补充代码仓或技术声明（可选）</summary><div class="prompt-grid advanced-fields"><label>代码（可选）<input id="action-code" autocomplete="off"></label><label>类型（可选）<input id="action-type" autocomplete="off"></label><label>来源<select id="action-source"><option value="local">本地目录</option><option value="git">Git 仓库</option></select></label><label>本地目录（可选）<input id="action-local-path" autocomplete="off"></label><label>Git 地址（可选）<input id="action-git-url" autocomplete="off"></label><label>远端名称（可选）<input id="action-remote" autocomplete="off" placeholder="origin"></label><label>集成分支（可选）<input id="action-branch" autocomplete="off"></label></div></details><div class="actions full"><button class="button primary" type="submit">生成服务指令</button></div></form>`;
     try {
       const projects = await api('/api/v1/projects');
       const select = document.getElementById('action-project');
@@ -106,11 +106,11 @@ export function setupAgentActions({ api }) {
   }
 
   async function renderStartWorkForm(context) {
-    content.innerHTML = `${formHeader('第一项工作', '开始')}<form id="agent-action-form" class="prompt-grid"><label>Project<select id="action-project" required><option value="">正在读取范围…</option></select></label><label>Service（可选）<select id="action-service"><option value="">本次不限定 Service</option></select></label><label class="full">你想推进什么？<textarea id="action-goal" rows="5" required placeholder="例如：梳理支付项目当前状态，并提出下一步实现方案"></textarea></label><div class="actions full"><button class="button primary" type="submit">生成开始工作指令</button></div></form>`;
+    content.innerHTML = `${formHeader('第一项工作', '开始')}<form id="agent-action-form" class="prompt-grid"><label>项目<select id="action-project" required><option value="">正在读取范围…</option></select></label><label>服务（可选）<select id="action-service"><option value="">本次不限定服务</option></select></label><label class="full">你想推进什么？<textarea id="action-goal" rows="5" required placeholder="例如：梳理支付项目当前状态，并提出下一步实现方案"></textarea></label><div class="actions full"><button class="button primary" type="submit">生成开始工作指令</button></div></form>`;
     const projectSelect = document.getElementById('action-project');
     const serviceSelect = document.getElementById('action-service');
     async function loadServices(projectCode) {
-      serviceSelect.replaceChildren(new Option('本次不限定 Service', ''));
+      serviceSelect.replaceChildren(new Option('本次不限定服务', ''));
       if (!projectCode) return;
       const data = await api(`/api/v1/projects/${encodeURIComponent(projectCode)}/services`);
       for (const service of data.services) serviceSelect.append(new Option(`${service.name}（${service.code}）`, service.code));
@@ -132,8 +132,8 @@ export function setupAgentActions({ api }) {
   function renderChangeForm(context) {
     if (context.ref && context.action) {
       const actionLabel = context.action === 'review' ? '审查' : '继续推进';
-      content.innerHTML = `${formHeader('变更', actionLabel)}<form id="agent-action-form"><div class="context-help">${actionLabel} Project <strong>${context.projectCode}</strong> 中的 Change。Buildr 只生成指令，不直接修改 Change。</div><div class="actions"><button class="button primary" type="submit">生成${actionLabel}指令</button></div></form>`;
-      bindForm('change', () => api('/api/v1/prompts/change-action', { method: 'POST', body: JSON.stringify({ projectCode: context.projectCode, ref: context.ref, action: context.action }) }), 'Change 文件未被修改。');
+      content.innerHTML = `${formHeader('变更', actionLabel)}<form id="agent-action-form"><div class="context-help">${actionLabel}项目 <strong>${context.projectCode}</strong> 中的变更。Buildr 只生成指令，不直接修改变更文件。</div><div class="actions"><button class="button primary" type="submit">生成${actionLabel}指令</button></div></form>`;
+      bindForm('change', () => api('/api/v1/prompts/change-action', { method: 'POST', body: JSON.stringify({ projectCode: context.projectCode, ref: context.ref, action: context.action }) }), '变更文件未被修改。');
       return;
     }
     content.innerHTML = `${formHeader('变更')}<form id="agent-action-form"><label>所属项目<input id="action-project" autocomplete="off" required></label><label>变更目标<textarea id="action-goal" rows="6" required placeholder="描述要解决的问题、期望结果与重要边界"></textarea></label><div class="actions"><button class="button primary" type="submit">生成变更指令</button></div></form>`;

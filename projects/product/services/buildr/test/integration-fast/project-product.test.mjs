@@ -54,7 +54,7 @@ test('Project create 写入 v2 Domain，Application 受控修改并生成 prompt
   assert.throws(() => runtime.updateProjectMetadata(root, 'demo', { revision: updated.revision, source: {} }), (error) => error.code === 'project_update_field_forbidden');
 
   const prompt = runtime.generateProjectCreatePrompt({ code: 'next', name: 'Next', description: 'Next project', sourceType: 'git', gitUrl: 'https://example.com/next.git', remote: 'upstream', integrationBranch: 'dev' });
-  assert.match(prompt.prompt, /Integration branch：dev/);
+  assert.match(prompt.prompt, /集成分支：dev/);
   assert.match(prompt.prompt, /不得盲目 checkout、stash 或 relink/);
   assert.equal(prompt.copiedMeansCreated, false);
 });

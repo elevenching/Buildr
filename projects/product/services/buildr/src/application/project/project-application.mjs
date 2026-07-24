@@ -154,34 +154,34 @@ export function registerProjectApplication(runtime) {
     const name = typeof input.name === 'string' ? input.name.trim() : '';
     const description = typeof input.description === 'string' ? input.description.trim() : '';
     const sourceType = input.sourceType === 'git' ? 'git' : 'workspace';
-    if (!name) throw projectError('project_prompt_name_required', '请填写 Project 名称。');
-    if (!description) throw projectError('project_prompt_description_required', '请填写 Project 说明。');
+    if (!name) throw projectError('project_prompt_name_required', '请填写项目名称。');
+    if (!description) throw projectError('project_prompt_description_required', '请填写项目说明。');
     const sourceLines = sourceType === 'git'
       ? [
-        '来源类型：独立 Git repository',
+        '来源类型：独立 Git 仓库',
         `Git URL：${String(input.gitUrl || '').trim() || '<尚未提供，请先询问>'}`,
-        `Remote：${String(input.remote || '').trim() || 'origin'}`,
-        `Integration branch：${String(input.integrationBranch || '').trim() || '<尚未提供，请先解析远端默认分支或询问>'}`,
+        `远端名称：${String(input.remote || '').trim() || 'origin'}`,
+        `集成分支：${String(input.integrationBranch || '').trim() || '<尚未提供，请先解析远端默认分支或询问>'}`,
       ]
-      : ['来源类型：Workspace（跟随 root Git）'];
+      : ['来源类型：当前工作空间（跟随根目录 Git）'];
     return {
       prompt: [
-        '请在当前 Buildr Workspace 中创建一个 Project。',
+        '请在当前 Buildr 工作空间中创建一个项目。',
         '',
-        `Code：${code || '<尚未提供，请根据名称和现有资产提出候选并确认>'}`,
+        `代码：${code || '<尚未提供，请根据名称和现有资产提出候选并确认>'}`,
         `名称：${name}`,
         `说明：${description}`,
         ...sourceLines,
         ...(code ? [`物化路径：projects/${code}`] : ['物化路径：尚未确定；先确认 code 后再计算。']),
         '',
         '执行要求：',
-        '1. 先读取并遵循当前可用的 Buildr Skill，确认当前 Workspace identity 与写入授权。',
-        '2. 核对或提出 Project code、物化路径和 root/nested Git ownership；不得创建外部目录链接。',
+        '1. 先读取并遵循当前可用的 Buildr Skill，确认当前工作空间身份与写入授权。',
+        '2. 核对或提出项目代码、物化路径和根目录/嵌套 Git 所有权；不得创建外部目录链接。',
         sourceType === 'git'
-          ? '3. 在任何写入前核对 Git URL、remote、integration branch 与既有目录/registry identity；不得盲目 checkout、stash 或 relink。'
-          : '3. 确认该 Project 应跟随 root Workspace Git，不要写入 Project-level integration branch。',
+          ? '3. 在任何写入前核对 Git 地址、远端名称、集成分支与既有目录/登记身份；不得盲目 checkout、stash 或 relink。'
+          : '3. 确认该项目应跟随根目录 Git，不要写入项目级集成分支。',
         '4. 使用 canonical buildr project create 完成创建或幂等修复。',
-        '5. 完成后运行适用的 doctor，说明 Project Domain、实际路径、Git 状态和仍需处理的问题。',
+        '5. 完成后运行适用的 doctor，说明项目范围、实际路径、Git 状态和仍需处理的问题。',
       ].join('\n'),
       copiedMeansCreated: false,
     };

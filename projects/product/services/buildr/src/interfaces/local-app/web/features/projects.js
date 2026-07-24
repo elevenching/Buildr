@@ -12,6 +12,10 @@ function operationLink(label, href) {
   return link;
 }
 
+function sourceTypeLabel(type) {
+  return type === 'git' ? 'Git 仓库' : type === 'workspace' ? '当前工作空间' : type;
+}
+
 export async function renderProjects({ root, api, onWorkspace, openAgentAction }) {
   root.innerHTML = `
     <section class="resource-toolbar">
@@ -27,7 +31,7 @@ export async function renderProjects({ root, api, onWorkspace, openAgentAction }
           <tbody id="project-table-body"></tbody>
         </table>
       </div>
-      <div id="project-empty" class="empty-state hidden">当前 Workspace 还没有 Project。先告诉 Agent 你要长期管理的业务、产品、系统或已有资产。</div>
+      <div id="project-empty" class="empty-state hidden">当前工作空间还没有项目。先告诉 Agent 你要长期管理的业务、产品、系统或已有资产。</div>
     </section>`;
 
   document.getElementById('create-project-button').addEventListener('click', () => openAgentAction('project'));
@@ -59,7 +63,7 @@ export async function renderProjects({ root, api, onWorkspace, openAgentAction }
       name.append(title, description);
       const code = document.createElement('td'); code.className = 'code-cell'; code.textContent = project.code;
       const source = document.createElement('td');
-      const sourceType = document.createElement('span'); sourceType.textContent = project.source.type;
+      const sourceType = document.createElement('span'); sourceType.textContent = sourceTypeLabel(project.source.type);
       const sourcePath = document.createElement('small'); sourcePath.textContent = project.source.path;
       source.append(sourceType, sourcePath);
       const count = document.createElement('td'); count.textContent = countsByProject.get(project.code) || '0';

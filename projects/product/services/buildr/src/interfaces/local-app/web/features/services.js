@@ -30,6 +30,10 @@ function projectLink(projectCode) {
   return link;
 }
 
+function serviceTypeLabel(type) {
+  return ({ backend: '后端', frontend: '前端', application: '应用', library: '库', tool: '工具' })[type] || type;
+}
+
 export async function renderServices({ root, api, onWorkspace, openAgentAction }) {
   root.innerHTML = `
     <section class="resource-toolbar">
@@ -51,15 +55,15 @@ export async function renderServices({ root, api, onWorkspace, openAgentAction }
     try {
       const data = await api(`/api/v1/projects/${encodeURIComponent(projectCode)}/services`);
       const body = document.getElementById('service-table-body'); body.replaceChildren();
-      text('services-title', `${data.project.name}的服务`); text('services-copy', '目录负责资源定位与关联跳转；稳定 metadata 使用独立编辑页修改。'); text('services-count', `${data.services.length} 个服务`);
-      const empty = document.getElementById('service-empty'); empty.classList.toggle('hidden', data.services.length > 0); empty.textContent = `项目“${data.project.name}”暂未登记 Service。Service 只在需要管理代码仓、应用、模块或可执行资产时添加；你也可以直接回到“开始”页推进 Project 范围工作。`;
+      text('services-title', `${data.project.name}的服务`); text('services-copy', '目录负责资源定位与关联跳转；稳定元数据使用独立编辑页修改。'); text('services-count', `${data.services.length} 个服务`);
+      const empty = document.getElementById('service-empty'); empty.classList.toggle('hidden', data.services.length > 0); empty.textContent = `项目“${data.project.name}”暂未登记服务。服务只在需要管理代码仓、应用、模块或可执行资产时添加；你也可以直接回到“开始”页推进项目范围工作。`;
       document.getElementById('service-table-wrap').classList.toggle('hidden', data.services.length === 0);
       const alert = document.getElementById('services-migration-alert'); alert.classList.toggle('hidden', !data.migrationRequired); alert.textContent = data.migrationRequired ? data.nextActions.join(' ') : '';
       for (const service of data.services) {
         const row = document.createElement('tr');
         const name = document.createElement('td'); const title = document.createElement('strong'); title.textContent = service.name; const description = document.createElement('small'); description.textContent = service.description; name.append(title, description);
         const code = document.createElement('td'); code.className = 'code-cell'; code.textContent = service.code;
-        const type = document.createElement('td'); type.textContent = service.type;
+        const type = document.createElement('td'); type.textContent = serviceTypeLabel(service.type);
         const source = document.createElement('td'); source.textContent = service.source.type === 'git' ? 'Git' : '本地路径';
         const operations = document.createElement('td'); operations.className = 'table-operations'; operations.append(detailLink(projectCode, service), editLink(projectCode, service), projectLink(projectCode));
         row.append(name, code, type, source, operations); body.append(row);

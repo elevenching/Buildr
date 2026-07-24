@@ -461,7 +461,7 @@ export function registerWorkspaceApplication(runtime) {
     const projectCode = typeof input.projectCode === 'string' ? input.projectCode.trim() : '';
     const serviceCode = typeof input.serviceCode === 'string' ? input.serviceCode.trim() : '';
     const goal = typeof input.goal === 'string' ? input.goal.trim() : '';
-    if (!projectCode || !goal) throw workspaceError('workspace_start_work_fields_required', '请选择 Project 并填写要完成的工作。');
+    if (!projectCode || !goal) throw workspaceError('workspace_start_work_fields_required', '请选择项目并填写要完成的工作。');
     const workspace = getWorkspace(targetRoot);
     const project = runtime.projectDetail(targetRoot, projectCode).project;
     let service = null;
@@ -470,15 +470,15 @@ export function registerWorkspaceApplication(runtime) {
       prompt: [
         '请在以下 Buildr 工作范围内开始推进一项真实工作。',
         '',
-        `Workspace：${workspace.workspace.name}（${workspace.workspace.id}）`,
-        `Project：${project.name}（${project.code}）`,
-        ...(service ? [`Service：${service.name}（${service.code}）`] : ['Service：本次不限定；如不需要代码仓或可执行资产，可保持 Project 范围。']),
+        `工作空间：${workspace.workspace.name}（${workspace.workspace.id}）`,
+        `项目：${project.name}（${project.code}）`,
+        ...(service ? [`服务：${service.name}（${service.code}）`] : ['服务：本次不限定；如不需要代码仓或可执行资产，可保持项目范围。']),
         `目标：${goal}`,
         '',
         '执行要求：',
-        '1. 先读取当前 Workspace、Project 与可选 Service scope 的适用工作资产。',
-        '2. 只在必要时询问范围、业务判断或授权；不要根据排序猜测其他 Project 或 Service。',
-        '3. 根据任务性质推进理解、设计、实现和验证，并按当前 Project policy 报告结果。',
+        '1. 先读取当前工作空间、项目与可选服务范围的适用工作资产。',
+        '2. 只在必要时询问范围、业务判断或授权；不要根据排序猜测其他项目或服务。',
+        '3. 根据任务性质推进理解、设计、实现和验证，并按当前项目规则报告结果。',
       ].join('\n'),
       copiedMeansStarted: false,
     };

@@ -181,15 +181,15 @@ export function registerChangeApplication(runtime) {
     if (!goal) throw changeError('change_prompt_goal_required', '请填写本次变更目标。');
     return {
       prompt: [
-        `请在 Buildr Workspace 的项目（project）“${project.name}（${project.code}）”中发起一个新的变更（change）。`,
+        `请在 Buildr 工作空间的项目“${project.name}（${project.code}）”中发起一个新的变更。`,
         '',
         `变更目标：${goal}`,
         '',
         '执行要求：',
-        '1. 读取并遵循当前 Workspace 的 OpenSpec 与任务路由 Skill。',
-        '2. 先澄清范围、边界与验收标准，再创建合法且唯一的 change-id。',
-        '3. 生成 proposal、design、delta specs 与 tasks，并完成适用的契约检查。',
-        '4. 不要仅因为复制了这段提示词就把 Change 视为已经创建。',
+        '1. 读取并遵循当前工作空间的 OpenSpec 与任务路由 Skill。',
+        '2. 先澄清范围、边界与验收标准，再创建合法且唯一的变更标识。',
+        '3. 生成提案、设计、增量规格与任务，并完成适用的契约检查。',
+        '4. 不要仅因为复制了这段提示词就把变更视为已经创建。',
       ].join('\n'),
       copiedMeansCreated: false,
     };
@@ -208,14 +208,14 @@ export function registerChangeApplication(runtime) {
       : [];
     return {
       prompt: [
-        `请${actionText}项目（project）“${change.project.name}（${change.project.code}）”中的变更（change）“${change.code}”。`,
+        `请${actionText}项目“${change.project.name}（${change.project.code}）”中的变更“${change.code}”。`,
         '',
-        `Change 路径：${change.artifacts.root}`,
+        `变更路径：${change.artifacts.root}`,
         `生命周期：${change.lifecycle === 'active' ? '进行中' : '已归档'}`,
         ...archivedWarning,
         '',
         '执行要求：',
-        '1. 读取该 Change 的 proposal、design、delta specs 与 tasks，并遵循适用 Skill。',
+        '1. 读取该变更的提案、设计、增量规格与任务，并遵循适用 Skill。',
         action === 'review' ? '2. 对照契约、任务状态、实现和验证证据给出审查结论；不要直接修改。' : '2. 从未完成任务继续，按任务完成情况及时更新 checkbox，并运行适用验证。',
         '3. 明确说明已完成、未完成、阻塞与验证边界。',
       ].join('\n'),

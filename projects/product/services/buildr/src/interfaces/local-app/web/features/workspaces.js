@@ -27,12 +27,12 @@ function workspaceCard(entry, revision) {
 export async function renderWorkspaces({ root, api, navigate, openAgentAction }) {
   root.innerHTML = `
     <section class="resource-toolbar">
-      <div><p class="eyebrow">从这里建立工作范围</p><h1>工作空间</h1><p class="page-copy">Workspace 是你和 Agent 共同工作的顶层目录；Project 表示长期工作单元，Service 按需登记代码仓、应用或模块。</p></div>
+      <div><p class="eyebrow">从这里建立工作范围</p><h1>工作空间</h1><p class="page-copy">工作空间是你和 Agent 共同工作的顶层目录；项目表示长期工作单元，服务按需登记代码仓、应用或模块。</p></div>
       <div class="toolbar-actions"><button id="add-workspace" class="button primary" type="button">添加已有工作空间</button></div>
     </section>
     <div id="workspace-global-message" class="alert hidden" role="status"></div>
     <section id="workspace-grid" class="workspace-grid" aria-label="已登记工作空间"></section>
-    <section id="workspace-empty" class="empty-state hidden"><p class="eyebrow">WORKSPACE → PROJECT → SERVICE</p><h2>先选择一个共同工作的目录</h2><p>添加已有 Workspace 只保存本机入口：不会移动目录、修改源资产或自动扫描磁盘。进入后，Buildr 会再引导你建立 Project，并按需接入 Service。</p><div class="actions"><button id="empty-add-workspace" class="button primary" type="button">添加已有工作空间</button><button id="empty-create-workspace" class="button secondary" type="button">让 Agent 创建工作空间</button><button id="empty-later" class="text-button" type="button">稍后处理</button></div></section>`;
+    <section id="workspace-empty" class="empty-state hidden"><p class="eyebrow">工作空间 → 项目 → 服务</p><h2>先选择一个共同工作的目录</h2><p>添加已有工作空间只保存本机入口：不会移动目录、修改源资产或自动扫描磁盘。进入后，Buildr 会再引导你建立项目，并按需接入服务。</p><div class="actions"><button id="empty-add-workspace" class="button primary" type="button">添加已有工作空间</button><button id="empty-create-workspace" class="button secondary" type="button">让 Agent 创建工作空间</button><button id="empty-later" class="text-button" type="button">稍后处理</button></div></section>`;
 
   async function load() {
     const registry = await api('/api/v1/workspaces');

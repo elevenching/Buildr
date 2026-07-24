@@ -128,7 +128,7 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
     await page.locator('#action-goal').fill('梳理浏览器 fixture 的下一步工作');
     await page.getByRole('button', { name: '生成开始工作指令', exact: true }).click();
     await page.locator('#action-prompt-output').waitFor({ state: 'visible' });
-    assert.match(await page.locator('#action-prompt-output').inputValue(), /Project：演示项目（demo）/);
+    assert.match(await page.locator('#action-prompt-output').inputValue(), /项目：演示项目（demo）/);
     await page.getByRole('button', { name: '关闭', exact: true }).click();
     await page.setViewportSize({ width: 1024, height: 720 });
     await page.goto(url);
@@ -189,7 +189,7 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
     await page.waitForURL(`${workspaceUrl}/services/demo/api`);
     assert.equal(await page.locator('#service-detail-name').innerText(), '演示服务');
     assert.equal(await page.locator('#service-project-code').textContent(), 'demo');
-    assert.equal(await page.locator('#service-detail-type').innerText(), 'backend');
+    assert.equal(await page.locator('#service-detail-type').innerText(), '后端');
     assert.equal(await page.locator('#app-view input, #app-view textarea').count(), 0);
     assert.equal(await page.getByText('操作', { exact: true }).count(), 0);
     assert.equal(await page.locator('.overview-strip, .related-resource-links').count(), 0);
@@ -222,14 +222,14 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
   if (selected('change')) await t.test('变更目录过滤、详情和 Agent prompt 保持只读', async () => {
     await page.goto(`${workspaceUrl}/changes`);
     const lifecycle = page.locator('#change-lifecycle-filter');
-    await unique(lifecycle, 'Change 生命周期过滤器');
+    await unique(lifecycle, '变更生命周期过滤器');
     await lifecycle.selectOption('archived');
     assert.equal(await page.locator('#change-table-body tr').count(), 1);
     await lifecycle.selectOption('active');
     const row = page.locator('#change-table-body tr').filter({ hasText: 'browser-flow' });
-    await unique(row, '进行中 Change 行');
+    await unique(row, '进行中变更行');
     const detail = row.getByRole('link', { name: '详情', exact: true });
-    await unique(detail, 'Change 详情操作');
+    await unique(detail, '变更详情操作');
     await detail.click();
     await page.waitForURL(`${workspaceUrl}/changes/demo/active~browser-flow`);
     assert.equal(await page.locator('#change-detail-code').innerText(), 'browser-flow');
@@ -244,7 +244,7 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
     await generate.click();
     await page.locator('#action-prompt-output').waitFor({ state: 'visible' });
     assert.match(await page.locator('#action-prompt-output').inputValue(), /browser-flow/);
-    assert.equal(await page.locator('#action-copy-state').innerText(), 'Change 文件未被修改。');
+    assert.equal(await page.locator('#action-copy-state').innerText(), '变更文件未被修改。');
   });
 
   assert.deepEqual(browserErrors, [], browserErrors.join('\n'));

@@ -107,6 +107,6 @@ test('Service HTTP API 复用安全边界、CAS 与 prompt-only 创建', async (
   response = await fetch(`${apiBase}/prompts/service-create`, { method: 'POST', headers: { origin: url, 'content-type': 'application/json', 'x-buildr-session': sessionToken }, body: JSON.stringify({ projectCode: 'demo', code: 'worker', name: 'Worker', description: '任务服务', type: 'backend', sourceType: 'local', localPath: '/tmp/worker' }) });
   assert.equal(response.status, 200);
   const prompt = await response.json();
-  assert.match(prompt.prompt, /canonical 命令 buildr service create demo\/worker/);
+  assert.match(prompt.prompt, /标准命令 buildr service create demo\/worker/);
   assert.equal(runtime.listServices(root, 'demo').services.length, 1);
 });
