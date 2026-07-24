@@ -8,6 +8,8 @@ export function pickWorkspaceDirectory({ platform = process.platform, execute = 
     }
     if (platform === 'win32') {
       const script = [
+        '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
+        '$OutputEncoding = [System.Text.Encoding]::UTF8',
         'Add-Type -AssemblyName System.Windows.Forms',
         '$dialog = New-Object System.Windows.Forms.FolderBrowserDialog',
         '$dialog.Description = "选择 Buildr 工作空间目录"',
