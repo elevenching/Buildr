@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "simplify-start-scope",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-14711eb47ee76303a008f726e0f6dbe086c967fddcd11b722ba9594f5c29eea9",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "local-workspace-application",
+      "title": "Workspace 概览必须提供真实且可解释的摘要",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Workspace 概览必须提供真实且可解释的摘要\nBuildr MUST 将 Workspace 概览呈现为“开始”页，根据真实 Workspace、Project 与 Service read model 展示当前工作范围、完整性和一个明确的下一步；页面 MUST NOT 持久化第二套 onboarding 状态或把 Service 数量作为 Workspace readiness 的硬门禁。\n\n#### Scenario: Workspace 没有 Project\n- **WHEN** Workspace 与 Project read model 可读取且 Project registry 为空\n- **THEN** 开始页 MUST 用普通语言说明 Workspace 与 Project 的关系\n- **AND** MUST 将“让 Agent 创建第一个 Project”作为主要下一步\n- **AND** MUST NOT 优先展示 Change、Rules、Skills 或技术 identity\n\n#### Scenario: Workspace 有多个 Project\n- **WHEN** Project read model 返回多个 Project 且用户尚未选择当前 Project\n- **THEN** 开始页 MUST 展示可理解的 Project 选择入口\n- **AND** MUST NOT 猜测当前业务范围或把任一 Project 标记为唯一正确选择\n\n#### Scenario: 当前 Project 没有 Service\n- **WHEN** 用户已选择 Project 且该 Project 的 Service read model 为空\n- **THEN** 开始页 MUST 解释 Service 是代码仓、应用、模块或可执行资产\n- **AND** MUST 同时提供“让 Agent 接入 Service”和“该 Project 暂不需要 Service，直接开始工作”的路径\n- **AND** MUST NOT 将该 Workspace 显示为未完成或不可用\n\n#### Scenario: 已有可用工作范围\n- **WHEN** Workspace、选定 Project 和可选 Service 均可读取\n- **THEN** 开始页 MUST 展示当前 Workspace、Project 和可选 Service 范围\n- **AND** MUST 将“用 Agent 开始”作为主要动作\n- **AND** Project 数、Service 数、identity、schema 和 revision MUST 保持为次级摘要或技术信息\n\n#### Scenario: 部分 Service 汇总不可用\n- **WHEN** 至少一个 Project 的 Service read model 无法读取\n- **THEN** 开始页 MUST 将 Service 汇总和 onboarding completeness 标识为部分不可用\n- **AND** MUST NOT 将未知数量显示为完整事实\n- **AND** Workspace 与可用的 Project 信息 MUST 继续展示\n\n#### Scenario: 存在迁移要求\n- **WHEN** Workspace、Project 或 Service read model 报告 migration required\n- **THEN** 开始页 MUST 展示需要 Agent 执行显式 update 或 sync 的提示和可复制 Agent Action\n- **AND** 打开开始页 MUST NOT 触发任何迁移写入\n"
+    }
+  ]
+}

@@ -251,7 +251,7 @@ export function createLocalWorkspaceServer(runtime, { targetRoot = null, port = 
         const { rootPath: root } = runtime.resolveRegisteredWorkspace(workspaceId, { touch: request.method === 'GET' });
         if (request.method === 'GET' && suffix === '') return jsonResponse(response, 200, runtime.getWorkspace(root));
         if (request.method === 'GET' && suffix === '/getting-started') {
-          return jsonResponse(response, 200, runtime.getWorkspaceGettingStarted(root, { projectCode: requestUrl.searchParams.get('project') || undefined }));
+          return jsonResponse(response, 200, runtime.getWorkspaceGettingStarted(root));
         }
         if (request.method === 'PUT' && suffix === '') {
           assertWriteRequest(request, origin, sessionToken);

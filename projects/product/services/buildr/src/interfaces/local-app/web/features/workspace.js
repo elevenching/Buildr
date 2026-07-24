@@ -10,17 +10,16 @@ function errorPage(root, title, message) {
 
 function phaseCopy(data) {
   if (data.phase === 'project-empty') return ['先建立第一个项目', '项目是一个业务、产品、系统或长期工作单元。先告诉 Agent 你要长期管理什么。'];
-  if (data.phase === 'project-selection') return ['选择本次工作的项目', '这个工作空间有多个项目。请先选择本次目标所属的工作范围。'];
-  if (data.phase === 'service-empty') return ['服务是可选的', '服务用来登记代码仓、应用、模块或可执行资产。若这项工作暂时不需要它，可以直接开始。'];
+  if (data.phase === 'service-empty') return ['可以开始工作，服务按需接入', '服务用来登记代码仓、应用、模块或可执行资产。开始工作时再为该任务选择项目；若暂时不需要服务，可以不选。'];
   if (data.phase === 'degraded') return ['有一项真实状态需要处理', '仍会展示可读取的信息；请让 Agent 先完成明确的迁移或修复。'];
-  return ['可以开始第一项工作', '当前范围已经明确。把目标交给 Agent，它会读取适用资产并按项目规则推进。'];
+  return ['可以开始一项工作', '这里展示整个工作空间。开始时再为这项任务选择项目和可选服务，Agent 会读取适用资产并按项目规则推进。'];
 }
 
 export async function renderWorkspaceOverview({ root, api, onWorkspace, openAgentAction, navigate }) {
-  root.innerHTML = `<section class="detail-page-header"><div><p class="eyebrow">开始使用 Buildr</p><h1 id="overview-title">正在读取…</h1><p id="overview-description" class="page-copy">Buildr 正在从真实工作空间、项目和服务资产生成下一步。</p></div><a class="button secondary" href="/settings" data-route>工作空间设置</a></section><section class="onboarding-panel"><p class="eyebrow">工作空间 → 项目 → 服务</p><h2 id="start-heading">正在判断下一步…</h2><p id="start-copy" class="page-copy"></p><div id="start-scope" class="scope-summary"></div><div id="start-actions" class="actions"></div><div id="start-diagnostics" class="alert hidden" role="status"></div></section><section class="content-grid secondary-summary"><article class="panel"><p class="eyebrow">当前事实</p><h2>工作范围摘要</h2><dl class="fact-list"><div><dt>已登记项目</dt><dd id="project-count">—</dd></div><div><dt>当前项目的服务</dt><dd id="service-count">—</dd></div></dl></article><aside class="panel facts-panel"><p class="eyebrow">技术信息</p><h2>按需查看</h2><dl class="fact-list"><div><dt>本地目录</dt><dd id="overview-root">—</dd></div><div><dt>数据格式版本</dt><dd id="overview-schema">—</dd></div><div><dt>修订版本</dt><dd id="overview-revision">—</dd></div></dl></aside></section>`;
+  root.innerHTML = `<section class="detail-page-header"><div><p class="eyebrow">开始使用 Buildr</p><h1 id="overview-title">正在读取…</h1><p id="overview-description" class="page-copy">Buildr 正在从真实工作空间、项目和服务资产生成下一步。</p></div><a class="button secondary" href="/settings" data-route>工作空间设置</a></section><section class="onboarding-panel"><p class="eyebrow">工作空间中的项目与服务</p><h2 id="start-heading">正在判断下一步…</h2><p id="start-copy" class="page-copy"></p><div id="start-scope" class="scope-summary"></div><div id="start-actions" class="actions"></div><div id="start-diagnostics" class="alert hidden" role="status"></div></section><section class="content-grid secondary-summary"><article class="panel"><p class="eyebrow">当前事实</p><h2>工作范围摘要</h2><dl class="fact-list"><div><dt>已登记项目</dt><dd id="project-count">—</dd></div><div><dt>已登记服务</dt><dd id="service-count">—</dd></div></dl></article><aside class="panel facts-panel"><p class="eyebrow">技术信息</p><h2>按需查看</h2><dl class="fact-list"><div><dt>本地目录</dt><dd id="overview-root">—</dd></div><div><dt>数据格式版本</dt><dd id="overview-schema">—</dd></div><div><dt>修订版本</dt><dd id="overview-revision">—</dd></div></dl></aside></section>`;
   let data;
-  async function load(projectCode = '') {
-    data = await api(`/api/v1/getting-started${projectCode ? `?project=${encodeURIComponent(projectCode)}` : ''}`);
+  async function load() {
+    data = await api('/api/v1/getting-started');
     onWorkspace(data.workspace);
     setText('overview-title', data.workspace.workspace.name);
     setText('overview-description', data.workspace.workspace.description || '这是你和 Agent 共同工作的顶层目录。');
@@ -30,22 +29,18 @@ export async function renderWorkspaceOverview({ root, api, onWorkspace, openAgen
     setText('overview-root', data.workspace.rootPath); setText('overview-schema', data.workspace.schemaVersion); setText('overview-revision', data.workspace.revision);
     const scope = document.getElementById('start-scope'); scope.replaceChildren();
     const workspace = document.createElement('span'); workspace.textContent = `工作空间：${data.workspace.workspace.name}`; scope.append(workspace);
-    if (data.selectedProject) { const project = document.createElement('span'); project.textContent = `项目：${data.selectedProject.name}`; scope.append(project); }
+    if (data.projects.length) { const project = document.createElement('span'); project.textContent = `项目：${data.projects.length} 个已登记`; scope.append(project); }
     if (data.services.length) { const service = document.createElement('span'); service.textContent = `服务：${data.services.length} 个可选资产`; scope.append(service); }
     const actions = document.getElementById('start-actions'); actions.replaceChildren();
-    if (data.phase === 'project-selection') {
-      const select = document.createElement('select'); select.setAttribute('aria-label', '选择项目');
-      select.append(new Option('选择本次工作的项目', ''));
-      for (const project of data.projects) select.append(new Option(`${project.name}（${project.code}）`, project.code));
-      select.addEventListener('change', () => { if (select.value) load(select.value); }); actions.append(select);
-    } else if (data.phase === 'project-empty') {
+    if (data.phase === 'project-empty') {
       const button = document.createElement('button'); button.className = 'button primary'; button.type = 'button'; button.textContent = '让 Agent 创建第一个项目'; button.addEventListener('click', () => openAgentAction('project')); actions.append(button);
     } else if (data.phase === 'degraded') {
       const button = document.createElement('button'); button.className = 'button primary'; button.type = 'button'; button.textContent = '生成修复指令'; button.addEventListener('click', () => openAgentAction('workspace')); actions.append(button);
     } else {
-      const start = document.createElement('button'); start.className = 'button primary'; start.type = 'button'; start.textContent = '用 Agent 开始'; start.addEventListener('click', () => openAgentAction('start', { projectCode: data.selectedProject.code })); actions.append(start);
+      const start = document.createElement('button'); start.className = 'button primary'; start.type = 'button'; start.textContent = '用 Agent 开始'; start.addEventListener('click', () => openAgentAction('start')); actions.append(start);
+      const projects = document.createElement('a'); projects.className = 'button secondary'; projects.href = '/projects'; projects.dataset.route = ''; projects.textContent = '查看项目'; actions.append(projects);
       if (data.phase === 'service-empty') {
-        const add = document.createElement('button'); add.className = 'button secondary'; add.type = 'button'; add.textContent = '让 Agent 接入服务'; add.addEventListener('click', () => openAgentAction('service', { projectCode: data.selectedProject.code })); actions.append(add);
+        const add = document.createElement('button'); add.className = 'button secondary'; add.type = 'button'; add.textContent = '让 Agent 接入服务'; add.addEventListener('click', () => openAgentAction('service')); actions.append(add);
       }
     }
     const diagnostics = document.getElementById('start-diagnostics'); diagnostics.classList.toggle('hidden', !data.diagnostics?.length); diagnostics.textContent = (data.diagnostics || []).map((item) => typeof item === 'string' ? item : item.message).join(' ');

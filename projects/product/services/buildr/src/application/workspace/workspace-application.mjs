@@ -362,7 +362,7 @@ export function registerWorkspaceApplication(runtime) {
   function getWorkspaceGettingStarted(targetRoot, input = {}) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw workspaceError('workspace_getting_started_invalid', '开始页请求必须是对象。');
     for (const field of Object.keys(input)) {
-      if (field !== 'projectCode') throw workspaceError('workspace_getting_started_field_forbidden', `开始页不支持字段：${field}。`);
+      throw workspaceError('workspace_getting_started_field_forbidden', `开始页不支持字段：${field}。`);
     }
     const workspace = getWorkspace(targetRoot);
     let projects;
@@ -402,56 +402,39 @@ export function registerWorkspaceApplication(runtime) {
         diagnostics: [],
       };
     }
-    const requestedProject = typeof input.projectCode === 'string' ? input.projectCode.trim() : '';
-    const selectedProject = projectOptions.find((project) => project.code === requestedProject) || (projectOptions.length === 1 ? projectOptions[0] : null);
-    if (!selectedProject) {
-      return {
-        workspace,
-        phase: 'project-selection',
-        completeness: 'complete',
-        projects: projectOptions,
-        services: [],
-        primaryAction: { type: 'project-select' },
-        diagnostics: [],
-      };
-    }
-    try {
-      const serviceRegistry = runtime.listServices(targetRoot, selectedProject.code);
-      const services = serviceRegistry.services.map((service) => ({ id: service.id, code: service.code, name: service.name, description: service.description, type: service.type }));
-      if (serviceRegistry.migrationRequired) {
-        return {
-          workspace,
-          phase: 'degraded',
-          completeness: 'partial',
-          projects: projectOptions,
-          selectedProject,
-          services,
-          primaryAction: { type: 'repair', prompt: recoveryPrompt(workspace.rootPath, 'migration_required') },
-          diagnostics: serviceRegistry.nextActions || [],
-        };
+    const services = [];
+    const diagnostics = [];
+    let incomplete = false;
+    for (const project of projectOptions) {
+      try {
+        const serviceRegistry = runtime.listServices(targetRoot, project.code);
+        if (serviceRegistry.migrationRequired) {
+          incomplete = true;
+          diagnostics.push(...(serviceRegistry.nextActions || []));
+          continue;
+        }
+        services.push(...serviceRegistry.services.map((service) => ({
+          id: service.id,
+          code: service.code,
+          name: service.name,
+          description: service.description,
+          type: service.type,
+          projectCode: project.code,
+        })));
+      } catch (error) {
+        incomplete = true;
+        diagnostics.push({ code: error.code || 'service_registry_unavailable', message: error.message });
       }
-      return {
-        workspace,
-        phase: services.length ? 'ready' : 'service-empty',
-        completeness: 'complete',
-        projects: projectOptions,
-        selectedProject,
-        services,
-        primaryAction: services.length ? { type: 'start-work', projectCode: selectedProject.code } : { type: 'start-work', projectCode: selectedProject.code, serviceOptional: true },
-        diagnostics: [],
-      };
-    } catch (error) {
-      return {
-        workspace,
-        phase: 'degraded',
-        completeness: 'partial',
-        projects: projectOptions,
-        selectedProject,
-        services: [],
-        primaryAction: { type: 'repair', prompt: recoveryPrompt(workspace.rootPath, 'migration_required') },
-        diagnostics: [{ code: error.code || 'service_registry_unavailable', message: error.message }],
-      };
     }
+    return {
+      workspace,
+      phase: incomplete ? 'degraded' : services.length ? 'ready' : 'service-empty',
+      completeness: incomplete ? 'partial' : 'complete',
+      projects: projectOptions,
+      services,
+      primaryAction: incomplete ? { type: 'repair', prompt: recoveryPrompt(workspace.rootPath, 'migration_required') } : { type: 'start-work', serviceOptional: !services.length },
+      diagnostics,
+    };
   }
 
   function generateStartWorkPrompt(targetRoot, input) {

@@ -63,6 +63,7 @@ function writeChange(projectRoot, relative, title) {
 function createFixture(root) {
   runBuildr(['init', '--target', root, '--name', 'browser-smoke', '--description', '隔离的浏览器 E2E fixture']);
   runBuildr(['project', 'create', 'demo', '--target', root, '--name', '演示项目', '--description', '浏览器测试项目']);
+  runBuildr(['project', 'create', 'other', '--target', root, '--name', '另一项目', '--description', '用于验证 Workspace 摘要不锁定项目']);
   const source = path.join(path.dirname(root), 'service-source');
   fs.mkdirSync(source);
   fs.writeFileSync(path.join(source, 'README.md'), '# Demo API\n');
@@ -139,13 +140,21 @@ test(`本机应用浏览器集成：${SELECTOR}`, { timeout: 45_000 }, async (t)
     await target.getByRole('link', { name: '进入工作空间' }).click();
     await page.waitForURL(`${workspaceUrl}/`);
     assert.equal(await page.locator('#overview-title').innerText(), 'browser-smoke');
+    assert.equal(await page.locator('#project-count').innerText(), '2');
+    assert.equal(await page.locator('#service-count').innerText(), '1');
+    assert.equal(await page.locator('#start-actions select').count(), 0);
+    await page.goto(`${workspaceUrl}/?project=other`);
+    await page.locator('#overview-title').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#start-actions select').count(), 0, '旧项目查询参数不得将开始页锁定为项目选择');
     await unique(page.getByRole('button', { name: '用 Agent 开始', exact: true }), '开始工作操作');
     await page.getByRole('button', { name: '用 Agent 开始', exact: true }).click();
     await page.locator('#action-project').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#action-project option').count(), 2);
+    await page.locator('#action-project').selectOption('other');
     await page.locator('#action-goal').fill('梳理浏览器 fixture 的下一步工作');
     await page.getByRole('button', { name: '生成开始工作指令', exact: true }).click();
     await page.locator('#action-prompt-output').waitFor({ state: 'visible' });
-    assert.match(await page.locator('#action-prompt-output').inputValue(), /项目：演示项目（demo）/);
+    assert.match(await page.locator('#action-prompt-output').inputValue(), /项目：另一项目（other）/);
     await page.getByRole('button', { name: '关闭', exact: true }).click();
     await page.setViewportSize({ width: 1024, height: 720 });
     await page.goto(url);
