@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "evolve-test-capability-declarations",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-c58cfc27c6b6384361a242300adb299cd3837cd1c2308fe7002818a832eba63c",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "buildr-package-assets",
+      "title": "随包任务验证能力保持完整可组合",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 随包任务验证能力保持完整可组合\nBuildr package MUST 原子交付 `buildr.task-verification/v1` contract、默认 `task-verification` provider、workspace binding、Task Finish consumer dependency 和全部 supported runtime 投射输入，并 MUST 通过产品验证防止验证职责重新耦合到 worktree lifecycle provider。\n\n#### Scenario: 安装默认任务验证能力\n- **WHEN** 用户初始化或同步包含默认任务 Skills 的 Buildr workspace\n- **THEN** workspace Skills manifest MUST 声明 installed、enabled 的 `task-verification` provider 及 `buildr.task-verification/v1` contract 和 binding\n- **AND** `task-finish` MUST 对该 capability 声明 `mode: required`\n- **AND** doctor capability graph MUST 将默认 provider 和 consumer 报告为 `ready`\n\n#### Scenario: 七个 runtime 投射任务验证 Skill\n- **WHEN** Buildr 为任一 supported runtime render 或 sync workspace Skills\n- **THEN** runtime inventory MUST 包含可发现的 `task-verification` Skill\n- **AND** `task-finish` runtime binding evidence MUST 指向当前 selected verification provider、contract digest 和 readiness\n\n#### Scenario: 防止验证与 worktree lifecycle 回退耦合\n- **WHEN** Buildr 运行随包任务 Skills 契约验证\n- **THEN** verifier MUST 确认 `task-worktree` 只提供 `buildr.task-worktree-lifecycle/v1` 并且不拥有三级验证执行与报告政策\n- **AND** verifier MUST 确认 `task-verification` 不依赖 Git worktree、Git provider identity 或 Buildr Product 专用验证命令\n\n#### Scenario: 验证 provider 替换后保持组合\n- **WHEN** workspace 安装并绑定兼容的内部 `buildr.task-verification/v1` provider\n- **THEN** package/runtime verification MUST 确认 `task-finish` 使用 replacement provider 且保持 capability-ready\n- **AND** 默认 `task-verification` provider 在不再被选中时 MUST 可安全卸载而不破坏 consumer\n"
+    },
+    {
+      "capability": "project-registry",
+      "title": "Project registry 识别可选测试能力声明",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-test-capabilities",
+      "title": "Project 可以可选声明任意测试能力集合",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-test-capabilities",
+      "title": "测试声明区分成熟度、阶段与门禁强度",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-test-capabilities",
+      "title": "测试声明表达环境、副作用与授权边界",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-test-capabilities",
+      "title": "Agent 引导测试能力持续演进",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-test-capabilities",
+      "title": "声明支持兼容增强与权威政策模式",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-test-capabilities",
+      "title": "Project doctor 只校验存在的测试声明",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-verification",
+      "title": "验证政策由当前 workspace 或 Project 定义",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 验证政策由当前 workspace 或 Project 定义\nTask verification provider MUST 从当前 scope 的 Rules、明确 Project context、OpenSpec artifacts、项目开发或发布文档以及公开项目入口解析具体验证政策，并 MUST NOT 根据技术栈名称猜测命令或把 Buildr Product 验证入口固定为其他项目的默认值。\n\n#### Scenario: Project 定义完整验证入口\n- **WHEN** 当前 Project 明确定义最小反馈、受影响范围或完整候选验证入口\n- **THEN** provider MUST 按任务级别和候选范围选择对应入口\n- **AND** Result Evidence MUST 记录实际采用的 policy sources\n\n#### Scenario: 无法确定完整候选入口\n- **WHEN** 用户要求判断开发是否完整验证，但当前 scope 没有可确认的 Candidate policy\n- **THEN** provider MUST 返回 `incomplete` 并说明缺失的政策或入口\n- **AND** provider MUST NOT 将最小反馈或受影响范围结果表述为完整候选验证\n"
+    },
+    {
+      "capability": "task-verification",
+      "title": "实现验证采用三级反馈协议",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 实现验证采用三级反馈协议\nTask verification provider MUST 区分 `minimal`、`affected` 和 `candidate` 三个验证级别，按任务进度和风险执行最低充分检查，并 MUST 防止同一候选状态机械重复已被可信上层入口覆盖的检查。\n\n#### Scenario: 单任务最小反馈\n- **WHEN** Agent 完成任务组中的普通实现任务且没有跨越高风险边界\n- **THEN** provider MUST 只运行语法、类型或直接相关的小范围检查\n- **AND** provider MUST NOT 默认启动完整 Candidate 验证\n\n#### Scenario: 任务组受影响验证\n- **WHEN** 共享实现区域、验证入口或失败影响面的任务组已经完成\n- **THEN** provider MUST 集中运行一次受影响范围验证\n- **AND** provider MUST NOT 为组内每个任务重复同一专项检查\n\n#### Scenario: 最终候选完整验证\n- **WHEN** 全部实现、自然语言资产、生成资产同步和 review 修订已经完成并冻结候选\n- **THEN** provider MUST 运行项目要求的完整 Candidate 验证\n- **AND** 只有 Candidate evidence 可信且通过时才能把验证状态作为实现完成证据\n\n#### Scenario: 高风险或用户指定即时检查\n- **WHEN** 任务跨越安全边界、不可逆迁移或用户明确要求即时检查\n- **THEN** provider MUST 在默认批量节奏之外执行必要检查\n- **AND** 该检查 MUST 继续进入最终 Result Evidence\n"
+    },
+    {
+      "capability": "task-verification",
+      "title": "验证能力返回并报告标准结果证据",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 验证能力返回并报告标准结果证据\nTask verification provider MUST 返回验证级别、状态、policy sources、候选 identity、检查结果、整体耗时、timing source、最慢检查、失败项、跳过项、evidence reference 和 evidence 生命周期，并 MUST 在直接验证或开发完成回复中向用户披露这些信息。\n\n#### Scenario: 最终候选验证成功\n- **WHEN** Candidate 验证成功并产生可信 evidence\n- **THEN** provider MUST 报告候选、验证级别、通过检查、总耗时、最慢检查、失败项为无、跳过项和 evidence reference\n- **AND** provider MUST 明确说明实现具备完整验证证据\n\n#### Scenario: 验证失败\n- **WHEN** 任一必要检查失败\n- **THEN** provider MUST 报告失败状态、失败检查、退出状态、已完成检查、实际总耗时和 evidence reference\n- **AND** provider MUST NOT 将任务描述为验证完成\n\n#### Scenario: 只有较低级别验证\n- **WHEN** 当前只完成 `minimal` 或 `affected` 验证\n- **THEN** provider MUST 如实报告已完成级别、结果和耗时\n- **AND** provider MUST 明确指出 Candidate 验证尚未执行\n"
+    }
+  ]
+}

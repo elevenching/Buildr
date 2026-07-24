@@ -1,3 +1,0 @@
-schemaVersion: buildr.services/v1
-project: "{{project}}"
-services: {}

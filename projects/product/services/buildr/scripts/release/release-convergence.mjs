@@ -1,0 +1,119 @@
+#!/usr/bin/env node
+
+import { spawnSync } from 'node:child_process';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+
+function runGit(repo, args, { allowFailure = false } = {}) {
+  const result = spawnSync('git', args, { cwd: repo, encoding: 'utf8' });
+  if (!allowFailure && result.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${(result.stderr || '').trim()}`);
+  return result;
+}
+
+function rev(repo, ref) {
+  return runGit(repo, ['rev-parse', ref]).stdout.trim();
+}
+
+function packageVersionAt(repo, ref) {
+  const result = runGit(repo, ['show', `${ref}:projects/product/services/buildr/package.json`], { allowFailure: true });
+  if (result.status !== 0) return null;
+  try { return JSON.parse(result.stdout).version || null; } catch { return null; }
+}
+
+function isAncestor(repo, ancestor, descendant) {
+  return runGit(repo, ['merge-base', '--is-ancestor', ancestor, descendant], { allowFailure: true }).status === 0;
+}
+
+function releaseTaskRefs(repo, version) {
+  const result = runGit(repo, ['for-each-ref', '--format=%(refname) %(objectname)', `refs/heads/tasks/release-${version}`, `refs/remotes/*/tasks/release-${version}`]);
+  return result.stdout.trim().split('\n').filter(Boolean).map((line) => {
+    const [ref, commit] = line.split(/\s+/);
+    return { ref, commit };
+  });
+}
+
+export function checkReleaseConvergence({
+  repo,
+  version,
+  candidateBase,
+  candidateTree,
+  stage = 'pre-main',
+  remote = 'origin',
+  main = 'main',
+  dev = 'dev',
+  fetch = true,
+}) {
+  if (!repo || !version || !candidateBase || !candidateTree) throw new Error('repo, version, candidateBase and candidateTree are required');
+  if (!['pre-main', 'post-main'].includes(stage)) throw new Error(`Unsupported release convergence stage: ${stage}`);
+  if (fetch) runGit(repo, ['fetch', remote, main, dev]);
+  const devRef = `${remote}/${dev}`;
+  const mainRef = `${remote}/${main}`;
+  const findings = [];
+  const refs = {
+    dev: rev(repo, devRef),
+    main: stage === 'post-main' ? rev(repo, mainRef) : null,
+  };
+  const trees = {
+    dev: rev(repo, `${devRef}^{tree}`),
+    main: stage === 'post-main' ? rev(repo, `${mainRef}^{tree}`) : null,
+  };
+  const versions = {
+    dev: packageVersionAt(repo, devRef),
+    main: stage === 'post-main' ? packageVersionAt(repo, mainRef) : null,
+  };
+  if (!isAncestor(repo, candidateBase, devRef)) findings.push({ code: 'candidate_base_not_in_dev', expected: candidateBase, actual: refs.dev });
+  if (trees.dev !== candidateTree) findings.push({ code: 'dev_tree_mismatch', expected: candidateTree, actual: trees.dev });
+  if (versions.dev !== version) findings.push({ code: 'dev_version_mismatch', expected: version, actual: versions.dev });
+  for (const item of releaseTaskRefs(repo, version)) {
+    if (!isAncestor(repo, item.commit, devRef)) findings.push({ code: 'release_task_not_integrated', ref: item.ref, commit: item.commit });
+  }
+  if (stage === 'post-main') {
+    if (trees.main !== candidateTree) findings.push({ code: 'main_tree_mismatch', expected: candidateTree, actual: trees.main });
+    if (versions.main !== version) findings.push({ code: 'main_version_mismatch', expected: version, actual: versions.main });
+    if (!isAncestor(repo, mainRef, devRef)) findings.push({ code: 'main_not_ancestor_of_dev', main: refs.main, dev: refs.dev });
+  }
+  return {
+    schemaVersion: 'buildr.release-convergence/v1',
+    ok: findings.length === 0,
+    stage,
+    version,
+    candidateBase,
+    candidateTree,
+    refs,
+    trees,
+    versions,
+    findings,
+    nextActions: findings.length ? ['修复 release candidate/dev/main 收敛状态后重新运行 checker；不得创建或推送 release tag。'] : [],
+  };
+}
+
+function parseArgs(argv) {
+  const options = {};
+  for (let index = 0; index < argv.length; index += 2) {
+    const key = argv[index];
+    const value = argv[index + 1];
+    if (!key?.startsWith('--') || value === undefined) throw new Error(`Invalid argument: ${key || '<missing>'}`);
+    options[key.slice(2)] = value;
+  }
+  return {
+    repo: options.repo,
+    version: options.version,
+    candidateBase: options['candidate-base'],
+    candidateTree: options['candidate-tree'],
+    stage: options.stage || 'pre-main',
+    remote: options.remote || 'origin',
+    main: options.main || 'main',
+    dev: options.dev || 'dev',
+  };
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  try {
+    const result = checkReleaseConvergence(parseArgs(process.argv.slice(2)));
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) process.exitCode = 1;
+  } catch (error) {
+    console.error(JSON.stringify({ schemaVersion: 'buildr.release-convergence/v1', ok: false, error: error.message }, null, 2));
+    process.exitCode = 1;
+  }
+}

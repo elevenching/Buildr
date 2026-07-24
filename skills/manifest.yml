@@ -23,7 +23,7 @@ skills:
     sourceIdentity: package:skills/buildr/task-worktree
     source: buildr
     path: buildr/task-worktree
-    description: 用户要求创建、定位、复用、保留或清理 task worktree/change-id/任务分支，或处理 task checkout 与本机入口迁移时使用。
+    description: 用户要求创建、定位、复用、保留或清理 task worktree/change-id/任务分支，或处理 task checkout、创建后环境准备与本机入口迁移时使用。
     enabled: true
     required: false
     state: installed
@@ -38,7 +38,7 @@ skills:
     runtimePath: task-worktree
     provides:
       - capability: buildr.task-worktree-lifecycle
-        version: 1
+        version: 2
   - id: git-ops
     assetIdentity: buildr:skill:git-ops
     sourceIdentity: package:skills/buildr/git-ops
@@ -87,16 +87,16 @@ skills:
         version: 1
     requires:
       - capability: buildr.task-verification
-        version: 1
+        version: 2
         mode: required
       - capability: buildr.task-worktree-lifecycle
-        version: 1
+        version: 2
         mode: required
       - capability: buildr.git-task-integration
         version: 1
         mode: required
       - capability: buildr.task-asset-review
-        version: 1
+        version: 2
         mode: optional
   - id: openspec-contract-guard
     assetIdentity: buildr:skill:openspec-contract-guard
@@ -229,7 +229,7 @@ skills:
     sourceIdentity: package:skills/buildr/task-asset-review
     source: buildr
     path: buildr/task-asset-review
-    description: 用户明确要求复盘任务执行质量、核对现有资产覆盖、总结可沉淀的 Skill 或 Rule，Agent 已发现明确长期候选，或 finish consumer 的轻量资格判断命中时使用。
+    description: 非简单 Workspace 任务开始探索、设计、诊断、实现或验证时持续收集轻量资产信号，用户要求复盘或沉淀，或 Task Finish 触发 finalize 时使用。
     enabled: true
     required: false
     state: installed
@@ -244,7 +244,7 @@ skills:
     runtimePath: task-asset-review
     provides:
       - capability: buildr.task-asset-review
-        version: 1
+        version: 2
   - id: capability-adaptation
     assetIdentity: buildr:skill:capability-adaptation
     sourceIdentity: package:skills/buildr/capability-adaptation
@@ -273,7 +273,7 @@ skills:
     sourceIdentity: package:skills/buildr/task-verification
     source: buildr
     path: buildr/task-verification
-    description: 用户要求测试、验证或耗时报告，或者实现型任务到达验证节点、Agent 准备判断或声称开发完成、Task Finish 需要核对或补齐 Candidate evidence 时使用；用户无需主动点名本 Skill。
+    description: 用户要求测试、验证、耗时报告、初始化或更新测试声明、推进测试能力成熟度，或者实现型任务到达验证节点、Agent 准备判断或声称开发完成、Task Finish 需要核对或补齐正式验证 evidence 时使用；用户无需主动点名本 Skill。
     enabled: true
     required: false
     state: installed
@@ -288,7 +288,7 @@ skills:
     runtimePath: task-verification
     provides:
       - capability: buildr.task-verification
-        version: 1
+        version: 2
 contracts:
   - id: buildr.git-single-operation
     version: 1
@@ -315,9 +315,17 @@ contracts:
     path: contracts/buildr/task-asset-review/v1.md
     description: 审查任务过程并提出可沉淀工作资产候选。
   - id: buildr.task-verification
-    version: 1
-    path: contracts/buildr/task-verification/v1.md
-    description: 执行项目定义的分层验证并返回候选身份、结果与真实耗时证据。
+    version: 2
+    path: contracts/buildr/task-verification/v2.md
+    description: 编排项目声明或既有政策定义的分层验证，并返回能力选择、候选身份、结果与真实耗时证据。
+  - id: buildr.task-worktree-lifecycle
+    version: 2
+    path: contracts/buildr/task-worktree-lifecycle/v2.md
+    description: 管理单仓或多仓 task environment 的放置、执行边界、保留和安全清理。
+  - id: buildr.task-asset-review
+    version: 2
+    path: contracts/buildr/task-asset-review/v2.md
+    description: 持续维护任务资产 observation，并完成审查、人工决定和独立任务交接。
 bindings:
   - capability: buildr.git-single-operation
     version: 1
@@ -338,6 +346,12 @@ bindings:
     version: 1
     provider: task-asset-review
   - capability: buildr.task-verification
-    version: 1
+    version: 2
     provider: task-verification
+  - capability: buildr.task-worktree-lifecycle
+    version: 2
+    provider: task-worktree
+  - capability: buildr.task-asset-review
+    version: 2
+    provider: task-asset-review
 workspaceId: f2f40b71-2382-5906-82bd-76a7927b59f3

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "port-workspace-product-to-source-layout",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-cf34de9bbba67236c61869f1b61cfd620a0dcb47518297e7d3d196b0f84ac8f9",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "cli-product-surface",
+      "title": "CLI 产品表面必须显式分层",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: CLI 产品表面必须显式分层\nBuildr MUST 将当前可执行命令、兼容输入和内部数据标识区分为 public、legacy compatibility 与 internal/maintenance 产品表面，并在 help、产品文档、current-state knowledge 和验证中保持同一分类。\n\n#### Scenario: Public workspace surface\n- **WHEN** 用户或 Agent 查看 Buildr 根帮助与主产品文档\n- **THEN** Buildr MUST 展示正式支持的 workspace 初始化、资产维护、诊断、修复和 runtime 操作\n- **AND** 低频但由 doctor、bootstrap 或 Buildr Skill 正式调用的 workspace 命令 MUST 保持 public，而不能仅因其底层或高级而标为 internal\n\n#### Scenario: Internal maintenance surface\n- **WHEN** 根帮助或产品文档提及产品构建、发布、自举或 workflow 编排命令\n- **THEN** Buildr MUST 将这些入口与普通 workspace 用户主路径分区并标明 maintenance 或 workflow internal 用途\n- **AND** 分类 MUST NOT 改变命令的现有可执行性、安全契约或安装后行为\n"
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "Workspace 产品能力必须遵守新源码分层",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "本地应用入口必须受限于单个 Workspace",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "Workspace 页面必须支持查看和低风险修改",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "页面修改必须防止覆盖外部变化",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "新增 Workspace 必须生成可复制 Agent prompt",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "本地应用写 API 必须使用最小安全边界",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "managed-skill-assets",
+      "title": "Skills registry 必须复用 canonical Workspace identity",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "root-organization-workspace",
+      "title": "Workspace metadata 使用稳定领域 identity",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "root-organization-workspace",
+      "title": "初始化创建可直接工作的根资产",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 初始化创建可直接工作的根资产\n`buildr init` MUST create workspace assets that can receive Buildr product builtins and Components and render supported Agent runtimes.\n\n#### Scenario: 初始化根资产\n- **WHEN** Agent executes `buildr init --target <dir> --name <name>`\n- **THEN** Buildr MUST create root source assets including `.buildr/`, `rules/`, `skills/`, `commands/`, `components/` and `projects/`\n- **AND** Buildr MUST NOT create a root `practices/` directory\n- **AND** Buildr MUST create `rules/manifest.yml`, `skills/manifest.yml`, `commands/manifest.yml`, `components/manifest.yml` and `projects/manifest.yml`\n- **AND** `skills/manifest.yml` MUST declare `schemaVersion: buildr.skills/v1`\n- **AND** `components/manifest.yml` MUST declare `schemaVersion: buildr.components/v1`\n- **AND** `projects/manifest.yml` MUST declare `schemaVersion: buildr.projects/v1`\n- **AND** Buildr MUST create root `AGENTS.md` required block and reference `rules/buildr/core.md`\n- **AND** Buildr MUST be able to render initial Agent runtime for supported adapters\n\n#### Scenario: 初始化 Codex runtime\n- **WHEN** Buildr initializes a new workspace for Codex usage\n- **THEN** Buildr MUST keep `AGENTS.md` as the native Codex rule entry\n- **AND** Buildr MUST be able to project enabled Skills, including enabled Component Skills, to `.agents/skills/`\n\n#### Scenario: 初始化 Claude Code runtime\n- **WHEN** Buildr initializes or syncs workspace for Claude Code usage\n- **THEN** Buildr MUST be able to generate Claude Code runtime projection from the same Buildr source assets, enabled builtins and enabled Components model\n"
+    }
+  ]
+}

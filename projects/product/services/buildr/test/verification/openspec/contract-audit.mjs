@@ -1,0 +1,110 @@
+#!/usr/bin/env node
+
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+
+const productRoot = path.resolve(process.env.BUILDR_PROJECT_ROOT ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../..'));
+const gitPrefix = execFileSync('git', ['rev-parse', '--show-prefix'], { cwd: productRoot, encoding: 'utf8' }).trim();
+function gitPathList(args) {
+  return execFileSync('git', args, {
+    cwd: productRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).split(/\r?\n/).filter(Boolean);
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function withoutPurposeBody(markdown) {
+  return String(markdown).replace(/(^## Purpose\s*$)[\s\S]*?(?=^##\s+)/m, '$1\n');
+}
+
+function isPurposeOnlyMaintenance(file) {
+  let previous;
+  try {
+    previous = execFileSync('git', ['show', `HEAD:${gitPrefix}${file}`], { cwd: productRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch {
+    return false;
+  }
+  const current = fs.readFileSync(path.join(productRoot, file), 'utf8');
+  return withoutPurposeBody(previous) === withoutPurposeBody(current);
+}
+
+const candidatePaths = [...new Set([
+  ...gitPathList(['diff', '--relative', '--name-only', 'HEAD', '--', 'openspec/specs']),
+  ...gitPathList(['diff', '--relative', '--name-only', 'HEAD', '--', 'openspec/changes']),
+  ...gitPathList(['ls-files', '--others', '--exclude-standard', '--', 'openspec/specs', 'openspec/changes']),
+])].sort();
+const changed = candidatePaths.filter((file) => file.startsWith('openspec/specs/') && !isPurposeOnlyMaintenance(file));
+const candidatePathSet = new Set(candidatePaths);
+
+if (changed.length === 0) {
+  console.log('OpenSpec contract audit passed: no canonical requirement changes in the candidate tree.');
+  process.exit(0);
+}
+
+const changedCapabilities = new Set();
+for (const file of changed) {
+  const match = file.match(/^openspec\/specs\/([^/]+)\/spec\.md$/);
+  if (!match) {
+    console.error(`OpenSpec contract audit cannot associate non-canonical spec path: ${file}`);
+    process.exit(1);
+  }
+  changedCapabilities.add(match[1]);
+}
+
+const receipts = [];
+for (const root of [path.join(productRoot, 'openspec', 'changes'), path.join(productRoot, 'openspec', 'changes', 'archive')]) {
+  if (!fs.existsSync(root)) continue;
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name === 'archive') continue;
+    const receipt = path.join(root, entry.name, '.buildr', 'contract-pre-sync-receipt.json');
+    if (!fs.existsSync(receipt)) continue;
+    const relativeReceipt = path.relative(productRoot, receipt).split(path.sep).join('/');
+    if (!candidatePathSet.has(relativeReceipt)) continue;
+    try {
+      const value = JSON.parse(fs.readFileSync(receipt, 'utf8'));
+      const expectedEntry = root.endsWith(`${path.sep}archive`)
+        ? new RegExp(`^\\d{4}-\\d{2}-\\d{2}-${escapeRegExp(value.change || '')}$`)
+        : new RegExp(`^${escapeRegExp(value.change || '')}$`);
+      if (!expectedEntry.test(entry.name)) {
+        console.error(`OpenSpec contract audit found receipt/change path mismatch: ${relativeReceipt}`);
+        process.exit(1);
+      }
+      if (value.schemaVersion === 'buildr.openspec-contract-receipt/v1'
+        && value.postSyncVerified === true
+        && typeof value.postSyncDeltaHash === 'string'
+        && value.postSyncSpecIntegrities
+        && typeof value.postSyncSpecIntegrities === 'object') {
+        const capabilities = [];
+        for (const [capability, expectedIntegrity] of Object.entries(value.postSyncSpecIntegrities)) {
+          const deltaFile = path.join(root, entry.name, 'specs', capability, 'spec.md');
+          const canonicalFile = path.join(productRoot, 'openspec', 'specs', capability, 'spec.md');
+          if (!fs.existsSync(deltaFile) || !fs.existsSync(canonicalFile) || typeof expectedIntegrity !== 'string') continue;
+          const content = fs.readFileSync(canonicalFile, 'utf8').replace(/\r\n/g, '\n').replace(/[ \t]+$/gm, '').replace(/\n+$/, '\n');
+          const actualIntegrity = `sha256-${crypto.createHash('sha256').update(content).digest('hex')}`;
+          if (actualIntegrity === expectedIntegrity) capabilities.push(capability);
+        }
+        receipts.push({ change: value.change, capabilities });
+      }
+    } catch {
+      console.error(`OpenSpec contract audit found invalid receipt: ${path.relative(productRoot, receipt)}`);
+      process.exit(1);
+    }
+  }
+}
+
+const verified = new Set(receipts.flatMap((receipt) => receipt.capabilities));
+const missing = [...changedCapabilities].filter((capability) => !verified.has(capability));
+if (missing.length) {
+  console.error(`OpenSpec contract audit found canonical spec changes without a matching receipt from the current candidate: ${missing.join(', ')}`);
+  process.exit(1);
+}
+
+console.log(`OpenSpec contract audit passed: ${[...changedCapabilities].join(', ')} associated with current candidate receipts.`);

@@ -591,63 +591,82 @@ Buildr MUST 将 package build 输出视为带版本化 receipt 和 integrity 的
 - **THEN** Buildr MUST 拒绝构建且保持目标不变
 
 ### Requirement: 产品验证覆盖分层验证门禁契约
-Buildr package verification MUST 防止随包任务 Skills 和 Product Project 开发契约回退为逐任务完整 E2E、重复启动运行中验证或重复执行被上层入口覆盖的检查。
+Buildr package verification MUST 防止随包任务 Skills 和 Product Project 开发契约回退为普通收尾固定完整 Candidate、重复启动运行中验证、重复执行被上层入口覆盖的检查或把 browser 作为独立顶层测试类型。
 
-#### Scenario: 校验三级验证边界
+#### Scenario: 校验日常与完整候选边界
 - **WHEN** Buildr 验证随包任务 Skills 和 Product Project 开发契约
-- **THEN** 验证 MUST 确认单任务只要求最小反馈检查
-- **AND** 验证 MUST 确认任务组边界要求一次受影响范围验证
-- **AND** 验证 MUST 确认只有冻结后的最终候选要求完整验证
+- **THEN** 验证 MUST 确认实现循环可以运行 minimal 快速反馈、普通完成和普通收尾要求 affected、发布高风险或显式完整验证要求 candidate
+- **AND** 验证 MUST 确认 Task Finish 不维护测试命令或路径风险名单
 
-#### Scenario: 校验完整 E2E 去重语义
+#### Scenario: 校验完整验证去重语义
 - **WHEN** Buildr 验证实现阶段和收尾阶段的流程文本
-- **THEN** 验证 MUST 确认流程不要求每个任务后运行完整 E2E
-- **AND** 验证 MUST 确认上层入口已覆盖的底层检查在同一候选状态中不会被机械重复
-- **AND** 验证 MUST 确认相同最终候选 tree 的后续 Git 动作复用已有验证证据
+- **THEN** 验证 MUST 确认上层入口已覆盖的底层检查在同一候选状态中不会被机械重复
+- **AND** 验证 MUST 确认相同 identity 的后续 Git 动作复用已有满足 requiredAssurance 的 evidence
 
 #### Scenario: 校验运行中验证进程复用
 - **WHEN** Buildr 验证随包任务 Skills
 - **THEN** 验证 MUST 确认 session、cell、process id 或仍在运行状态通过 wait、poll 或 resume 继续
-- **AND** 验证 MUST 确认暂时无输出不会触发相同命令的重复启动
+- **AND** 暂时无输出 MUST NOT 触发相同命令的重复启动
 
 #### Scenario: 校验失败后的重验范围
-- **WHEN** Buildr 验证最终候选完整验证失败后的流程
+- **WHEN** Buildr 验证失败后的修复流程
 - **THEN** 验证 MUST 确认修复期间优先重跑失败项和受影响专项检查
-- **AND** 验证 MUST 确认候选重新稳定后执行一次新的最终完整验证
+- **AND** 最终内容变化后 MUST 重跑同一 requiredAssurance，普通任务不得机械升级为 Candidate
+
+#### Scenario: 校验 browser integration 路由
+- **WHEN** Buildr 验证 Product changed planner
+- **THEN** planner MUST 能独立选择 Project、Service、Change 与 Shell browser integration
+- **AND** 局部 API 或单资源页面改动 MUST NOT 触发无关资源 browser 流程、CLI architecture 或 managed mutations
 
 #### Scenario: 校验外部 OpenSpec Skill 所有权
-- **WHEN** Buildr 验证分层验证门禁的交付来源
+- **WHEN** Buildr 验证门禁的交付来源
 - **THEN** 门禁 MUST 由 Buildr-owned Skills 或 Product Project 开发契约提供
 - **AND** Component 管理的外部 `openspec-apply-change` Skill MUST 保持上游所有权
 
 ### Requirement: 产品验证覆盖 Git 工作区转换后的环境检查契约
-Buildr package verification MUST 防止随包 Git 和任务 Skills 丢失工作区转换后的 Buildr 环境诊断、Agent-first 同步交互、授权或手动兜底边界。
+Buildr package verification MUST 防止随包 Git 和任务 Skills 丢失一般工作区转换后的 Buildr 环境诊断边界，并 MUST 通过可执行产品验证证明 canonical task worktree 创建后的 doctor 与安全自动 sync 确定性发生。
 
 #### Scenario: 校验 Git Ops 触发与排除范围
 - **WHEN** Buildr 验证随包 Git Ops Skill 和 manifest description
 - **THEN** 验证 MUST 确认 Skill 能路由 `pull`、`checkout`、`switch`、`reset`、`cherry-pick`、`revert` 和 `stash` 等工作区转换意图
-- **AND** 验证 MUST 确认成功的工作区转换会在已初始化 Buildr workspace 中运行当前 Agent doctor
+- **AND** 验证 MUST 确认成功的一般工作区转换会在已初始化 Buildr workspace 中运行当前 Agent doctor
 - **AND** 验证 MUST 确认 `fetch`、`push`、普通 `commit` 和失败或冲突中的工作区转换不会触发该检查
 
-#### Scenario: 校验 Agent-first 同步交互
-- **WHEN** Buildr 验证 Git 工作区转换后的处理文本
+#### Scenario: 校验一般 Agent-first 同步交互
+- **WHEN** Buildr 验证 worktree create 之外的 Git 工作区转换处理文本
 - **THEN** 验证 MUST 确认 doctor 无需处理时不提醒 `render` 或 `sync`
 - **AND** 验证 MUST 确认 doctor 发现问题时按 Rules、Skills、Commands、Components、Contributions 和 runtime 分类说明
 - **AND** 验证 MUST 确认可由 sync 修复时先询问用户、同时提供手动命令，并在用户确认后由 Agent 执行 sync 和最终 doctor
-- **AND** 验证 MUST 确认手动命令使用实际 Agent 和 workspace root，且不会在用户手动操作后无证据地假设成功
-- **AND** 验证 MUST 确认没有用户确认时不会执行 sync，且不会默认要求用户自行运行命令
+- **AND** 验证 MUST 确认没有用户确认时不会执行一般 workspace sync，且不会默认要求用户自行运行命令
 - **AND** 验证 MUST 确认 Agent 无法执行或用户选择手动方式时才使用手动操作兜底
-- **AND** 验证 MUST 确认 Skill 不把当前 session 热重载声明为 Buildr 责任
 
-#### Scenario: 校验任务 Skill 复用检查点
-- **WHEN** Buildr 验证随包 `task-worktree` 和 `task-finish` Skills
-- **THEN** 验证 MUST 确认新 worktree checkout、成功 rebase 和目标 workspace fast-forward 集成复用相同的 Buildr 环境检查、同步询问、Agent 执行和手动兜底边界
-- **AND** 验证 MUST 确认该检查不改变既有验证证据、Git 授权或 worktree 清理契约
+#### Scenario: 校验 task worktree 产品入口
+- **WHEN** Buildr 验证 `worktree create` CLI、帮助、JSON schema、随包 `task-worktree` Skill 和 capability routing
+- **THEN** 验证 MUST 确认 Agent 负责提供 task id、branch、start point、Agent 和 workspace root，Buildr 负责 canonical create/reuse 与环境 bootstrap
+- **AND** 验证 MUST 确认 task-worktree Skill 要求通过该产品入口创建新 checkout，而不是自行执行 `git worktree add` 后依赖文本提醒
+- **AND** 验证 MUST 确认该入口不接管任务理解、OpenSpec 选择、merge、rebase、push 或 cleanup policy
+
+#### Scenario: 校验创建后 doctor 与安全自动 sync
+- **WHEN** 产品 E2E 在临时已初始化 Git workspace 调用 `worktree create`
+- **THEN** 验证 MUST 证明新 canonical checkout 一定执行当前 Agent doctor
+- **AND** runtime healthy 时 MUST 跳过 sync
+- **AND** 唯一 actionable finding 为当前 Agent runtime stale、checkout clean 且 identity 未变化时 MUST 自动 sync 并通过最终 doctor
+- **AND** JSON MUST 返回 created/reused、treeChanged、doctor before/after、sync decision、blocked reason 和 nextActions
+
+#### Scenario: 校验安全分类 fail closed
+- **WHEN** 临时 workspace 分别构造 occupied path、branch 已被占用、dirty/identity 变化、mutation blocked、非 runtime actionable finding、sync preflight 决策或 sync 后 doctor 失败
+- **THEN** 验证 MUST 确认产品不会执行不安全 sync、不会执行 doctor 输出中的任意命令、不会删除已创建 checkout或丢弃内容
+- **AND** 创建前冲突 MUST 零写入，创建后 bootstrap 阻塞 MUST 保留现场并返回结构化 nextActions
+
+#### Scenario: 校验幂等复用
+- **WHEN** 同一 task id、repository 与 branch 再次调用 `worktree create`
+- **THEN** 验证 MUST 返回 `reused`、`treeChanged: false`，且不重复 doctor 或 sync
+- **AND** identity 不匹配 MUST fail closed
 
 #### Scenario: 校验无需 Git hook
 - **WHEN** Buildr 验证工作区转换后的环境检查实现
-- **THEN** 验证 MUST 确认随包 Skills 不要求安装或维护 Git hook、daemon、文件 watcher 或定时任务
-- **AND** 验证 MUST 保留 Agent 之外 Git 操作只能由后续 Buildr 基线 doctor 兜底的边界
+- **THEN** 验证 MUST 确认随包资产不要求安装或维护 Git hook、daemon、文件 watcher 或定时任务
+- **AND** 验证 MUST 保留绕过 Buildr worktree create 的外部 Git 操作只能由后续 Buildr 基线 doctor 兜底的边界
 
 ### Requirement: 产品验证覆盖 Git-first workspace 更新编排
 Buildr product verification MUST 防止产品入口 Buildr Skill 和随包引导退回到只执行本地 `buildr sync` 的 workspace 更新语义。
@@ -771,43 +790,65 @@ Buildr package MUST 为新 Project 交付空的 Command requirements baseline，
 - **AND** sync 或 migration MUST 能安全补齐空 baseline
 
 ### Requirement: 随包任务验证能力保持完整可组合
-Buildr package MUST 原子交付 `buildr.task-verification/v1` contract、默认 `task-verification` provider、workspace binding、Task Finish consumer dependency 和全部 supported runtime 投射输入，并 MUST 通过产品验证防止验证职责重新耦合到 worktree lifecycle provider。
+Buildr package MUST 原子交付 `buildr.task-verification/v2` contract、默认 `task-verification` provider、测试能力声明参考/模板、workspace binding、Task Finish consumer dependency 和全部 supported runtime 投射输入，并 MUST 通过产品验证防止验证职责重新耦合到 worktree lifecycle provider或具体团队测试分层。
 
-#### Scenario: 安装默认任务验证能力
-- **WHEN** 用户初始化或同步包含默认任务 Skills 的 Buildr workspace
-- **THEN** workspace Skills manifest MUST 声明 installed、enabled 的 `task-verification` provider 及 `buildr.task-verification/v1` contract 和 binding
-- **AND** `task-finish` MUST 对该 capability 声明 `mode: required`
-- **AND** doctor capability graph MUST 将默认 provider 和 consumer 报告为 `ready`
+#### Scenario: Package 声明 task-verification provider
+- **WHEN** package static validation 读取随包能力声明
+- **THEN** workspace Skills manifest MUST 声明 installed、enabled 的 `task-verification` provider及 `buildr.task-verification/v2` contract 和 binding
+- **AND** `task-finish` MUST 以 required consumer dependency 引用 v2，而不是固定 provider id
 
-#### Scenario: 七个 runtime 投射任务验证 Skill
-- **WHEN** Buildr 为任一 supported runtime render 或 sync workspace Skills
+#### Scenario: Package 交付测试声明资料
+- **WHEN** package static validation 检查 `task-verification` 完整目录
+- **THEN** provider MUST 包含可读取的 schema 参考和初始化模板
+- **AND** 资料 MUST 使用通用能力集合、成熟度、阶段、环境、副作用和授权模型，不得包含具体团队固定分层
+
+#### Scenario: Runtime 可发现验证入口
+- **WHEN** 临时 workspace 为任一 supported runtime 完成 sync 或 render
 - **THEN** runtime inventory MUST 包含可发现的 `task-verification` Skill
-- **AND** `task-finish` runtime binding evidence MUST 指向当前 selected verification provider、contract digest 和 readiness
+- **AND** description MUST 覆盖直接测试、实现完成节点、所需保证 evidence、初始化测试声明和测试能力演进意图
 
-#### Scenario: 防止验证与 worktree lifecycle 回退耦合
+#### Scenario: Provider contract 组合验证
 - **WHEN** Buildr 运行随包任务 Skills 契约验证
-- **THEN** verifier MUST 确认 `task-worktree` 只提供 `buildr.task-worktree-lifecycle/v1` 并且不拥有三级验证执行与报告政策
-- **AND** verifier MUST 确认 `task-verification` 不依赖 Git worktree、Git provider identity 或 Buildr Product 专用验证命令
+- **THEN** verifier MUST 同时覆盖 affected、candidate、Task Finish consumer、零配置 legacy、augment 声明、authoritative Candidate 和增量演进路径
+- **AND** verifier MUST 确认 provider 返回 `requiredAssurance`，且不依赖 Git worktree、Git provider identity、Buildr Product 专用验证命令或固定团队分层
 
-#### Scenario: 验证 provider 替换后保持组合
-- **WHEN** workspace 安装并绑定兼容的内部 `buildr.task-verification/v1` provider
-- **THEN** package/runtime verification MUST 确认 `task-finish` 使用 replacement provider 且保持 capability-ready
-- **AND** 默认 `task-verification` provider 在不再被选中时 MUST 可安全卸载而不破坏 consumer
+#### Scenario: 替换默认验证 provider
+- **WHEN** workspace 安装并绑定兼容的内部 `buildr.task-verification/v2` provider
+- **THEN** Task Finish MUST 通过 binding 使用新 provider而不修改 consumer Skill
+- **AND** 默认 provider 在不再被选中时 MUST 可安全卸载而不破坏 consumer
 
 ### Requirement: 产品验证覆盖 Candidate task metadata 分类
-Buildr package verification MUST 覆盖 `verification-result-metadata-only` 的允许与拒绝路径，并 MUST 确认该优化不改变 task-verification capability contract、provider identity 或默认 binding。
+Buildr package verification MUST 覆盖 `verification-result-metadata-only` 的允许与拒绝路径，并 MUST 确认该优化保持 task-verification v2 provider identity、默认 binding、requiredAssurance 和原 evidence identity。
 
 #### Scenario: 校验唯一 checkbox transition
 - **WHEN** package contract tests 读取 Task Finish、Task Verification、OpenSpec apply sidebar 和 closeout fixtures
-- **THEN** 验证 MUST 确认同一会话内唯一最终 Candidate task 的精确 `[ ]` → `[x]` transition 复用 Candidate evidence 且 executor counts 均为 `0`
-- **AND** 验证 MUST 确认结果保留 implementation Candidate identity 与独立 target delivery identity
+- **THEN** 验证 MUST 确认同一会话内唯一最终验证任务的精确 `[ ]` → `[x]` transition 复用原 evidence且 verification executor count 为 `0`
+- **AND** 结果 MUST 保留 source implementation identity、requiredAssurance 与独立 target delivery identity
 
 #### Scenario: 校验 fail-closed 分支
 - **WHEN** fixture 表示额外内容变化、任务歧义或跨会话缺少 transition evidence
-- **THEN** 验证 MUST 确认 transition 为 `implementation-changed` 且需要新的 Candidate execution
+- **THEN** 验证 MUST 确认 transition 为 `implementation-changed` 并要求重新执行同一 requiredAssurance
 - **AND** verifier MUST 拒绝仅按 `tasks.md` 路径、Markdown 类型或最终 checkbox 状态放行
 
-#### Scenario: 校验能力拓扑兼容
-- **WHEN** Buildr package verification 检查本次指导与 fixture
-- **THEN** 验证 MUST 确认 `buildr.task-verification/v1`、selected provider 与 binding identity 保持不变
+#### Scenario: 校验能力拓扑迁移
+- **WHEN** Buildr package verification 检查 contract、provider、consumer 和 binding
+- **THEN** 验证 MUST 确认默认拓扑完整迁移到 `buildr.task-verification/v2` 且不存在仍被默认流程引用的 v1
 - **AND** 验证 MUST 确认外部 `openspec-*` Skill 源未被修改
+
+### Requirement: Package 原子交付任务资产观察 v2
+Buildr package MUST 原子交付 `buildr.task-asset-review/v2` contract、默认 provider、内部 helper 与模板、workspace binding、产品入口路由和 Task Finish optional dependency。
+
+#### Scenario: Package 安装 v2
+- **WHEN** Buildr 初始化或同步 workspace
+- **THEN** package MUST 安装 v2 contract 和完整 task-asset-review Skill 目录
+- **AND** default binding 与 Task Finish requirement MUST 引用 v2
+
+#### Scenario: Package 校验内部资源
+- **WHEN** Agent 运行 package check 或产品 affected verification
+- **THEN** verifier MUST 检查 helper、模板、manifest contract identity 和 provider/consumer version 一致性
+- **AND** verifier MUST 覆盖共享路径、owner mismatch、原子写入、accept、reject 和 handoff 行为
+
+#### Scenario: Optional provider 缺失
+- **WHEN** `buildr.task-asset-review/v2` 对 Task Finish 不可用
+- **THEN** doctor MUST 报告 non-blocking degradation
+- **AND** runtime binding evidence MUST 声明 finalize stage skipped

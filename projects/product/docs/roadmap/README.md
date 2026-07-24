@@ -16,8 +16,9 @@ Roadmap 文档不是 Rule、Skill、Agent runtime 资产或当前能力说明，
 
 ## 当前方向资料
 
-- [多 Agent 任务编排与上下文管理](agent-context-orchestration.md)：以 Task DAG、Specs、Codebase Memory 和 Task State 支撑并发执行与多层上下文流转；重要性 t0，紧急性 t1。
-- [角色 Agent 设计候选](agent-roles/)：历史岗位化职责草案；后续应优先评估如何拆分为可动态加载的 Rules、Skills 和 Packages，而不是固定 Agent 身份。
+- [Agent 时代的工作基础设施](agent-work-infrastructure.md)：以 Agent 为语义与执行中心，说明 Enterprise、多 Workspace、外部数据源、三类交互界面，以及 OpenHands、ACP、Multica、OpenClacky 等生态能力如何拆分到 Buildr、Agent 和可选运行设施。
+- [Agent 自编排与上下文接续](agent-context-orchestration.md)：Agent 按任务跨 Workspace 检索并动态加载 Rules、Skills 和工具，自行维护 Task DAG；Buildr 只提供工作资产与可接续状态。重要性 t0，紧急性 t1。
+- [历史角色能力拆解](agent-roles/)：早期岗位化职责草案；只作为动态 Rules、Skills、Packages 和能力契约的拆解素材，不构成固定 Agent 身份。
 - [原型开发能力设想](prototype-development.md)：编码式交互原型流程候选，尚未作为 Buildr Skill、CLI 或受管工作流实现。
 - [Workspace Assets 独立版本化方向](workspace-assets-versioning.md)：当前继续随 CLI package 发布，未来按触发条件评估版本化 tarball 与独立同步协议。
 

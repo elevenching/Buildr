@@ -8,14 +8,14 @@
 
 本 workspace 是 Buildr 用来开发 Buildr 自身的自举 workspace。每个 Buildr 开发任务收尾时，必须检查本次变更是否影响 Rules、Skills、Components、Commands、项目结构或 Agent runtime 入口；如有影响，按需运行 `projects/product/buildr sync <agent> --target .` / `projects/product/buildr render <agent> --target .` 更新当前 workspace。
 
-- Buildr 产品源只在 `projects/product/` 维护；当前 workspace 中由 Buildr 交付的资产只能通过当前 Product checkout 的 `update` / `sync` 更新，不直接编辑。
+- Buildr 产品治理事实只在 `projects/product/` 维护；可执行产品的唯一源码根是 `projects/product/services/buildr/`。当前 workspace 中由 Buildr 交付的资产只能通过当前 Product checkout 的 `update` / `sync` 更新，不直接编辑。
 
 开发阶段执行 Buildr 命令时，使用本 workspace 内的产品 CLI 入口 `projects/product/buildr`，不要依赖本机 PATH 上安装的 `buildr`。
 
 ## 产品文档入口
 
 - [README.md](README.md) 是 Buildr 公开产品入口，以产品定位、核心模型、快速开始、当前能力和文档导航为主，最后说明本仓是 Buildr 自举 workspace 及其开发入口。
-- [Buildr Product](projects/product/docs/buildr-product.md) 是 Buildr 产品定位、核心模型、边界和 Roadmap 的主说明；产品文档核心维护在 `projects/product/`，涉及产品事实或契约时继续以该目录下的 current-state knowledge 和 OpenSpec specs 为准。
+- [Buildr Product](projects/product/docs/buildr-product.md) 是 Buildr 产品定位、核心模型、边界和 Roadmap 的主说明；产品治理文档维护在 `projects/product/`，CLI、runtime、验证和发布等实现文档维护在 `projects/product/services/buildr/docs/`。涉及产品事实或契约时继续以 Product Project 的 current-state knowledge 和 OpenSpec specs 为准。
 
 ## Rule / Skill 分层原则
 

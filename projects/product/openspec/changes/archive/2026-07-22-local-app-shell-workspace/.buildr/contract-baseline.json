@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "local-app-shell-workspace",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-32d6b3202922bdfe1d9f46d37069658f2373701891e8de17d839d1e33c3c0273",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "local-workspace-application",
+      "title": "本机应用必须提供固定 Workspace 的应用外壳与路由",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "Workspace 概览必须提供真实且可解释的摘要",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "Workspace 设置必须承载受控 metadata 修改",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "项目与服务独立视图必须保留现有能力",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "新 Workspace 动作必须统一表达为交给 Agent",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "项目与服务创建必须使用抽屉式 Agent Action",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "界面领域名词必须使用中文主称",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

@@ -10,9 +10,11 @@
 Organization/Root -> Project -> Service
 ```
 
-- `buildr init --agent <agent> --target <dir> --name <name> --profile <profile>` 是推荐首次入口：将目标目录初始化为 Buildr root，并复用完整 sync 管线准备当前 Agent runtime 与最终 doctor；不带 `--agent` 时只初始化源资产。
+- `buildr init --agent <agent> --target <dir> --name <name> [--description <description>] --profile <profile>` 是推荐首次入口：将目标目录初始化为 Buildr root，并复用完整 sync 管线准备当前 Agent runtime 与最终 doctor；不带 `--agent` 时只初始化源资产。未提供 description 时写入明确 TODO，由 doctor 提示补全。
 - Buildr root 是个人或组织的 Organization 上下文实例。
-- `.buildr/workspace.yml` 记录 schema version、kind、name 和 profile。
+- `.buildr/workspace.yml` 使用 `buildr.workspace/v1`，记录稳定 UUID `id`、`name`、`description` 以及只读兼容 metadata；`skills/manifest.yml.workspaceId` 必须引用同一 UUID。
+- `buildr app --target <workspace> [--port <port>]` 只监听 loopback，提供 Workspace 与 Project 查看、`name/description` 受控修改，以及新增 Workspace/Project 的可复制 Agent prompt。旧 metadata/registry 只读展示，页面启动不会静默迁移。
+- `buildr sync <agent>` 在 source transaction 中显式迁移 legacy Workspace metadata；两处 identity 冲突、非法 schema 或迁移失败时 fail closed 并回滚。
 - Project 路径为 `projects/<project>/`。
 - Service 默认 repo 路径为 `projects/<project>/services/<service>/`。
 - 共享、基础或平台服务通过普通 Project 表达，例如 `foundation` 或 `platform`。
@@ -22,7 +24,7 @@ Organization/Root -> Project -> Service
 - 未合并候选产品只验证临时 workspace 或 task worktree 自身，不更新主自举 workspace。完整验证绑定最终候选 Git tree；commit、相同 tree 集成、push 和 worktree 清理复用该结果，tree 改变后才在集成前重验受影响部分。
 - 当前内置 `task-finish` workspace Skill 独占完整“收尾”意图：在当前轮次授权常规 OpenSpec 同步归档、相关校验、提交、必要的本地未推送 rebase、fast-forward 集成、目标分支 push 和本地 worktree/任务分支清理；高风险或语义不确定动作仍停止确认。
 - `task-finish` 是 Buildr 自有收尾编排 Skill，不修改外部 `openspec-*` Skills；OpenSpec Component 已安装时，runtime renderer 向其稳定 slots 贡献 canonical sync 前的 pre-sync check 和 sync 后 archive 前的 post-sync check。Component 卸载后这些说明消失，通用 `task-finish` 仍保留其余职责。
-- `task-finish` 在任务资产审查前先对齐用户已确认目标和决策、change artifacts、最终实现、Git diff 与验证结果，再复用 OpenSpec contract sidebar 证明已记录契约一致性；任务确认完成后只根据当前上下文执行无工具轻量资格判断，命中强信号时才条件调用 optional `task-asset-review`，审查不可用或失败不会阻塞正常收尾。
+- `task-finish` 在资产审查 finalize 前先对齐用户已确认目标和决策、change artifacts、最终实现、Git diff 与验证结果，再复用 OpenSpec contract sidebar 证明已记录契约一致性；任务确认完成后只触发 optional `buildr.task-asset-review/v2` provider finalize 并等待其 `no-observation`、`discarded` 或 `awaiting-human` 结果，不汇总信号、执行资格门禁或判断沉淀内容。provider 不可用或失败时降级继续。
 - 实际自举 workspace 的 sync 是独立状态变更，执行后按 Buildr Core 运行 doctor，不作为相同 tree 的第二轮产品 E2E；CLI update 只更新当前 Product checkout 或 registry package，不读取 workspace。
 - Agent 采用 OpenSpec workflow 时，必须在动作前说明 change id、change 路径和 create/explore/apply/sync/archive 动作。
 
@@ -30,11 +32,14 @@ Organization/Root -> Project -> Service
 
 - root `projects/manifest.yml` 是 workspace 管理的 Project registry。
 - `buildr project create <project>` 会创建或修复 Project baseline，并维护 `projects/manifest.yml`。
-- Project registry 记录 Project 的 title、description、path 和 repo 来源。
+- canonical Project registry 使用 `buildr.projects/v2`，每个 Project 记录 UUID `id`、所属 `workspaceId`、可读 `code`、`name`、`description` 和 `source`；`source.path` 是当前文件系统物化位置。
+- `source.type: git` 另外声明 URL、remote 与稳定的 `integrationBranch`。当前分支、HEAD、dirty、upstream、ahead/behind 和实际 remote URL 由 Git adapter 实时观察，不写回 Domain。
+- `buildr.projects/v1` 只兼容读取；显式 `buildr update` / `buildr sync <agent>` 完成原子迁移。普通读取和 app 启动不写入，迁移前 Project 页面只读。
 - 传入 `--repo <git-url>` 时，Buildr 将 Project 资产 repo clone 到 `projects/<project>/`。
 - Buildr 当前不登记外部本地 Project 链接；Project 资产 materialize 到 `projects/<project>/`。
 - `buildr update` / `buildr sync` 会从 `projects/` 目录事实补登记 Project；仅存在于 manifest、但目录缺失的 Project 不会被自动实体化，由 doctor 告警并等待明确的 `project create` 决策。
-- Project Git 目录已存在时，`project create --repo` 会比较实际 origin、命令 URL 和 registry identity；不一致时在任何 registry 或 Project baseline 写入前失败，不静默 relink。
+- Project Git 目录已存在时，`project create --repo` 会比较声明 remote 的实际 URL、命令 URL 和 Domain source identity；不一致时在任何 registry 或 Project baseline 写入前失败，不静默 relink。
+- Project 页面展示声明与实时 Git 状态的偏移，但不会自动 checkout、stash、merge 或丢弃改动；`name`、`description` 修改使用 registry revision 防止覆盖外部变化，新增只生成交给 Agent 的指令。
 
 ## Service Registry
 
@@ -126,7 +131,7 @@ Organization/Root -> Project -> Service
 - Buildr 内置 workspace Skills 现在发布到 `skills/buildr/<skill-id>/`，并在 `skills/manifest.yml` 中以 `source: buildr`、`path`、`runtimePath`、`enabled`、`required` 和 `state` 管理。
 - 当前随包独立 workspace Skills 包括 `task-triage`、`task-board`、`task-asset-review`、`task-worktree`、`task-finish` 和 `git-ops`；OpenSpec workflows 与 `openspec-contract-guard` 由 OpenSpec Component 统一交付，但仍以 Buildr builtin descriptor 提供产品元数据。
 - `task-board` 为复杂、长期、跨批次或有交叉依赖的任务维护 Agent 单向更新、用户只读的单文件 HTML 任务看板。新页面默认路径为 Project `openspec/knowledge/task-boards/yyyy-MM-dd-<task-id>.html`，每个看板至少关联一个真实 OpenSpec change，并可跨多个 active/archive change、code-only 工作和外部依赖。旧称“任务驾驶舱”只保留为用户意图兼容；既有 `task-cockpits/` HTML 保持原路径和原内容，不参与升级迁移。
-- `task-asset-review` 基于当前 session 可观察节点和最终 Git/OpenSpec/验证证据反思目标一致性、路径、证据、scope/授权、token/工具成本与复用机会；它按需核对候选目标 Skill 的正文、metadata、模板、脚本、manifest、runtime 投射和真实产物，输出完整覆盖、部分覆盖、存在冲突或尚无资产。执行质量反馈与 Rule/Skill 候选分层，OpenSpec 只作证据，合格候选生成可在 worktree 清理后继续核查的证据胶囊。它不读取隐藏推理、不保存完整任务轨迹、不依赖 Hook，也不自动写入组织资产。
+- `task-asset-review` 是 `buildr.task-asset-review/v2` 默认 provider：在非简单 Workspace 任务期间把精炼资产信号写入用户级 `asset-review/<workspace-id>/inbox/`，所有 worktree 共享 inbox、每个任务独立 owner 文件；结束时由 provider 核验覆盖并只分类为 Rule、Skill、capability Contract 或 product follow-up，等待人工 accept/reject。reject 删除草稿；accept 进入新的 task-triage。只有新任务真实修改前三类资产时，才在 `asset-maintenance/<type>/<asset-id>/records/` 随资产变更提交维护记录；product follow-up 由 OpenSpec 吸收来源，不复制历史。该能力不保存完整轨迹、不引入 Hook/daemon/数据库，也不创建 `asset.yml`。
 - 任务看板优先展示普通用户可理解的目标、当前结论、当前批次、已完成、下一步和阻塞，再逐层展示 change 关联、交付批次、依赖池、业务/技术方案与已完成复杂任务的技术细节。它是 task-scoped working knowledge，不替代 canonical specs、active change、代码和验证证据。
 - `task-triage` 判断驾驶舱是“不需要”“创建”还是“继续维护”；驾驶舱首次创建、实质更新、用户询问进度、任务暂停或完成时，Agent 回复提供可点击绝对路径和 workspace 相对路径。
 - 产品入口 Buildr Skill 仍位于 `package/targets/runtime/skills/buildr/SKILL.md`，不进入 workspace `skills/manifest.yml`，也不硬编码可卸载 Component 所拥有的专用 Skill 路由。
@@ -204,10 +209,10 @@ Agent-facing Buildr onboarding 和维护流程当前要求先用 `buildr runtime
 
 ## CLI Internal Architecture
 
-- npm bin `tools/buildr` 是薄 executable，只负责 bootstrap 与顶层错误处理；help 和唯一命令登记位于 `tools/cli/command/`。
-- `tools/cli/` 按 command、application composition、domains、shared infrastructure 单向分层。doctor、sync/update 和 package maintenance 在 application 层聚合领域结果；领域模块之间不直接 import。
+- npm bin `bin/buildr.mjs` 是薄 executable，只负责 bootstrap 与顶层错误处理；help 和唯一命令登记位于 `src/interfaces/cli/`。
+- `src/` 按 Domain、Application、Infrastructure、Interfaces 单向分层。Workspace 与 Project 已拥有纯 Domain：实体与字段约束位于 `src/domain/<domain>`，用例位于 `src/application/<domain>`，Manifest repository 与 Git observation 位于 Infrastructure，CLI/HTTP/Web 位于 Interfaces；Service 尚未抽取纯 Domain。
 - `packageCheck` 的静态发布校验、临时 workspace smoke runner 和 composition handler 已分离，但 `buildr package check` 的统一输出和失败语义不变。
-- npm tarball 递归包含 `tools/cli/` runtime dependency closure，内部模块不通过 package `exports` 暴露，也不是稳定 public JavaScript API。
+- npm tarball 递归包含 `src/` runtime dependency closure，内部模块不通过 package `exports` 暴露，也不是稳定 public JavaScript API。
 - 产品验证通过 architecture、compatibility、checkout/npm package parity 和递归 managed mutation verifiers 保护薄入口、command 唯一登记、依赖方向、发布完整性、行为兼容和直接写入边界。
 
 ## Current CLI Surface
@@ -218,7 +223,7 @@ CLI identity 可通过 `buildr --version`、`buildr -V`、`buildr version` 或 `
 
 | 分类 | 命令 |
 |---|---|
-| public onboarding / daily | `buildr init --agent <agent>`、纯源资产 `buildr init`、`buildr project create`、`buildr service create`、`buildr doctor`、`buildr runtime list`、`buildr sync <agent>` |
+| public onboarding / daily | `buildr init --agent <agent>`、纯源资产 `buildr init`、`buildr app`、`buildr project create`、`buildr service create`、`buildr doctor`、`buildr runtime list`、`buildr sync <agent>` |
 | public CLI lifecycle | `buildr version`、`buildr update/check` |
 | public asset lifecycle | `buildr commands add/remove/check`、`buildr component list/check/install/uninstall`、`buildr rules add/remove`、`buildr skills add/remove`、`buildr builtin list/uninstall/restore` |
 | public advanced / repair | `buildr mutation recover`、`buildr runtime check <agent>`、`buildr render <agent>`、`buildr rules render <agent>`（仅 Rules writesFiles adapters）、`buildr skills render <agent>`、`buildr skill install <agent>`、`buildr bootstrap guide` |
@@ -238,21 +243,21 @@ CLI identity 可通过 `buildr --version`、`buildr -V`、`buildr version` 或 `
 - `cd projects/product && npm run test:changed -- --plan`（根据 Git diff 生成最小可解释 DAG）
 - `cd projects/product && npm run test:focus -- <step-id|group:<group>>`（统一定点重跑入口，不自动附加 Fast）
 - `projects/product/buildr package check`
-- `projects/product/tools/verification/onboarding/repository.mjs`
-- `projects/product/tools/verification/onboarding/init.mjs`
-- `projects/product/tools/verification/onboarding/service-branch.mjs`
-- `projects/product/tools/verification/network/remote-text.mjs`
-- `projects/product/tools/verification/cli/architecture.mjs`
-- `projects/product/tools/verification/cli/compatibility.mjs`
-- `projects/product/tools/verification/cli/package-parity.mjs`
+- `projects/product/services/buildr/test/verification/onboarding/repository.mjs`
+- `projects/product/services/buildr/test/verification/onboarding/init.mjs`
+- `projects/product/services/buildr/test/verification/onboarding/service-branch.mjs`
+- `projects/product/services/buildr/test/verification/network/remote-text.mjs`
+- `projects/product/services/buildr/test/verification/cli/architecture.mjs`
+- `projects/product/services/buildr/test/verification/cli/compatibility.mjs`
+- `projects/product/services/buildr/test/verification/cli/package-parity.mjs`
 - `cd projects/product && npm run test:focus -- workspace-lifecycle ownership-recovery runtime-reconciliation`（按稳定 step id 重跑 Workspace E2E；完整 Candidate 强制运行全部 suites）
-- `projects/product/tools/verification/openspec/contract.mjs`
-- `projects/product/tools/verification/openspec/contract-audit.mjs`
-- `projects/product/tools/verification/release/open-source-candidate.mjs`
+- `projects/product/services/buildr/test/verification/openspec/contract.mjs`
+- `projects/product/services/buildr/test/verification/openspec/contract-audit.mjs`
+- `projects/product/services/buildr/test/verification/release/open-source-candidate.mjs`
 - `(cd projects/product && openspec validate --all --strict)`
 - `npm pack --dry-run`
 
-`projects/product/tools/verify-buildr-product` 聚合以上产品级门禁并包含 docs quality；repository verifier 从无依赖、无 runtime 的临时候选树验证开发 CLI 安装和 update source，release smoke 从 tarball 安装后的 `buildr` 执行完整 init、sync、doctor、optional uninstall 生命周期。
+`projects/product/services/buildr/scripts/verify-buildr-product` 聚合以上产品级门禁并包含 docs quality；验证编排显式从 Product Project root 读取 OpenSpec，从 Buildr Service root 执行 package、源码和测试。repository verifier 从无依赖、无 runtime 的临时候选树验证开发 CLI 安装和 update source，release smoke 从 tarball 安装后的 `buildr` 执行完整 init、sync、doctor、optional uninstall 生命周期。
 
 开源候选 verifier 会检查 tracked candidate 的敏感模式、内部来源、占位 URL、异常大文件、中文/英文 README canonical token、公开 package metadata 和 npm tarball 禁止路径。产品完整验证会记录该阶段耗时，Buildr Product Project 的完成报告需说明总耗时、最慢阶段、失败阶段（如有）和 timing summary 路径。
 

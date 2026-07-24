@@ -5,6 +5,15 @@
 ## Unreleased
 
 
+## 0.1.0-rc.7 - 2026-07-24
+
+- 将本机工作台扩展为 Workspace、Project、Service 与 Change 的统一治理入口：支持稳定的目录、详情与编辑路径，展示真实 Git 状态和 OpenSpec 变更，并通过“交给 Agent”保持页面负责认知与交接、Agent 负责执行的边界。
+- 提供全局多 Workspace 本机应用与完整安装体验：用户可登记、切换和移除本机 Workspace；macOS、Windows 提供可双击 launcher，修复 Finder 前台等待和 Windows 中文路径问题。
+- 完善首次使用和日常导航：开始页展示真实工作范围与下一步，Project/Service 创建改为意图式 Agent Action，公开 README 与 Agent onboarding 说明两种开始路径。
+- 加固 Agent 任务执行环境：实现前先路由 task worktree；支持多仓 task environment、隔离的 Local App preview、任务收尾同端口迁移，并默认不推送远端任务分支。
+- 收敛验证体验与证据边界：日常交付使用受影响验证，发布/高风险使用完整 Candidate；浏览器冒烟覆盖 Project、Service、Change 主流程，Candidate evidence 与实际 task environment identity 绑定。
+- 将 Buildr 可执行实现迁入 `product/buildr` Service，并按 Domain、Application、Infrastructure、Interfaces 分层，保持 Product 治理资产与运行源码的责任边界清晰。
+
 ## 0.1.0-rc.6 - 2026-07-21
 
 - Breaking：Skill source 只在 workspace `skills/` 治理；Project 改用 `capabilities.yml` 表达 requirements、bindings 与 applicability，`skills render` 显式选择 workspace 或 user destination，并以稳定 identity、projection receipts 和零写入冲突预检保护资产。

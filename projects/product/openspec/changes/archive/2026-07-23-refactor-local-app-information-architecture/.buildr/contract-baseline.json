@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "refactor-local-app-information-architecture",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-960f454d78b9f739cc064778752ec365e10fe3d64c49c0413c0e908670e74769",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "local-workspace-application",
+      "title": "本机应用必须使用统一的资源目录与独立详情模型",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "本机应用必须以控制台级信息层级呈现资源",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "工作空间目录与资源视图必须在窄屏保持可用",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

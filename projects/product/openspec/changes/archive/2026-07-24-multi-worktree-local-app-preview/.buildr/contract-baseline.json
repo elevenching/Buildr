@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "multi-worktree-local-app-preview",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-023b508d7545dee5e3efe0411d2af232e79a2e855d7950ee3c350bc7661a1419",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "cli-product-surface",
+      "title": "CLI 产品表面必须显式分层",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: CLI 产品表面必须显式分层\nBuildr MUST 将当前可执行命令、兼容输入和内部数据标识区分为 public、legacy compatibility 与 internal/maintenance 产品表面，并在 help、产品文档、current-state knowledge 和验证中保持同一分类。\n\n#### Scenario: Public workspace surface\n- **WHEN** 用户或 Agent 查看 Buildr 根帮助与主产品文档\n- **THEN** Buildr MUST 展示正式支持的 workspace 初始化、资产维护、诊断、修复、runtime 操作和本地应用入口\n- **AND** `buildr app --target <workspace>` MUST 作为人查看 Workspace 并执行受控 metadata 修改的 public 产品入口\n- **AND** 低频但由 doctor、bootstrap 或 Buildr Skill 正式调用的 workspace 命令 MUST 保持 public，而不能仅因其底层或高级而标为 internal\n\n#### Scenario: Local application help\n- **WHEN** 用户运行 `buildr app --help` 或 `buildr help app`\n- **THEN** Buildr MUST 说明 target、loopback、port、页面修改白名单和 prompt-only 新增边界\n- **AND** help MUST NOT 声称本地应用提供数据库、远程服务或 Agent session connector\n\n#### Scenario: Workspace init description help\n- **WHEN** 用户运行 `buildr init --help`\n- **THEN** Buildr MUST 展示可选 `--description <description>` 参数\n- **AND** help MUST 说明未提供说明时会产生待补全提示，而不是静默编造 Workspace 说明\n\n#### Scenario: Internal maintenance surface\n- **WHEN** 根帮助或产品文档提及产品构建、发布、自举或 workflow 编排命令\n- **THEN** Buildr MUST 将这些入口与普通 workspace 用户主路径分区并标明 maintenance 或 workflow internal 用途\n- **AND** 分类 MUST NOT 改变命令的现有可执行性、安全契约或安装后行为\n"
+    },
+    {
+      "capability": "task-finish-local-app-handoff",
+      "title": "Task Finish 必须隔离其他任务的 Local App preview",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "worktree-local-app-preview",
+      "title": "task worktree 必须支持隔离的 Local App 预览实例",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "worktree-local-app-preview",
+      "title": "预览必须提供可核验的运行身份",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "worktree-local-app-preview",
+      "title": "预览实例必须可枚举并安全停止",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "worktree-local-app-preview",
+      "title": "task preview 不得改变 development launcher",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

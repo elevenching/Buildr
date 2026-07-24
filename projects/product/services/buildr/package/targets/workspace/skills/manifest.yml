@@ -1,0 +1,174 @@
+schemaVersion: buildr.skills/v3
+workspaceId: buildr-product-baseline
+contracts:
+  - id: buildr.git-single-operation
+    version: 1
+    path: contracts/buildr/git-single-operation/v1.md
+    description: 安全执行一个明确的 Git 操作并返回可审计结果。
+  - id: buildr.git-task-integration
+    version: 1
+    path: contracts/buildr/git-task-integration/v1.md
+    description: 提交并把已验证任务安全集成到目标分支。
+  - id: buildr.git-workspace-update
+    version: 1
+    path: contracts/buildr/git-workspace-update/v1.md
+    description: 在 workspace sync 前安全更新 Git checkout。
+  - id: buildr.task-worktree-lifecycle
+    version: 2
+    path: contracts/buildr/task-worktree-lifecycle/v2.md
+    description: 管理任务 worktree 的放置、保留和安全清理。
+  - id: buildr.task-verification
+    version: 2
+    path: contracts/buildr/task-verification/v2.md
+    description: 编排项目声明或既有政策定义的分层验证，并返回能力选择、候选身份、结果与真实耗时证据。
+  - id: buildr.task-finish
+    version: 1
+    path: contracts/buildr/task-finish/v1.md
+    description: 编排已验证任务的归档、集成、推送与本地收尾。
+  - id: buildr.task-asset-review
+    version: 2
+    path: contracts/buildr/task-asset-review/v2.md
+    description: 持续维护任务资产 observation，并完成审查、人工决定和独立任务交接。
+bindings:
+  - capability: buildr.git-single-operation
+    version: 1
+    provider: git-ops
+  - capability: buildr.git-task-integration
+    version: 1
+    provider: git-ops
+  - capability: buildr.git-workspace-update
+    version: 1
+    provider: git-ops
+  - capability: buildr.task-worktree-lifecycle
+    version: 2
+    provider: task-worktree
+  - capability: buildr.task-verification
+    version: 2
+    provider: task-verification
+  - capability: buildr.task-finish
+    version: 1
+    provider: task-finish
+  - capability: buildr.task-asset-review
+    version: 2
+    provider: task-asset-review
+skills:
+  - id: task-triage
+    assetIdentity: buildr:skill:task-triage
+    sourceIdentity: package:workspace:buildr/task-triage
+    source: buildr
+    path: buildr/task-triage
+    description: 用户要求修 bug、实现或调整功能、改需求、重构、优化、补文档、补测试、调整 API/契约/权限/状态流/数据语义，或询问某项改动是否需要更新 spec、创建 change、只改代码时使用。
+    enabled: true
+    required: false
+    state: installed
+    runtimes: [claude-code, codex, cursor, qoder, trae, trae-work, workbuddy]
+    runtimePath: task-triage
+  - id: task-board
+    assetIdentity: buildr:skill:task-board
+    sourceIdentity: package:workspace:buildr/task-board
+    source: buildr
+    path: buildr/task-board
+    description: 为复杂、长期、跨批次、跨 change、跨服务或团队的任务维护只读 HTML 任务看板、change 关联、交付批次和依赖池；旧称“任务驾驶舱”继续作为用户意图路由。
+    enabled: true
+    required: false
+    state: installed
+    runtimes: [claude-code, codex, cursor, qoder, trae, trae-work, workbuddy]
+    runtimePath: task-board
+  - id: capability-adaptation
+    assetIdentity: buildr:skill:capability-adaptation
+    sourceIdentity: package:workspace:buildr/capability-adaptation
+    source: buildr
+    path: buildr/capability-adaptation
+    description: 用户要求采用内部流程、调整工作方式、修改默认 Skill 行为、创建或替换专业 Skill、卸载可能被编排的 Skill，或 Agent 准备改变 capability contract 及跨 Skill 协作边界时使用。
+    enabled: true
+    required: false
+    state: installed
+    runtimes: [claude-code, codex, cursor, qoder, trae, trae-work, workbuddy]
+    runtimePath: capability-adaptation
+  - id: task-asset-review
+    assetIdentity: buildr:skill:task-asset-review
+    sourceIdentity: package:workspace:buildr/task-asset-review
+    source: buildr
+    path: buildr/task-asset-review
+    description: 非简单 Workspace 任务开始探索、设计、诊断、实现或验证时持续收集轻量资产信号，用户要求复盘或沉淀，或 Task Finish 触发 finalize 时使用。
+    enabled: true
+    required: false
+    state: installed
+    runtimes: [claude-code, codex, cursor, qoder, trae, trae-work, workbuddy]
+    runtimePath: task-asset-review
+    provides:
+      - capability: buildr.task-asset-review
+        version: 2
+  - id: task-worktree
+    assetIdentity: buildr:skill:task-worktree
+    sourceIdentity: package:workspace:buildr/task-worktree
+    source: buildr
+    path: buildr/task-worktree
+    description: 用户要求代码开发、隔离任务分支，或清理任务 worktree/change-id/任务分支时使用。
+    enabled: true
+    required: false
+    state: installed
+    runtimes: [claude-code, codex, cursor, qoder, trae, trae-work, workbuddy]
+    runtimePath: task-worktree
+    provides:
+      - capability: buildr.task-worktree-lifecycle
+        version: 2
+  - id: task-verification
+    assetIdentity: buildr:skill:task-verification
+    sourceIdentity: package:workspace:buildr/task-verification
+    source: buildr
+    path: buildr/task-verification
+    description: 用户要求测试、验证、耗时报告、初始化或更新测试声明、推进测试能力成熟度，或者实现型任务到达验证节点、Agent 准备判断或声称开发完成、Task Finish 需要核对或补齐正式验证 evidence 时使用；用户无需主动点名本 Skill。
+    enabled: true
+    required: false
+    state: installed
+    runtimes: [claude-code, codex, cursor, qoder, trae, trae-work, workbuddy]
+    runtimePath: task-verification
+    provides:
+      - capability: buildr.task-verification
+        version: 2
+  - id: task-finish
+    assetIdentity: buildr:skill:task-finish
+    sourceIdentity: package:workspace:buildr/task-finish
+    source: buildr
+    path: buildr/task-finish
+    description: 用户要求完整“收尾”，或自动完成已验证 change 的归档、提交、集成、推送和本地清理时使用。
+    enabled: true
+    required: false
+    state: installed
+    runtimes: [claude-code, codex, cursor, qoder, trae, trae-work, workbuddy]
+    runtimePath: task-finish
+    provides:
+      - capability: buildr.task-finish
+        version: 1
+    requires:
+      - capability: buildr.task-verification
+        version: 2
+        mode: required
+      - capability: buildr.task-worktree-lifecycle
+        version: 2
+        mode: required
+      - capability: buildr.git-task-integration
+        version: 1
+        mode: required
+      - capability: buildr.task-asset-review
+        version: 2
+        mode: optional
+  - id: git-ops
+    assetIdentity: buildr:skill:git-ops
+    sourceIdentity: package:workspace:buildr/git-ops
+    source: buildr
+    path: buildr/git-ops
+    description: 用户表达提交、推送、拉取、pull、合并、merge、rebase、checkout、switch、reset、cherry-pick、revert、stash、发布、删除分支等单项 Git 意图，或 Git 操作存在授权、范围、amend、远端改写、工作区转换、分支删除等歧义时使用。
+    enabled: true
+    required: false
+    state: installed
+    runtimes: [claude-code, codex, cursor, qoder, trae, trae-work, workbuddy]
+    runtimePath: git-ops
+    provides:
+      - capability: buildr.git-single-operation
+        version: 1
+      - capability: buildr.git-task-integration
+        version: 1
+      - capability: buildr.git-workspace-update
+        version: 1

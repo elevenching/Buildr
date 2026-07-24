@@ -129,40 +129,49 @@ The Agent must consider initialization complete only when all three conditions a
 - The current Agent runtime is ready
 - The final doctor check has passed
 
-**3. Start Working**
+**3. Tell the Agent what you want to work on first**
 
-After initialization, state goals directly:
+Once the Workspace is ready, you do not need to learn commands, Rules, or Skills first. Tell the Agent what you want to move forward, what already exists, and what result you want.
+
+The Agent will help put that work in a Project. A Project is a long-lived business or product unit, not a single repository. Add a Service only when you need to manage a repository, application, or module; a Project can start without one.
+
+**You do not need to decide the Git layout up front.** The Workspace, Project, and Service can each have their own Git repository, or they can share one repository from top to bottom. Tell the Agent about any repository URLs, local directories, and collaboration branches you already know. It will work from the real Git boundaries; if you are unsure, start from the goal instead.
+
+If you are not sure how to describe the work, start with:
 
 ```text
-Create the payment Project and use <git-url> as its asset repository.
-Attach <git-url> as the payment/api Service.
-Turn our release process into a Skill.
-Update Buildr and synchronize the Workspace.
+I want to start working on payments. Use the material I already have to guide me in setting up the Project, then ask what I should do next.
 ```
 
-The Agent uses Buildr Skill to understand the goal and Buildr CLI for deterministic execution.
+When the information is clear, you can say:
+
+```text
+Create a Payments Project to support online collection and refunds. The project material and payment-api repository are at <git-url>; guide me through confirming the Project and Service from the actual Git boundaries, then help me map the payment flow.
+```
+
+The first task does not need to be large. The important part is starting from a real goal rather than stopping at initialization. The Agent uses Buildr Skill to understand the goal and Buildr CLI for deterministic asset operations.
 
 Buildr is currently in pre-release. Use [GitHub Releases](https://github.com/elevenching/Buildr/releases) as the source of truth for versions and installation sources.
 
 ## Current Capabilities
 
-- One Workspace manages multiple Projects; each Project manages multiple Services
+- One Workspace manages multiple Projects; each Project can manage multiple Services when needed
 - Unified management of Rules, Skills, Components, and Commands
 - Seven Agent runtime adapters: `claude-code`, `codex`, `cursor`, `qoder`, `trae`, `trae-work`, and `workbuddy`
 
-See [Known Limitations](projects/product/docs/known-limitations.md) for current boundaries.
+See [Known Limitations](projects/product/services/buildr/docs/known-limitations.md) for current boundaries.
 
 ## Documentation
 
 - [Buildr Product](projects/product/docs/buildr-product.md): complete positioning, core model, boundaries, and Roadmap
-- [Buildr Skill](projects/product/package/targets/runtime/skills/buildr/SKILL.md): the primary entry point for Agents using Buildr
-- [CLI Reference](projects/product/docs/cli-reference.md): public commands and parameters
-- [Runtime Adapters](projects/product/docs/agent-runtime-adapters.md): integration paths and limitations for each Agent
+- [Buildr Skill](projects/product/services/buildr/package/targets/runtime/skills/buildr/SKILL.md): the primary entry point for Agents using Buildr
+- [CLI Reference](projects/product/services/buildr/docs/cli-reference.md): public commands and parameters
+- [Runtime Adapters](projects/product/services/buildr/docs/agent-runtime-adapters.md): integration paths and limitations for each Agent
 - [OpenSpec Specifications](projects/product/openspec/specs/): normative product behavior contracts
 
 ## Buildr Bootstrap Workspace
 
-This repository is also the Workspace in which Buildr develops itself. Product source lives only under `projects/product/`; root-level assets are consumed state.
+This repository is also the Workspace in which Buildr develops itself. Product governance lives under `projects/product/`, while the executable product has one source root at `projects/product/services/buildr/`; root-level assets are consumed state.
 
 ```bash
 projects/product/buildr runtime list --json

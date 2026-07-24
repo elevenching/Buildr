@@ -1,0 +1,5 @@
+# Pull requests that change any repository content require the repository owner.
+* @elevenching
+
+# Keep the review policy itself owned by the repository owner.
+/.github/CODEOWNERS @elevenching

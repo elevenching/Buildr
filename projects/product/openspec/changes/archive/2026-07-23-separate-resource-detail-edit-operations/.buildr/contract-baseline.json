@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "separate-resource-detail-edit-operations",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-c1c8abded2eb4f0319b66f1806db4c9ec6b58a0393c27723a440ae1dea92a685",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "local-workspace-application",
+      "title": "资源详情与修改必须使用独立操作",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    }
+  ]
+}

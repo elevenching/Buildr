@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+product_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source_bin="$product_root/bin/buildr.mjs"
+install_dir="${BUILDR_CLI_INSTALL_DIR:-$HOME/.local/bin}"
+target_bin="$install_dir/buildr"
+
+if [[ ! -L "$target_bin" ]]; then
+  echo "No Buildr-managed symlink found at $target_bin"
+  exit 0
+fi
+
+existing_target="$(readlink "$target_bin")"
+if [[ "$existing_target" != "$source_bin" ]]; then
+  echo "Refusing to remove buildr command not managed by this checkout: $target_bin -> $existing_target" >&2
+  exit 1
+fi
+
+rm "$target_bin"
+echo "Uninstalled buildr from $target_bin"

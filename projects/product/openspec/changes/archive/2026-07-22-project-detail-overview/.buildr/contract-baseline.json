@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "project-detail-overview",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-c31ce3e9ab7fe747bfe536c4f08f96d1e3c698a4a555d5c96dcd68fc41ea852e",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "local-workspace-application",
+      "title": "项目与服务独立视图必须保留现有能力",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 项目与服务独立视图必须保留现有能力\nBuildr MUST 为项目与服务提供独立管理视图，且二者现有 read、metadata update、diagnostic 和 prompt-only 行为 MUST 保持可用。\n\n#### Scenario: 打开项目视图\n- **WHEN** 用户访问 `/projects`\n- **THEN** 页面 MUST 只展示当前工作空间的项目列表与选中项目详情\n- **AND** MUST NOT 同时渲染服务管理内容\n\n#### Scenario: 打开服务视图\n- **WHEN** 用户访问 `/services`\n- **THEN** 页面 MUST 明确展示当前所属项目并只列出该项目的服务\n- **AND** 用户 MUST 能切换已登记项目来查看对应服务\n\n#### Scenario: 当前项目没有服务\n- **WHEN** 当前所属项目的 Service read model 返回空列表\n- **THEN** 页面 MUST 展示该项目尚未登记服务的空状态与创建服务入口\n- **AND** MUST NOT 渲染空的服务详情表单\n\n#### Scenario: 使用项目或服务写操作\n- **WHEN** 用户在独立视图修改项目或服务 metadata 或生成创建 prompt\n- **THEN** HTTP API MUST 继续执行已有 session、Origin、JSON、body size、字段白名单和 revision conflict 约束\n"
+    }
+  ]
+}

@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "productize-project-domain-and-ui",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-2dc7f6a121552f5fab24ccb6df87b3241046d58b9634be751c09082ea6d91fd4",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "cli-product-surface",
+      "title": "Project CLI 必须使用 canonical Domain 术语",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "cli-product-surface",
+      "title": "Project JSON 输出必须区分声明与观察",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "本地应用必须提供 Project 列表与详情",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "Project 页面必须支持低风险 metadata 修改",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "新增 Project 必须生成可复制 Agent prompt",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "Project HTTP 写操作必须复用本地应用安全边界",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "Buildr Skill 必须引导 Agent 使用 Project Domain",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-source-layout",
+      "title": "Project 产品切片必须遵守新源码分层",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-registry",
+      "title": "Project Git 声明与观察必须分离",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-registry",
+      "title": "Project metadata update 必须受控并防止覆盖",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-registry",
+      "title": "root project registry",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: root project registry\nBuildr MUST 维护 root `projects/manifest.yml` registry，声明由 workspace 管理的 Projects。\n\n#### Scenario: 初始化空 registry\n- **WHEN** Agent executes `buildr init --target <root>`\n- **THEN** Buildr MUST create `<root>/projects/manifest.yml` with schema version and an empty Project registry\n- **AND** Buildr MUST create `<root>/projects/` even when no Project exists\n\n#### Scenario: registry 记录 Project path\n- **WHEN** Buildr records Project `<project>` in `projects/manifest.yml`\n- **THEN** the registry MUST record its materialized path as `projects/<project>`\n- **AND** the registry MUST NOT use an absolute path as the Project path\n\n#### Scenario: registry 记录 Project title\n- **WHEN** Buildr records Project `<project>` in `projects/manifest.yml`\n- **THEN** the registry MUST record a human-readable `title` for the Project\n- **AND** if no title is provided, Buildr MUST use `<project>` as the default title\n\n#### Scenario: registry 记录 Project description\n- **WHEN** Buildr records Project `<project>` in `projects/manifest.yml`\n- **THEN** the registry MUST record a `description` for a concise human-readable Project summary\n- **AND** the description MUST NOT be treated as the authoritative location for Project business facts\n- **AND** if no description is available, Buildr update or sync MAY write a TODO description and doctor MUST report a warning\n\n#### Scenario: registry 使用封闭 schema\n- **WHEN** Buildr records Project metadata in `projects/manifest.yml`\n- **THEN** the registry MUST limit Project data to the schema fields defined by Buildr\n- **AND** Project rules, memory, business facts, OpenSpec, Skills and service metadata MUST remain in `projects/<project>/`\n- **AND** Buildr update or sync MUST remove unknown Project registry fields\n"
+    },
+    {
+      "capability": "project-registry",
+      "title": "project create maintains registry",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: project create maintains registry\nBuildr 在创建或修复 Project asset root 时 MUST 更新 `projects/manifest.yml`。\n\n#### Scenario: 创建 workspace-managed Project\n- **WHEN** Agent executes `buildr project create <project> --target <root>` without a repo URL\n- **THEN** Buildr MUST create or repair `<root>/projects/<project>/` using the Project baseline\n- **AND** Buildr MUST record the Project in `<root>/projects/manifest.yml` with `repo.kind` set to `workspace`\n- **AND** Buildr MUST record a Project title, description and path\n\n#### Scenario: 创建 Git-managed Project\n- **WHEN** Agent executes `buildr project create <project> --repo <git-url> --target <root>`\n- **THEN** Buildr MUST materialize the Project asset repo at `<root>/projects/<project>/`\n- **AND** Buildr MUST record the Git URL, remote, default branch and path in `<root>/projects/manifest.yml`\n- **AND** Buildr MUST repair missing Project baseline assets without overwriting existing Project files\n\n#### Scenario: 创建 Project 时提供说明\n- **WHEN** Agent executes `buildr project create <project> --title <title> --description <description> --target <root>`\n- **THEN** Buildr MUST record the provided title and description in `<root>/projects/manifest.yml`\n- **AND** Buildr MUST NOT write the description into Project OpenSpec specs or knowledge as an authoritative project fact\n\n#### Scenario: 不支持外部 Project 链接\n- **WHEN** Agent executes `buildr project create <project> --repo <local-path>`\n- **THEN** Buildr MUST reject the command\n- **AND** Buildr MUST explain that Project assets must be materialized under `projects/<project>/`\n\n#### Scenario: 既有目录由 project create 补登记\n- **WHEN** Agent executes `buildr project create <project> --target <root>` and `<root>/projects/<project>/` already exists\n- **THEN** Buildr MUST repair missing Project baseline assets and update `projects/manifest.yml`\n- **AND** Buildr MUST NOT require a separate `project register` command\n- **AND** Buildr MUST NOT overwrite existing Project files\n"
+    },
+    {
+      "capability": "project-registry",
+      "title": "Project repo boundaries",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Project repo boundaries\nBuildr MUST 在 root workspace repo 与独立 Project asset repos 之间保持清晰的 Git ownership boundaries。\n\n#### Scenario: workspace-managed Project follows root Git\n- **WHEN** a Project registry entry has `repo.kind: workspace`\n- **THEN** Buildr MUST treat `projects/<project>/` as root workspace assets\n- **AND** Buildr MUST NOT add `projects/<project>/` to root `.gitignore`\n\n#### Scenario: Git-managed Project is ignored by root Git\n- **WHEN** a Project registry entry has `repo.kind: git`\n- **THEN** Buildr MUST ensure root `.gitignore` ignores `projects/<project>/`\n- **AND** Buildr MUST NOT require the root Git repo to store the nested Project repo contents\n"
+    },
+    {
+      "capability": "project-registry",
+      "title": "Project registry remains separate from service metadata",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Project registry remains separate from service metadata\nBuildr MUST 将 Project registry metadata 与 service repo metadata 保存在独立 manifest files 中。\n\n#### Scenario: Project registry 不记录 services\n- **WHEN** Buildr records Project `<project>` in `projects/manifest.yml`\n- **THEN** `projects/manifest.yml` MUST NOT record that Project's service repo list\n- **AND** service repo metadata MUST remain in `projects/<project>/services/manifest.yml`\n\n#### Scenario: service create 不改变 Project repo kind\n- **WHEN** Agent executes `buildr service create <project>/<service> <repo-ref> --target <root>`\n- **THEN** Buildr MUST update `projects/<project>/services/manifest.yml`\n- **AND** Buildr MUST NOT change the Project registry entry's `repo.kind`\n"
+    },
+    {
+      "capability": "project-registry",
+      "title": "MVP Project registry convergence",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: MVP Project registry convergence\nBuildr MUST 从 `projects/` directory 收敛 Project registry state，且 MUST NOT 将 root `projects.yml` 视为 long-term source。\n\n#### Scenario: 清理旧 projects.yml\n- **WHEN** an existing workspace has `<root>/projects.yml`\n- **THEN** Buildr update or sync MUST remove `<root>/projects.yml`\n- **AND** Buildr MUST NOT read it as a migration source\n\n#### Scenario: 从 Project 目录补登记\n- **WHEN** `<root>/projects/<project>/` is a valid Project directory but `projects/manifest.yml` does not declare `<project>`\n- **THEN** Buildr update or sync MUST add a minimal Project registry entry\n- **AND** Buildr MUST infer `repo.kind` from whether `<root>/projects/<project>/.git/` exists\n\n#### Scenario: Project registry drift\n- **WHEN** `projects/manifest.yml` contains unknown fields, invalid paths, missing required fields or TODO descriptions\n- **THEN** Buildr doctor MUST report a warning\n- **AND** Buildr update or sync MUST repair low-risk defaults and remove unknown fields\n"
+    },
+    {
+      "capability": "project-registry",
+      "title": "Project create 验证既有 repo identity",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Project create 验证既有 repo identity\nBuildr MUST 在修复既有 Project baseline 或 registry 前验证 materialized Project 的实际 repo identity 与命令和 registry 一致。\n\n#### Scenario: 相同 Git 来源幂等修复\n- **WHEN** `project create --repo <git-url>` 的目标已是 Git repo，且实际 remote、命令 URL 和既有 registry identity 一致\n- **THEN** Buildr MUST 允许修复缺失 baseline 和 registry 低风险字段\n- **AND** Buildr MUST NOT 覆盖既有 Project 文件\n\n#### Scenario: 既有 Project 来源冲突\n- **WHEN** 目标 repo remote、命令 URL、registry repo kind 或 registry URL 互相不一致\n- **THEN** Buildr MUST 在任何 Project、registry 或 `.gitignore` 写入前失败\n- **AND** Buildr MUST NOT 静默 relink、replace 或改写 repo identity\n\n#### Scenario: 新 Git Project clone 失败\n- **WHEN** 新 Project Git clone 或后续 baseline preflight 失败\n- **THEN** Buildr MUST NOT 留下半完成 Project 目录或 registry entry\n"
+    },
+    {
+      "capability": "root-organization-workspace",
+      "title": "初始化创建可直接工作的根资产",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 初始化创建可直接工作的根资产\n`buildr init` MUST create workspace assets that can receive Buildr product builtins and Components and render supported Agent runtimes.\n\n#### Scenario: 初始化根资产\n- **WHEN** Agent executes `buildr init --target <dir> --name <name> [--description <description>]`\n- **THEN** Buildr MUST create root source assets including `.buildr/`, `rules/`, `skills/`, `commands/`, `components/` and `projects/`\n- **AND** Buildr MUST NOT create a root `practices/` directory\n- **AND** Buildr MUST create `.buildr/workspace.yml` with `schemaVersion: buildr.workspace/v1`、a generated UUID、name and description\n- **AND** 未提供 description 时 Buildr MUST 写入明确 TODO 并让 doctor 产生可见提示\n- **AND** Buildr MUST create `rules/manifest.yml`, `skills/manifest.yml`, `commands/manifest.yml`, `components/manifest.yml` and `projects/manifest.yml`\n- **AND** `skills/manifest.yml` MUST declare `schemaVersion: buildr.skills/v1`\n- **AND** `skills/manifest.yml.workspaceId` MUST equal `.buildr/workspace.yml.id`\n- **AND** `components/manifest.yml` MUST declare `schemaVersion: buildr.components/v1`\n- **AND** `projects/manifest.yml` MUST declare `schemaVersion: buildr.projects/v1`\n- **AND** Buildr MUST create root `AGENTS.md` required block and reference `rules/buildr/core.md`\n- **AND** Buildr MUST be able to render initial Agent runtime for supported adapters\n\n#### Scenario: 初始化 Codex runtime\n- **WHEN** Buildr initializes a new workspace for Codex usage\n- **THEN** Buildr MUST keep `AGENTS.md` as the native Codex rule entry\n- **AND** Buildr MUST be able to project enabled Skills, including enabled Component Skills, to `.agents/skills/`\n\n#### Scenario: 初始化 Claude Code runtime\n- **WHEN** Buildr initializes or syncs workspace for Claude Code usage\n- **THEN** Buildr MUST be able to generate Claude Code runtime projection from the same Buildr source assets, enabled builtins and enabled Components model\n"
+    }
+  ]
+}

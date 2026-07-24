@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "optimize-candidate-verification-efficiency",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-74e0f7456798d779718b3b0f285c0c7cf9ba6a4816af24e643eedbae6ee4646a",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "product-verification-quality",
+      "title": "Candidate 调度必须避免资源饱和型 verifier 互相放大",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "验证效率优化必须用同 tree 多轮证据验收",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "产品验证必须提供分层入口",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品验证必须提供分层入口\nBuildr 产品验证 MUST 将测试证据层、主要门禁和故障定位入口明确分离：维护者主要工作流 MUST 收敛为 fast、changed 和 candidate 三种门禁，Unit、Contract 与 Fast Integration MUST 保留直接定位入口，领域或单 step 重跑 MUST 通过统一 focus 入口选择。\n\n#### Scenario: 普通任务运行默认测试\n- **WHEN** 维护者或 Agent 在 Product checkout 运行 `npm test` 或 `npm run test:fast`\n- **THEN** verifier MUST 运行 Unit、Contract、Fast Integration、架构、canonical spec quality/strict 和全部 runtime adapter 低成本契约\n- **AND** verifier MUST NOT 创建临时用户 workspace、执行 npm pack/install、访问网络或运行 Workspace E2E\n\n#### Scenario: 根据改动运行验证\n- **WHEN** 维护者或 Agent 运行 `npm run test:changed`\n- **THEN** verifier MUST 根据 Git diff 或显式 Product 路径选择最小验证 DAG\n- **AND** 计划 MUST 解释每个 step 的选择原因并对未映射路径 fail closed\n\n#### Scenario: 定点重跑 step 或领域\n- **WHEN** 维护者运行 `npm run test:focus -- <step-id|group:<group>>...`\n- **THEN** verifier MUST 从统一 registry 选择并去重对应 step\n- **AND** verifier MUST 只展开真实执行依赖，不得无条件附加完整 Fast\n- **AND** 未知 selector MUST 在启动验证进程前 fail closed\n\n#### Scenario: 定位低成本测试层\n- **WHEN** 维护者直接运行 Unit、Contract 或 Fast Integration script\n- **THEN** 每个入口 MUST 只执行对应证据层\n- **AND** 这些入口 MUST NOT 被描述为独立发布门禁\n\n#### Scenario: 最终候选运行完整验证\n- **WHEN** 实现、自然语言资产、生成资产和 review 修订已经冻结\n- **THEN** 维护者或 CI MUST 运行 `npm run test:candidate`\n- **AND** candidate verifier MUST 直接编排全部 candidate profile steps，不得使用 diff、group 或 step selector 缩小覆盖范围\n- **AND** candidate verifier MUST 保留产品要求的文档、安全、onboarding、package、runtime adapter、release、managed data、Workspace E2E、OpenSpec 门禁及 timing summary\n"
+    },
+    {
+      "capability": "product-verification-quality",
+      "title": "runtime adapter 验证必须按契约和实现族分层",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: runtime adapter 验证必须按契约和实现族分层\nBuildr 产品验证 MUST 对全部 supported runtime adapter 执行低成本 descriptor/plan/capability evidence 契约，并 MUST 仅按不同投射、skills root、checker 或 cleanup 实现语义选择代表执行昂贵 CLI 生命周期；Candidate MUST NOT 生成或执行真实 Agent marker smoke workspace。\n\n#### Scenario: 验证全部 supported adapter\n- **WHEN** fast 或 candidate verifier 运行 runtime adapter contract\n- **THEN** contract MUST 遍历全部 supported adapter 的 traits、target、activation、capability evidence 和 RuntimePlan 安全边界\n\n#### Scenario: 验证昂贵 adapter 生命周期\n- **WHEN** affected CLI 或 candidate verifier 运行 runtime adapter parity\n- **THEN** verifier MUST 覆盖 native recursive、per-source reference、same-directory vendor、central vendor 和 root-index bridge 等不同实现族\n- **AND** verifier MUST NOT 仅因多个 adapter 品牌复用同一实现而重复完整 install/render/check/idempotency 生命周期\n\n#### Scenario: scoped render 隔离无关 Project\n- **WHEN** verifier 对某个 Project 执行 scoped render 和 cleanup\n- **THEN** verifier MUST 验证无关 Project 的受管投射仍然存在且内容不变\n- **AND** 该回归 MUST 覆盖 same-directory vendor、central vendor 和 root-index bridge cleanup 模型\n\n#### Scenario: Agent runtime marker smoke 暂不属于 Candidate\n- **WHEN** Candidate 编排 runtime adapter 验证\n- **THEN** registry MUST NOT 包含 Agent runtime marker smoke workspace generator 或真实 Agent invocation step\n- **AND** contract tests MUST NOT 固化某个品牌的历史 smoke status、marker result、product version 或 surface 快照\n- **AND** npm release smoke、package smoke 和 workspace lifecycle E2E MUST 保持各自既有 owner 与覆盖\n"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+schemaVersion: buildr.project-verification/v1
+mode: augment
+capabilities:
+  - id: example.unit
+    title: Example unit tests
+    command:
+      argv: ["replace-with-test-command"]
+      cwd: .
+    maturity: discovered
+    stages: [minimal, affected]
+    enforcement:
+      minimal: advisory
+      affected: advisory
+    applicability:
+      paths: ["replace-with-applicable-path/**"]
+      risks: []
+    coverage:
+      kind: unit
+      owns: ["unconfirmed"]
+    environment:
+      requires: []
+      services: []
+    effects:
+      level: unknown
+      writes: []
+      externalSystems: false
+    authorization: explicit
+    dependsOn: []
+    supersedes: []
+    sources: ["replace-with-policy-source"]

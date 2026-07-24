@@ -1,5 +1,0 @@
-schemaVersion: 1
-kind: organization
-name: "{{name}}"
-profile: "{{profile}}"
-

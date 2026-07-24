@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "route-worktree-before-change",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-c1fb766a64c0c250f9901a6bb54225a4885fdb014d20d5f4ca703450e3d2c173",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "Task worktree 提供 change 单写入与验证证据边界",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Task worktree 提供 change 单写入与验证证据边界\nBuildr task-worktree 和 git-ops guidance MUST 在创建预计进入实现的 OpenSpec change 前完成 worktree 决策，并在采用 worktree 后保持唯一任务写入位置；worktree lifecycle 与 Git integration providers MUST 只返回各自动作产生的 candidate identity 和 transition evidence，由独立 task-verification capability 管理验证政策与 Candidate evidence。\n\n#### Scenario: 实现型 change 在 propose 前创建 worktree\n- **WHEN** task triage 选择 change-flow，且任务预计包含代码修改、构建、测试或长期实现上下文\n- **THEN** Agent MUST 在创建 OpenSpec change artifacts 前创建或复用 canonical task worktree\n- **AND** proposal、design、specs、tasks、实现和候选验证 MUST 只写入该 worktree\n\n#### Scenario: 纯元内容任务不创建 worktree\n- **WHEN** 任务明确只维护 OpenSpec artifacts、规则、Skills、文档或模板，且不进入代码实现、构建或测试\n- **THEN** Agent MAY 在当前 workspace 直接维护这些元内容\n- **AND** Agent MUST 在任务升级为实现前重新执行 worktree 决策\n\n#### Scenario: artifacts 任务升级为实现\n- **WHEN** 未使用 worktree 的 OpenSpec 任务后来需要代码实现、构建或测试\n- **THEN** Agent MUST 先创建或复用 task worktree并将 change artifacts收敛到该唯一位置\n- **AND** Agent MUST 清除原工作区的重复副本并确认主工作区没有该任务的开发改动后再继续\n\n#### Scenario: 最终候选 identity 交给验证 provider\n- **WHEN** worktree 中的全部内容修改已经结束并准备验证最终候选\n- **THEN** task-worktree provider MUST 提供当前 canonical checkout、repository、clean/dirty 状态和可确认的 tree identity输入\n- **AND** selected task-verification provider MUST 负责建立最终 candidate identity、执行项目要求的 Candidate验证并返回绑定该 identity 的 evidence\n\n#### Scenario: Git 集成改变候选内容\n- **WHEN** rebase、冲突解决、merge、reset 或其他 Git integration操作使集成后的内容 identity 不同于输入 candidate\n- **THEN** selected Git provider MUST 返回操作前后 identity和 `treeChanged` evidence\n- **AND** selected Git provider MUST NOT 执行 Candidate验证或决定既有 evidence是否可复用\n- **AND** selected task-verification provider or its consumer MUST 根据当前 candidate identity决定 evidence失效与重新验证\n\n#### Scenario: Worktree provider 只报告 lifecycle transition\n- **WHEN** task-worktree provider 创建、复用、切换、保留或清理 canonical checkout\n- **THEN** it MUST 返回 lifecycle状态、canonical path、任务分支和由本次 checkout操作产生的 transition evidence\n- **AND** it MUST NOT 监控普通编辑、判断 Git integration内容等价性或决定验证复用与重跑\n"
+    }
+  ]
+}

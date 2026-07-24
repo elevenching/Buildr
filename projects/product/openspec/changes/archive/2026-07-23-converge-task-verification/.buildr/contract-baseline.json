@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "converge-task-verification",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-f6428174fcec4c9d2912f4802795a6737adfd7fb6a8ad56fe4f67072ec0bcaa9",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "Task Finish 自动编排已验证任务收尾",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Task Finish 自动编排已验证任务收尾\nBuildr MUST 提供实现 `buildr.task-finish/v1` 的 `task-finish` 默认 workspace Skill，将用户当前轮次明确的“收尾”意图作为受限的一次性授权，并通过绑定的 `buildr.task-verification/v1`、`buildr.task-worktree-lifecycle/v1` 和 `buildr.git-task-integration/v1` providers 自动完成可安全确定的剩余任务动作。\n\n#### Scenario: 收尾前置检查\n- **WHEN** 用户在 canonical task worktree 中要求收尾\n- **THEN** Agent MUST 解析当前 task/change、仓库边界、目标分支、远端、工作区改动、已知验证 evidence 和三个 required providers\n- **AND** Agent MUST 在 Git 写操作前披露 selected provider identities、实际验证/集成/清理策略、提交范围、目标分支、远端和清理范围\n- **AND** 存在无关 dirty changes、多个无法消歧的 change/目标分支、required provider readiness 为 `blocked` 或不可信验证状态时，Agent MUST 在破坏性动作前停止\n\n#### Scenario: 收尾复用可信 Candidate evidence\n- **WHEN** 当前候选已有 selected verification provider 产生或核对的成功 Candidate evidence，且候选 identity 未改变\n- **THEN** Task Finish MUST 复用该 evidence\n- **AND** Task Finish MUST NOT 重复运行相同 Candidate 验证\n- **AND** provider evidence inspection MUST NOT 被计作 verification execution，`taskVerificationExecuteCalls` 和 `candidateExecutorCalls` MUST 均为 `0`\n\n#### Scenario: 收尾补齐验证 evidence\n- **WHEN** Candidate evidence 缺失、级别不足、不可读、不可复用或与当前候选 identity 不匹配\n- **THEN** Task Finish MUST 调用 selected task-verification provider 对当前最终候选执行项目要求的验证\n- **AND** 新验证失败或仍不完整时 MUST 停止 integrate、push 和 cleanup\n\n#### Scenario: Closeout metadata 改变 delivery tree\n- **WHEN** delivery tree 与 implementation Candidate identity 的差异完全来自可归因的 OpenSpec sync/archive、归档格式规范或 Project 明确定义的 closeout-only artifacts\n- **THEN** Task Finish MUST 将 transition 标记为 `closeout-metadata-only`，保留原 implementation Candidate evidence，并运行 closeout workflow 已要求的 focused checks\n- **AND** Task Finish MUST NOT 调用 task-verification `execute` 或 Candidate executor，两个 execute count MUST 均为 `0`\n- **AND** 最终报告 MUST 分别说明 implementation Candidate evidence、delivery tree identity 和 closeout delta checks，不得声称原 Candidate 覆盖 delivery tree\n\n#### Scenario: 实现内容改变时重新验证\n- **WHEN** provider integration、冲突解决、生成资产更新或其他步骤改变 implementation content，或差异无法完全证明属于 closeout-only scope\n- **THEN** Task Finish MUST 将 transition 标记为 `implementation-changed`，使原 Candidate evidence 失效，并在集成前调用 selected task-verification provider `execute` 生成新 Candidate evidence\n- **AND** 新验证失败时 MUST 停止尚未执行的 integrate、push 和 cleanup\n- **AND** 成功路径的 `taskVerificationExecuteCalls` 和 `candidateExecutorCalls` MUST 均为 `1`\n\n#### Scenario: 完成 OpenSpec 归档\n- **WHEN** 当前任务包含 artifacts 和 tasks 均完成的 active OpenSpec change\n- **THEN** Task Finish MUST 默认同步 delta specs 并归档 change\n- **AND** Task Finish MUST 通过外部可用的 OpenSpec CLI/Skills 完成该步骤，不修改外部 `openspec-*` Skill 源\n- **AND** OpenSpec strict、contract guard 和 `git diff --check` MUST 作为 closeout workflow checks 记录，不得计作 Candidate executor invocation\n\n#### Scenario: 归档后规范 EOF 空白行\n- **WHEN** OpenSpec archive 或 specs sync 后 `git diff --check` 仅报告本次修改的 OpenSpec Markdown 文件存在 `new blank line at EOF`\n- **THEN** Task Finish MUST 将这些文件规范为恰好一个结尾换行\n- **AND** Task Finish MUST 重新运行 `git diff --check` 和 OpenSpec strict validation\n\n#### Scenario: 归档后存在其他格式问题\n- **WHEN** `git diff --check` 报告非 EOF 空白行、非 OpenSpec 文件或无法确认来源的问题\n- **THEN** Task Finish MUST 停止自动修复\n- **AND** Agent MUST 报告问题并等待用户决定\n\n#### Scenario: 收尾授权覆盖 provider 声明的常规动作\n- **WHEN** 前置检查、所需验证和归档相关检查通过\n- **THEN** 用户的“收尾” MUST 授权提交当前任务范围、调用已绑定 task-integration provider 完成其 contract 与执行前披露中声明的常规集成动作、推送已确认目标分支，以及删除已安全合入的本地 worktree 和本地任务分支\n- **AND** Task Finish MUST 遵循 provider contracts 的前置条件、授权类别、tree-change semantics、结果证据和失败行为\n- **AND** Task Finish MUST NOT 复制或覆盖 verification、Git integration 或 worktree lifecycle provider 的内部 policy\n\n#### Scenario: 默认 Git provider 保持现有集成策略\n- **WHEN** `git-ops` 是已绑定的 `buildr.git-task-integration/v1` provider\n- **THEN** 默认 task integration MUST 继续使用无语义冲突的必要 rebase 和 fast-forward-only 集成\n- **AND** 默认 provider MUST NOT 创建 merge commit，除非用户对该具体动作另行明确授权\n\n#### Scenario: 默认收尾授权的固定排除项\n- **WHEN** 收尾需要 force push、删除远端任务分支、丢弃改动、改写共享分支历史或解决语义冲突\n- **THEN** “收尾” MUST NOT 授权这些动作\n- **AND** Agent MUST 停止并取得用户对具体动作的明确授权或决策\n- **AND** merge commit 是否属于常规动作 MUST 由已绑定 provider contract 和执行前披露决定，不得由 Task Finish 全局固定\n\n#### Scenario: Optional 资产审查 provider 缺失\n- **WHEN** `buildr.task-asset-review/v1` optional dependency 未绑定\n- **THEN** Task Finish MUST 跳过资产审查阶段并明确记录该降级\n- **AND** 收尾的其他 required 阶段 MUST 继续执行\n\n#### Scenario: 安全清理 task worktree\n- **WHEN** 目标分支已包含任务提交、远端目标分支已推送且 task worktree 干净\n- **THEN** Task Finish MUST 调用已绑定 worktree-lifecycle provider 确认 cleanup preconditions 和本机入口迁移要求\n- **AND** Task Finish MUST 按 provider contract 从保留的 workspace 执行本地 worktree 和本地任务分支清理\n- **AND** Task Finish MUST 检查清理后的 worktree 列表和仓库状态\n"
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "Task Finish 必须报告可信的完整验证 timing 证据",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Task Finish 必须报告可信的完整验证 timing 证据\nBuildr `task-finish` MUST 消费 selected task-verification provider 返回的最终 Candidate evidence，并将验证状态和 timing 作为收尾 Result Evidence 的一部分。\n\n#### Scenario: 最终 Candidate 验证成功\n- **WHEN** `task-finish` 使用当前候选 identity 的成功 Candidate evidence\n- **THEN** `task-finish` MUST 核对 evidence status、level、candidate identity 和 timing source\n- **AND** 最终收尾报告 MUST 说明验证范围、总耗时、最慢检查、失败项、跳过项和 evidence reference\n\n#### Scenario: Buildr Product 提供 verifier summary\n- **WHEN** 当前 Project 是 Buildr Product 且 Candidate 输出 `buildr.verification-timing/v1` summary\n- **THEN** `task-finish` MUST 使用产品专项 verifier 核对 summary status、run kind、source identity 和 candidate fingerprint\n- **AND** 核对通过后 MUST 将 timing source 记录为 `verifier-reported`\n\n#### Scenario: timing evidence 不可信\n- **WHEN** evidence 缺失、不可读、已被其他 run 覆盖或 candidate identity 无法匹配当前候选\n- **THEN** `task-finish` MUST NOT 引用其他 run 的耗时或根据并行检查耗时推算整体 wall-clock\n- **AND** 在仍可安全重跑时 MUST 调用 selected task-verification provider 重新生成可信 Candidate evidence\n- **AND** 无法重跑时 MUST 将验证缺口作为剩余风险如实报告并停止把任务描述为完整收尾\n\n#### Scenario: 收尾消费后清理 transient evidence\n- **WHEN** 最终 Candidate evidence 标记为 transient，验证摘要已捕获、集成与推送完成且没有后续 consumer\n- **THEN** Task Finish MUST 请求 selected task-verification provider 清理该 evidence\n- **AND** 最终报告 MUST 说明 cleanup status；清理失败时报告保留路径与原因，不回滚已完成交付\n\n#### Scenario: 只有较低级别 timing\n- **WHEN** 当前任务只有 `minimal` 或 `affected` timing 而没有可信 Candidate evidence\n- **THEN** `task-finish` MUST NOT 将其表述为完整 Candidate 验证耗时\n"
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "产品验证覆盖分层验证门禁契约",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品验证覆盖分层验证门禁契约\nBuildr package verification MUST 防止随包任务 Skills 和 Product Project 开发契约回退为逐任务完整 E2E、重复启动运行中验证或重复执行被上层入口覆盖的检查。\n\n#### Scenario: 校验三级验证边界\n- **WHEN** Buildr 验证随包任务 Skills 和 Product Project 开发契约\n- **THEN** 验证 MUST 确认单任务只要求最小反馈检查\n- **AND** 验证 MUST 确认任务组边界要求一次受影响范围验证\n- **AND** 验证 MUST 确认只有冻结后的最终候选要求完整验证\n\n#### Scenario: 校验完整 E2E 去重语义\n- **WHEN** Buildr 验证实现阶段和收尾阶段的流程文本\n- **THEN** 验证 MUST 确认流程不要求每个任务后运行完整 E2E\n- **AND** 验证 MUST 确认上层入口已覆盖的底层检查在同一候选状态中不会被机械重复\n- **AND** 验证 MUST 确认相同最终候选 tree 的后续 Git 动作复用已有验证证据\n\n#### Scenario: 校验运行中验证进程复用\n- **WHEN** Buildr 验证随包任务 Skills\n- **THEN** 验证 MUST 确认 session、cell、process id 或仍在运行状态通过 wait、poll 或 resume 继续\n- **AND** 验证 MUST 确认暂时无输出不会触发相同命令的重复启动\n\n#### Scenario: 校验失败后的重验范围\n- **WHEN** Buildr 验证最终候选完整验证失败后的流程\n- **THEN** 验证 MUST 确认修复期间优先重跑失败项和受影响专项检查\n- **AND** 验证 MUST 确认候选重新稳定后执行一次新的最终完整验证\n\n#### Scenario: 校验外部 OpenSpec Skill 所有权\n- **WHEN** Buildr 验证分层验证门禁的交付来源\n- **THEN** 门禁 MUST 由 Buildr-owned Skills 或 Product Project 开发契约提供\n- **AND** Component 管理的外部 `openspec-apply-change` Skill MUST 保持上游所有权\n"
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "随包任务验证能力保持完整可组合",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 随包任务验证能力保持完整可组合\nBuildr package MUST 原子交付 `buildr.task-verification/v1` contract、默认 `task-verification` provider、测试能力声明参考/模板、workspace binding、Task Finish consumer dependency 和全部 supported runtime 投射输入，并 MUST 通过产品验证防止验证职责重新耦合到 worktree lifecycle provider或具体团队测试分层。\n\n#### Scenario: Package 声明 task-verification provider\n- **WHEN** package static validation 读取随包能力声明\n- **THEN** workspace Skills manifest MUST 声明 installed、enabled 的 `task-verification` provider 及 `buildr.task-verification/v1` contract 和 binding\n- **AND** `task-finish` MUST 继续以 required consumer dependency 引用该 capability，而不是固定 provider id\n\n#### Scenario: Package 交付测试声明资料\n- **WHEN** package static validation 检查 `task-verification` 完整目录\n- **THEN** provider MUST 包含可读取的 schema 参考和初始化模板\n- **AND** 资料 MUST 使用通用能力集合、成熟度、阶段、环境、副作用和授权模型，不得包含鲜肉或其他团队的固定测试层级\n\n#### Scenario: Runtime 可发现验证入口\n- **WHEN** 临时 workspace 为任一 supported runtime 完成 sync 或 render\n- **THEN** runtime inventory MUST 包含可发现的 `task-verification` Skill\n- **AND** description MUST 同时覆盖直接测试、实现完成节点、Candidate evidence、初始化测试声明和测试能力演进意图\n\n#### Scenario: Provider contract 组合验证\n- **WHEN** Buildr 运行随包任务 Skills 契约验证\n- **THEN** verifier MUST 同时覆盖直接验证、自动完成节点、Task Finish consumer、零配置 legacy、augment 声明、authoritative Candidate 和增量演进路径\n- **AND** verifier MUST 确认 `task-verification` 不依赖 Git worktree、Git provider identity、Buildr Product 专用验证命令或固定团队分层\n\n#### Scenario: 替换默认验证 provider\n- **WHEN** workspace 安装并绑定兼容的内部 `buildr.task-verification/v1` provider\n- **THEN** Task Finish MUST 通过 binding 使用新 provider 而不修改 consumer Skill\n- **AND** 默认 `task-verification` provider 在不再被选中时 MUST 可安全卸载而不破坏 consumer\n"
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "产品验证覆盖 Candidate task metadata 分类",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品验证覆盖 Candidate task metadata 分类\nBuildr package verification MUST 覆盖 `verification-result-metadata-only` 的允许与拒绝路径，并 MUST 确认该优化不改变 task-verification capability contract、provider identity 或默认 binding。\n\n#### Scenario: 校验唯一 checkbox transition\n- **WHEN** package contract tests 读取 Task Finish、Task Verification、OpenSpec apply sidebar 和 closeout fixtures\n- **THEN** 验证 MUST 确认同一会话内唯一最终 Candidate task 的精确 `[ ]` → `[x]` transition 复用 Candidate evidence 且 executor counts 均为 `0`\n- **AND** 验证 MUST 确认结果保留 implementation Candidate identity 与独立 target delivery identity\n\n#### Scenario: 校验 fail-closed 分支\n- **WHEN** fixture 表示额外内容变化、任务歧义或跨会话缺少 transition evidence\n- **THEN** 验证 MUST 确认 transition 为 `implementation-changed` 且需要新的 Candidate execution\n- **AND** verifier MUST 拒绝仅按 `tasks.md` 路径、Markdown 类型或最终 checkbox 状态放行\n\n#### Scenario: 校验能力拓扑兼容\n- **WHEN** Buildr package verification 检查本次指导与 fixture\n- **THEN** 验证 MUST 确认 `buildr.task-verification/v1`、selected provider 与 binding identity 保持不变\n- **AND** 验证 MUST 确认外部 `openspec-*` Skill 源未被修改\n"
+    },
+    {
+      "capability": "local-app-browser-verification",
+      "title": "Browser 与低层 integration 必须保持职责互补",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-app-browser-verification",
+      "title": "浏览器冒烟验证必须覆盖三个资源管理主流程",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 浏览器冒烟验证必须覆盖三个资源管理主流程\nBuildr Product browser smoke MUST 覆盖项目、服务和变更管理的稳定用户路径，并 MUST 使用明确操作入口而非依赖表格整行点击。\n\n#### Scenario: 验证项目主流程\n- **WHEN** 浏览器打开项目目录并选择项目的“详情”操作\n- **THEN** 页面 MUST 进入稳定项目详情路由\n- **AND** MUST 展示 fixture Project 的真实身份与关联摘要\n\n#### Scenario: 验证服务主流程\n- **WHEN** 浏览器按所属项目打开服务目录并选择服务的“详情”操作\n- **THEN** 页面 MUST 展示 fixture Service 的名称、代码、类型与来源事实\n\n#### Scenario: 验证变更主流程\n- **WHEN** 浏览器打开变更目录、使用生命周期过滤并进入 Change 详情\n- **THEN** 页面 MUST 展示真实 lifecycle、任务进度与标准 artifacts\n- **AND** Agent 操作 MUST 打开抽屉并生成提示词，不直接修改 Change 文件\n"
+    },
+    {
+      "capability": "local-app-browser-verification",
+      "title": "浏览器冒烟能力必须提供可诊断结果并渐进成熟",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 浏览器冒烟能力必须提供可诊断结果并渐进成熟\nBuildr Product MUST 为 browser smoke 提供独立命令、浏览器错误收集和 Project 测试能力声明，并 MUST 在环境与稳定性未确认前保持非阻断成熟度。\n\n#### Scenario: 浏览器页面出现运行错误\n- **WHEN** 任一流程产生未预期的 `pageerror` 或 `console.error`\n- **THEN** browser smoke MUST 失败并输出对应页面与错误摘要\n\n#### Scenario: 首版登记测试能力\n- **WHEN** browser smoke 首次写入 Product `verification.yml`\n- **THEN** capability MUST 声明真实命令、Chrome 环境要求、本地临时副作用和覆盖范围\n- **AND** maturity MUST 为 `trial` 且 enforcement MUST 为 `advisory`\n"
+    },
+    {
+      "capability": "task-verification",
+      "title": "实现验证采用三级反馈协议",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 实现验证采用三级反馈协议\nTask verification provider MUST 区分 `minimal`、`affected` 和 `candidate` 三个验证级别，按任务进度、风险及测试能力声明动态执行最低充分检查，并 MUST 防止同一候选状态机械重复已被显式 supersedes 或可信上层入口覆盖的检查。\n\n#### Scenario: 单任务最小反馈\n- **WHEN** Agent 完成任务组中的普通实现任务且没有跨越高风险边界\n- **THEN** provider MUST 选择直接相关、低成本、环境就绪且已授权的 stable 能力或 legacy 小范围检查\n- **AND** provider MUST NOT 默认启动完整 Candidate 验证\n\n#### Scenario: 任务组受影响验证\n- **WHEN** 共享实现区域、验证入口或失败影响面的任务组已经完成\n- **THEN** provider MUST 选择影响面内的 stable required 能力，并 MAY 执行已授权的 trial/advisory 能力\n- **AND** provider MUST NOT 为组内每个任务重复同一专项检查\n\n#### Scenario: 最终候选完整验证\n- **WHEN** 全部实现、自然语言资产、生成资产同步和 review 修订已经完成并冻结候选\n- **THEN** provider MUST 运行项目要求的完整 Candidate 验证，包括 authoritative 声明中全部适用的 stable required Candidate gates\n- **AND** Candidate MUST NOT 根据 Git diff、固定能力数量或技术栈分层缩小权威门禁集合\n- **AND** 只有 Candidate evidence 可信、required gates 通过且 Candidate 完整性可确认时才能把结果作为实现完成证据\n\n#### Scenario: 高风险或用户指定即时检查\n- **WHEN** 任务跨越安全边界、不可逆迁移或用户明确要求即时检查\n- **THEN** provider MUST 在默认批量节奏之外执行必要且已授权的检查\n- **AND** 该检查 MUST 继续进入最终 Result Evidence\n"
+    },
+    {
+      "capability": "task-verification",
+      "title": "验证能力返回并报告标准结果证据",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 验证能力返回并报告标准结果证据\nTask verification provider MUST 返回验证级别、状态、policy sources、policy mode、候选 identity、检查结果、能力选择决策、覆盖与环境摘要、授权决策、Candidate 完整性、整体耗时、timing source、最慢检查、失败项、跳过项、evidence reference 和 evidence 生命周期，并 MUST 在直接验证或开发完成回复中向用户披露这些信息。\n\n#### Scenario: 最终候选验证成功\n- **WHEN** Candidate 验证成功并产生可信 evidence\n- **THEN** provider MUST 报告候选、验证级别、选中能力、通过检查、覆盖摘要、Candidate 完整性、总耗时、最慢检查、失败项为无、跳过项和 evidence reference\n- **AND** provider MUST 只有在 `candidateCompleteness: confirmed` 时说明实现具备完整验证证据\n\n#### Scenario: 能力因环境或授权未运行\n- **WHEN** 某个适用能力因环境未就绪、副作用未知或缺少授权被跳过或阻塞\n- **THEN** provider MUST 在 skippedCapabilities 或 blockedCapabilities 中记录能力 id 与原因\n- **AND** required Candidate gate 未执行时 status MUST NOT 为完整通过\n\n#### Scenario: 验证失败\n- **WHEN** 任一必要检查失败\n- **THEN** provider MUST 报告失败状态、失败检查、退出状态、已完成检查、实际总耗时和 evidence reference\n- **AND** provider MUST NOT 将任务描述为验证完成\n\n#### Scenario: 只有较低级别验证\n- **WHEN** 当前只完成 `minimal` 或 `affected` 验证\n- **THEN** provider MUST 如实报告已完成级别、能力集合、结果和耗时\n- **AND** provider MUST 明确指出 Candidate 验证尚未执行\n"
+    },
+    {
+      "capability": "task-verification",
+      "title": "验证在完成节点自动触发",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 验证在完成节点自动触发\nTask verification provider MUST 同时支持用户直接验证意图和实现工作流自动验证节点，并 MUST NOT 要求用户主动说出 Skill 或 capability 名称。\n\n#### Scenario: 用户直接要求验证\n- **WHEN** 用户要求运行测试、验证改动、判断验证是否完成或报告验证耗时\n- **THEN** Agent runtime MUST 能根据 provider description 发现 task-verification 入口\n- **AND** provider MUST 按当前任务阶段执行最低充分验证\n\n#### Scenario: Agent 准备声称实现完成\n- **WHEN** 实现型任务的候选已经稳定且 Agent 准备向用户声称实现完成\n- **THEN** Agent MUST 在完成回复前调用 selected task-verification provider 获得与当前候选一致的 evidence\n- **AND** 用户 MUST NOT 需要另行要求运行验证\n\n#### Scenario: Task Finish 消费验证能力\n- **WHEN** 用户要求完整收尾且 Task Finish 需要核对或补齐 Candidate evidence\n- **THEN** Task Finish MUST 通过 capability binding 调用 selected task-verification provider\n- **AND** binding MUST NOT 被解释为顶层意图发现机制\n"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "buildr.openspec-contract-receipt/v1",
+  "change": "preserve-local-app-port-during-finish",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-34a125c14db1ac8759669985e7a7f26aae8e220917eed4134f2f81a6f5b2d50c",
+  "baselineHash": "sha256-15b50590d32f9fd64600dfdd457920bca7613232b91725f62dfe62d4bd6a6a3e",
+  "capabilities": {
+    "task-finish-local-app-handoff": {}
+  },
+  "postSyncVerified": true,
+  "postSyncDeltaHash": "sha256-34a125c14db1ac8759669985e7a7f26aae8e220917eed4134f2f81a6f5b2d50c",
+  "postSyncSpecIntegrities": {
+    "task-finish-local-app-handoff": "sha256-8e7abafacb3ebcb7209963f36bc2f4476f04c908d7ecc8dddbb0b20a0b8a123c"
+  }
+}

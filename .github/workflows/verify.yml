@@ -21,21 +21,21 @@ jobs:
         node: [20, 22]
     defaults:
       run:
-        working-directory: projects/product
+        working-directory: projects/product/services/buildr
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-          cache-dependency-path: projects/product/package-lock.json
+          cache-dependency-path: projects/product/services/buildr/package-lock.json
       - name: Install product dependencies
         run: npm ci
       - name: Verify final product candidate
         env:
           BUILDR_TIMING_OUTPUT: ${{ runner.temp }}/buildr-verification-timing.json
           BUILDR_DIAGNOSTICS_OUTPUT: ${{ runner.temp }}/buildr-verification-diagnostics
-        run: ./tools/verify-buildr-product
+        run: ./scripts/verify-buildr-product
       - name: Upload verification timing
         if: always()
         uses: actions/upload-artifact@v7
@@ -60,14 +60,14 @@ jobs:
         os: [macos-latest, windows-latest]
     defaults:
       run:
-        working-directory: projects/product
+        working-directory: projects/product/services/buildr
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: projects/product/package-lock.json
+          cache-dependency-path: projects/product/services/buildr/package-lock.json
       - name: Install product dependencies
         run: npm ci
       - name: Verify packed release lifecycle

@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "persist-task-asset-observations",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-e285863126d25923e3ef5bde0786e77d1b9d97b810e1b6671df63eefbba5b242",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "agent-task-workflows",
+      "title": "内置任务资产审查与任务收尾保持分层",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 内置任务资产审查与任务收尾保持分层\nBuildr MUST 通过独立场景化 Skill 提供任务执行质量反思和资产沉淀审查，并 MUST 由 `task-finish` 在轻量资格判断命中后，在不改变现有收尾成功条件和授权边界的前提下非阻塞调用该能力。\n\n#### Scenario: 用户要求复盘或沉淀任务成果\n- **WHEN** 用户要求复盘任务执行质量或把可复用成果沉淀为 Rule 或 Skill\n- **THEN** Buildr MUST 通过 `task-asset-review` Skill 指导 Agent 审查可观察任务节点和最终证据\n- **AND** `task-triage`、`task-worktree` 和 `task-finish` MUST 继续分别负责语义分流、任务环境和完整收尾\n\n#### Scenario: Task Finish 先检查当前任务语义完整性\n- **WHEN** `task-finish` 准备完成一个包含 OpenSpec change 的任务\n- **THEN** `task-finish` MUST 对照用户已确认目标和决策、change artifacts、最终实现及验证结果检查当前任务语义完整性\n- **AND** 任务范围内的语义缺失或实现偏差 MUST 在资产审查门控前停止收尾并回到修正流程\n\n#### Scenario: Task Finish 复用 OpenSpec contract sidebar\n- **WHEN** 当前任务的语义完成检查通过且包含 active OpenSpec change\n- **THEN** `task-finish` MUST 继续使用 proposal、pre-sync 和 post-sync contract checks 验证已记录契约、baseline、canonical specs、active conflict 和同步结果\n- **AND** `task-asset-review` MUST NOT 重复承担当前 change 完整性或契约一致性判断\n\n#### Scenario: Task Finish 先执行轻量资格判断\n- **WHEN** `task-finish` 已确认当前任务候选 tree 和最终验证证据有效\n- **THEN** `task-finish` MUST 先根据当前上下文检查工作边界纠正、假设被推翻、有效失败根因、无效重复、token 浪费、新长期约束、可复用流程或明确 Rule/Skill 候选等强信号\n- **AND** 该资格判断 MUST NOT 调用工具、重新读取任务文件或加载完整 `task-asset-review`\n\n#### Scenario: 轻量资格判断未命中\n- **WHEN** `task-finish` 没有发现任何完整审查强信号\n- **THEN** `task-finish` MUST 跳过 `task-asset-review` 并继续正常收尾\n- **AND** 最终报告 MUST NOT 为形式完整增加任务复盘\n\n#### Scenario: 轻量资格判断命中\n- **WHEN** `task-finish` 发现至少一个完整审查强信号，且任务上下文与 worktree 证据仍可访问\n- **THEN** `task-finish` MUST 调用 `task-asset-review` 或复用当前候选 tree 的有效审查结果\n- **AND** 审查 MUST 在归档、提交、集成和清理的既有边界内保持只读和非阻塞\n\n#### Scenario: 条件审查没有候选\n- **WHEN** `task-finish` 的资格判断命中并执行任务资产审查，但没有重要质量发现或合格沉淀候选\n- **THEN** `task-finish` MUST 继续正常收尾\n- **AND** 最终报告 MAY 不增加形式化复盘内容\n\n#### Scenario: 条件审查不可用或失败\n- **WHEN** 资格判断命中，但 `task-asset-review` 已被用户卸载、当前 runtime 无法发现该 Skill，或审查执行失败\n- **THEN** `task-finish` MUST 报告跳过或降级原因并继续正常收尾\n- **AND** Buildr MUST NOT 将审查成功作为归档、提交、集成、推送或清理的新增前置条件\n\n#### Scenario: 条件审查发现沉淀候选\n- **WHEN** `task-finish` 的任务审查发现合格沉淀候选\n- **THEN** `task-finish` MUST 在最终收尾报告中说明候选摘要、证据、目标资产和 scope\n- **AND** `task-finish` MUST NOT 中断收尾等待确认、直接写入组织资产或把“收尾”解释为写入授权\n\n#### Scenario: 当前能力不依赖任务 Hook\n- **WHEN** Buildr 执行或描述任务资产审查\n- **THEN** Buildr MUST 将当前 session 可访问的节点和最终证据作为输入\n- **AND** Buildr MUST NOT 要求或规划 runtime Hook、daemon、watcher、事件总线或完整轨迹存储\n"
+    },
+    {
+      "capability": "agent-task-workflows",
+      "title": "内置任务 Skills 按 capability contract 协作",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 内置任务 Skills 按 capability contract 协作\nBuildr 内置任务 Skills MUST 依赖 capability contracts而不是硬编码其他 optional Skill identity，并 MUST 将验证、Git integration和worktree lifecycle provider policy分别保留在对应provider中；跨 provider协作只传递consumer安全继续所需的最小candidate identity、transition和result evidence。\n\n#### Scenario: Task Finish 依赖三项 required 能力\n- **WHEN** Buildr声明 `task-finish` builtin\n- **THEN** its manifest entry MUST require `buildr.task-verification/v1`、`buildr.git-task-integration/v1` 和 `buildr.task-worktree-lifecycle/v1` with `mode: required`\n- **AND** `task-finish` source MUST NOT复制selected providers的验证命令选择、Git integration或worktree placement/cleanup policy\n\n#### Scenario: Task Worktree 只拥有生命周期能力\n- **WHEN** `task-worktree`创建、检查或清理Git worktree\n- **THEN** it MUST own worktree placement、retention和cleanup through `buildr.task-worktree-lifecycle/v1`\n- **AND** it MUST只提供checkout边界与lifecycle transition evidence，不提供或复制 `buildr.task-verification/v1` 的验证、复用和重跑policy\n- **AND** it MUST remain independent of `git-ops` and the selected task-verification provider identity\n\n#### Scenario: Git provider 只拥有集成效果\n- **WHEN** selected `buildr.git-task-integration/v1` provider提交、rebase、merge、fast-forward或push任务候选\n- **THEN** it MUST own Git授权、安全策略、refs影响和操作前后content identity evidence\n- **AND** it MUST NOT执行项目Candidate验证或把tree等价性信号表述为最终evidence有效性决策\n\n#### Scenario: 替换默认 Verification provider\n- **WHEN** workspace或Project binds an internal provider for `buildr.task-verification/v1`\n- **THEN** product routing和 `task-finish` MUST使用该provider without requiring the `task-verification` Skill id\n- **AND** uninstalling `task-verification` MUST NOT break Task Finish while the replacement binding remains ready\n\n#### Scenario: 替换默认 Git provider\n- **WHEN** workspace binds compatible internal providers for the Git capabilities consumed by task workflows\n- **THEN** `task-finish` MUST cooperate with the task-integration provider without requiring the `git-ops` Skill id\n- **AND** `task-worktree` MUST remain independent of `git-ops`\n- **AND** uninstalling `git-ops` MUST NOT break those consumers while Task Finish 的 required bindings remain compatible and ready\n\n#### Scenario: 替换默认 Worktree provider\n- **WHEN** workspace或Project binds an internal provider for `buildr.task-worktree-lifecycle/v1`\n- **THEN** product routing和 `task-finish` MUST使用该provider without requiring the `task-worktree` Skill id\n- **AND** uninstalling `task-worktree` MUST NOT break Task Finish while the replacement binding remains ready\n"
+    },
+    {
+      "capability": "buildr-package-assets",
+      "title": "Package 原子交付任务资产观察 v2",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "产品入口 Buildr Skill 路由任务资产沉淀审查",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品入口 Buildr Skill 路由任务资产沉淀审查\n产品内置 Buildr Skill MUST 帮助 Agent 发现 `task-asset-review`，并在用户意图或任务证据匹配时路由到该场景化 Skill。\n\n#### Scenario: 用户要求复盘或沉淀\n- **WHEN** 用户要求复盘任务、总结可沉淀的技能或规则、把本次工作方法留给后续 Agent 或表达等价意图\n- **THEN** Buildr Skill MUST 引导 Agent 使用 `task-asset-review`\n- **AND** Buildr Skill MUST NOT 在自身正文复制完整的沉淀审查流程\n\n#### Scenario: Agent runtime 找不到任务资产审查 Skill\n- **WHEN** 当前 workspace 应提供 `task-asset-review` 但 Agent runtime 无法发现它\n- **THEN** Buildr Skill MUST 引导 Agent检查 builtin、workspace Skill 源和 runtime 投射状态\n- **AND** Agent MUST 优先根据 doctor 运行 sync、render 或 builtin restore，而不是把该 Skill 的正文临时写入 Rule\n\n#### Scenario: Skill 已卸载\n- **WHEN** 用户已经显式卸载 optional `task-asset-review`\n- **THEN** Buildr Skill MUST 尊重卸载状态\n- **AND** Agent MUST NOT 把缺少该 Skill 描述为必须立即修复的错误\n"
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "产品入口按 capability 路由用户意图",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 产品入口按 capability 路由用户意图\n产品入口 Buildr Skill MUST 将跨 Skill 用户意图路由到已解析 capability provider，并 MUST NOT 把 builtin Skill id 当作不可替换入口；尚未声明 capability contract 的当前 builtin MUST 使用无歧义的当前 identity routing，并 MUST 将 legacy 名称意图收敛到当前入口。\n\n#### Scenario: 完整 sync 生成 routing evidence\n- **WHEN** `buildr sync <agent>` 在已初始化 workspace 中同时投射产品入口 Buildr Skill 和 workspace Skills\n- **THEN** runtime Buildr Skill MUST 包含按适用 Project context 分组的受管 capability routing evidence\n- **AND** evidence MUST 记录 contract、selected provider、provider runtime path、readiness、reason、contract digest 和 provenance\n\n#### Scenario: Routing evidence 已陈旧\n- **WHEN** existing runtime projection check 发现当前 scope/runtime 的 capability routing evidence 与重新解析结果不一致\n- **THEN** evidence MUST 被标记为 stale\n- **AND** 产品入口 Buildr Skill MUST 使用当前 workspace doctor 取得最新 capability graph 后再路由\n- **AND** Agent MUST NOT 因存在旧 evidence 而继续使用已卸载或已改绑 provider\n- **AND** Buildr MUST reuse the existing managed runtime content hash rather than introduce a separate graph digest protocol\n\n#### Scenario: 独立 Skill install 没有当前 binding evidence\n- **WHEN** 产品入口 Buildr Skill 由独立 `buildr skill install <agent>` 安装，或现有 routing evidence 不适用于当前 scope\n- **THEN** Buildr Skill MUST NOT 猜测 builtin provider 或依赖静态 Skill id\n- **AND** 在已初始化 workspace 中 MUST 使用当前 workspace doctor 的 capability graph 解析 provider 后再路由\n- **AND** v1 MUST NOT 为此新增独立 capability dispatch CLI\n\n#### Scenario: 路由单项 Git 意图\n- **WHEN** 用户通过产品入口表达明确单项 Git 意图\n- **THEN** Buildr Skill MUST route it to the bound `buildr.git-single-operation/v1` provider\n- **AND** runtime routing evidence or current doctor result MUST identify the selected provider and scope\n\n#### Scenario: 路由任务工作流意图\n- **WHEN** 用户表达验证改动、判断开发验证是否完成、报告验证耗时、worktree、完整收尾或资产审查意图\n- **THEN** Buildr Skill MUST route to the bound `buildr.task-verification/v1`、`buildr.task-worktree-lifecycle/v1`、`buildr.task-finish/v1` or `buildr.task-asset-review/v1` provider as applicable\n- **AND** Buildr Skill MUST honor blocked and degraded semantics\n\n#### Scenario: 实现完成节点自动发现验证 provider\n- **WHEN** Agent 在实现型任务中到达验证节点或准备声称实现完成\n- **THEN** task-verification provider description MUST 覆盖该任务上下文，即使用户没有另行要求运行测试\n- **AND** capability binding MUST 只选择 provider，不替代 runtime description 的入口发现\n\n#### Scenario: 用户替换 builtin provider\n- **WHEN** a workspace or Project binding selects an internal Skill with a different id\n- **THEN** Buildr Skill MUST route to that provider without requiring an identically named builtin\n- **AND** provider substitution MUST survive update、sync and runtime render\n\n#### Scenario: 未进入 capability contracts 的当前 builtin\n- **WHEN** 用户意图路由到 `task-triage`、`task-board` 或其他尚未声明 capability contract 的当前 builtin\n- **THEN** 产品入口 Buildr Skill MUST 使用当前 identity routing\n- **AND** Buildr MUST NOT 声称该 builtin 已支持透明 provider substitution\n\n#### Scenario: 旧任务驾驶舱意图路由到当前入口\n- **WHEN** 用户仍使用“任务驾驶舱”或 `task-cockpit` 表达复杂任务可视化意图\n- **THEN** 产品入口 Buildr Skill MUST 路由到 `task-board`\n- **AND** runtime discovery MUST NOT 同时提供可被误选的受管 `task-cockpit` 入口\n"
+    },
+    {
+      "capability": "task-asset-observation-lifecycle",
+      "title": "Buildr 按 Workspace 隔离共享任务资产观察",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-observation-lifecycle",
+      "title": "Observation 保存最小可审查状态",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-observation-lifecycle",
+      "title": "Observation 写入保持单任务所有权",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-observation-lifecycle",
+      "title": "人工决定控制 Observation 去向",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-observation-lifecycle",
+      "title": "只有实际资产变更保留维护历史",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-observation-lifecycle",
+      "title": "Observation MVP 不引入后台系统",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "Buildr 提供任务资产沉淀审查 Skill",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Buildr 提供任务资产沉淀审查 Skill\nBuildr MUST 提供 optional 内置 `task-asset-review` Skill，指导 Agent 在任务结果稳定后反思任务执行质量，并识别值得晋升为组织工作资产的内容。\n\n#### Scenario: 用户明确要求复盘或沉淀任务成果\n- **WHEN** 用户要求 Agent 复盘任务执行、总结可沉淀的 Skill 或 Rule、保留可复用工作方法或表达等价意图\n- **THEN** Agent MUST 使用 `task-asset-review` Skill 执行任务审查\n- **AND** 该 Skill MUST 先检查任务执行证据和是否存在合格候选，而不是假设每个任务都必须产生新资产\n\n#### Scenario: Agent 已发现具体可复用候选\n- **WHEN** 任务即将结束且 Agent 已拥有明确、可验证、可能长期复用的候选内容\n- **THEN** Agent MAY 主动使用 `task-asset-review` Skill\n- **AND** Agent MUST NOT 仅为形式完整而对每个简单任务机械触发面向用户的复盘\n\n#### Scenario: Workspace 不需要该能力\n- **WHEN** 用户卸载 optional `task-asset-review` builtin 并重新同步 runtime\n- **THEN** Buildr MUST 删除该 Skill 的 workspace 源和 runtime 投射\n- **AND** 其他任务工作流 MUST 继续保持既有行为\n"
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "候选只映射到 Rule 或 Skill",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 候选只映射到 Rule 或 Skill\nAgent MUST 根据候选内容回答的问题区分长期约束和可复用做法，并 MUST NOT 使用任务资产审查重新判断或沉淀 OpenSpec。\n\n#### Scenario: 沉淀长期约束\n- **WHEN** 候选回答 Agent“必须遵守什么”，包括价值观、边界、约束或禁止事项\n- **THEN** Agent MUST 将其路由到对应 scope 的 Rule 或 Project/Service `AGENTS.md`\n- **AND** Agent MUST NOT 把场景化操作手册写入 Rule\n\n#### Scenario: 沉淀可复用做法\n- **WHEN** 候选回答 Agent“遇到同类任务时怎么做”，包括专业动作、判断流程、命令、检查和完成标准\n- **THEN** Agent MUST 将其路由到对应 scope 的 Skill\n- **AND** Skill description MUST 只承担意图路由，具体流程 MUST 写入 Skill body\n\n#### Scenario: OpenSpec 仅作为任务证据\n- **WHEN** Agent 执行任务资产审查并读取 proposal、design、delta specs、canonical specs 或归档 change\n- **THEN** Agent MUST 只把这些内容作为任务目标、用户决策和验证结论的证据\n- **AND** Agent MUST NOT 输出 Specs 沉淀候选或判断是否需要新的 OpenSpec change\n\n#### Scenario: 发现其他资产或产品线索\n- **WHEN** 审查过程发现范围外产品问题、Command、Component、普通 docs 或其他非 Rule/Skill 线索\n- **THEN** Agent MAY 在最终报告中将其标记为普通 follow-up\n- **AND** Agent MUST NOT 将该线索包装为 Rule 或 Skill 候选，后续处理 MUST 重新使用 `task-triage` 或对应资产生命周期\n\n#### Scenario: 不创建新的任务记忆资产\n- **WHEN** 候选不能准确映射到现有资产类型\n- **THEN** Agent MUST 说明其不适合成为 Rule/Skill 候选，并 MAY 将其标记为普通 follow-up\n- **AND** Agent MUST NOT 创建新的通用 Memory、Execution Trace 或 Task Summary 资产类型\n"
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "写入前必须取得用户确认",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 写入前必须取得用户确认\nAgent MUST 在改变 Buildr 源资产前向用户提交具体沉淀建议，并取得与实际写入范围匹配的确认。\n\n#### Scenario: Agent 提出沉淀建议\n- **WHEN** 一个候选通过质量、scope 和冲突检查\n- **THEN** Agent MUST 说明触发场景、已验证发现、证据、可复用动作或约束、目标资产类型、目标 scope、拟修改位置和验证方式\n- **AND** Agent MUST 等待用户确认后再执行写入\n\n#### Scenario: 用户只确认部分候选\n- **WHEN** Agent 同时提出多个相互独立的候选且用户只确认其中一部分\n- **THEN** Agent MUST 只写入已确认候选\n- **AND** 未确认或被拒绝候选 MUST 保持不变\n\n#### Scenario: 没有合格候选\n- **WHEN** 沉淀审查没有发现满足质量门槛的候选\n- **THEN** Agent MUST 正常结束任务\n- **AND** Agent MAY 不产生额外用户提示，不得创建空洞资产或形式化总结\n"
+    },
+    {
+      "capability": "task-asset-promotion",
+      "title": "确认后的写回使用现有生命周期",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: 确认后的写回使用现有生命周期\n用户确认沉淀建议后，Agent MUST 使用目标资产现有的维护、授权和验证流程完成写回。\n\n#### Scenario: Agent 写入已确认候选\n- **WHEN** 用户确认一个沉淀建议且 Agent 能在当前权限和工具边界内安全完成\n- **THEN** Agent MUST 通过对应 Rule/Skill 的 Buildr CLI 或可验证源文件编辑写入目标资产\n- **AND** 状态变化后 Agent MUST 运行当前 Agent doctor 或目标资产要求的专项验证\n\n#### Scenario: 写入需要额外业务决策或权限\n- **WHEN** 写入过程遇到语义选择、冲突、不可逆动作、额外权限或外部依赖\n- **THEN** Agent MUST 停止尚未授权的动作并说明阻塞\n- **AND** Agent MUST 保留已确认候选及其证据，等待用户或外部条件决定\n"
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "buildr.openspec-contract-baseline/v1",
+  "change": "productize-service-domain-and-ui",
+  "project": "product",
+  "upstreamVersion": "1.4.1",
+  "deltaHash": "sha256-17a04f06e6012cc4b92873c10b718134e6c847f40bdff09010b3e9be2e6be6a9",
+  "adopted": false,
+  "targets": [
+    {
+      "capability": "cli-product-surface",
+      "title": "Service CLI 必须使用 canonical Domain 术语",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "本地应用必须提供 Service 列表与详情",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "Service 页面必须支持低风险 metadata 修改",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "新增 Service 必须生成可复制 Agent prompt",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "local-workspace-application",
+      "title": "Service HTTP 写操作必须复用本地应用安全边界",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-agent-skills",
+      "title": "Buildr Skill 必须引导 Agent 使用 Service Domain",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "product-source-layout",
+      "title": "Service 产品切片必须遵守新源码分层",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "project-registry",
+      "title": "新建 Project 必须初始化 canonical Service registry",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "service-asset-indexing",
+      "title": "Service Git 声明与观察必须分离",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "service-asset-indexing",
+      "title": "Service metadata update 必须受控并防止覆盖",
+      "operation": "ADDED",
+      "state": "absent",
+      "content": null
+    },
+    {
+      "capability": "service-asset-indexing",
+      "title": "service create 支持本地路径和 Git URL",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: service create 支持本地路径和 Git URL\nBuildr MVP MUST 使用一个 `service create` 命令接入本地路径或 Git URL，并根据 repo-ref 类型自动选择处理方式。\n\n#### Scenario: 接入本地路径\n- **WHEN** Agent 调用 `buildr service create <project>/<service> <local-path>`\n- **THEN** Buildr MUST 校验本地路径可访问性和 Git 仓库状态，并维护 service 引用关系\n\n#### Scenario: 接入 Git URL\n- **WHEN** Agent 调用 `buildr service create <project>/<service> <git-url>`\n- **THEN** Buildr MUST 默认 clone 该 Git repo 到项目下的 service 目录，并维护 service 引用关系\n"
+    },
+    {
+      "capability": "service-asset-indexing",
+      "title": "Git URL 默认使用远端 HEAD",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: Git URL 默认使用远端 HEAD\nBuildr MVP MUST 在 Git URL 未指定分支时使用远端 HEAD 作为默认 clone 目标。\n\n#### Scenario: 用户未指定分支\n- **WHEN** `service create` 接收到 Git URL 且用户没有指定分支\n- **THEN** Buildr MUST 使用远端 HEAD 对应分支完成 clone\n\n#### Scenario: 用户指定分支\n- **WHEN** 用户或 Agent 明确指定 service repo 分支\n- **THEN** Buildr MUST 使用指定分支完成 clone 或记录该分支意图\n"
+    },
+    {
+      "capability": "service-asset-indexing",
+      "title": "service metadata 作为最小服务资产索引",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: service metadata 作为最小服务资产索引\nBuildr MVP MUST 使用项目级 `services/manifest.yml` 作为 service metadata 的最小索引，记录目录结构无法表达的信息。\n\n#### Scenario: 记录 Git 来源\n- **WHEN** service repo 来源是 Git URL\n- **THEN** service metadata MUST record repo kind、Git URL、remote、默认分支和 repo path in `projects/<project>/services/manifest.yml`\n\n#### Scenario: 本地路径导入\n- **WHEN** service repo 来源是 workspace 外部本地路径\n- **THEN** Buildr MUST materialize the Service asset under `projects/<project>/services/<service>/`\n- **AND** service metadata MUST NOT record the external local source path\n\n#### Scenario: 记录所属 Project\n- **WHEN** Buildr writes `projects/<project>/services/manifest.yml`\n- **THEN** service metadata MUST record `project: <project>`\n- **AND** doctor MUST warn when the recorded project differs from the manifest's containing Project directory\n\n#### Scenario: 空服务集合\n- **WHEN** Project has no services\n- **THEN** Buildr MUST keep `projects/<project>/services/manifest.yml` as an empty service registry\n- **AND** Buildr MUST keep `projects/<project>/services/` as the service collection directory\n\n#### Scenario: service metadata 使用封闭 schema\n- **WHEN** Buildr records Service metadata in `services/manifest.yml`\n- **THEN** each Service entry MUST include title、description、type、path and repo.kind\n- **AND** Buildr update or sync MUST remove unknown Service metadata fields\n\n#### Scenario: service AGENTS.md 不进入 metadata\n- **WHEN** a Service directory contains `AGENTS.md`\n- **THEN** Buildr MUST treat that file as the Service's own rule asset\n- **AND** `services/manifest.yml` MUST NOT record a `rules.source` pointer to it\n- **AND** runtime adapters MUST expose applicable Service `AGENTS.md` files through their Agent-specific rule projection behavior\n"
+    },
+    {
+      "capability": "service-asset-indexing",
+      "title": "legacy service metadata convergence",
+      "operation": "MODIFIED",
+      "state": "present",
+      "content": "### Requirement: legacy service metadata convergence\nBuildr MUST support converging existing `projects/<project>/services.yml` into `projects/<project>/services/manifest.yml`.\n\n#### Scenario: 只有旧 services.yml\n- **WHEN** an existing Project has `projects/<project>/services.yml` and no `projects/<project>/services/manifest.yml`\n- **THEN** Buildr update or sync MUST migrate service metadata to `projects/<project>/services/manifest.yml`\n- **AND** Buildr MUST keep only fields defined by the Buildr Service manifest schema\n- **AND** Buildr MUST NOT migrate legacy `rules.source` fields into the new Service manifest\n- **AND** Buildr MUST remove the old `projects/<project>/services.yml`\n\n#### Scenario: 新旧 service metadata 同时存在\n- **WHEN** both `projects/<project>/services.yml` and `projects/<project>/services/manifest.yml` exist with different content\n- **THEN** Buildr update or sync MUST treat `services/manifest.yml` as the source of truth\n- **AND** Buildr MUST remove the old `projects/<project>/services.yml`\n\n#### Scenario: 从 Service 目录补登记\n- **WHEN** `projects/<project>/services/<service>/` is a valid Service directory but `services/manifest.yml` does not declare `<service>`\n- **THEN** Buildr update or sync MUST add a minimal Service registry entry\n- **AND** Buildr MUST infer `repo.kind` from whether `projects/<project>/services/<service>/.git/` exists\n"
+    }
+  ]
+}

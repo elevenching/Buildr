@@ -1,0 +1,6 @@
+schemaVersion: buildr.workspace/v1
+id: "{{workspaceId}}"
+kind: organization
+name: "{{name}}"
+description: "{{description}}"
+profile: "{{profile}}"

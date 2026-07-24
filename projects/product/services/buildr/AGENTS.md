@@ -1,0 +1,15 @@
+# Buildr Service
+
+本目录是 Product Project 下 `product/buildr` Service 的规则入口，承载 Buildr 可执行产品的唯一实现。
+
+## 所有权边界
+
+- Service 负责 npm package、CLI、本机应用、运行源码、测试、维护脚本、随包交付资产及实现型文档。
+- Product Project 根负责 OpenSpec、项目级规则、capabilities、Command requirements、verification policy 与跨服务产品治理。
+- 不在 Product Project 根和本 Service 之间复制 `src/`、`bin/`、`test/`、`scripts/`、`package/` 或 package metadata；`projects/product/buildr` 只允许作为薄兼容入口。
+
+## 开发与验证
+
+- 修改产品语义时，OpenSpec change 仍维护在父级 `projects/product/openspec/`。
+- package、源码和测试命令从本 Service package root 执行；Project 级验证负责组合父级 OpenSpec 与本 Service 实现。
+- 发布、Candidate、本机 CLI 安装和路径迁移必须证明开发 checkout、task worktree 与 npm package 三种入口一致。

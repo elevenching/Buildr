@@ -16,7 +16,7 @@ jobs:
     environment: npm-production
     defaults:
       run:
-        working-directory: projects/product
+        working-directory: projects/product/services/buildr
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -30,22 +30,22 @@ jobs:
         run: npm ci
       - name: Resolve release contract
         id: contract
-        run: node tools/verification/release/release-contract.mjs "${GITHUB_REF_NAME}"
+        run: node scripts/release/release-contract.mjs "${GITHUB_REF_NAME}"
       - name: Generate GitHub release notes
         run: |
-          node tools/verification/release/release-notes.mjs \
+          node scripts/release/release-notes.mjs \
             "${{ steps.contract.outputs.version }}" \
-            ../../CHANGELOG.md \
+            ../../../../CHANGELOG.md \
             > "${RUNNER_TEMP}/buildr-release-notes.md"
       - name: Verify final release candidate
         env:
           BUILDR_TIMING_OUTPUT: ${{ runner.temp }}/buildr-release-verification-timing.json
           BUILDR_DIAGNOSTICS_OUTPUT: ${{ runner.temp }}/buildr-release-verification-diagnostics
-        run: ./tools/verify-buildr-product
+        run: ./scripts/verify-buildr-product
       - name: Check official registry version
         id: registry
         run: >-
-          node tools/verification/release/registry-version-state.mjs
+          node scripts/release/registry-version-state.mjs
           "${{ steps.contract.outputs.version }}"
       - name: Publish public npm package
         if: steps.registry.outputs.published != 'true'
